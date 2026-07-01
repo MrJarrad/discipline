@@ -1,0 +1,11 @@
+{
+  "name": "flux-discipline",
+  "version": "1.0.0",
+  "description": "The Flux/Paperclip quality discipline as a portable bundle — best-in-class craft skills plus a six-role agent fleet (CEO, Project Manager, Engineer, Reviewer, UX Designer, Researcher). Runs on Claude models.",
+  "author": {
+    "name": "Jarrad Harvey",
+    "email": "writetojarrad@gmail.com"
+  },
+  "homepage": "https://github.com/MrJarrad/flux-discipline",
+  "license": "MIT"
+}

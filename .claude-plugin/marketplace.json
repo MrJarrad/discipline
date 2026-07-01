@@ -1,0 +1,24 @@
+{
+  "name": "flux-discipline",
+  "metadata": {
+    "description": "Local marketplace for the Flux discipline plugin."
+  },
+  "owner": {
+    "name": "Jarrad Harvey",
+    "email": "writetojarrad@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "flux-discipline",
+      "description": "The Flux/Paperclip quality discipline as a portable bundle — best-in-class craft skills plus a six-role agent fleet (CEO, Project Manager, Engineer, Reviewer, UX Designer, Researcher). Runs on Claude models.",
+      "version": "1.0.0",
+      "source": "./",
+      "author": {
+        "name": "Jarrad Harvey",
+        "email": "writetojarrad@gmail.com"
+      },
+      "homepage": "https://github.com/MrJarrad/flux-discipline",
+      "license": "MIT"
+    }
+  ]
+}
