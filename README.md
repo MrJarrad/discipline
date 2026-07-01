@@ -7,6 +7,16 @@ on Claude models.
 > **Best-in-class is the bar.** Turn "done" into "best-in-class, with evidence — or
 > surfaced for review with the gap named."
 
+## The orchestrator — you never name an agent
+
+The plugin ships an **always-on orchestrator persona** (an output style, on by default while
+the plugin is enabled). It turns the main session into a router: every request is classified
+and dispatched to the right specialist automatically, then synthesized back as one voice. Say
+*"is this safe to merge?"* and the `reviewer` fires on its own; *"the panel feels janky"*
+routes to `ux-designer`. No agent names, no menus.
+
+> If you also run the separate `flux` plugin, disable one — two always-on personas conflict.
+
 ## What's inside
 
 **17 skills** — craft and delivery discipline that any agent can draw on:
