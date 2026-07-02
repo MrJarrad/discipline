@@ -7,6 +7,8 @@ description: How to apply ANY design system to produce best-in-class UI — the 
 
 A design system tells you *what* exists. This skill is *how* to wield it — on any project.
 
+Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+
 ## The one rule — nothing raw, ever
 Every value in shipped UI references the system: a **token / variable**, a **shared style**, a **shared component**, or a **block** (a composed, reusable section). No hardcoded colors, spacing, type, or one-off markup — **a raw value is a bug, not a shortcut.** If what you need isn't in the system, **add it to the system, then reference it** (see *System changes are deliberate*). This holds regardless of which design system the project uses — it's the rule beneath all the rest.
 

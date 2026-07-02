@@ -7,6 +7,8 @@ description: Method for answering open questions with sourced, adversarially-ver
 
 A link dump is not research. The deliverable is a decision-ready answer: what's true, how you know, and how sure you are.
 
+Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+
 ## The loop
 
 1. **Decompose** — restate the question; break it into the sub-questions that actually decide it.
