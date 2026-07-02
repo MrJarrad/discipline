@@ -19,13 +19,14 @@ routes to `ux-designer`. No agent names, no menus.
 
 ## What's inside
 
-**19 skills** — craft and delivery discipline that any agent can draw on:
+**20 skills** — craft and delivery discipline that any agent can draw on:
 
 - `animation-vocabulary`
 - `define-terms`
 - `design-craft`
 - `design-eng`
 - `design-modules`
+- `design-system`
 - `diagnosing-bugs`
 - `discover-scope`
 - `doc-formats`
