@@ -1,6 +1,6 @@
 {
   "name": "flux-discipline",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "The Flux/Paperclip quality discipline as a portable bundle \u2014 an always-on orchestrator persona over best-in-class craft skills plus a six-role agent fleet (CEO, Project Manager, Engineer, Reviewer, UX Designer, Researcher). Routes to the right specialist by reflex. Runs on Claude models.",
   "author": {
     "name": "Jarrad Harvey",
