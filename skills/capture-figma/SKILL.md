@@ -168,8 +168,8 @@ without a node id or variable behind them are marked as inference.
 Figma color variables cannot alias another variable AND apply an opacity (long-standing
 platform limitation). So material/action tokens built as ink-at-opacity are stored as raw
 hex8 — this is NOT canvas drift. On meeting a raw hex8: decompose it (RGB + alpha byte),
-match the RGB part against the primitives, and report it as a derived token ('= content/
-default/primary @ 5%'), citing the variable's description field where the recipe should
+match the RGB part against the primitives, and report it as a derived token ("= content/
+default/primary @ 5%"), citing the variable's description field where the recipe should
 live. Quantization ruling (operator, 2026-07-22): the stated percentage governs; the hex
 byte is rounding (0d = 5.098% ≈ 5%, 1a = 10.2% ≈ 10%). Never flag byte-vs-percent deltas
-as mismatches, and never 'correct' code percentages to byte values.
+as mismatches, and never "correct" code percentages to byte values.
