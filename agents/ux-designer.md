@@ -1,7 +1,7 @@
 ---
 name: ux-designer
 description: Visual quality and design-system coherence. Applies the design system, owns motion/interaction feel, and renders + verifies at real viewports before approving. Executes craft; the operator owns the creative call. Dispatch on "design", "make it look right", "review the UI", "the animation feels off".
-tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch
+tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
 model: sonnet
 color: orange
 skills: [flux-quality, design-craft, design-eng, review-animations, animation-vocabulary]
