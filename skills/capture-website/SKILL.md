@@ -1,6 +1,6 @@
 ---
-name: design-reference-capture
-description: Capture a live website design reference into a self-contained local folder (pixels + computed tokens + geometry + code + motion + art-direction/copy-voice analysis) that non-browsing agents can Read. Use when adding a design reference, when an agent needs to "look at" a URL, or when a layout/motion claim needs ground truth. Not for Figma files — that's figma-extraction; not for auditing your own build — that's block-fidelity-audit.
+name: capture-website
+description: Capture a live website design reference into a self-contained local folder (pixels + computed tokens + geometry + code + motion + art-direction/copy-voice analysis) that non-browsing agents can Read. Use when adding a design reference, when an agent needs to "look at" a URL, or when a layout/motion claim needs ground truth. Not for Figma files — that's capture-figma; not for auditing your own build — that's block-fidelity-audit.
 ---
 
 # Design Reference Capture

@@ -1,6 +1,6 @@
 ---
 name: block-fidelity-audit
-description: Verify a built page matches its design source by measuring the live DOM numerically against design symbols and producing a defect list — rects, font sizes, positions, not impressions. Use when "the blocks are off", after porting a design to code, or before visual sign-off. Not for reading the design source itself — that's figma-extraction; not for capturing external references — that's design-reference-capture.
+description: Verify a built page matches its design source by measuring the live DOM numerically against design symbols and producing a defect list — rects, font sizes, positions, not impressions. Use when "the blocks are off", after porting a design to code, or before visual sign-off. Not for reading the design source itself — that's capture-figma; not for capturing external references — that's capture-website.
 ---
 
 # Block Fidelity Audit
@@ -12,7 +12,7 @@ both sides produces a defect list that closes in one pass.
 ## The loop
 
 ### 1. Bank the design-side numbers first
-For every block under audit, from the design source (via figma-extraction if not already
+For every block under audit, from the design source (via capture-figma if not already
 logged): frame dimensions, element positions within the frame (title y-offset, margins),
 type sizes/leading/tracking, media aspect or height rule, alignment rules. If a design
 value is unknown, mark it **unmeasured** — don't audit against a guess.

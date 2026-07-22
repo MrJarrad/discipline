@@ -1,6 +1,6 @@
 ---
-name: figma-extraction
-description: Read a Figma file into buildable truth — variables first, metadata second, screenshots last — without misreading sizes, aspects, or tracking. Use when extracting tokens, block anatomy, variant matrices, or copy from any Figma file, or when a Figma read needs to drive code. Not for capturing live websites — that's design-reference-capture; not for auditing built pages against Figma — that's block-fidelity-audit.
+name: capture-figma
+description: Read a Figma file into buildable truth — variables first, metadata second, screenshots last — without misreading sizes, aspects, or tracking. Use when extracting tokens, block anatomy, variant matrices, or copy from any Figma file, or when a Figma read needs to drive code. Not for capturing live websites — that's capture-website; not for auditing built pages against Figma — that's block-fidelity-audit.
 ---
 
 # Figma Extraction
