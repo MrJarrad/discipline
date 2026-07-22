@@ -1,6 +1,6 @@
 ---
 name: flux-quality
-description: Best-in-class quality discipline for any Paperclip agent — coder, designer, writer, researcher. Turns "done" into "best-in-class, with evidence — or surfaced for review with the gap named." Assign via the company skill library; the claude-local adapter injects it before every run.
+description: Best-in-class quality discipline for any Paperclip agent — the bar every deliverable is measured against before it's claimed done. Use when about to mark an issue done or in_review, when deciding an output is good enough to ship, or before any claim of completion. Not for AC-by-AC verification — that's qa-acceptance; not for scoring a single claim's confidence — that's verify-finding.
 ---
 
 # Flux Quality Discipline
@@ -41,6 +41,18 @@ Before any `done` / `in_review`, answer both in the work-product summary:
 - **Self-improvement:** *"What did friction here reveal — a better default, a
   missing skill?"* If a correction lands, fix the **source** (this skill, the
   agent's charter), not just this one output.
+
+## Recording context — recommended, not required
+
+At each gate — Discover (what you learned about the goal/codebase), Shape (the
+approach you picked and why), Review (the durable outcome, once shipped) — consider
+whether what you just learned is worth more than this one issue. If it is (a
+recurring pattern, a decision another agent will hit again, a fact that saves the
+next run from re-discovering it), emit a `record_context` interaction: a keyed
+CONTEXT entry (key/title/body/tags) written to the memory store once accepted. This
+is a nudge, not a gate — skipping it never blocks `done`/`in_review`, and most
+issues won't produce anything worth recording. Don't record routine, one-off, or
+already-obvious facts; a memory store full of noise is worse than an empty one.
 
 ## Talk like a colleague
 

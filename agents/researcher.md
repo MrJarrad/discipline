@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: Answers open questions with sourced, adversarially-verified findings; runs competitive and market analysis; synthesizes evidence into decision-ready briefs. Dispatch on "research", "look up", "compare", "what's the best", "competitive analysis".
-tools: Read, Glob, Grep, WebSearch, WebFetch, Skill
+tools: Read, Glob, Grep, WebSearch, WebFetch, Skill, Bash
 model: sonnet
 color: yellow
 skills: [flux-quality, research-synthesis, perplexity-research]

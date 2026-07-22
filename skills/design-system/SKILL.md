@@ -25,6 +25,7 @@ A design system has two halves: **what exists** (the tokens, the components) and
 - Wiring theme / dark mode, or reaching for a colour, spacing, radius, or shadow value.
 - Adding a component (install from shadcn first — see below) or extending one with a new variant.
 - Reviewing UI for conformance: is every value a token? is dark handled by variable swap, not per-component overrides? Run the grep-able [conformance checklist](references/conformance.md).
+- Shipping **visual work** for sign-off: don't just eyeball it — **produce a conformance report as evidence** (per-dimension on-system/flag with the nearest token for any raw value, plus an a11y read and an overall verdict), attach it to the issue, and let the operator approve it. This is what proves the system was *applied correctly*, not merely that it looks nice. Procedure + report contract: [conformance-report.md](references/conformance-report.md).
 - Reskinning for a new brand/style, or making a system multi-brand → [theming.md](references/theming.md).
 
 ## The token contract — the heart of it
@@ -127,3 +128,5 @@ flux-app is the living, best-in-class instance of this system: the concrete toke
 Need a new token or component? It's a **deliberate system change**, not an inline: propose it with a rationale and where else it's reused, add it to the contract (`index.css`) or install/compose the component, *then* reference it. A value that appears once still goes in the system — the next screen will want it too.
 
 Reach for the **correct** token, not the nearest-looking one. "A token was used" isn't the bar — the right *semantic* token is (a `muted-foreground` that happens to match isn't a substitute for a real `warning`). Mature teams find that policing usage without policing correctness backfires. And the system earns adoption by being good enough to trust, not by mandate — quality is the lever. Sourced rationale + citations: [references/foundations.md](references/foundations.md).
+
+The quick do/don't summary — tokens vs raw values, and the conformance-report obligations — is in [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
