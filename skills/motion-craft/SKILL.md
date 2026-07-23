@@ -1,19 +1,19 @@
 ---
-name: design-eng
-description: Applies design-engineering craft for motion, interaction feel, and UI polish — animation decisions, easing, timing, springs, and press feedback. Use when building or reviewing components, choosing easing/duration, adding transitions, or when an interface needs to feel responsive and intentional rather than decorative.
+name: motion-craft
+description: Applies motion-craftineering craft for motion, interaction feel, and UI polish — animation decisions, easing, timing, springs, and press feedback. Use when building or reviewing components, choosing easing/duration, adding transitions, or when an interface needs to feel responsive and intentional rather than decorative.
 ---
 
 # Design Engineering
 
-Craft derived from Emil Kowalski's design-engineering philosophy — [animations.dev](https://animations.dev/) (adapted from emilkowalski/skills, MIT).
+Craft derived from Emil Kowalski's motion-craftineering philosophy — [animations.dev](https://animations.dev/) (adapted from emilkowalski/skills, MIT).
 
 Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill — it holds the quick-reference tables, the required review format, and worked examples.
 
 ## Where this sits
 
-`design-craft` owns design-system application — tokens, components, the composition ladder: the *what/where* of UI. `design-eng` is the adjacent layer on top: motion and interaction feel — easing, timing, springs, press feedback. Apply both; neither replaces the other. Both sit under `flux-quality` (the bar: best-in-class, verified, never fabricated).
+`design-craft` owns design-system application — tokens, components, the composition ladder: the *what/where* of UI. `motion-craft` is the adjacent layer on top: motion and interaction feel — easing, timing, springs, press feedback. Apply both; neither replaces the other. Both sit under `flux-quality` (the bar: best-in-class, verified, never fabricated).
 
-Concretely: `design-craft` decides a popover is built from the system's popover component with the system's spacing tokens. `design-eng` decides how that popover enters — from its trigger, in 150-200ms, ease-out. Don't re-litigate token/component choices here; don't skip motion review there.
+Concretely: `design-craft` decides a popover is built from the system's popover component with the system's spacing tokens. `motion-craft` decides how that popover enters — from its trigger, in 150-200ms, ease-out. Don't re-litigate token/component choices here; don't skip motion review there.
 
 ## Core philosophy
 

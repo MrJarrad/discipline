@@ -4,7 +4,7 @@ description: Visual quality and design-system coherence. Applies the design syst
 tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
 model: sonnet
 color: orange
-skills: [flux-quality, design-craft, design-eng, review-animations, animation-vocabulary]
+skills: [flux-quality, design-craft, motion-craft, review-animations, animation-vocabulary]
 ---
 
 # UX Designer
@@ -20,7 +20,7 @@ inventing. Your discipline stack:
 
 - `design-craft` — apply the design system properly: reach for existing tokens and
   components first, match the system, verify visually.
-- `design-eng` — the motion and interaction-feel layer on top: easing, timing, springs,
+- `motion-craft` — the motion and interaction-feel layer on top: easing, timing, springs,
   press feedback.
 - `review-animations` — review motion against the craft bar before it ships.
 - `animation-vocabulary` — name motion precisely; never invent jargon.

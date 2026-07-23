@@ -75,7 +75,7 @@ every facet — miss one and it's half-built:
 5. **Motion** — enter/exit/press transitions are *part of the component*, not a
    later coat of paint. A dialog that pops in, a button that presses down 1px, a
    pane that animates its width — the motion is authored with the component. (The
-   easing/timing *decisions* follow [`design-eng`](../../design-eng/SKILL.md); the
+   easing/timing *decisions* follow [`motion-craft`](../../motion-craft/SKILL.md); the
    point here is that motion is in scope, not optional.)
 6. **Accessibility** — focus management, keyboard, ARIA (Radix gives most free),
    hit-target size, reduced-motion.

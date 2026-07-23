@@ -11,7 +11,7 @@ A specialized review skill. It does ONE thing: review animation and motion code 
 
 Craft bar derived from Emil Kowalski's animation philosophy — [animations.dev](https://animations.dev/) (adapted from emilkowalski/skills, MIT).
 
-This is the *review* counterpart to the `design-eng` skill's *authoring* craft — both sit under `flux-quality` (the bar). `design-eng` is where the exact rule catalog and precise values live; this skill is how you audit a diff against them and reach a decision.
+This is the *review* counterpart to the `motion-craft` skill's *authoring* craft — both sit under `flux-quality` (the bar). `motion-craft` is where the exact rule catalog and precise values live; this skill is how you audit a diff against them and reach a decision.
 
 ## Operating Posture
 
@@ -27,7 +27,7 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 3. **Responsive easing.** Entering/exiting elements use `ease-out` or a strong custom curve. `ease-in` on UI is a block — it delays the moment the user watches most. Built-in CSS easings are too weak; expect custom cubic-beziers.
 
-4. **Sub-300ms UI.** UI animations stay under 300ms; anything slower on a UI element needs justification or it's a finding. Exact per-element duration budgets live in the `design-eng` skill — cite them rather than approximating.
+4. **Sub-300ms UI.** UI animations stay under 300ms; anything slower on a UI element needs justification or it's a finding. Exact per-element duration budgets live in the `motion-craft` skill — cite them rather than approximating.
 
 5. **Origin & physical correctness.** Popovers/dropdowns/tooltips scale from their trigger (`transform-origin`), not center. Never animate from `scale(0)` — start from `scale(0.9–0.97)` + opacity. (Modals are exempt — they stay centered.)
 
@@ -105,7 +105,7 @@ Close with an explicit decision:
 - **Block** — any feel-breaking regression, animation on a keyboard/high-frequency action, `scale(0)`/`ease-in` on UI, or a non-GPU animation with an easy GPU fix.
 - **Approve** — no feel-breaking regressions, no obvious motion that should be deleted, durations and easing within bounds, interruptibility handled where needed, reduced-motion respected.
 
-Be specific and cite `file:line`. When a finding needs a precise value (a curve, a duration, a spring config), pull it from the `design-eng` skill rather than approximating.
+Be specific and cite `file:line`. When a finding needs a precise value (a curve, a duration, a spring config), pull it from the `motion-craft` skill rather than approximating.
 
 ## Guidelines
 

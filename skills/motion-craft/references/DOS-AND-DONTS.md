@@ -1,4 +1,4 @@
-# Do's and Don'ts — design-eng
+# Do's and Don'ts — motion-craft
 
 ---
 

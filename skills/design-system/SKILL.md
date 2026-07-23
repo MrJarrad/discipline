@@ -5,7 +5,7 @@ description: The house web design system — the concrete WHAT (token contract +
 
 # Design System
 
-A design system has two halves: **what exists** (the tokens, the components) and **how you wield it** (the composition ladder, the visual bar). This skill is the **what** for house web UI. [`design-craft`](../design-craft/SKILL.md) is the **how**, [`design-eng`](../design-eng/SKILL.md) is motion/feel, and all three sit under [`flux-quality`](../flux-quality/SKILL.md) (the bar). Don't re-derive the composition ladder here; don't ignore the token contract there.
+A design system has two halves: **what exists** (the tokens, the components) and **how you wield it** (the composition ladder, the visual bar). This skill is the **what** for house web UI. [`design-craft`](../design-craft/SKILL.md) is the **how**, [`motion-craft`](../motion-craft/SKILL.md) is motion/feel, and all three sit under [`flux-quality`](../flux-quality/SKILL.md) (the bar). Don't re-derive the composition ladder here; don't ignore the token contract there.
 
 **The stack — one house standard for web UI:**
 
