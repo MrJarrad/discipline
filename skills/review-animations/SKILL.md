@@ -11,7 +11,7 @@ A specialized review skill. It does ONE thing: review animation and motion code 
 
 Craft bar derived from Emil Kowalski's animation philosophy — [animations.dev](https://animations.dev/) (adapted from emilkowalski/skills, MIT).
 
-This is the *review* counterpart to the `motion-craft` skill's *authoring* craft — both sit under `flux-quality` (the bar). `motion-craft` is where the exact rule catalog and precise values live; this skill is how you audit a diff against them and reach a decision.
+This is the *review* counterpart to the `motion-craft` skill's *authoring* craft — both sit under `quality` (the bar). `motion-craft` is where the exact rule catalog and precise values live; this skill is how you audit a diff against them and reach a decision.
 
 ## Operating Posture
 

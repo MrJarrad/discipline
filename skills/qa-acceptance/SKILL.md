@@ -8,8 +8,8 @@ description: The acceptance-criteria gate before shipping — walk every AC on a
 An increment is not done because the code was written. It's done when every
 acceptance criterion (AC) on the issue is **verified with evidence**. This
 skill is the gate that sits between "I made the change" and "close the issue"
-— it is the AC-specific application of `flux-quality`'s "verify before
-claiming" bar, applied at the moment of shipping. See `flux-quality` for the
+— it is the AC-specific application of `quality`'s "verify before
+claiming" bar, applied at the moment of shipping. See `quality` for the
 general discipline and `verify-finding` for how to back a claim with typed,
 cited evidence; this skill doesn't restate either — it's what runs them
 against an issue's AC list before close.

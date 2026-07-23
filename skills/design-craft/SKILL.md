@@ -50,4 +50,4 @@ Render the surface at real viewports (desktop + mobile) — don't approve UI fro
 ## System changes are deliberate
 Need a new token/component? Propose it as a system change with rationale + where else it's reused — don't quietly inline a one-off.
 
-This is the universal layer. Each project's *specific* how (its own tokens + patterns) lives in that repo's usage guide — read it on arrival. Sits under `flux-quality` (the bar).
+This is the universal layer. Each project's *specific* how (its own tokens + patterns) lives in that repo's usage guide — read it on arrival. Sits under `quality` (the bar).

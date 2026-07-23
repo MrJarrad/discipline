@@ -5,7 +5,7 @@ description: Actively sharpen a project's domain vocabulary — challenge fuzzy 
 
 # Define Terms
 
-Sits under `flux-quality` (the bar for verification, evidence, and honesty). This
+Sits under `quality` (the bar for verification, evidence, and honesty). This
 skill doesn't restate that loop — it adds the one discipline vocabulary work
 needs on top of it: **actively changing the domain model, not just reading it.**
 

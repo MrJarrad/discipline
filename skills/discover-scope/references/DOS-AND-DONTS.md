@@ -27,7 +27,7 @@
 | **Silently overwrite** a confirmed fact | Breaks trust in the scope doc |
 | Skip **validate** when new context arrives | Lets drift and contradictions build up unnoticed |
 | Implement code or build anything | Discovery only — no building |
-| Fabricate a finding to fill a gap | Source it or flag it as still open — see `flux-quality`'s never-fabricate bar |
+| Fabricate a finding to fill a gap | Source it or flag it as still open — see `quality`'s never-fabricate bar |
 
 ---
 

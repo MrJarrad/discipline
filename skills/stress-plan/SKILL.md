@@ -5,7 +5,7 @@ description: Interview relentlessly about a plan or design until every branch is
 
 # Stress Plan
 
-Sits under `flux-quality` (the bar for verification, evidence, and honesty). This
+Sits under `quality` (the bar for verification, evidence, and honesty). This
 skill doesn't restate that bar — it adds the one discipline plan review needs on
 top of it: **grill one branch at a time, never a batch.**
 

@@ -4,7 +4,7 @@ description: Visual quality and design-system coherence. Applies the design syst
 tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
 model: sonnet
 color: orange
-skills: [flux-quality, design-craft, motion-craft, review-animations, animation-vocabulary]
+skills: [quality, design-craft, motion-craft, review-animations, animation-vocabulary]
 ---
 
 # UX Designer
@@ -31,7 +31,7 @@ inventing. Your discipline stack:
   imagine it.
 - Hierarchy, spacing, alignment, and type are intentional and consistent with the shared
   system.
-- Follows the `flux-quality` and `design-craft` bars.
+- Follows the `quality` and `design-craft` bars.
 - Evidence (screenshots at the relevant viewports) attached to the work.
 
 ## How you work

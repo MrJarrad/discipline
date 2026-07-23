@@ -8,7 +8,7 @@ description: Shape a project or plan into six sections — Context, Exploration 
 Turns conversation context into a **shaped project** — the container for value and
 boundaries — and defines when that shape is actually finished. Shape answers *what
 problem, what done, what not* — not *how we build it*. It runs before build, feeding
-`flux-quality`'s Shape phase with a draft that's already been stressed rather than
+`quality`'s Shape phase with a draft that's already been stressed rather than
 rubber-stamped.
 
 Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this
@@ -25,9 +25,9 @@ design tree branch by branch. Each stress cycle in this skill's loop *runs*
 `stress-plan` as its question-asking mechanism; this skill doesn't restate that
 discipline.
 
-It also doesn't restate `flux-quality` — the best-in-class bar this skill's output
+It also doesn't restate `quality` — the best-in-class bar this skill's output
 feeds into at the Shape phase of the craft loop. `shape-stress` is what "shaped"
-means; `flux-quality` is what "good enough to build from" means for every phase,
+means; `quality` is what "good enough to build from" means for every phase,
 Shape included.
 
 Concretely: `stress-plan` decides *how* to ask the next question (one branch, one

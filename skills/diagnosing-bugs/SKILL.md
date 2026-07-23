@@ -5,7 +5,7 @@ description: Diagnosis discipline for hard or intermittent bugs and performance 
 
 # Diagnosing Bugs
 
-Sits under `flux-quality` (the bar for verification, evidence, and honesty). This
+Sits under `quality` (the bar for verification, evidence, and honesty). This
 skill doesn't restate that loop — it adds the one discipline hard bugs need on top
 of it: **build a feedback loop before you theorize.**
 

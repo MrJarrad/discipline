@@ -11,7 +11,7 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 
 ## Where this sits
 
-`design-craft` owns design-system application — tokens, components, the composition ladder: the *what/where* of UI. `motion-craft` is the adjacent layer on top: motion and interaction feel — easing, timing, springs, press feedback. Apply both; neither replaces the other. Both sit under `flux-quality` (the bar: best-in-class, verified, never fabricated).
+`design-craft` owns design-system application — tokens, components, the composition ladder: the *what/where* of UI. `motion-craft` is the adjacent layer on top: motion and interaction feel — easing, timing, springs, press feedback. Apply both; neither replaces the other. Both sit under `quality` (the bar: best-in-class, verified, never fabricated).
 
 Concretely: `design-craft` decides a popover is built from the system's popover component with the system's spacing tokens. `motion-craft` decides how that popover enters — from its trigger, in 150-200ms, ease-out. Don't re-litigate token/component choices here; don't skip motion review there.
 

@@ -20,7 +20,7 @@ An issue is ready-for-agent only when all of these are true. If any one is missi
 - **Dependencies noted** — anything this issue is blocked by or blocks is named, so two agents never collide on the same surface.
 - **No ambiguity** — a doer agent should be able to start without interviewing the reporter. If you had to guess at intent to write the brief, it isn't ready.
 
-This bar is the same one `flux-quality`'s Discover→Shape→Build→Review loop assumes has already been cleared before Build starts — triage is what clears it. It also verifies the readiness that `paperclip-task-setup` builds toward when turning a plan into tasks: task-setup makes a task well-formed at creation time; issue-triage checks inbound, possibly messy, issues against the same bar before they're allowed through.
+This bar is the same one `quality`'s Discover→Shape→Build→Review loop assumes has already been cleared before Build starts — triage is what clears it. It also verifies the readiness that `paperclip-task-setup` builds toward when turning a plan into tasks: task-setup makes a task well-formed at creation time; issue-triage checks inbound, possibly messy, issues against the same bar before they're allowed through.
 
 ## Categorize before you verify
 

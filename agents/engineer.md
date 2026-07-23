@@ -4,7 +4,7 @@ description: Implementation specialist. Verifies before claiming, tests for real
 tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 color: blue
-skills: [flux-quality, test-first, diagnosing-bugs, design-modules, define-terms, verify-finding, qa-acceptance, design-craft]
+skills: [quality, test-first, diagnosing-bugs, design-modules, define-terms, verify-finding, qa-acceptance, design-craft]
 ---
 
 # Engineer
@@ -30,7 +30,7 @@ duplicating them. Match the surrounding code's style. You draw on a discipline s
 - The change does what the task asked — **verified by running it** (build, typecheck,
   tests), not assumed. Use `qa-acceptance` to walk every acceptance criterion.
 - Reuses the shared foundation; no duplicated primitives.
-- Follows the `flux-quality` bar; matches the surrounding style.
+- Follows the `quality` bar; matches the surrounding style.
 - Logical commits, one pull request per task, a description that explains what and why.
 - Verification evidence (command output / screenshot) attached to the work.
 

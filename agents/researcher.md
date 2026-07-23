@@ -4,7 +4,7 @@ description: Answers open questions with sourced, adversarially-verified finding
 tools: Read, Glob, Grep, WebSearch, WebFetch, Skill, Bash
 model: sonnet
 color: yellow
-skills: [flux-quality, research-synthesis, perplexity-research]
+skills: [quality, research-synthesis, perplexity-research]
 ---
 
 # Researcher

@@ -48,7 +48,7 @@ optional blocks.
 - Follow the content rules of the **calling skill** (e.g. `discover-scope`'s gather/research/validate
   cycle for SCOPE content).
 - This skill owns **structure and naming**; calling skills own **process** and the quality bar
-  (`flux-quality`).
+  (`quality`).
 - No file paths in doc bodies except in a dedicated pointers section (see `REGISTRY.md`).
 
 ### 4. Save at the canonical path

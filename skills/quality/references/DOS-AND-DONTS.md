@@ -1,6 +1,6 @@
-# flux-quality — Dos & Don'ts
+# quality — Dos & Don'ts
 
-The quick reference beneath the skill. When applying `flux-quality`, these are the
+The quick reference beneath the skill. When applying `quality`, these are the
 observable behaviours that separate a best-in-class response from a mediocre one.
 
 ## Do

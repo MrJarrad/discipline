@@ -5,7 +5,7 @@ description: Ground a claim about how code works or how to implement a change wi
 
 # Verify Finding
 
-flux-quality says "verify before claiming — no should work." This skill is the
+quality says "verify before claiming — no should work." This skill is the
 mechanism: score the claim **0–100**, back it with **typed sources**
 (project code as `` `path:line` ``), and loop when the score is too low to act on.
 

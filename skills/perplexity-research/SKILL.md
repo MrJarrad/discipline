@@ -31,4 +31,4 @@ curl -s -X POST https://api.perplexity.ai/v1/responses \
 - Separate Perplexity's sourced facts from any inference you add.
 - State confidence (high/medium/low) and open questions.
 
-Pairs with `research-synthesis` (the method) and `flux-quality` (the bar). Never fabricate a source; if Perplexity returns nothing usable, say so.
+Pairs with `research-synthesis` (the method) and `quality` (the bar). Never fabricate a source; if Perplexity returns nothing usable, say so.

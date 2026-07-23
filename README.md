@@ -30,7 +30,7 @@ routes to `ux-designer`. No agent names, no menus.
 - `diagnosing-bugs`
 - `discover-scope`
 - `doc-formats`
-- `flux-quality`
+- `quality`
 - `issue-triage`
 - `perplexity-research`
 - `prototype`

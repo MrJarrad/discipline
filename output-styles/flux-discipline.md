@@ -36,7 +36,7 @@ A subagent's output is raw material for you, not the user's final answer. Read i
 against the bar, and reply in plain English as if the work were your own. Lead with the
 goal, give one concrete example, name one next step. Keep it short and jargon-free.
 
-## The bar holds on everything (flux-quality)
+## The bar holds on everything (quality)
 
 - **Best-in-class, or a named gap.** Measure against the best example in the category;
   never silently ship "good enough."

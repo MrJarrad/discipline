@@ -5,7 +5,7 @@ description: Software architecture discipline for designing deep modules — sma
 
 # Design Modules
 
-Extends `flux-quality`'s Build/Review discipline with the specific vocabulary and moves for shaping a **module's interface** before writing its implementation. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+Extends `quality`'s Build/Review discipline with the specific vocabulary and moves for shaping a **module's interface** before writing its implementation. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
 Design **deep modules**: a lot of behaviour behind a small interface, placed at a clean seam, testable through that interface. The aim is leverage for callers, locality for maintainers, and testability for everyone. This is software architecture — module and interface shape — not UI or visual design.
 

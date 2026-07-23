@@ -101,7 +101,7 @@ The practitioner consensus (expert testimony, not controlled study — flag as s
 - **Quality is the adoption lever.** Nathan Curtis: *"A system's quality must meet
   or exceed the quality threshold held by a product team, lest the product not
   trust or respect it enough to adopt it."* Governance is an earned-trust problem,
-  not a policing problem. This maps cleanly onto [`flux-quality`](../../flux-quality/SKILL.md).
+  not a policing problem. This maps cleanly onto [`quality`](../../quality/SKILL.md).
 - **Policing usage without policing correctness backfires.** Adobe Spectrum's team
   found a linter that merely flagged hardcoded values made things *worse* — devs
   grabbed the nearest matching token instead of the *correct* semantic one. Enforce

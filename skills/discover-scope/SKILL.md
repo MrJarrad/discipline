@@ -7,7 +7,7 @@ description: Turn a raw ask into a validated scope through repeated gather, rese
 
 Build a **scope**, iteratively — not a shaped plan, not code. Each cycle: gather →
 research (readonly) → validate → update the living SCOPE doc. This is the
-**Discover** phase of `flux-quality`'s craft loop (Discover -> Shape -> Build ->
+**Discover** phase of `quality`'s craft loop (Discover -> Shape -> Build ->
 Review): understand the problem and study what's real before anything gets
 proposed or built.
 
@@ -71,7 +71,7 @@ never writes code or scope decisions on its own.
 
 Fan out across independent lanes (codebase, docs, market, feasibility) rather
 than one serial lookup — parallel research subagents work well here. Follow
-`flux-quality`'s never-fabricate bar: **source every finding, or flag it as
+`quality`'s never-fabricate bar: **source every finding, or flag it as
 still open** — never invent a fact, a file path, or a number to fill a gap. For
 the research method itself (decompose, fan out, source-or-stop, adversarially
 verify, synthesize with confidence), use `research-synthesis`; for external

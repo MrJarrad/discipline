@@ -29,7 +29,7 @@
 | Invent **Confirmed** facts without tagging Assumption | Misleads whoever reads the shape next |
 | **Silently overwrite** a Confirmed fact when new context contradicts it | Surface it as a contradiction instead |
 | Restate **`stress-plan`'s** interview rules here | This skill references it, it doesn't own it |
-| Restate **`flux-quality`'s** bar here | This skill feeds Shape; it doesn't redefine "best-in-class" |
+| Restate **`quality`'s** bar here | This skill feeds Shape; it doesn't redefine "best-in-class" |
 
 ---
 

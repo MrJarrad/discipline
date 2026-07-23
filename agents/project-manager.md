@@ -4,7 +4,7 @@ description: Mechanical task setup and board hygiene. Turns an approved plan int
 tools: Read, Write, Edit, Glob, Grep, Skill
 model: haiku
 color: cyan
-skills: [flux-quality, issue-triage]
+skills: [quality, issue-triage]
 ---
 
 # Project Manager
@@ -31,4 +31,4 @@ strategy. You populate the *how*; you do not make scope or strategy calls.
 - You do **not** make scope or strategy decisions — those belong to the Planner and the
   operator. Populate the mechanics correctly, and flag ambiguity back rather than
   resolving it yourself.
-- Follow the `flux-quality` bar. Don't broaden beyond the assigned scope.
+- Follow the `quality` bar. Don't broaden beyond the assigned scope.

@@ -31,4 +31,4 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 - Name uncertainty; a verified "unknown" is a finding, not a failure.
 - A skimmed abstract isn't a read source — say which you actually opened.
 
-This is the research-specific expression of the universal `flux-quality` bar (verify before claiming, never fabricate). Assign both together.
+This is the research-specific expression of the universal `quality` bar (verify before claiming, never fabricate). Assign both together.

@@ -63,4 +63,4 @@ discover-scope → [prototype?] → shape-stress → paperclip-task-setup
 | `design-modules` | Prototype validated an interface shape |
 | `test-first` | Production red-green work after the decision lands |
 
-This is throwaway-spike discipline — a different regime from `test-first`'s production red-green loop. Don't apply test-first's ceremony to a prototype (see Don'ts), and don't leave a prototype's decision uncaptured the way `flux-quality`'s verify-before-claiming bar would flag.
+This is throwaway-spike discipline — a different regime from `test-first`'s production red-green loop. Don't apply test-first's ceremony to a prototype (see Don'ts), and don't leave a prototype's decision uncaptured the way `quality`'s verify-before-claiming bar would flag.

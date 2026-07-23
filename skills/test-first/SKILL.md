@@ -5,7 +5,7 @@ description: Build features one failing test at a time through public interfaces
 
 # Test First
 
-Extends `flux-quality`'s Build/review discipline with the specific mechanics of test-driven development: tests verify behavior through public interfaces, not implementation details, and they're written one at a time — never in bulk.
+Extends `quality`'s Build/review discipline with the specific mechanics of test-driven development: tests verify behavior through public interfaces, not implementation details, and they're written one at a time — never in bulk.
 
 Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
