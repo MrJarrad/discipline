@@ -63,7 +63,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const SCHEMA_VERSION = 1;
 const API_BASE = "https://api.figma.com/v1";
 
-function requireToken() {
+export function requireToken() {
   const token = process.env.FIGMA_TOKEN;
   if (!token) {
     console.error("FIGMA_TOKEN environment variable is not set.");
@@ -72,7 +72,7 @@ function requireToken() {
   return token;
 }
 
-async function figmaFetch(path, token) {
+export async function figmaFetch(path, token) {
   const url = `${API_BASE}${path}`;
   let res = await fetch(url, { headers: { "X-Figma-Token": token } });
   if (res.status === 429) {
@@ -175,8 +175,12 @@ async function fetchLocalVariables(fileKey, token, opts) {
   return normalize(body, undefined, undefined, opts);
 }
 
-async function cmdSnapshot(fileKey, outPath, versionId, opts = {}) {
-  const token = requireToken();
+// Builds a snapshot object in memory (no file I/O, no process.exit) — the
+// reusable core other scripts (e.g. capture-poll.mjs) import directly rather
+// than spawning this file as a child process. Throws on hard failure so
+// callers choose their own error handling; cmdSnapshot (the CLI path below)
+// is unchanged and still owns process.exit/console.error/writeFileSync.
+export async function buildSnapshot(fileKey, token, versionId, opts = {}) {
   let res = await fetchFile(fileKey, token, versionId);
   let effectiveVersionId = versionId;
   if (!res.ok && versionId && res.status === 404) {
@@ -187,13 +191,12 @@ async function cmdSnapshot(fileKey, outPath, versionId, opts = {}) {
     effectiveVersionId = undefined;
   }
   if (!res.ok) {
-    console.error(`figma snapshot request failed: ${res.status} ${res.statusText}`);
-    process.exit(1);
+    throw new Error(`figma snapshot request failed: ${res.status} ${res.statusText}`);
   }
   const body = await res.json();
   const normalized = normalize(body, undefined, undefined, opts);
   const variables = await fetchLocalVariables(fileKey, token, opts);
-  const snapshot = {
+  return {
     fileKey,
     fileName: body.name ?? null,
     versionId: effectiveVersionId ?? "unpinned",
@@ -203,6 +206,17 @@ async function cmdSnapshot(fileKey, outPath, versionId, opts = {}) {
     document: normalized,
     ...(variables ? { variables } : {}),
   };
+}
+
+async function cmdSnapshot(fileKey, outPath, versionId, opts = {}) {
+  const token = requireToken();
+  let snapshot;
+  try {
+    snapshot = await buildSnapshot(fileKey, token, versionId, opts);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
   writeFileSync(outPath, JSON.stringify(snapshot, null, 2) + "\n", "utf8");
   console.log(`wrote ${outPath} (${snapshot.fileName ?? "unknown"} @ version ${snapshot.versionId})`);
 }
@@ -379,6 +393,12 @@ function cmdDelta(oldPath, newPath) {
 
 // --- main --------------------------------------------------------------------
 
+// Guard so this block only runs when figma-capture.mjs is invoked directly
+// (its CLI, unchanged) — not when another script (capture-poll.mjs) imports
+// buildSnapshot/figmaFetch/requireToken from it as a module.
+const isDirectRun = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+
+if (isDirectRun) {
 const [, , command, ...rest] = process.argv;
 
 if (command === "versions") {
@@ -399,4 +419,5 @@ if (command === "versions") {
 } else {
   console.error("usage: figma-capture.mjs <versions|snapshot|delta> ...");
   process.exit(1);
+}
 }

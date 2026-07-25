@@ -71,6 +71,30 @@
       opacity: 1;
       pointer-events: auto;
     }
+    #sync-btn {
+      background: #f0f0f0;
+      color: #333;
+    }
+    #sync-btn.on {
+      background: #1bc47d;
+      color: #fff;
+      font-weight: 600;
+    }
+    #sync-status {
+      color: #666;
+      min-height: 14px;
+      font-size: 11px;
+    }
+    #sync-status.warn {
+      color: #b8860b;
+    }
+    #sync-status.error {
+      color: #c0392b;
+    }
+    #sync-note {
+      color: #999;
+      font-size: 10px;
+    }
   </style>
 </head>
 <body>
@@ -80,6 +104,15 @@
     <a id="download-link" download="capture-figma-export.json">Download JSON</a>
   </div>
   <div id="status"></div>
+  <div class="row">
+    <button id="sync-btn">Start sync</button>
+    <div id="sync-status">Sync is off. One-shot export above still works with no listener running.</div>
+  </div>
+  <div id="sync-note">
+    Live sync POSTs to a local listener on localhost only (never the internet) and only runs
+    while this plugin panel stays open in the file — Figma has no background execution, so
+    closing this panel stops sync.
+  </div>
   <textarea id="output" readonly placeholder="Export output will appear here..."></textarea>
 
   <script>
@@ -88,6 +121,18 @@
     const downloadLink = document.getElementById("download-link");
     const output = document.getElementById("output");
     const status = document.getElementById("status");
+    const syncBtn = document.getElementById("sync-btn");
+    const syncStatus = document.getElementById("sync-status");
+
+    let syncOn = false;
+
+    syncBtn.addEventListener("click", () => {
+      if (syncOn) {
+        parent.postMessage({ pluginMessage: { type: "stop-sync" } }, "*");
+      } else {
+        parent.postMessage({ pluginMessage: { type: "start-sync" } }, "*");
+      }
+    });
 
     exportBtn.addEventListener("click", () => {
       status.classList.remove("error");
@@ -151,6 +196,33 @@
       } else if (msg.type === "export-error") {
         status.classList.add("error");
         status.textContent = "Export failed: " + msg.message;
+      } else if (msg.type === "sync-status") {
+        syncStatus.classList.remove("warn", "error");
+
+        if (msg.state === "on") {
+          syncOn = true;
+          syncBtn.textContent = "Stop sync";
+          syncBtn.classList.add("on");
+          syncStatus.textContent = "Sync on — exporting now...";
+        } else if (msg.state === "off") {
+          syncOn = false;
+          syncBtn.textContent = "Start sync";
+          syncBtn.classList.remove("on");
+          syncStatus.textContent = "Sync is off. One-shot export above still works with no listener running.";
+        } else if (msg.state === "synced") {
+          const t = new Date(msg.lastSyncAt).toLocaleTimeString();
+          syncStatus.textContent =
+            "Last sync: " + t + " — " + msg.lastSyncCount + " item(s) sent to listener.";
+        } else if (msg.state === "unreachable") {
+          syncStatus.classList.add("warn");
+          syncStatus.textContent = msg.message + " (will retry on next change).";
+        } else if (msg.state === "listener-error") {
+          syncStatus.classList.add("warn");
+          syncStatus.textContent = msg.message;
+        } else if (msg.state === "error") {
+          syncStatus.classList.add("error");
+          syncStatus.textContent = msg.message;
+        }
       }
     };
   </script>

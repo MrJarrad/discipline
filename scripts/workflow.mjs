@@ -39,7 +39,16 @@
    push, git reset --hard, rm -rf denied) so specialists get dispatch-level
    permissions from the runner itself — no repo-local settings file needed,
    operator/interactive posture untouched. Per-agent `allowedTools` in the
-   spec is additive on top of this file, never a replacement for it.        */
+   spec is additive on top of this file, never a replacement for it.
+
+   Housekeeping note: dispatched-repo .claude/journal.jsonl files (session
+   journals a doer's own tooling may write inside the target repo) should be
+   gitignored in that target repo — they're run-local scratch, not source.
+   Similarly, capture artifacts (capture-listener.mjs / capture-poll.mjs
+   output under ~/JHD/captures/) must never land inside a git-tracked
+   plugin directory (e.g. figma-plugin/capture-figma/) — they're written
+   to ~/JHD/captures/ specifically so this distinction is structural, not
+   just a gitignore rule, but keep it in mind if that ever changes.        */
 import { readFileSync, appendFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";

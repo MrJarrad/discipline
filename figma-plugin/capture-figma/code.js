@@ -61,6 +61,16 @@
 
 const PLUGIN_VERSION = "1.1.0";
 
+// manifest.json's networkAccess.allowedDomains is scoped to
+// http://localhost:4411 and http://127.0.0.1:4411 ONLY — never a public
+// internet host. Live sync mode POSTs the export JSON to a local listener
+// (scripts/capture-listener.mjs) that a human runs on this same machine;
+// the plugin never talks to anything off-box. If you're tempted to widen
+// this allowlist, don't — add a new localhost port instead and update both
+// this comment and the CAPTURE_LISTENER_URL below.
+const CAPTURE_LISTENER_URL = "http://127.0.0.1:4411/capture";
+const SYNC_DEBOUNCE_MS = 5000;
+
 figma.showUI(__html__, { width: 480, height: 640 });
 
 async function getCollections() {
@@ -449,8 +459,114 @@ async function buildExport() {
   return output;
 }
 
+// --- live sync mode ---------------------------------------------------------
+//
+// "Start sync" is additive to the existing one-shot export above, which
+// stays as the offline fallback (works with no listener running, no
+// networkAccess granted beyond localhost). While sync is on: an export runs
+// immediately, then again on every figma.on('documentchange'), debounced
+// SYNC_DEBOUNCE_MS trailing so a burst of edits produces one POST, not one
+// per keystroke. Sandbox rule (also stated in ui.html): sync only runs while
+// this plugin's UI is open in the file — Figma plugins have no background
+// execution, so closing the plugin stops sync until it's reopened and
+// restarted.
+
+let syncEnabled = false;
+let syncDebounceTimer = null;
+let lastSyncAt = null;
+let lastSyncCount = 0;
+
+function totalExportCount(data) {
+  const counts = (data && data.header && data.header.counts) || {};
+  let total = 0;
+  for (const key of Object.keys(counts)) total += counts[key];
+  return total;
+}
+
+// Runs one export + POST cycle. Never throws out of this function — a
+// listener-down network failure is reported to the UI as a status line, sync
+// stays on, and the next document change (or the next manual retry) tries
+// again. This is the "never crash" contract from the task.
+async function runSyncExport() {
+  let data;
+  try {
+    data = await buildExport();
+  } catch (err) {
+    figma.ui.postMessage({
+      type: "sync-status",
+      state: "error",
+      message: "export failed: " + (err && err.message ? err.message : String(err)),
+    });
+    return;
+  }
+
+  try {
+    const res = await fetch(CAPTURE_LISTENER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      figma.ui.postMessage({
+        type: "sync-status",
+        state: "listener-error",
+        message: "listener responded " + res.status + " — export still available manually",
+      });
+      return;
+    }
+    lastSyncAt = Date.now();
+    lastSyncCount = totalExportCount(data);
+    figma.ui.postMessage({
+      type: "sync-status",
+      state: "synced",
+      lastSyncAt: lastSyncAt,
+      lastSyncCount: lastSyncCount,
+    });
+  } catch (err) {
+    // Listener not reachable (not running, wrong port, etc). Sync stays on;
+    // this is expected/handled, not a crash — retried on the next change.
+    figma.ui.postMessage({
+      type: "sync-status",
+      state: "unreachable",
+      message: "listener not reachable — export still available manually",
+    });
+  }
+}
+
+function scheduleSyncExport() {
+  if (!syncEnabled) return;
+  if (syncDebounceTimer !== null) {
+    clearTimeout(syncDebounceTimer);
+  }
+  syncDebounceTimer = setTimeout(() => {
+    syncDebounceTimer = null;
+    runSyncExport();
+  }, SYNC_DEBOUNCE_MS);
+}
+
+figma.on("documentchange", () => {
+  scheduleSyncExport();
+});
+
+async function startSync() {
+  syncEnabled = true;
+  figma.ui.postMessage({ type: "sync-status", state: "on" });
+  await runSyncExport(); // full export once immediately, per the task
+}
+
+function stopSync() {
+  syncEnabled = false;
+  if (syncDebounceTimer !== null) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
+  }
+  figma.ui.postMessage({ type: "sync-status", state: "off" });
+}
+
 figma.ui.onmessage = async (msg) => {
-  if (msg && msg.type === "export") {
+  if (!msg) return;
+
+  if (msg.type === "export") {
     try {
       const data = await buildExport();
       figma.ui.postMessage({ type: "export-result", data: data });
@@ -460,5 +576,16 @@ figma.ui.onmessage = async (msg) => {
         message: err && err.message ? err.message : String(err),
       });
     }
+    return;
+  }
+
+  if (msg.type === "start-sync") {
+    await startSync();
+    return;
+  }
+
+  if (msg.type === "stop-sync") {
+    stopSync();
+    return;
   }
 };
