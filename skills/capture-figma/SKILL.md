@@ -138,6 +138,32 @@ body/action with spacers; variant states default/hovered/disabled).
    is a composition violation; the identical structure inside a component is anatomy, not a
    finding.
 
+## Step 4: frames pt2 and components — before variant capture
+
+Operator rulings, training session 2026-07-25 (evidence: HeroText instance 3913:51049 vs
+identical plain frame 3913:51073; SpaceVertical variant panels; HeroText instance prop
+panel). These fix how a frame's node type and a component's props get read.
+
+1. **A component is a frame converted and published.** Conversion grants two things a
+   plain frame never has: **library identity** (instances stay linked, receive updates,
+   appear in Assets) and a **props API**. Node TYPE is the only truth-teller — a plain
+   FRAME carrying a published component's name, with identical internals, is a detached
+   copy or hand-build: inert, update-orphaned. Name-matches-component + type=FRAME is its
+   own flagged finding class; don't wave it through because the visuals match.
+2. **The props API is the component's public interface** — read it like coded prop types.
+   Variant props (`device=desktop`, `height=medium`), boolean props wired to structure
+   (`has-spacer-top` toggles whether the SpacerTop layer exists at all), text props, and
+   **nested exposed props** (a child's `TextTitle size=200` surfaced through the parent)
+   all belong to this surface. Instances distinguish overrides from inherited defaults —
+   capture records both, not just the resolved value.
+3. **Universal property-reading rule — applies to every layer, component or not.** A
+   property is read by its **binding chain**, never its endpoint number: raw value ←
+   variable binding (H bound to `space-300`, resolving 48) ← prop binding (visibility
+   bound to `has-spacer-top`) ← mode context (the frame's mode vector). Capture records
+   the chain, not the number alone — "48" hand-typed and "space-300 → 48" are different
+   facts, and a truly raw value on a system property is the notable finding, not the
+   default reading.
+
 ## The layer model — a design system is four layers, read all four
 
 A Figma design system is not a flat token list. Extraction is complete only when every
