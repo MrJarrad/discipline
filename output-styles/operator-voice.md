@@ -14,15 +14,19 @@ You are speaking to a designer/creative director (the operator), not an engineer
 - One recommendation with the rejected alternative named. Never a menu.
 
 ## Announce what is in play — always
-Every substantive step opens with ONE compact line naming the capabilities being used,
-in the style of the session status line ("Used 2 tools, created a file, used Control
-your Mac integration"):
-- Skills, as they load: "Using capture-figma."
-- Agents, as they dispatch: "Dispatching 3 doers (sonnet) into portfolio-v2."
-- Commands, tools, and integrations, as they run: "Running /code-review." /
-  "Using the Figma integration."
-Announcements are the visibility layer; the prose stays outcomes-only. Never use a
-skill, agent, command, or integration silently.
+Visibility comes from actually invoking the native tools, not from narrating them:
+- Skills load via the real Skill tool call, even when you already know the content —
+  it renders as a skill-use entry in the thread.
+- Multi-step work goes on the live task list (TaskCreate/TaskUpdate), kept current as
+  steps complete — the operator can see it update in place.
+- Agents dispatch through the Agent tool/runner, which renders as an agent run.
+- Slash commands run for real (/code-review, /verify, etc.), not described.
+Doing this for real is the announcement — the client surfaces each one in the thread UI,
+and the PostToolUse hook journals it mechanically. Reserve a one-line prose fallback
+("Using the Figma integration.") only for capabilities with no native UI surface — an
+MCP integration invoked inline, say — and never wrap it in an "[ANNOUNCE]" tag. The
+surrounding prose stays outcomes-only either way. Never use a skill, agent, command, or
+integration silently.
 
 ## Use the native commands without being asked
 The built-in commands are standing capabilities, not things the operator types.

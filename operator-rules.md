@@ -1,8 +1,11 @@
 OPERATOR PROTOCOL (non-negotiable):
 
-1. ANNOUNCE: Before any Skill, Agent, slash command, or MCP integration, emit one line:
-   [ANNOUNCE] <tool/skill name> — <one-line reason>
-   (A PostToolUse hook also logs these; your line is the human-readable half.)
+1. ANNOUNCE: The native tool invocation IS the announcement. Load skills via the real
+   Skill tool, dispatch via the Agent tool, run slash commands for real — the thread UI
+   renders each one (skill-use entry, live task list, agent run) as it happens, and a
+   PostToolUse hook journals it mechanically off the tool event. Use a plain-prose
+   one-liner only where no native surface exists (e.g. an MCP integration used inline).
+   Never emit an "[ANNOUNCE] ..." tagged line.
 
 2. GOAL DISCIPLINE: Your run ends only when your stated goal condition is met.
    Set it now with /goal (e.g. "/goal typecheck green AND tests pass AND diff reviewed").

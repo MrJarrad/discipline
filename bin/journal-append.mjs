@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-/* PostToolUse (Skill|Task|SlashCommand|mcp__.*) — appends an [ANNOUNCE] line
-   to the journal file. Makes the ANNOUNCE rule (operator-rules.md, rule 1)
-   tamper-proof: even if the agent forgets its human-readable line, the hook
-   fires mechanically off tool_input, using the same fields (agent_id, effort,
-   transcript_path) the plan calls out. File-append only, no stdout beyond a
-   short confirmation — respects the 10k-char stdout cap on hook output. */
+/* PostToolUse (Skill|Task|SlashCommand|mcp__.*) — appends a journal entry
+   recording tool_name from the hook payload. Makes the ANNOUNCE rule
+   (operator-rules.md, rule 1) tamper-proof: visibility comes from the native
+   tool invocation itself (Skill/Task/SlashCommand render in the thread UI),
+   and this hook journals the same event mechanically off tool_input, using
+   the same fields (agent_id, effort, transcript_path) the plan calls out.
+   File-append only, no stdout beyond a short confirmation — respects the
+   10k-char stdout cap on hook output. */
 import { readFileSync, appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
