@@ -1,0 +1,6 @@
+{
+  "status": "skipped",
+  "ts": "2026-07-25T09:42:52.540Z",
+  "command": null,
+  "tail": "no typecheck script or tsconfig.json found"
+}
