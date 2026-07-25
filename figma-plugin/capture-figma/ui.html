@@ -116,6 +116,14 @@
   <textarea id="output" readonly placeholder="Export output will appear here..."></textarea>
 
   <script>
+    // The only context in this plugin with a real fetch() — see code.js's
+    // CAPTURE_LISTENER_URL comment: the main-thread sandbox has no browser
+    // APIs at all. Must match manifest.json's networkAccess.allowedDomains
+    // ("http://localhost:4411") exactly, including the "localhost" hostname
+    // (not "127.0.0.1" — Figma's manifest validator only accepts bare
+    // hostnames/domains there, so the fetch target has to match verbatim).
+    const CAPTURE_LISTENER_URL = "http://localhost:4411/capture";
+
     const exportBtn = document.getElementById("export-btn");
     const copyBtn = document.getElementById("copy-btn");
     const downloadLink = document.getElementById("download-link");
@@ -153,6 +161,38 @@
     window.onmessage = (event) => {
       const msg = event.data.pluginMessage;
       if (!msg) return;
+
+      if (msg.type === "sync-post") {
+        // Perform the live-sync POST here — code.js's main thread has no
+        // fetch (see its CAPTURE_LISTENER_URL comment). Report the result
+        // back over the same postMessage channel; never let this throw back
+        // into code.js's await — a network failure is reported as
+        // { ok: false, error } and handled there as "listener unreachable".
+        fetch(CAPTURE_LISTENER_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(msg.data),
+        })
+          .then((res) => {
+            parent.postMessage(
+              { pluginMessage: { type: "sync-post-result", ok: res.ok, status: res.status } },
+              "*"
+            );
+          })
+          .catch((err) => {
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "sync-post-result",
+                  ok: false,
+                  error: err && err.message ? err.message : String(err),
+                },
+              },
+              "*"
+            );
+          });
+        return;
+      }
 
       exportBtn.disabled = false;
 

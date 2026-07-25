@@ -90,6 +90,23 @@ function readBody(req, onDone, onError) {
   });
 }
 
+// The plugin's live-sync POST originates from ui.html — the iframe context
+// Figma plugins run browser code in (see code.js's header comment: the main
+// thread sandbox has no fetch at all, only the iframe does). That fetch is
+// a normal cross-origin browser request (Figma's iframe origin isn't
+// localhost:4411), so the browser enforces CORS: a preflight OPTIONS for
+// the POST, and an Access-Control-Allow-Origin on every response, or the
+// browser blocks the response before the plugin ever sees it. This is a
+// localhost-bound, unauthenticated-by-design bridge (see file header) reached
+// only by this one plugin on this machine, so a wildcard origin is fine —
+// there's no session/cookie/credential surface for a third party to steal
+// via CORS here.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type",
+};
+
 function handleCapture(req, res) {
   readBody(
     req,
@@ -98,13 +115,13 @@ function handleCapture(req, res) {
       try {
         parsed = JSON.parse(buf.toString("utf8"));
       } catch {
-        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
         res.end("invalid JSON body");
         return;
       }
       const err = validateExportShape(parsed);
       if (err) {
-        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
         res.end(`invalid export shape: ${err}`);
         return;
       }
@@ -120,19 +137,27 @@ function handleCapture(req, res) {
       appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
 
       console.log(`[capture-listener] wrote ${outPath} (${parsed.header.fileName})`);
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
       res.end(JSON.stringify({ ok: true, path: outPath, receipt }));
     },
     (status, message) => {
-      res.writeHead(status, { "Content-Type": "text/plain" });
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
       res.end(message);
     }
   );
 }
 
 const server = createServer((req, res) => {
+  if (req.method === "OPTIONS") {
+    // Preflight for the plugin's cross-origin POST from ui.html. No auth
+    // check needed here (see CORS_HEADERS comment) — just answer it so the
+    // browser lets the real request through.
+    res.writeHead(204, CORS_HEADERS);
+    res.end();
+    return;
+  }
   if (req.method === "GET" && req.url === "/health") {
-    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.writeHead(200, { "Content-Type": "text/plain", ...CORS_HEADERS });
     res.end("ok");
     return;
   }
@@ -140,7 +165,7 @@ const server = createServer((req, res) => {
     handleCapture(req, res);
     return;
   }
-  res.writeHead(404, { "Content-Type": "text/plain" });
+  res.writeHead(404, { "Content-Type": "text/plain", ...CORS_HEADERS });
   res.end("not found");
 });
 

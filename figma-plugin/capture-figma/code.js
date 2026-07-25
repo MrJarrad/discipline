@@ -65,13 +65,19 @@ const PLUGIN_VERSION = "1.1.0";
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
 // POSTs the export JSON to a local listener (scripts/capture-listener.mjs,
 // which binds 127.0.0.1 server-side) that a human runs on this same machine;
-// the plugin never talks to anything off-box. CAPTURE_LISTENER_URL must use
-// "localhost", not "127.0.0.1" — Figma's manifest validator only accepts
-// bare hostnames/domains in allowedDomains, so the fetch target must match
-// exactly. If you're tempted to widen this allowlist, don't — add a new
-// localhost port instead and update both this comment and the
-// CAPTURE_LISTENER_URL below.
-const CAPTURE_LISTENER_URL = "http://localhost:4411/capture";
+// the plugin never talks to anything off-box.
+//
+// The POST itself happens in ui.html, not here. Per Figma's plugin docs
+// (figma.com/plugin-docs/how-plugins-run/, "Plugin environment"): the main
+// thread this file runs on is a sandbox with no browser APIs — fetch,
+// XMLHttpRequest, setTimeout-via-DOM, etc. all simply don't exist on it.
+// Only the <iframe> shown via figma.showUI() (ui.html) has fetch. This file
+// used to call fetch() directly here; that made every sync attempt fail
+// with "fetch is not defined" inside runSyncExport()'s catch block, which
+// reported the generic "listener not reachable" state even when the
+// listener was healthy — see runSyncExport()/postSyncExportToUI() below for
+// the fix: post the export payload to ui.html and let it perform the fetch,
+// reporting the result back over the same postMessage channel.
 const SYNC_DEBOUNCE_MS = 5000;
 
 figma.showUI(__html__, { width: 480, height: 640 });
@@ -508,6 +514,20 @@ function totalExportCount(data) {
   return total;
 }
 
+// Posts the export payload to ui.html and waits for its fetch result.
+// ui.html is the only context in this plugin with a real fetch (see the
+// CAPTURE_LISTENER_URL comment above) — this main thread only relays. At
+// most one sync POST is in flight at a time (runSyncExport is debounce-
+// serialized), so a single pending resolver is sufficient.
+let pendingSyncResolve = null;
+
+function postSyncExportToUI(data) {
+  return new Promise((resolve) => {
+    pendingSyncResolve = resolve;
+    figma.ui.postMessage({ type: "sync-post", data: data });
+  });
+}
+
 // Runs one export + POST cycle. Never throws out of this function — a
 // listener-down network failure is reported to the UI as a status line, sync
 // stays on, and the next document change (or the next manual retry) tries
@@ -525,37 +545,37 @@ async function runSyncExport() {
     return;
   }
 
-  try {
-    const res = await fetch(CAPTURE_LISTENER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      figma.ui.postMessage({
-        type: "sync-status",
-        state: "listener-error",
-        message: "listener responded " + res.status + " — export still available manually",
-      });
-      return;
-    }
-    lastSyncAt = Date.now();
-    lastSyncCount = totalExportCount(data);
-    figma.ui.postMessage({
-      type: "sync-status",
-      state: "synced",
-      lastSyncAt: lastSyncAt,
-      lastSyncCount: lastSyncCount,
-    });
-  } catch (err) {
-    // Listener not reachable (not running, wrong port, etc). Sync stays on;
-    // this is expected/handled, not a crash — retried on the next change.
+  const result = await postSyncExportToUI(data);
+
+  if (result.error) {
+    // Listener not reachable (not running, wrong port, etc) — ui.html's
+    // fetch() itself rejected. Sync stays on; this is expected/handled, not
+    // a crash — retried on the next change.
     figma.ui.postMessage({
       type: "sync-status",
       state: "unreachable",
       message: "listener not reachable — export still available manually",
     });
+    return;
   }
+
+  if (!result.ok) {
+    figma.ui.postMessage({
+      type: "sync-status",
+      state: "listener-error",
+      message: "listener responded " + result.status + " — export still available manually",
+    });
+    return;
+  }
+
+  lastSyncAt = Date.now();
+  lastSyncCount = totalExportCount(data);
+  figma.ui.postMessage({
+    type: "sync-status",
+    state: "synced",
+    lastSyncAt: lastSyncAt,
+    lastSyncCount: lastSyncCount,
+  });
 }
 
 function scheduleSyncExport() {
@@ -609,6 +629,16 @@ function stopSync() {
 
 figma.ui.onmessage = async (msg) => {
   if (!msg) return;
+
+  if (msg.type === "sync-post-result") {
+    // Reply to the postSyncExportToUI() request currently in flight, if any.
+    if (pendingSyncResolve) {
+      const resolve = pendingSyncResolve;
+      pendingSyncResolve = null;
+      resolve(msg);
+    }
+    return;
+  }
 
   if (msg.type === "export") {
     try {
