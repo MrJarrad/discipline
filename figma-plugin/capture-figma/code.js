@@ -62,13 +62,16 @@
 const PLUGIN_VERSION = "1.1.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
-// http://localhost:4411 and http://127.0.0.1:4411 ONLY — never a public
-// internet host. Live sync mode POSTs the export JSON to a local listener
-// (scripts/capture-listener.mjs) that a human runs on this same machine;
-// the plugin never talks to anything off-box. If you're tempted to widen
-// this allowlist, don't — add a new localhost port instead and update both
-// this comment and the CAPTURE_LISTENER_URL below.
-const CAPTURE_LISTENER_URL = "http://127.0.0.1:4411/capture";
+// http://localhost:4411 ONLY — never a public internet host. Live sync mode
+// POSTs the export JSON to a local listener (scripts/capture-listener.mjs,
+// which binds 127.0.0.1 server-side) that a human runs on this same machine;
+// the plugin never talks to anything off-box. CAPTURE_LISTENER_URL must use
+// "localhost", not "127.0.0.1" — Figma's manifest validator only accepts
+// bare hostnames/domains in allowedDomains, so the fetch target must match
+// exactly. If you're tempted to widen this allowlist, don't — add a new
+// localhost port instead and update both this comment and the
+// CAPTURE_LISTENER_URL below.
+const CAPTURE_LISTENER_URL = "http://localhost:4411/capture";
 const SYNC_DEBOUNCE_MS = 5000;
 
 figma.showUI(__html__, { width: 480, height: 640 });
