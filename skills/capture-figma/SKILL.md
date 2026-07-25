@@ -10,6 +10,32 @@ read as "5:4" that was actually screen-height stops, a tracking value eyeballed 
 subtitle size inferred a step too large. Each misread costs a full correction round in the
 build. The fix is an order of operations: **numbers before pictures.**
 
+## Step 1: architecture read — before any value capture
+
+Values mean nothing against no skeleton. Before touching variables, styles, components,
+or screenshots, read the file's shape.
+
+1. **Anatomy first.** Walk pages in canvas order (order is meaning — the author sequenced
+   them on purpose), then frames per page, component sets with their variant counts, style
+   inventories by type, and variable collections with modes where available. This is the
+   skeleton; values captured against it are legible, values captured without it are noise.
+2. **Classify the archetype.** From the anatomy, name the file **PRODUCER** (defines the
+   system: layer-ramp pages, deep variant sets, canonical styles/variables, a published
+   library) or **CONSUMER** (assembles from one: thin local vocabulary, a heavy remote
+   component index, one or more deliverable pages plus exploration/scratch pages). Record
+   the archetype explicitly in the capture artifact — it decides how every later layer gets
+   read.
+3. **Library manifest.** Foreign content is provenance, not contamination — copy-pasted
+   material routinely drags another file's styles, components, and variables along, and
+   that's normal. Record each library's state in the file: created-in-file / added-and-used
+   / used-but-not-added / missing-entirely. Style/component counts only mean something
+   **per page role**: a foreign binding on a deliverable page is a finding; the same binding
+   on an exploration/scratch page is scenery — never flag it.
+4. **Contract surface.** For a consumer file, the contract surface is whichever
+   canonical-library components and styles the **deliverable** pages bind — that's the
+   audit scope. Exploration pages are out of scope by default; don't spend extraction effort
+   auditing them unless the operator asks.
+
 ## The layer model — a design system is four layers, read all four
 
 A Figma design system is not a flat token list. Extraction is complete only when every
