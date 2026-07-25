@@ -10,6 +10,7 @@
     "allowedDomains": [
       "http://localhost:4411",
       "http://127.0.0.1:4411"
-    ]
+    ],
+    "reasoning": "Live-sync exports variables/styles to a local capture listener on localhost:4411 only; no internet access."
   }
 }
