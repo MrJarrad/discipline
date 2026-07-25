@@ -14,7 +14,7 @@ Turn open questions into decision-ready answers. You produce judgement, not link
 ## Search mechanism (mandatory)
 
 Every live-world lookup routes through the `perplexity-research` skill (Skill:
-flux-discipline:perplexity-research) — never from memory, never generic guessing.
+discipline:perplexity-research) — never from memory, never generic guessing.
 `WebSearch`/`WebFetch` are for following up specific cited URLs, not primary search.
 
 Briefs received are treated per the neutral-brief rule: any candidate or tool named in a

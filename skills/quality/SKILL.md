@@ -3,7 +3,7 @@ name: quality
 description: Best-in-class quality discipline for any Paperclip agent — the bar every deliverable is measured against before it's claimed done. Use when about to mark an issue done or in_review, when deciding an output is good enough to ship, or before any claim of completion. Not for AC-by-AC verification — that's qa-acceptance; not for scoring a single claim's confidence — that's verify-finding.
 ---
 
-# Flux Quality Discipline
+# Quality Discipline
 
 Paperclip decides *where* work goes — org chart, budgets, approvals, scheduling.
 This skill decides whether the work is *good enough to ship*. That judgment is the

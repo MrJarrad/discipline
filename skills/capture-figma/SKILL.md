@@ -415,7 +415,7 @@ turns a snapshot into a changelog — using only the MCP tools, on any Figma fil
 - Starter-plan files have 30-day version retention in Figma's own history — a
   comparison window there can silently expire; the vault's git history does not.
 
-**Supplementary mechanics:** if the flux-discipline plugin's `scripts/figma-capture.mjs`
+**Supplementary mechanics:** if the discipline plugin's `scripts/figma-capture.mjs`
 and a `FIGMA_TOKEN` are available, use it for true REST version pinning —
 `versions` to list real version ids, `snapshot --version <id>` to pin a capture to
 one, `delta` to structurally diff two normalized snapshots — but this skill never

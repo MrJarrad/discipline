@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-/* flux-workflow — deterministic multi-agent runner for Claude Code desktop.
+/* workflow — deterministic multi-agent runner for Claude Code desktop.
    Orchestration as code, not willpower: phases run in order, agents within a
    phase run in parallel, every phase can carry a verify stage whose agents
    are prompted to REFUTE. Journal written next to the spec.
 
-   Usage:  node flux-workflow.mjs <spec.json>
+   Usage:  node workflow.mjs <spec.json>
    Spec:   { "name": "...", "phases": [ { "title": "...",
              "agents": [{ "label": "...", "prompt": "...", "model": "haiku|sonnet|opus", "cwd": "...",
              "persona": "reviewer (optional — resolves <plugin root>/agents/<persona>.md, strips its
@@ -39,7 +39,7 @@ import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
 const specPath = process.argv[2];
-if (!specPath) { console.error("usage: flux-workflow <spec.json>"); process.exit(1); }
+if (!specPath) { console.error("usage: workflow <spec.json>"); process.exit(1); }
 const spec = JSON.parse(readFileSync(specPath, "utf8"));
 const journal = specPath.replace(/\.json$/, "") + ".journal.jsonl";
 const log = (e) => appendFileSync(journal, JSON.stringify({ t: new Date().toISOString(), ...e }) + "\n");

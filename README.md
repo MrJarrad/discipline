@@ -1,6 +1,6 @@
-# Flux Discipline
+# Discipline
 
-The Flux/Paperclip quality discipline, packaged as a portable **Claude Code / Claude
+The Paperclip quality discipline, packaged as a portable **Claude Code / Claude
 Desktop plugin**: best-in-class craft skills plus a six-role agent fleet. Everything runs
 on Claude models.
 
@@ -15,7 +15,8 @@ and dispatched to the right specialist automatically, then synthesized back as o
 *"is this safe to merge?"* and the `reviewer` fires on its own; *"the panel feels janky"*
 routes to `ux-designer`. No agent names, no menus.
 
-> If you also run the separate `flux` plugin, disable one — two always-on personas conflict.
+> If you also run a separate always-on orchestrator plugin, disable one — two always-on
+> personas conflict.
 
 ## What's inside
 
@@ -56,15 +57,15 @@ routes to `ux-designer`. No agent names, no menus.
 This repo is both a plugin and its own single-plugin marketplace.
 
 ```
-/plugin marketplace add MrJarrad/flux-discipline
-/plugin install flux-discipline@flux-discipline
+/plugin marketplace add MrJarrad/discipline
+/plugin install discipline@discipline
 ```
 
 Or point at a local checkout:
 
 ```
-/plugin marketplace add /path/to/flux-discipline
-/plugin install flux-discipline@flux-discipline
+/plugin marketplace add /path/to/discipline
+/plugin install discipline@discipline
 ```
 
 Once installed, the skills auto-trigger by description, and the agents are available to the

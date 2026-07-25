@@ -18,7 +18,7 @@ const input = readHookInput();
 const cwd = input.cwd || process.cwd();
 const dir = join(cwd, ".claude");
 mkdirSync(dir, { recursive: true });
-const journalPath = join(dir, "flux-journal.jsonl");
+const journalPath = join(dir, "journal.jsonl");
 
 const entry = {
   t: new Date().toISOString(),
@@ -35,7 +35,7 @@ if (mode !== "close") {
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "SessionStart",
-      additionalContext: `Flux journal for this session: ${journalPath}`,
+      additionalContext: `Journal for this session: ${journalPath}`,
     },
   }));
 }

@@ -1,13 +1,13 @@
 ---
 name: vault-recall
-description: Procedure for reading and recalling from ~/JHD/flux-vault as the fleet's shared memory. Use when starting a task or during work to check for prior decisions, learnings, references, or artifacts before deriving new answers. Not for writing to the vault — that's vault-write.
+description: Procedure for reading and recalling from ~/JHD/vault as the fleet's shared memory. Use when starting a task or during work to check for prior decisions, learnings, references, or artifacts before deriving new answers. Not for writing to the vault — that's vault-write.
 ---
 
 # Vault Recall
 
 **Trigger:** Use when starting a task or during any work to recall decisions, learnings, captured references, or prior analysis from the fleet's shared memory.
 
-**Anti-trigger:** Writing or authoring vault records; Paperclip board operations; any read outside `~/JHD/flux-vault`.
+**Anti-trigger:** Writing or authoring vault records; Paperclip board operations; any read outside `~/JHD/vault`.
 
 ---
 

@@ -83,7 +83,7 @@ Plus the two soft layers, as data not vibes:
 geometry rect, token row, CSS line). Mark each value `observed` or `inferred`; never
 promote an inferred value into a system decision silently.
 
-**Stage 4 — package:** `flux-vault/references/<name>/` = the artifacts + `analysis.md`;
+**Stage 4 — package:** `vault/references/<name>/` = the artifacts + `analysis.md`;
 a sibling `<name>.md` vault reference note whose "Why it's here" cites the folder. Brief
 downstream agents with the **folder path** — never a URL.
 

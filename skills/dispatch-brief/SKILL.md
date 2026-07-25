@@ -1,6 +1,6 @@
 ---
 name: dispatch-brief
-description: How to write any dispatch prompt — an Agent tool call or a flux-workflow spec — so it's neutral, evidence-bound, and scoped. Use before authoring any dispatch/brief/workflow-spec prompt. Not for choosing WHO to dispatch — that's routing; not for task creation mechanics — that's paperclip-task-setup.
+description: How to write any dispatch prompt — an Agent tool call or a workflow spec — so it's neutral, evidence-bound, and scoped. Use before authoring any dispatch/brief/workflow-spec prompt. Not for choosing WHO to dispatch — that's routing; not for task creation mechanics — that's paperclip-task-setup.
 ---
 
 # Dispatch Brief
@@ -8,7 +8,7 @@ description: How to write any dispatch prompt — an Agent tool call or a flux-w
 The orchestrator never writes code or does design work — it only writes briefs. A brief
 that steers the answer, skips the required skills, or leaves scope or evidence unstated
 produces work that looks done and isn't. Load this before authoring any Agent tool call
-or `flux-workflow` spec.
+or `workflow` spec.
 
 ## Neutral briefs never steer
 
@@ -35,7 +35,7 @@ itself must lead with `persona (model):` so the thread UI names the dispatch —
 
 Frontmatter skill bindings on an agent don't guarantee the agent invokes them — the
 brief must name the exact skills the receiving agent is required to invoke
-(`Skill: flux-discipline:<name>`) for the work type at hand.
+(`Skill: discipline:<name>`) for the work type at hand.
 
 | Work type | Required skills |
 |---|---|
