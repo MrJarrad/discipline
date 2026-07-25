@@ -65,6 +65,22 @@ recorded once the architecture read is in hand and before the deeper layers get 
    compose values into recipes and may consume variables per-property. Components consume
    both. Assets publish components. Pages organize everything into meaning. Read the layers
    in this order when capturing — each one is the substrate the next is built from.
+5. **The recipe model is universal.** All four style types — text, color/fill, effect, and
+   layout-guide/grid — share one anatomy: name + description + properties, each property
+   either variable-bound or raw. Effect `material-blur-100` binds radius to `blur-100`;
+   `border-focused` binds shadow color to `color/border/focused/*` but holds spread `2` raw;
+   layout guide "default" is a grid recipe (12 col, stretch, margin 48, gutter 48).
+   Per-property binding status (ruling 3, above) is capture signal for every style type, not
+   just text.
+6. **Variable = scalar, style = composite.** Styles hold what variables structurally cannot:
+   multi-stop gradients (`social/instagram` — 3-stop linear), stacked effects
+   (`drop-shadow-100` — 5-layer stack), grid definitions. When a "variable" for such a thing
+   comes back empty (`social/instagram` returned `""` in a variable pull), the real value
+   lives in the style — capture must join both before declaring a value missing.
+7. **Descriptions are the in-file documentation surface.** Variable and style description
+   fields carry derivation recipes and intent (per the alpha-quantization ruling). Empty
+   descriptions are a countable documentation-gap finding class — capture reports the count
+   per collection/style group, never judges individual gaps.
 
 ## The layer model — a design system is four layers, read all four
 
