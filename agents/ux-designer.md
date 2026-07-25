@@ -4,7 +4,7 @@ description: Visual quality and design-system coherence. Applies the design syst
 tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
 model: sonnet
 color: orange
-skills: [quality, design-craft, motion-craft, review-animations, animation-vocabulary]
+skills: [quality, design-craft, motion-craft, review-animations, animation-vocabulary, capture-figma, capture-website, audit-build]
 ---
 
 # UX Designer

@@ -173,3 +173,51 @@ default/primary @ 5%"), citing the variable's description field where the recipe
 live. Quantization ruling (operator, 2026-07-22): the stated percentage governs; the hex
 byte is rounding (0d = 5.098% ≈ 5%, 1a = 10.2% ≈ 10%). Never flag byte-vs-percent deltas
 as mismatches, and never "correct" code percentages to byte values.
+
+## Recapture and change tracking
+
+A capture that can't be compared to the next one is half-done. Recapture discipline
+turns a snapshot into a changelog — using only the MCP tools, on any Figma file.
+
+1. **Pin every capture.** The MCP surface has no version-list endpoint, so pin with
+   what it does give you: record in the capture document's frontmatter the capture
+   datetime (`get_metadata`/`get_design_context` run time) and, when the operator has
+   named a meaningful stop in Figma's version history, that operator-named version
+   label. A capture without a recorded datetime cannot be compared later — it's a
+   photo with no timestamp.
+
+2. **Stable paths, updated in place.** A capture for a given file/system lives at ONE
+   vault path forever; recaptures overwrite it. Git is the diff engine — the vault
+   commit history IS the change log. Never write `capture-v2.md` side-by-side files;
+   that forks the log instead of extending it.
+
+3. **Scope before recapturing.** Ask the operator (or check the observation log) what
+   changed since the last capture, and recapture only the affected layers (variables/
+   styles/components/blocks) — not blindly everything. Named versions from the
+   operator are the strongest signal; encourage the operator to name versions at
+   meaningful stops so scoping has something reliable to key off.
+
+4. **Diff on names, not node ids.** Node-id stability across restructures is unverified;
+   the 1:1 naming contract (see above) makes names the reliable diff key. Normalize
+   captures so ordering is deterministic — sort token lists, variant matrices
+   alphabetically — otherwise reorder churn drowns the real deltas in noise. This
+   deterministic ordering is authoring discipline: write the capture document sorted,
+   every time, so `git diff` output stays clean.
+
+5. **The delta report.** After a recapture, run `git diff` on the capture path — that
+   IS the diff engine here — and write the human summary of what changed (added/
+   removed/renamed tokens, changed values with old→new, new variants) into the
+   capture's changelog section or the commit message — downstream build tasks are cut
+   from that delta, not from re-reading the whole file.
+
+**Caveats:**
+- Dev Mode "Compare changes" and branch review are UI-only — human review aids, not
+  pipeline inputs.
+- Starter-plan files have 30-day version retention in Figma's own history — a
+  comparison window there can silently expire; the vault's git history does not.
+
+**Supplementary mechanics:** if the flux-discipline plugin's `scripts/figma-capture.mjs`
+and a `FIGMA_TOKEN` are available, use it for true REST version pinning —
+`versions` to list real version ids, `snapshot --version <id>` to pin a capture to
+one, `delta` to structurally diff two normalized snapshots — but this skill never
+depends on it; the steps above are complete and self-sufficient on their own.

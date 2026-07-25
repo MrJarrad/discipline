@@ -10,7 +10,7 @@
 | Check **redundancy** in the codebase by domain concept, not just title keywords | Avoids duplicate work |
 | Check the **out-of-scope knowledge base** for prior rejections | Avoids re-litigating settled decisions |
 | **State your recommendation with reasoning** and wait for confirmation on non-obvious calls | Keeps a human in the loop on judgment calls |
-| Write the **full agent brief** (summary, verification, ACs, constraints, pointers, open questions) for ready-for-agent | That's the contract a doer agent needs to start without an interview |
+| Write the **full agent brief** (summary, verification, ACs, constraints, pointers, open questions) for ready-for-agent | That's the contract an assigned specialist agent needs to start without an interview |
 | Record a **wontfix enhancement** in the out-of-scope KB with the load-bearing reason | Durable memory beats a one-line close comment |
 | **Re-check prior triage notes** before asking the reporter anything | Don't waste their time re-asking what's already answered |
 | Pick the **right assignee lane** as part of the readiness bar | Wrong-lane assignment stalls work even when everything else is clean |
@@ -21,7 +21,7 @@
 
 | Don't | Why |
 |-------|-----|
-| Apply **ready-for-agent** without a full brief | Doer agents start guessing, or stall |
+| Apply **ready-for-agent** without a full brief | Assigned specialist agents start guessing, or stall |
 | Write an out-of-scope entry for an **already-implemented** request | KB is for rejected enhancements, not shipped work |
 | **Re-ask** questions already answered in prior triage notes | Wastes the reporter's time |
 | **Implement** during triage | That's execution — stay in your lane, hand off instead |
@@ -53,7 +53,7 @@
 
 ### When asked to actually do the work, not triage it
 
-**Do:** Recognize this is execution, not triage — redirect to the doer skill or agent whose lane it matches.
+**Do:** Recognize this is execution, not triage — redirect to the execution skill or agent whose lane it matches.
 
 **Don't:** Start implementing under the issue-triage banner.
 

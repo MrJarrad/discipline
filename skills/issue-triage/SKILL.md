@@ -1,11 +1,11 @@
 ---
 name: issue-triage
-description: Move a raw Paperclip issue to ready-for-agent — verify the claim, write a testable brief, or capture the rejection in the out-of-scope knowledge base. Use when an issue is vague, unverified, or you're deciding whether it's safe to hand to a doer agent.
+description: Move a raw Paperclip issue to ready-for-agent — verify the claim, write a testable brief, or capture the rejection in the out-of-scope knowledge base. Use when an issue is vague, unverified, or you're deciding whether it's safe to hand to an assigned specialist agent.
 ---
 
 # Issue Triage
 
-Every issue that reaches a doer agent must clear a quality bar first. This skill is that gate: it turns a raw request into either a **ready-for-agent brief**, a **redirect for more information**, or a **durable out-of-scope record** — never a silent drop and never a guess dressed up as clarity.
+Every issue that reaches an assigned specialist agent must clear a quality bar first. This skill is that gate: it turns a raw request into either a **ready-for-agent brief**, a **redirect for more information**, or a **durable out-of-scope record** — never a silent drop and never a guess dressed up as clarity.
 
 Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) before triaging.
 
@@ -15,10 +15,10 @@ An issue is ready-for-agent only when all of these are true. If any one is missi
 
 - **Clear goal** — one sentence states what to build or fix, in plain language.
 - **Acceptance criteria** — testable, checkable statements of done. "Works better" is not an AC; "returns 404 for an unknown id" is.
-- **Right assignee** — the task matches the doer's lane (coder work to a coder, design work to a designer, research to a researcher). Wrong-lane assignment is a triage failure even if everything else is clean.
+- **Right assignee** — the task matches the specialist's lane (coder work to a coder, design work to a designer, research to a researcher). Wrong-lane assignment is a triage failure even if everything else is clean.
 - **Scoped** — boundaries are explicit: what's in, what's explicitly out, what must not be touched.
 - **Dependencies noted** — anything this issue is blocked by or blocks is named, so two agents never collide on the same surface.
-- **No ambiguity** — a doer agent should be able to start without interviewing the reporter. If you had to guess at intent to write the brief, it isn't ready.
+- **No ambiguity** — an assigned specialist agent should be able to start without interviewing the reporter. If you had to guess at intent to write the brief, it isn't ready.
 
 This bar is the same one `quality`'s Discover→Shape→Build→Review loop assumes has already been cleared before Build starts — triage is what clears it. It also verifies the readiness that `paperclip-task-setup` builds toward when turning a plan into tasks: task-setup makes a task well-formed at creation time; issue-triage checks inbound, possibly messy, issues against the same bar before they're allowed through.
 
@@ -35,8 +35,8 @@ And exactly one state:
 |---|---|
 | `needs-triage` | Not yet evaluated |
 | `needs-info` | Waiting on the reporter for missing detail |
-| `ready-for-agent` | Clears the bar above — a doer agent can pick it up |
-| `ready-for-human` | Needs human judgment a doer agent shouldn't make alone |
+| `ready-for-agent` | Clears the bar above — an assigned specialist agent can pick it up |
+| `ready-for-human` | Needs human judgment an assigned specialist agent shouldn't make alone |
 | `wontfix` | Will not be actioned |
 
 If category and state seem to conflict (e.g., a "bug" that's really a feature request), stop and ask rather than pick one silently.
@@ -111,7 +111,7 @@ Link the entry from the closing comment so the decision and its reasoning travel
 
 Not every request that lands in your lap is an issue to triage:
 
-- **If someone is asking you to actually do the work** ("implement this," "fix the bug now"), that's execution, not triage — stay in your lane and hand off to the appropriate doer skill instead of triaging first.
+- **If someone is asking you to actually do the work** ("implement this," "fix the bug now"), that's execution, not triage — stay in your lane and hand off to the appropriate execution skill instead of triaging first.
 - **If the issue is already well-formed** — clear goal, ACs, right assignee, scoped, dependencies noted — don't manufacture objections or extra process. Confirm it clears the bar and pass it through.
 - **If the request needs fleshing out** before it can be verified at all (vague goal, no reproduction steps, unclear scope), that's a `needs-info` state with specific questions for the reporter — not a guess at what they meant.
 

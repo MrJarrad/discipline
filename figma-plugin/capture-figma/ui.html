@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Capture Figma</title>
+  <style>
+    body {
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      font-size: 12px;
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-sizing: border-box;
+      height: 100vh;
+    }
+    button {
+      font-family: inherit;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+    #export-btn {
+      background: #18a0fb;
+      color: #fff;
+      font-weight: 600;
+    }
+    #export-btn:disabled {
+      background: #a6d8fd;
+      cursor: default;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #status {
+      color: #666;
+      min-height: 14px;
+    }
+    #status.error {
+      color: #c0392b;
+    }
+    textarea {
+      flex: 1;
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+      font-size: 11px;
+      resize: none;
+      border: 1px solid #e6e6e6;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    #copy-btn, #download-link {
+      background: #f0f0f0;
+      color: #333;
+    }
+    #download-link {
+      display: inline-block;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    #download-link.enabled {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <button id="export-btn">Export variables</button>
+    <button id="copy-btn" disabled>Copy JSON</button>
+    <a id="download-link" download="capture-figma-variables.json">Download JSON</a>
+  </div>
+  <div id="status"></div>
+  <textarea id="output" readonly placeholder="Export output will appear here..."></textarea>
+
+  <script>
+    const exportBtn = document.getElementById("export-btn");
+    const copyBtn = document.getElementById("copy-btn");
+    const downloadLink = document.getElementById("download-link");
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+
+    exportBtn.addEventListener("click", () => {
+      status.classList.remove("error");
+      status.textContent = "Exporting...";
+      exportBtn.disabled = true;
+      copyBtn.disabled = true;
+      downloadLink.classList.remove("enabled");
+      output.value = "";
+      parent.postMessage({ pluginMessage: { type: "export" } }, "*");
+    });
+
+    copyBtn.addEventListener("click", () => {
+      output.select();
+      document.execCommand("copy");
+      status.textContent = "Copied to clipboard.";
+    });
+
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      exportBtn.disabled = false;
+
+      if (msg.type === "export-result") {
+        const json = JSON.stringify(msg.data, null, 2);
+        output.value = json;
+        copyBtn.disabled = false;
+
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.classList.add("enabled");
+
+        const counts = msg.data.header && msg.data.header.counts ? msg.data.header.counts : {};
+        const collectionCount = Object.keys(counts).length;
+        const variableCount = Object.values(counts).reduce((a, b) => a + b, 0);
+        status.textContent =
+          "Exported " + variableCount + " variables across " + collectionCount + " collection(s).";
+      } else if (msg.type === "export-error") {
+        status.classList.add("error");
+        status.textContent = "Export failed: " + msg.message;
+      }
+    };
+  </script>
+</body>
+</html>
