@@ -82,6 +82,39 @@ recorded once the architecture read is in hand and before the deeper layers get 
    descriptions are a countable documentation-gap finding class — capture reports the count
    per collection/style group, never judges individual gaps.
 
+## Step 3: sections and frames — before variant capture
+
+Operator rulings, training session 2026-07-25 (JHD-Spec-DesignSystem: Examples 2096:1454,
+Text 3044:33252, Card – Media 3044:29873; frame panels for D - Home and M - Home). These fix
+how the container layers between page and component get read.
+
+1. **Sections are optional organization.** The path runs Page → Section(s) → Frame/
+   ComponentSet when a section is present; sections nest (chapters/sub-chapters), and a
+   "`<Component>` Primitives" sibling section shelves private parts alongside the component
+   they belong to. Files without sections are normal — don't infer a missing layer where the
+   author never authored one. Sections carry a dev-status field, but in this practice that
+   status is **data to record, never a workflow signal** — don't infer build-readiness from
+   it.
+2. **Frames are Figma's HTML body.** A frame is an ordered content model: children
+   (components, frames) sit in authored order under auto-layout flow, and that order IS the
+   composition — D - Home reads HeroText, then 11 SplitAsymmetric rows, then
+   NavigationHeader, gap 0. Reading a frame means capturing children-in-order **plus**
+   property bindings **plus** mode assignments — any one alone is a partial read.
+3. **Frame properties bind variables.** Width binds to `device/width`, height to
+   `device/screen-height/*`, fill to a semantic color, and a layout-guide style attaches for
+   grid. A raw dimension on a frame is the anomaly worth flagging — but an authored raw
+   exception can carry real meaning: M - Home's padding-bottom 96 is mobile nav clearance,
+   the Figma twin of the code's body `pb-32` pairing. Report the raw value and the meaning
+   together; don't flag it as drift without checking for one.
+4. **Frames are mode contexts.** A frame pins variable-collection modes via its Appearance
+   property (e.g. layout: `lg` / `sm`; observed mode list: `lg`, `sm`, `md`, `xl`, `lg-flush`,
+   `sm-flush`, `md-flush`, `xl-flush`, `lg-sidebar-main`, `lg-sidebar-main-flush`), and every
+   descendant resolves its variables through that pinned mode — a badge reading `lg`/`sm` is
+   explicit, "Auto" means inherited from the frame. The `D -` / `M -` name prefix is the
+   human label for the pinned mode. **Every value capture must record the mode context it was
+   read in.** A value that differs across two frames for the same variable is mode
+   resolution, not drift — check the pinned mode before calling it a discrepancy.
+
 ## The layer model — a design system is four layers, read all four
 
 A Figma design system is not a flat token list. Extraction is complete only when every
