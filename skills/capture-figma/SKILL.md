@@ -115,6 +115,20 @@ how the container layers between page and component get read.
    read in.** A value that differs across two frames for the same variable is mode
    resolution, not drift — check the pinned mode before calling it a discrepancy.
 
+Operator rulings, training session 2026-07-25 (evidence: CardMedia component internals —
+Content frame wrapping Media + `.Base-CardMediaHeader`; row frames title/subtitle-primary/
+body/action with spacers; variant states default/hovered/disabled).
+
+5. **Frame duality.** The outermost frame is Figma's `<body>` — the screen. Frames nested
+   inside frames are `<div>`s. Same node type; the role is positional, not intrinsic. A frame
+   read names which role it's reading.
+6. **The composition ladder is a coding contract.** Finished layouts/pages assemble BLOCKS
+   ONLY — a coded page reads as a sequence of blocks, nothing finer. Components are
+   legitimately composed of frames (divs), elements, and other components — fine-grained
+   structure belongs inside components. Audit rule: a raw frame or bare element at page level
+   is a composition violation; the identical structure inside a component is anatomy, not a
+   finding.
+
 ## The layer model — a design system is four layers, read all four
 
 A Figma design system is not a flat token list. Extraction is complete only when every
