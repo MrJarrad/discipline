@@ -168,16 +168,66 @@
         // back over the same postMessage channel; never let this throw back
         // into code.js's await — a network failure is reported as
         // { ok: false, error } and handled there as "listener unreachable".
+        const payload = JSON.stringify(msg.data);
+        // Pre-check content-length before POSTing: the listener rejects
+        // bodies over 50MB outright (scripts/capture-listener.mjs), so warn
+        // in the UI as the payload approaches/exceeds that limit instead of
+        // finding out only after a 413. Byte length via Blob.size (UTF-8
+        // aware) rather than payload.length (UTF-16 code units) since the
+        // listener measures actual bytes received.
+        const payloadBytes = new Blob([payload]).size;
+        const LISTENER_MAX_BYTES = 50 * 1024 * 1024;
+        const WARN_THRESHOLD_BYTES = LISTENER_MAX_BYTES * 0.9;
+        if (payloadBytes >= WARN_THRESHOLD_BYTES) {
+          // Shown directly here (no round trip through code.js needed — the
+          // payload and the fetch both live in this iframe already); the
+          // "synced"/"unreachable"/etc. status from code.js overwrites this
+          // once the POST resolves, same as any other sync-status update.
+          syncStatus.classList.add("warn");
+          const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
+          syncStatus.textContent = payloadBytes > LISTENER_MAX_BYTES
+            ? "Payload is " + mb + "MB — over the listener's 50MB limit, POST will be rejected."
+            : "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
+        }
+
         fetch(CAPTURE_LISTENER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(msg.data),
+          body: payload,
         })
           .then((res) => {
-            parent.postMessage(
-              { pluginMessage: { type: "sync-post-result", ok: res.ok, status: res.status } },
-              "*"
-            );
+            if (res.ok) {
+              parent.postMessage(
+                { pluginMessage: { type: "sync-post-result", ok: true, status: res.status } },
+                "*"
+              );
+              return;
+            }
+            // Failure: surface the listener's own response body (its
+            // specific validation message, e.g. "invalid export shape:
+            // missing header.fileName") rather than just the status code —
+            // that message is what actually tells a human what to fix.
+            res
+              .text()
+              .then((bodyText) => {
+                parent.postMessage(
+                  {
+                    pluginMessage: {
+                      type: "sync-post-result",
+                      ok: false,
+                      status: res.status,
+                      body: bodyText,
+                    },
+                  },
+                  "*"
+                );
+              })
+              .catch(() => {
+                parent.postMessage(
+                  { pluginMessage: { type: "sync-post-result", ok: false, status: res.status } },
+                  "*"
+                );
+              });
           })
           .catch((err) => {
             parent.postMessage(
@@ -255,6 +305,15 @@
           const t = new Date(msg.lastSyncAt).toLocaleTimeString();
           syncStatus.textContent =
             "Last sync: " + t + " — " + msg.lastSyncCount + " item(s) sent to listener.";
+        } else if (msg.state === "restored") {
+          // From clientStorage, loaded once at panel-open — a prior
+          // session's last successful sync, shown before this session has
+          // synced anything itself. Overwritten by the next real "synced"
+          // (or any other) status the moment this session produces one.
+          const t = new Date(msg.lastSyncAt).toLocaleTimeString();
+          const d = new Date(msg.lastSyncAt).toLocaleDateString();
+          syncStatus.textContent =
+            "Last sync: " + t + " on " + d + " — " + msg.lastSyncCount + " item(s) (previous session).";
         } else if (msg.state === "unreachable") {
           syncStatus.classList.add("warn");
           syncStatus.textContent = msg.message + " (will retry on next change).";

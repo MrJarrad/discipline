@@ -15,10 +15,13 @@
 // preserved verbatim (not omitted) because a description gap is itself
 // countable capture signal (ruling 7).
 //
-// Output shape (v1.1.0):
+// Output shape (v1.2.0):
 //   {
 //     header: {
-//       fileName, pluginVersion, exportedAt,
+//       fileName, fileKey (figma.fileKey — omitted when undefined; Figma
+//       leaves this unset in some contexts, e.g. a file that has never been
+//       saved/published, so callers must not assume presence),
+//       pluginVersion, exportedAt,
 //       counts: { <collection name>: <variable count>, ... ,
 //                 "styles/text": n, "styles/paint": n,
 //                 "styles/effect": n, "styles/grid": n },
@@ -59,7 +62,7 @@
 // run of the styles export is the outstanding verification — see the
 // engineering note at the bottom of this file.
 
-const PLUGIN_VERSION = "1.1.0";
+const PLUGIN_VERSION = "1.2.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
@@ -81,6 +84,7 @@ const PLUGIN_VERSION = "1.1.0";
 const SYNC_DEBOUNCE_MS = 5000;
 
 figma.showUI(__html__, { width: 480, height: 640 });
+loadLastSyncFromStorage();
 
 async function getCollections() {
   if (typeof figma.variables.getLocalVariableCollectionsAsync === "function") {
@@ -379,12 +383,24 @@ async function buildStylesExport(variableById) {
     for (const style of rawStyles) {
       const description = style.description || "";
       if (description === "") emptyDescriptions[key] += 1;
-      out.push({
+      const styleOut = {
         name: style.name,
         type: builder.figmaType,
         description: description,
         properties: await builder.buildProperties(style, variableById),
-      });
+      };
+      // hiddenFromPublishing on styles: unlike Variable, BaseStyleMixin does
+      // not document this field as of the plugin-docs pages checked when
+      // this was written (figma.com/plugin-docs/api/PaintStyle/ and
+      // siblings) — styles publish/unpublish as a whole, no per-style hide
+      // flag exposed to plugins. Kept defensive (typeof check, never
+      // defaulted) rather than omitted outright, in case a future API
+      // version adds it; verify against current plugin-docs before relying
+      // on this ever actually populating.
+      if (typeof style.hiddenFromPublishing === "boolean") {
+        styleOut.hiddenFromPublishing = style.hiddenFromPublishing;
+      }
+      out.push(styleOut);
     }
 
     styles[key] = out;
@@ -456,6 +472,19 @@ async function buildExport() {
       if (variable.description) {
         variableOut.description = variable.description;
       }
+      // codeSyntax: per-platform (WEB/ANDROID/iOS) name overrides an author
+      // may set for dev handoff. Figma always exposes the object, but it's
+      // typically empty ({}) unless set — only emit when at least one
+      // platform key is present, so untouched variables don't carry noise.
+      if (variable.codeSyntax && Object.keys(variable.codeSyntax).length > 0) {
+        variableOut.codeSyntax = Object.assign({}, variable.codeSyntax);
+      }
+      // hiddenFromPublishing: library-publishing visibility flag. Only
+      // meaningful (and only present) on variables that belong to a
+      // publishable library; emit as authored, never defaulted.
+      if (typeof variable.hiddenFromPublishing === "boolean") {
+        variableOut.hiddenFromPublishing = variable.hiddenFromPublishing;
+      }
       variablesOut.push(variableOut);
     }
 
@@ -473,16 +502,28 @@ async function buildExport() {
     counts["styles/" + key] = stylesExport.styleCounts[key];
   }
 
+  const header = {
+    fileName: figma.root.name,
+    pluginVersion: PLUGIN_VERSION,
+    exportedAt: Date.now(),
+    counts: counts,
+    styleCounts: Object.assign({}, stylesExport.styleCounts, {
+      emptyDescriptions: stylesExport.emptyDescriptions,
+    }),
+  };
+  // figma.fileKey: undefined in some contexts (e.g. a file that has never
+  // been saved to the cloud, or certain plugin-execution contexts per
+  // figma.com/plugin-docs/api/figma-properties/#filekey) — emit only when
+  // present rather than writing a null/undefined placeholder. The listener
+  // and downstream routing prefer this for dedup/routing when it's there,
+  // falling back to the kebab-cased fileName otherwise (see
+  // scripts/capture-listener.mjs).
+  if (typeof figma.fileKey === "string" && figma.fileKey) {
+    header.fileKey = figma.fileKey;
+  }
+
   const output = {
-    header: {
-      fileName: figma.root.name,
-      pluginVersion: PLUGIN_VERSION,
-      exportedAt: Date.now(),
-      counts: counts,
-      styleCounts: Object.assign({}, stylesExport.styleCounts, {
-        emptyDescriptions: stylesExport.emptyDescriptions,
-      }),
-    },
+    header: header,
     collections: collectionsOut,
     styles: stylesExport.styles,
   };
@@ -506,6 +547,46 @@ let syncEnabled = false;
 let syncDebounceTimer = null;
 let lastSyncAt = null;
 let lastSyncCount = 0;
+
+// Last-successful-sync persistence key. clientStorage is per-plugin,
+// per-user, and (per figma.com/plugin-docs/api/figma-clientStorage/)
+// scoped to this file when documentAccess allows it — good enough to
+// survive a closed/reopened panel or a fresh Figma session on this
+// machine. Session memory (lastSyncAt/lastSyncCount above) stays the
+// source of truth while sync is actively running; clientStorage is only
+// read once at startup (to show a value before the first sync of this
+// session) and written after every successful sync.
+const LAST_SYNC_STORAGE_KEY = "capture-figma:last-sync";
+
+async function loadLastSyncFromStorage() {
+  try {
+    const stored = await figma.clientStorage.getAsync(LAST_SYNC_STORAGE_KEY);
+    if (stored && typeof stored.lastSyncAt === "number") {
+      figma.ui.postMessage({
+        type: "sync-status",
+        state: "restored",
+        lastSyncAt: stored.lastSyncAt,
+        lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
+      });
+    }
+  } catch (err) {
+    // clientStorage can throw in some plugin execution contexts (e.g.
+    // certain sandboxed test runners) — never let a persistence failure
+    // block the plugin from opening.
+  }
+}
+
+async function saveLastSyncToStorage(atMs, count) {
+  try {
+    await figma.clientStorage.setAsync(LAST_SYNC_STORAGE_KEY, {
+      lastSyncAt: atMs,
+      lastSyncCount: count,
+    });
+  } catch (err) {
+    // Best-effort — a failed write only costs the cross-session persistence,
+    // not the current session's in-memory status.
+  }
+}
 
 function totalExportCount(data) {
   const counts = (data && data.header && data.header.counts) || {};
@@ -560,10 +641,14 @@ async function runSyncExport() {
   }
 
   if (!result.ok) {
+    // Surface the listener's own response body — its specific validation
+    // message (e.g. "invalid export shape: missing header.fileName") — not
+    // just the status code, so a human can actually act on it.
+    const bodyText = result.body ? " — " + result.body : "";
     figma.ui.postMessage({
       type: "sync-status",
       state: "listener-error",
-      message: "listener responded " + result.status + " — export still available manually",
+      message: "listener responded " + result.status + bodyText,
     });
     return;
   }
@@ -576,6 +661,7 @@ async function runSyncExport() {
     lastSyncAt: lastSyncAt,
     lastSyncCount: lastSyncCount,
   });
+  await saveLastSyncToStorage(lastSyncAt, lastSyncCount);
 }
 
 function scheduleSyncExport() {
