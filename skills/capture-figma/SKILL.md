@@ -35,6 +35,8 @@ or screenshots, read the file's shape.
    canonical-library components and styles the **deliverable** pages bind — that's the
    audit scope. Exploration pages are out of scope by default; don't spend extraction effort
    auditing them unless the operator asks.
+5. **Name human-first.** Capture artifacts and all prose name files human-name-first with the
+   key in parentheses — e.g. "JHD-Spec-DesignSystem (arJSACOFZmIi5rFGlxXoi0)"; never key-only.
 
 ## The layer model — a design system is four layers, read all four
 

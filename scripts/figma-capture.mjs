@@ -10,8 +10,10 @@
      figma-capture.mjs snapshot <fileKey> <outPath> [--version <id>]
        Fetch the file (pinned to <id> if given), normalize deterministically
        (sorted keys, children sorted by name/id, volatile fields stripped)
-       and write JSON with a header: fileKey, versionId, versionCreatedAt,
-       capturedAt, schemaVersion. On a 404 with a version pin, retries once
+       and write JSON with a header: fileKey, fileName, versionId,
+       versionCreatedAt, capturedAt, schemaVersion. fileName is the file's
+       human-readable name (REST response's top-level `name`) — files are
+       identified human-name-first, key as suffix. On a 404 with a version pin, retries once
        unpinned and warns loudly that the pin failed. Also attempts GET
        /v1/files/<fileKey>/variables/local and embeds the (normalized) result
        under a top-level `variables` key. That endpoint is Enterprise-plan
@@ -179,6 +181,7 @@ async function cmdSnapshot(fileKey, outPath, versionId) {
   const variables = await fetchLocalVariables(fileKey, token);
   const snapshot = {
     fileKey,
+    fileName: body.name ?? null,
     versionId: effectiveVersionId ?? "unpinned",
     versionCreatedAt: body.version ? body.lastModified ?? null : null,
     capturedAt: new Date(Date.now()).toISOString(),
@@ -187,7 +190,7 @@ async function cmdSnapshot(fileKey, outPath, versionId) {
     ...(variables ? { variables } : {}),
   };
   writeFileSync(outPath, JSON.stringify(snapshot, null, 2) + "\n", "utf8");
-  console.log(`wrote ${outPath} (version: ${snapshot.versionId})`);
+  console.log(`wrote ${outPath} (${snapshot.fileName ?? "unknown"} @ version ${snapshot.versionId})`);
 }
 
 // --- delta -------------------------------------------------------------------
