@@ -9,7 +9,7 @@
 
      figma-capture.mjs snapshot <fileKey> <outPath> [--version <id>]
        Fetch the file (pinned to <id> if given), normalize deterministically
-       (sorted keys, children sorted by name/id, volatile fields stripped),
+       (sorted keys, children sorted by name/id, volatile fields stripped)
        and write JSON with a header: fileKey, versionId, versionCreatedAt,
        capturedAt, schemaVersion. On a 404 with a version pin, retries once
        unpinned and warns loudly that the pin failed. Also attempts GET
@@ -18,6 +18,22 @@
        gated: on 403/404 the script prints a loud warning and continues
        without failing (fall back to the MCP get_variable_defs lane per the
        capture-figma skill) — variables capture here is best-effort.
+
+       Children-sort exception: the document root's children (the DOCUMENT
+       node's `children`, i.e. the file's CANVAS/page nodes) are NOT sorted
+       by name — their array order is preserved as returned by the REST API,
+       because page order is semantic (e.g. a design system's dependency
+       ramp). Every other `children` array in the tree is still sorted by
+       name (fallback id).
+
+       Snapshot shape note: `normalize()` is run over the whole REST file
+       response (not just its `document` field), then that entire normalized
+       object is nested under `snapshot.document`. So the top-level REST
+       `components`/`componentSets`/`styles` maps land at
+       `snapshot.document.components` / `.componentSets` / `.styles`
+       (siblings of `snapshot.document.document`, the actual node tree) —
+       they are preserved, just one level deeper than their REST-response
+       position because of that wrapping.
 
      figma-capture.mjs delta <oldPath> <newPath>
        Structural diff of two snapshots keyed on NAMES: added/removed/renamed
@@ -84,10 +100,15 @@ function isUrlKey(key) {
   return /Url$/.test(key);
 }
 
-function normalize(value, parentKey) {
+function normalize(value, parentKey, parentType) {
   if (Array.isArray(value)) {
-    const items = value.map((v) => normalize(v, parentKey));
-    if (parentKey === "children") {
+    const items = value.map((v) => normalize(v, parentKey, parentType));
+    // Canvas order is semantic: the document root's children (type DOCUMENT ->
+    // children of type CANVAS, i.e. pages) encode a deliberate page ramp
+    // (e.g. a design system's dependency order). Every other children array
+    // keeps the deterministic sort-by-name/id.
+    const isDocumentRootPages = parentKey === "children" && parentType === "DOCUMENT";
+    if (parentKey === "children" && !isDocumentRootPages) {
       items.sort((a, b) => {
         const an = a?.name ?? a?.id ?? "";
         const bn = b?.name ?? b?.id ?? "";
@@ -99,6 +120,7 @@ function normalize(value, parentKey) {
   if (value && typeof value === "object") {
     const out = {};
     const keys = Object.keys(value).sort();
+    const thisType = typeof value.type === "string" ? value.type : undefined;
     for (const key of keys) {
       if (VOLATILE_KEYS.has(key) || isUrlKey(key)) continue;
       let v = value[key];
@@ -106,7 +128,7 @@ function normalize(value, parentKey) {
         const { x, y, ...rest } = v;
         v = rest;
       }
-      out[key] = normalize(v, key);
+      out[key] = normalize(v, key, thisType);
     }
     return out;
   }
