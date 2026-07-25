@@ -261,6 +261,25 @@ Only for what numbers can't carry: composition, art direction, copy (extract **v
 never paraphrase), and layout relationships. By now you have real dimensions, so annotate
 what you see with them instead of estimating.
 
+### Reading a page layout
+
+A page layout is read as a **contract**, not a picture — four passes, in order:
+
+1. **Context**: the body frame's mode vector + its own property bindings (+ authored raw
+   exceptions) — nothing below is interpretable without it.
+2. **Composition**: children in order, blocks only at page level; the ordered block list
+   IS the layout; non-block children at this level are composition violations.
+3. **Blocks as instances**: read each block's props (variants, booleans, text, nested
+   exposed props; overrides vs defaults), never re-derive internals — those belong to the
+   component definition, read once, elsewhere.
+4. **Values as chains**: every surfaced number recorded as token → value (in mode), so
+   audits compare derivations, not pixels, and a token change diffs as one named change.
+
+A layout so captured = mode vector + ordered block sequence + prop tables — small,
+diffable, re-renderable; the Figma page and the coded page (e.g. a `home-layout.ts`) are
+two serializations of the same structured data, and conformance is record-by-record
+comparison.
+
 ## Both directions — top-down and bottom-up
 
 The four layers can be read in either direction, and a complete extraction runs both:
