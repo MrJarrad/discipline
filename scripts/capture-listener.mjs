@@ -49,13 +49,25 @@ function kebab(name) {
 // The export header shape code.js's buildExport() produces (see code.js's
 // header comment for the full shape). We only require the fields this
 // listener actually needs to file the artifact and write a receipt.
+//
+// header.exportedAt: the brief never specified a wire type, so we accept
+// either shape a contract-compliant plugin might reasonably send — a number
+// (our own plugin's Date.now()) or a string parseable by Date (an ISO-8601
+// timestamp, which is what Figma's agent-built plugin sends). Only reject
+// when it's neither.
+function isValidExportedAt(value) {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string") return value !== "" && !Number.isNaN(Date.parse(value));
+  return false;
+}
+
 function validateExportShape(body) {
   if (!body || typeof body !== "object") return "body is not a JSON object";
   const header = body.header;
   if (!header || typeof header !== "object") return "missing header";
   if (typeof header.fileName !== "string" || !header.fileName) return "missing header.fileName";
   if (typeof header.pluginVersion !== "string") return "missing header.pluginVersion";
-  if (typeof header.exportedAt !== "number") return "missing header.exportedAt";
+  if (!isValidExportedAt(header.exportedAt)) return "missing or invalid header.exportedAt (must be a number or a parseable date string)";
   if (!header.counts || typeof header.counts !== "object") return "missing header.counts";
   return null;
 }
@@ -132,6 +144,7 @@ function handleCapture(req, res) {
       const receipt = {
         ts: new Date().toISOString(),
         fileName: parsed.header.fileName,
+        exportedAt: new Date(parsed.header.exportedAt).toISOString(),
         counts: parsed.header.counts,
       };
       appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
