@@ -31,7 +31,15 @@
 
    Labels follow the persona-model convention, e.g. "engineer-sonnet:two-line" —
    <persona>-<model>:<short-task-tag> — so journal entries and console output
-   name who ran the step and on what model at a glance.                       */
+   name who ran the step and on what model at a glance.
+
+   Every spawn also always carries --settings <plugin root>/runner-settings.json:
+   standing tool-level allow/deny rights (Edit, Write, git checkout/add/commit/
+   status/diff/log/branch, npx tsc, npm run typecheck, grep, rg allowed; git
+   push, git reset --hard, rm -rf denied) so specialists get dispatch-level
+   permissions from the runner itself — no repo-local settings file needed,
+   operator/interactive posture untouched. Per-agent `allowedTools` in the
+   spec is additive on top of this file, never a replacement for it.        */
 import { readFileSync, appendFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -47,6 +55,7 @@ const log = (e) => appendFileSync(journal, JSON.stringify({ t: new Date().toISOS
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = dirname(scriptsDir);
 const operatorRulesPath = join(pluginRoot, "operator-rules.md");
+const runnerSettingsPath = join(pluginRoot, "runner-settings.json");
 
 function loadPersona(persona) {
   const path = join(pluginRoot, "agents", `${persona}.md`);
@@ -103,6 +112,7 @@ function runClaude({
       "--output-format", "json",
       "--permission-mode", permissionMode,
       "--append-system-prompt-file", operatorRulesPath,
+      "--settings", runnerSettingsPath,
     ];
     if (allowedTools) args.push("--allowedTools", allowedTools);
     if (disallowedTools) args.push("--disallowedTools", disallowedTools);

@@ -10,6 +10,38 @@ read as "5:4" that was actually screen-height stops, a tracking value eyeballed 
 subtitle size inferred a step too large. Each misread costs a full correction round in the
 build. The fix is an order of operations: **numbers before pictures.**
 
+## Lane choice — three lanes, one hierarchy
+
+Both MCP and REST are correct, at different layers — pick by what's available and what
+you're reading, not by habit:
+
+1. **Portability floor — MCP (this skill's steps below).** Works for any file, no
+   dependencies beyond the Figma desktop MCP bridge (operator ruling). Every stage in
+   Steps 1-4, "The order," and Recapture is written against MCP tool calls
+   (`get_variable_defs`, `get_metadata`, `get_screenshot`) precisely so the skill is
+   self-sufficient with nothing else installed or configured. Use this lane whenever
+   `FIGMA_TOKEN` isn't available, or the target file needs a one-off, human-in-loop read.
+2. **Preferred lane — REST + Capture Figma plugin, when `FIGMA_TOKEN` exists.** For
+   tree/structure (pages, frames, components, variant matrices), the discipline plugin's
+   `scripts/figma-capture.mjs` against the plain REST API (`depth`/`ids` omitted) is
+   best-in-class: no active-tab constraint, no lazy-page gaps, real `?version=` pinning
+   (research decision, `documents/figma-reading-research.md`). For variables with full
+   mode coverage, pair it with the Capture Figma plugin
+   (Plugin API `getLocalVariablesAsync`/`getLocalVariableCollectionsAsync`) — the only
+   non-Enterprise route to every mode, every collection. Prefer this pairing over MCP
+   whenever both a token and the plugin are available; it produces the deterministic,
+   diffable capture the Recapture section below depends on.
+3. **Ad-hoc/live-lookup lane — MCP, always available as a fallback.** Even when REST is
+   the default, MCP remains the right tool for a quick live check against whatever's on
+   screen right now — confirming a single value, sanity-checking a REST pull, walking a
+   file nobody has piped a token for yet.
+
+The steps below (Steps 1-4, the layer model, "The order," recapture) are written as the
+MCP-only procedure — the portability floor. When the preferred lane is available, run the
+same conceptual stages (architecture → styles/variables → components → blocks) through
+REST + plugin output instead of MCP tool calls; the sequence and the operator rulings
+don't change, only which tool produces each layer's data.
+
 ## Step 1: architecture read — before any value capture
 
 Values mean nothing against no skeleton. Before touching variables, styles, components,
@@ -57,14 +89,18 @@ recorded once the architecture read is in hand and before the deeper layers get 
    weight → `weight/strong`) and which hold RAW values (e.g. size 40, line-height 105%,
    letter-spacing -0.75 in `title/200`). Raw properties inside styles are prime drift/defect
    territory — no variable guardrail sits behind them, which is how a line-height typo like
-   80/13 survives unnoticed. Capture flags every raw-valued style property as a review
+   `body/1200`'s dropped-zero `13` (should be `130`) survives unnoticed. Capture flags every
+   raw-valued style property as a review
    candidate (deliberate-or-drift), to be ruled by the operator, not silently accepted or
    silently "fixed." Style names are path-composed from their group (`title` + `200` →
    `title/200`).
 4. **Variables vs styles — the confirmed model.** Variables define single values. Styles
    compose values into recipes and may consume variables per-property. Components consume
-   both. Assets publish components. Pages organize everything into meaning. Read the layers
-   in this order when capturing — each one is the substrate the next is built from.
+   both. Assets publish components. Pages organize everything into meaning. This is the
+   dependency chain, not an execution order — the file's execution order is Steps 1-4
+   below (architecture, then this step's surfaces, then sections/frames/modes, then
+   components/bindings); "The order" further down sequences the specific tool calls that
+   happen *within* this step.
 5. **The recipe model is universal.** All four style types — text, color/fill, effect, and
    layout-guide/grid — share one anatomy: name + description + properties, each property
    either variable-bound or raw. Effect `material-blur-100` binds radius to `blur-100`;
@@ -85,8 +121,10 @@ recorded once the architecture read is in hand and before the deeper layers get 
 ## Step 3: sections and frames — before variant capture
 
 Operator rulings, training session 2026-07-25 (JHD-Spec-DesignSystem: Examples 2096:1454,
-Text 3044:33252, Card – Media 3044:29873; frame panels for D - Home and M - Home). These fix
-how the container layers between page and component get read.
+Text 3044:33252, Card – Media 3044:29873; frame panels for D - Home and M - Home; CardMedia
+component internals — Content frame wrapping Media + `.Base-CardMediaHeader`; row frames
+title/subtitle-primary/body/action with spacers; variant states default/hovered/disabled).
+These fix how the container layers between page and component get read.
 
 1. **Sections are optional organization.** The path runs Page → Section(s) → Frame/
    ComponentSet when a section is present; sections nest (chapters/sub-chapters), and a
@@ -114,7 +152,7 @@ how the container layers between page and component get read.
    human label for the pinned mode. **Every value capture must record the mode context it was
    read in.** A value that differs across two frames for the same variable is mode
    resolution, not drift — check the pinned mode before calling it a discrepancy.
-4b. **Mode pins are per collection — the context is a vector, not a scalar.** A frame doesn't
+5. **Mode pins are per collection — the context is a vector, not a scalar.** A frame doesn't
    pin one mode, it pins one mode per variable collection it participates in: a frame can
    simultaneously carry layout `lg` AND color `dark` AND any other collection's mode, each
    pinned or left "Auto" (inherited) independently. Capture the full mode vector for a frame,
@@ -123,15 +161,10 @@ how the container layers between page and component get read.
    resolution and delta comparisons key on **variable + full mode vector**; comparing two
    frames' values without matching every collection in the vector is comparing apples to a
    different fruit, not flagging drift.
-
-Operator rulings, training session 2026-07-25 (evidence: CardMedia component internals —
-Content frame wrapping Media + `.Base-CardMediaHeader`; row frames title/subtitle-primary/
-body/action with spacers; variant states default/hovered/disabled).
-
-5. **Frame duality.** The outermost frame is Figma's `<body>` — the screen. Frames nested
+6. **Frame duality.** The outermost frame is Figma's `<body>` — the screen. Frames nested
    inside frames are `<div>`s. Same node type; the role is positional, not intrinsic. A frame
    read names which role it's reading.
-6. **The composition ladder is a coding contract.** Finished layouts/pages assemble BLOCKS
+7. **The composition ladder is a coding contract.** Finished layouts/pages assemble BLOCKS
    ONLY — a coded page reads as a sequence of blocks, nothing finer. Components are
    legitimately composed of frames (divs), elements, and other components — fine-grained
    structure belongs inside components. Audit rule: a raw frame or bare element at page level
@@ -225,11 +258,16 @@ dislike is a finding to raise with the operator, not a thing to silently rename 
 **Build consequence:** code mirrors the names — CardMedia stays CardMedia, size values stay
 100|200|300, layout enums stay the Figma values (half | split-media | full).
 
-## The order — never skip a stage
+## The order — the tool-call sequence within Step 2, never skip a stage
+
+This is not a competing top-level order — Step 1's architecture read has already
+happened by the time this sequence starts. Within the surfaces Step 2 covers
+(variables, styles, metadata, screenshots), run the tool calls in this order:
 
 ### 1. Variables first — `get_variable_defs`
-The token graph is the truth. Run it on a representative component node before looking at
-anything. It yields the values screenshots can only approximate:
+The token graph is the truth. Run it on a representative component node, after the
+Step 1 architecture read and before looking at anything else. It yields the values
+screenshots can only approximate:
 - exact type sizes, line-heights (often **percent** — 105 = 1.05), tracking in px, weights, family
 - spacing/padding/grid tokens (page padding, col-span widths, space steps)
 - component dimensions (button height, border widths, radii)
@@ -355,12 +393,35 @@ value falls between steps, that's a finding to surface — either the ramp grows
 design snaps — never a hardcoded exception. Same for behavior: a 1280-wide frame showing a
 full-bleed image translates to the block's `flush` prop, not `width: 1280px`.
 
-## Output of an extraction
+## Output of an extraction — two artifacts, separately schemad
 
-A written observation log (vault document), containing per block: node id, measured frame
-dims, anatomy with positions, the token mapping (measured → system token), variant matrix
-if a component, verbatim copy, and an explicit **unobserved/unresolved list**. Claims
-without a node id or variable behind them are marked as inference.
+A capture is not one document. It's two, cross-referencing, each with its own frontmatter
+and vault path — this is the codified convention, not a one-off from any particular
+capture:
+
+1. **Architecture map** (`documents/<file-name>-architecture-map.md`) — Step 1's anatomy,
+   the skeleton. Frontmatter: `file` (human-name-first, key in parens), `captured` (date),
+   `sources` (what was pulled and when — pinned REST snapshot id / MCP session, plus any
+   operator screenshots), `status` (e.g. "architecture baseline," in-flight caveats),
+   `supersedes` (the previous map this replaces, or "nothing" for a first capture). Body:
+   pages in canvas order with role and frame counts, the PRODUCER/CONSUMER archetype,
+   library manifest, per-page findings — everything from Steps 1, 3, and 4's structural
+   layers.
+2. **Variables ledger** (`documents/<file-name>-variables-ledger.md`) — Step 2's values.
+   Frontmatter: `file_key`, `file_name`, `capture_date`, `version` (the pinned version id,
+   or an explicit "unpinned" note with why), `coverage` (a list of `page_id`/`page_name`
+   pairs actually pulled), `method` (which tool and mode — e.g. "MCP get_variable_defs per
+   page, single-mode" or "REST + Capture Figma plugin, all modes"). Body: variables and
+   styles grouped by collection/type, sorted alphabetically within each group (recapture
+   discipline's determinism rule applies here too), with discrepancies and coverage gaps
+   called out as their own sections.
+
+Both documents live at ONE stable vault path per file/system forever (recapture discipline,
+below, applies to each independently — a variables recapture doesn't require re-writing the
+architecture map, and vice versa). Per-item content in either document: node id, measured
+dims where relevant, the token mapping (measured → system token), variant matrix if a
+component, verbatim copy, and an explicit **unobserved/unresolved list**. Claims without a
+node id or variable behind them are marked as inference.
 
 ## Alpha composites — Figma's alias-with-opacity gap
 
@@ -415,8 +476,10 @@ turns a snapshot into a changelog — using only the MCP tools, on any Figma fil
 - Starter-plan files have 30-day version retention in Figma's own history — a
   comparison window there can silently expire; the vault's git history does not.
 
-**Supplementary mechanics:** if the discipline plugin's `scripts/figma-capture.mjs`
-and a `FIGMA_TOKEN` are available, use it for true REST version pinning —
-`versions` to list real version ids, `snapshot --version <id>` to pin a capture to
-one, `delta` to structurally diff two normalized snapshots — but this skill never
-depends on it; the steps above are complete and self-sufficient on their own.
+**Supplementary mechanics:** when the discipline plugin's `scripts/figma-capture.mjs`
+and a `FIGMA_TOKEN` are available — the preferred lane per "Lane choice" above — use
+it for true REST version pinning: `versions` to list real version ids, `snapshot
+--version <id>` to pin a capture to one, `delta` to structurally diff two normalized
+snapshots. The MCP-only recapture discipline above is the portability floor: it never
+depends on the script, so the steps are complete and self-sufficient on any file with
+no token and no plugin — but when the preferred lane is available, prefer it here too.

@@ -39,9 +39,22 @@
 
      figma-capture.mjs delta <oldPath> <newPath>
        Structural diff of two snapshots keyed on NAMES: added/removed/renamed
-       components and styles, variable value changes, variant additions.
+       components, componentSets and styles, variable value changes (keyed
+       per variable + per mode, never as one opaque blob), and variant
+       additions (variant names parsed as prop equations, e.g.
+       "device=desktop, height=medium" -> {device:"desktop",height:"medium"}).
        Variable comparison prefers the embedded `variables` block when both
        snapshots have one; falls back to document-embedded variables otherwise.
+       Output opens with a file-identity header line naming both snapshots'
+       file name/key and version pair before any diff content.
+
+   Memory: full REST file responses are buffered whole (parsed object +
+   serialized JSON string, so peak memory is >=2x file size). Files in the
+   250MB+ range have been observed to need more V8 heap than Node's default;
+   run with e.g. `node --max-old-space-size=4096 figma-capture.mjs snapshot ...`
+   for large files. Pass `--no-geometry` to `snapshot` to additionally strip
+   absoluteBoundingBox/absoluteRenderBounds from every node, shrinking the
+   snapshot when geometry data isn't needed for the capture at hand.
 
    Auth: FIGMA_TOKEN env var (sent as X-Figma-Token). Single retry with
    backoff on HTTP 429.                                                      */
@@ -102,9 +115,9 @@ function isUrlKey(key) {
   return /Url$/.test(key);
 }
 
-function normalize(value, parentKey, parentType) {
+function normalize(value, parentKey, parentType, opts = {}) {
   if (Array.isArray(value)) {
-    const items = value.map((v) => normalize(v, parentKey, parentType));
+    const items = value.map((v) => normalize(v, parentKey, parentType, opts));
     // Canvas order is semantic: the document root's children (type DOCUMENT ->
     // children of type CANVAS, i.e. pages) encode a deliberate page ramp
     // (e.g. a design system's dependency order). Every other children array
@@ -125,12 +138,13 @@ function normalize(value, parentKey, parentType) {
     const thisType = typeof value.type === "string" ? value.type : undefined;
     for (const key of keys) {
       if (VOLATILE_KEYS.has(key) || isUrlKey(key)) continue;
+      if (opts.noGeometry && BOUNDING_BOX_KEYS.has(key)) continue;
       let v = value[key];
       if (BOUNDING_BOX_KEYS.has(key) && v && typeof v === "object") {
         const { x, y, ...rest } = v;
         v = rest;
       }
-      out[key] = normalize(v, key, thisType);
+      out[key] = normalize(v, key, thisType, opts);
     }
     return out;
   }
@@ -145,7 +159,7 @@ async function fetchFile(fileKey, token, versionId) {
   return res;
 }
 
-async function fetchLocalVariables(fileKey, token) {
+async function fetchLocalVariables(fileKey, token, opts) {
   const res = await figmaFetch(`/files/${fileKey}/variables/local`, token);
   if (res.status === 403 || res.status === 404) {
     console.warn(
@@ -158,10 +172,10 @@ async function fetchLocalVariables(fileKey, token) {
     return null;
   }
   const body = await res.json();
-  return normalize(body);
+  return normalize(body, undefined, undefined, opts);
 }
 
-async function cmdSnapshot(fileKey, outPath, versionId) {
+async function cmdSnapshot(fileKey, outPath, versionId, opts = {}) {
   const token = requireToken();
   let res = await fetchFile(fileKey, token, versionId);
   let effectiveVersionId = versionId;
@@ -177,8 +191,8 @@ async function cmdSnapshot(fileKey, outPath, versionId) {
     process.exit(1);
   }
   const body = await res.json();
-  const normalized = normalize(body);
-  const variables = await fetchLocalVariables(fileKey, token);
+  const normalized = normalize(body, undefined, undefined, opts);
+  const variables = await fetchLocalVariables(fileKey, token, opts);
   const snapshot = {
     fileKey,
     fileName: body.name ?? null,
@@ -195,14 +209,41 @@ async function cmdSnapshot(fileKey, outPath, versionId) {
 
 // --- delta -------------------------------------------------------------------
 
-function collectByName(node, kind, out, path = []) {
+// Walks the actual node tree (snapshot.document.document — see the header
+// comment's "Snapshot shape note") collecting every node whose `type` is in
+// `types` into `out`, keyed by name. Recurses through `children` regardless
+// of node type, so COMPONENT nodes nested inside COMPONENT_SET nodes (variant
+// matrices) are reached, not just top-level components.
+function collectNodesByType(node, types, out, path = []) {
   if (!node || typeof node !== "object") return;
-  if (kind === "components" && node.type === "COMPONENT" && node.name) {
+  if (types.has(node.type) && node.name) {
     out.set(node.name, { path: [...path, node.name], node });
   }
   if (Array.isArray(node.children)) {
-    for (const child of node.children) collectByName(child, kind, out, [...path, node.name ?? ""]);
+    for (const child of node.children) collectNodesByType(child, types, out, [...path, node.name ?? ""]);
   }
+}
+
+// Variant names are prop equations, not labels: "device=desktop, height=medium"
+// -> {device: "desktop", height: "medium"}. Malformed segments (no `=`) are
+// dropped rather than throwing, since a stray/legacy variant name shouldn't
+// crash the whole delta.
+function parseVariantName(name) {
+  const props = {};
+  for (const part of String(name ?? "").split(",")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const key = part.slice(0, eq).trim();
+    const val = part.slice(eq + 1).trim();
+    if (key) props[key] = val;
+  }
+  return props;
+}
+
+function formatVariantProps(props) {
+  const entries = Object.entries(props);
+  if (!entries.length) return null;
+  return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }
 
 function diffMaps(oldMap, newMap, label, lines) {
@@ -217,6 +258,10 @@ function diffMaps(oldMap, newMap, label, lines) {
   }
 }
 
+// Keys changes by variable + MODE, per the skill's mode-vector model ("Mode
+// pins are per collection — the context is a vector, not a scalar"). Never
+// collapses a whole valuesByMode blob into one opaque change line — each
+// (variable, mode) pair that actually changed gets its own line.
 function diffVariables(oldSnap, newSnap, lines) {
   const oldEmbedded = oldSnap?.variables?.meta?.variables ?? oldSnap?.variables?.variables;
   const newEmbedded = newSnap?.variables?.meta?.variables ?? newSnap?.variables?.variables;
@@ -230,9 +275,20 @@ function diffVariables(oldSnap, newSnap, lines) {
   for (const [name, nv] of newByName) {
     const ov = oldByName.get(name);
     if (!ov) continue;
-    const oldVal = JSON.stringify(ov.valuesByMode ?? ov.value);
-    const newVal = JSON.stringify(nv.valuesByMode ?? nv.value);
-    if (oldVal !== newVal) changes.push(`  ~ ${name}: ${oldVal} -> ${newVal}`);
+    const oldModes = ov.valuesByMode;
+    const newModes = nv.valuesByMode;
+    if (oldModes && newModes) {
+      const modeKeys = new Set([...Object.keys(oldModes), ...Object.keys(newModes)]);
+      for (const mode of modeKeys) {
+        const oldVal = JSON.stringify(oldModes[mode]);
+        const newVal = JSON.stringify(newModes[mode]);
+        if (oldVal !== newVal) changes.push(`  ~ ${name} [mode: ${mode}]: ${oldVal} -> ${newVal}`);
+      }
+    } else {
+      const oldVal = JSON.stringify(ov.value);
+      const newVal = JSON.stringify(nv.value);
+      if (oldVal !== newVal) changes.push(`  ~ ${name}: ${oldVal} -> ${newVal}`);
+    }
   }
   if (changes.length) {
     lines.push("variables:");
@@ -240,17 +296,38 @@ function diffVariables(oldSnap, newSnap, lines) {
   }
 }
 
+function fileIdentityHeader(snap) {
+  const name = snap?.fileName ?? "unknown";
+  const key = snap?.fileKey ?? "?";
+  return `${name} (${key}) @ ${snap?.versionId ?? "?"}`;
+}
+
 function cmdDelta(oldPath, newPath) {
   const oldSnap = JSON.parse(readFileSync(oldPath, "utf8"));
   const newSnap = JSON.parse(readFileSync(newPath, "utf8"));
 
+  // The actual node tree lives at snapshot.document.document — see the
+  // header comment's "Snapshot shape note". snapshot.document itself is the
+  // whole normalized REST response wrapper (components/componentSets/styles
+  // maps, plus `document`, the real tree), not the tree itself.
+  const oldRoot = oldSnap.document?.document;
+  const newRoot = newSnap.document?.document;
+
   const oldComponents = new Map();
   const newComponents = new Map();
-  collectByName(oldSnap.document, "components", oldComponents);
-  collectByName(newSnap.document, "components", newComponents);
+  collectNodesByType(oldRoot, new Set(["COMPONENT"]), oldComponents);
+  collectNodesByType(newRoot, new Set(["COMPONENT"]), newComponents);
+
+  const oldComponentSets = new Map();
+  const newComponentSets = new Map();
+  collectNodesByType(oldRoot, new Set(["COMPONENT_SET"]), oldComponentSets);
+  collectNodesByType(newRoot, new Set(["COMPONENT_SET"]), newComponentSets);
 
   const lines = [];
+  lines.push(`${fileIdentityHeader(oldSnap)} -> ${fileIdentityHeader(newSnap)}`);
+
   diffMaps(oldComponents, newComponents, "components", lines);
+  diffMaps(oldComponentSets, newComponentSets, "componentSets", lines);
 
   const oldStyles = new Map(Object.entries(oldSnap.document?.styles ?? {}).map(([, s]) => [s.name, s]));
   const newStyles = new Map(Object.entries(newSnap.document?.styles ?? {}).map(([, s]) => [s.name, s]));
@@ -258,20 +335,42 @@ function cmdDelta(oldPath, newPath) {
 
   diffVariables(oldSnap, newSnap, lines);
 
-  // variant additions: components present in both, compare variantGroupProperties
+  // Prop-schema diff: components present in both, compare componentPropertyDefinitions.
   for (const [name, { node: nn }] of newComponents) {
     const oldEntry = oldComponents.get(name);
     if (!oldEntry) continue;
-    const oldVariants = Object.keys(oldEntry.node.componentPropertyDefinitions ?? {});
-    const newVariants = Object.keys(nn.componentPropertyDefinitions ?? {});
-    const addedVariants = newVariants.filter((v) => !oldVariants.includes(v));
-    if (addedVariants.length) {
-      lines.push(`variants (${name}):`);
-      for (const v of addedVariants.sort()) lines.push(`  + ${v}`);
+    const oldProps = Object.keys(oldEntry.node.componentPropertyDefinitions ?? {});
+    const newProps = Object.keys(nn.componentPropertyDefinitions ?? {});
+    const addedProps = newProps.filter((v) => !oldProps.includes(v));
+    if (addedProps.length) {
+      lines.push(`component props (${name}):`);
+      for (const v of addedProps.sort()) lines.push(`  + ${v}`);
     }
   }
 
-  if (!lines.length) {
+  // Variant-instance diff: for component sets present in both snapshots,
+  // parse each variant child's name as a prop equation and report added
+  // prop-value combinations structurally, not as an opaque name string.
+  for (const [setName, { node: newSet }] of newComponentSets) {
+    const oldEntry = oldComponentSets.get(setName);
+    const newVariantNames = (newSet.children ?? [])
+      .filter((c) => c && c.type === "COMPONENT")
+      .map((c) => c.name);
+    const oldVariantNames = new Set(
+      (oldEntry?.node.children ?? []).filter((c) => c && c.type === "COMPONENT").map((c) => c.name)
+    );
+    const added = newVariantNames.filter((n) => !oldVariantNames.has(n));
+    if (added.length) {
+      lines.push(`variants (${setName}):`);
+      for (const variantName of added.sort()) {
+        const props = formatVariantProps(parseVariantName(variantName));
+        lines.push(`  + added: ${props ?? variantName}`);
+      }
+    }
+  }
+
+  if (lines.length === 1) {
+    console.log(lines[0]);
     console.log("no structural differences detected");
     return;
   }
@@ -290,8 +389,9 @@ if (command === "versions") {
   const [fileKey, outPath] = rest;
   const versionFlagIdx = rest.indexOf("--version");
   const versionId = versionFlagIdx >= 0 ? rest[versionFlagIdx + 1] : undefined;
-  if (!fileKey || !outPath) { console.error("usage: figma-capture.mjs snapshot <fileKey> <outPath> [--version <id>]"); process.exit(1); }
-  await cmdSnapshot(fileKey, outPath, versionId);
+  const noGeometry = rest.includes("--no-geometry");
+  if (!fileKey || !outPath) { console.error("usage: figma-capture.mjs snapshot <fileKey> <outPath> [--version <id>] [--no-geometry]"); process.exit(1); }
+  await cmdSnapshot(fileKey, outPath, versionId, { noGeometry });
 } else if (command === "delta") {
   const [oldPath, newPath] = rest;
   if (!oldPath || !newPath) { console.error("usage: figma-capture.mjs delta <oldPath> <newPath>"); process.exit(1); }

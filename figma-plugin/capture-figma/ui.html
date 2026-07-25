@@ -75,9 +75,9 @@
 </head>
 <body>
   <div class="row">
-    <button id="export-btn">Export variables</button>
+    <button id="export-btn">Export variables + styles</button>
     <button id="copy-btn" disabled>Copy JSON</button>
-    <a id="download-link" download="capture-figma-variables.json">Download JSON</a>
+    <a id="download-link" download="capture-figma-export.json">Download JSON</a>
   </div>
   <div id="status"></div>
   <textarea id="output" readonly placeholder="Export output will appear here..."></textarea>
@@ -122,10 +122,32 @@
         downloadLink.classList.add("enabled");
 
         const counts = msg.data.header && msg.data.header.counts ? msg.data.header.counts : {};
-        const collectionCount = Object.keys(counts).length;
-        const variableCount = Object.values(counts).reduce((a, b) => a + b, 0);
+        const variableCountEntries = Object.entries(counts).filter(
+          ([key]) => key.indexOf("styles/") !== 0
+        );
+        const collectionCount = variableCountEntries.length;
+        const variableCount = variableCountEntries.reduce((sum, [, n]) => sum + n, 0);
+
+        const styleCounts =
+          msg.data.header && msg.data.header.styleCounts ? msg.data.header.styleCounts : null;
+        const styleCount = styleCounts ? styleCounts.total : 0;
+
         status.textContent =
-          "Exported " + variableCount + " variables across " + collectionCount + " collection(s).";
+          "Exported " +
+          variableCount +
+          " variables across " +
+          collectionCount +
+          " collection(s), " +
+          styleCount +
+          " styles (text " +
+          (styleCounts ? styleCounts.text : 0) +
+          ", paint " +
+          (styleCounts ? styleCounts.paint : 0) +
+          ", effect " +
+          (styleCounts ? styleCounts.effect : 0) +
+          ", grid " +
+          (styleCounts ? styleCounts.grid : 0) +
+          ").";
       } else if (msg.type === "export-error") {
         status.classList.add("error");
         status.textContent = "Export failed: " + msg.message;
