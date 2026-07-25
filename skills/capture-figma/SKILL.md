@@ -38,6 +38,34 @@ or screenshots, read the file's shape.
 5. **Name human-first.** Capture artifacts and all prose name files human-name-first with the
    key in parentheses — e.g. "JHD-Spec-DesignSystem (arJSACOFZmIi5rFGlxXoi0)"; never key-only.
 
+## Step 2: pages, assets, variables, styles — before component capture
+
+Operator rulings, training session 2026-07-25. These fix how names, assets, and styles get
+recorded once the architecture read is in hand and before the deeper layers get walked.
+
+1. **Names are paths.** A bare name is ambiguous — "Blocks" can be a page, an assets group,
+   and casual vocabulary all at once. Capture artifacts and findings always qualify a name by
+   its container path (Page / Frame / Set / Component), never a bare name where a path exists.
+   Pages are the namespace and the primary finding surface for information about a file.
+2. **Assets mirror authoring.** The Assets browse hierarchy is the same tree as page → frame
+   containment: "Created in this file" groups by page, and each drill-in section is that page's
+   frames. The spatial authoring IS the consumer catalog — one structure, two views, not two
+   systems to reconcile. Dot-prefixed components (`.Name`) are private parts; Figma collects
+   them under a "Hidden" group and they never publish — don't extract them as if they did.
+3. **Styles are partially-bound recipes.** Record per-property binding status inside each
+   style — which properties bind variables (e.g. font-family → `text/title/font-family`,
+   weight → `weight/strong`) and which hold RAW values (e.g. size 40, line-height 105%,
+   letter-spacing -0.75 in `title/200`). Raw properties inside styles are prime drift/defect
+   territory — no variable guardrail sits behind them, which is how a line-height typo like
+   80/13 survives unnoticed. Capture flags every raw-valued style property as a review
+   candidate (deliberate-or-drift), to be ruled by the operator, not silently accepted or
+   silently "fixed." Style names are path-composed from their group (`title` + `200` →
+   `title/200`).
+4. **Variables vs styles — the confirmed model.** Variables define single values. Styles
+   compose values into recipes and may consume variables per-property. Components consume
+   both. Assets publish components. Pages organize everything into meaning. Read the layers
+   in this order when capturing — each one is the substrate the next is built from.
+
 ## The layer model — a design system is four layers, read all four
 
 A Figma design system is not a flat token list. Extraction is complete only when every
