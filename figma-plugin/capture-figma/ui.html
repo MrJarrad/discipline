@@ -199,7 +199,9 @@
       } else if (msg.type === "sync-status") {
         syncStatus.classList.remove("warn", "error");
 
-        if (msg.state === "on") {
+        if (msg.state === "loading") {
+          syncStatus.textContent = msg.message || "loading all pages…";
+        } else if (msg.state === "on") {
           syncOn = true;
           syncBtn.textContent = "Stop sync";
           syncBtn.classList.add("on");

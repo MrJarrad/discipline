@@ -136,6 +136,28 @@ async function getLocalEffectStyles() {
   throw new Error("No local effect style accessor found on figma");
 }
 
+// documentAccess is "dynamic-page" (manifest.json), so pages are lazily
+// loaded by default and figma.on('documentchange') cannot register in
+// incremental mode until every page has been loaded via
+// figma.loadAllPagesAsync(). buildExport() itself never needs this: it only
+// reads figma.variables and the four local style lists, all
+// document-global, none page-scoped — so the one-shot export path is left
+// alone (no correctness gap, no reason to pay the load-all-pages cost on
+// every manual export). Only the documentchange listener, used by live sync,
+// requires it — so it's awaited once in startSync(), before the handler is
+// registered.
+async function ensureAllPagesLoaded() {
+  if (typeof figma.loadAllPagesAsync === "function") {
+    await figma.loadAllPagesAsync();
+    return true;
+  }
+  // Older API surface without loadAllPagesAsync: fall back gracefully —
+  // the documentchange handler still gets registered (matches this file's
+  // established pattern of trying the async accessor first, then falling
+  // back rather than throwing), just without the pre-load guarantee.
+  return false;
+}
+
 async function getLocalGridStyles() {
   if (typeof figma.getLocalGridStylesAsync === "function") {
     return figma.getLocalGridStylesAsync();
@@ -547,11 +569,30 @@ function scheduleSyncExport() {
   }, SYNC_DEBOUNCE_MS);
 }
 
-figma.on("documentchange", () => {
-  scheduleSyncExport();
-});
+let documentChangeHandlerRegistered = false;
+
+function ensureDocumentChangeHandler() {
+  if (documentChangeHandlerRegistered) return;
+  figma.on("documentchange", () => {
+    scheduleSyncExport();
+  });
+  documentChangeHandlerRegistered = true;
+}
 
 async function startSync() {
+  // Must load every page before registering the documentchange listener —
+  // in "dynamic-page" documentAccess mode, figma.on('documentchange') throws
+  // "Cannot register documentchange handler in incremental mode without
+  // calling figma.loadAllPagesAsync first" otherwise. Large files take a
+  // moment, so tell the UI why sync hasn't started yet.
+  figma.ui.postMessage({
+    type: "sync-status",
+    state: "loading",
+    message: "loading all pages…",
+  });
+  await ensureAllPagesLoaded();
+  ensureDocumentChangeHandler();
+
   syncEnabled = true;
   figma.ui.postMessage({ type: "sync-status", state: "on" });
   await runSyncExport(); // full export once immediately, per the task
