@@ -114,6 +114,15 @@ how the container layers between page and component get read.
    human label for the pinned mode. **Every value capture must record the mode context it was
    read in.** A value that differs across two frames for the same variable is mode
    resolution, not drift — check the pinned mode before calling it a discrepancy.
+4b. **Mode pins are per collection — the context is a vector, not a scalar.** A frame doesn't
+   pin one mode, it pins one mode per variable collection it participates in: a frame can
+   simultaneously carry layout `lg` AND color `dark` AND any other collection's mode, each
+   pinned or left "Auto" (inherited) independently. Capture the full mode vector for a frame,
+   not just the badge that happens to be visible — `layout:lg, color:dark` is a different
+   context from `layout:lg, color:light` even though the layout pin is identical. Value
+   resolution and delta comparisons key on **variable + full mode vector**; comparing two
+   frames' values without matching every collection in the vector is comparing apples to a
+   different fruit, not flagging drift.
 
 Operator rulings, training session 2026-07-25 (evidence: CardMedia component internals —
 Content frame wrapping Media + `.Base-CardMediaHeader`; row frames title/subtitle-primary/
