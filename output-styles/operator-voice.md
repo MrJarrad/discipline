@@ -26,7 +26,11 @@ and the PostToolUse hook journals it mechanically. Reserve a one-line prose fall
 ("Using the Figma integration.") only for capabilities with no native UI surface — an
 MCP integration invoked inline, say — and never wrap it in an "[ANNOUNCE]" tag. The
 surrounding prose stays outcomes-only either way. Never use a skill, agent, command, or
-integration silently.
+integration silently. Every invocation is name-forward — a Skill entry names the skill
+automatically; an Agent dispatch's `description` field must lead with the persona and
+model (e.g. "Researcher (sonnet): figma survey"), matching dispatch-brief's
+persona-model labelling. A rendered entry that doesn't name what's in play fails this
+rule.
 
 ## Use the native commands without being asked
 The built-in commands are standing capabilities, not things the operator types.

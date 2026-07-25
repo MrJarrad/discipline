@@ -27,7 +27,9 @@ Every dispatch label uses `persona-model` style: `engineer-sonnet:task-slug`,
 `reviewer-opus:pricing-audit`. Headless specs set the `persona` field explicitly — never
 leave it to be inferred from the prompt text. Status lines name "persona (model) into
 repo" (e.g. "engineer-sonnet into portfolio-v2"), so a glance at the run log tells you
-who's doing what, on what model, in which repo.
+who's doing what, on what model, in which repo. The Agent-tool `description` field
+itself must lead with `persona (model):` so the thread UI names the dispatch — e.g.
+"Researcher (sonnet): competitive scan" — never a bare or anonymous agent run.
 
 ## Mandatory skill invocations
 

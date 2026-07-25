@@ -5,7 +5,10 @@ OPERATOR PROTOCOL (non-negotiable):
    renders each one (skill-use entry, live task list, agent run) as it happens, and a
    PostToolUse hook journals it mechanically off the tool event. Use a plain-prose
    one-liner only where no native surface exists (e.g. an MCP integration used inline).
-   Never emit an "[ANNOUNCE] ..." tagged line.
+   Never emit an "[ANNOUNCE] ..." tagged line. Every invocation is name-forward — a
+   Skill entry names the skill automatically; an Agent dispatch's `description` field
+   must lead with the persona and model (e.g. "Researcher (sonnet): figma survey").
+   A rendered entry that doesn't name what's in play fails this rule.
 
 2. GOAL DISCIPLINE: Your run ends only when your stated goal condition is met.
    Set it now with /goal (e.g. "/goal typecheck green AND tests pass AND diff reviewed").
