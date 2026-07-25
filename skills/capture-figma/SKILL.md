@@ -261,6 +261,32 @@ Only for what numbers can't carry: composition, art direction, copy (extract **v
 never paraphrase), and layout relationships. By now you have real dimensions, so annotate
 what you see with them instead of estimating.
 
+### Component anatomy
+
+A COMPONENT_SET is a container holding two things, never mixed:
+
+1. **The props schema** — typed, defaulted. VARIANT props carry an option list;
+   BOOLEAN/TEXT props carry internal id suffixes in the data (`#153:0`) that VARIANT props
+   don't — that suffix is how you tell the two apart when reading raw metadata.
+2. **The variant matrix** — COMPONENT children, one per combination (e.g. `device` ×
+   `height` = 12 for HeroText).
+
+**Variant names are prop equations, not labels.** `device=desktop, height=medium` is
+structured data — parse each set-child's name into a prop-value record; never treat it as
+a display string. Variants pin their mode (a `device=mobile` variant carries `sm`) — the
+variant matrix IS the mode matrix, made concrete.
+
+**Variant internals are the composition ladder in miniature.** Inside one variant you'll
+find: instances of smaller components (a spacer is a `SpaceVertical` instance — spacing is
+componentized, not padding), frames standing in for divs (a `wrapper` frame holds the
+bound layout grid; a `Content` frame holds bound `maxWidth`/`minHeight`/padding), and zero
+unbound properties — every level resolves through variables (`boundVariables` on fills,
+size, grids, padding). If a value isn't bound, that's drift, not a legitimate leaf.
+
+**An instance is a pointer + prop record**, nothing more: `componentId` + prop values (+
+overrides vs defaults). It contributes no structure of its own. Read definitions once, at
+the source; read instances only as prop records against that definition.
+
 ### Reading a page layout
 
 A page layout is read as a **contract**, not a picture — four passes, in order:
