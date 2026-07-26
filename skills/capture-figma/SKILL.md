@@ -53,6 +53,35 @@ the same conceptual stages (architecture → styles/variables → components →
 that lane's output instead of MCP tool calls; the sequence and the operator rulings don't
 change, only which tool produces each layer's data.
 
+## REST node lane — no active tab needed
+
+For a single already-known node id, `scripts/figma-node.mjs` (same `FIGMA_TOKEN`
+convention as `figma-capture.mjs`) reads it straight from the REST API — no desktop app,
+no active-tab dependency, no risk of reading whatever tab happens to be focused.
+
+- **`node <fileKey> <nodeId> [--raw] [--out path]`** — `GET /v1/files/:key/nodes?ids=`.
+  Prints pruned JSON (vector geometry — `vectorNetwork`/`vectorPaths`/`fillGeometry`/
+  `strokeGeometry` — stripped; structure, names, `boundVariables`, styles, layout props,
+  and `absoluteBoundingBox` all kept) to stdout, or to `--out` if given. `--raw` skips
+  pruning. `nodeId` accepts `572:46329`, `572-46329`, or a full figma.com URL's
+  `?node-id=` — pass the URL as the sole argument and both the file key and node id are
+  extracted from it.
+- **`image <fileKey> <nodeId> [--scale 2] [--out path]`** — `GET /v1/images/:key` at
+  `format=png`, downloads the rendered PNG. Default `--out`:
+  `~/JHD/captures/renders/<key>-<id>.png` (dir created if missing).
+- **`vars <fileKey>`** — `GET /v1/files/:key/variables/local`. Enterprise-plan gated: on
+  403 it prints the documented explanation and exits 2 rather than fabricating a result —
+  fall back to the MCP `get_variable_defs` lane below.
+- Errors are specific: 403/404/429 each get a distinct message, and 429 respects a
+  `Retry-After` response header (single retry) before falling back to a fixed 2s wait.
+
+**When to prefer this over the desktop MCP lane:** always, whenever the node id is
+already known (from a prior capture, a pasted figma.com link, a delta report) — it has
+no active-tab constraint, so it can't accidentally read the wrong tab, and it doesn't
+require the desktop app to be open at all. Reach for the desktop MCP lane instead only
+for **live selection** — a human-in-loop walk where nothing is yet pinned to a node id,
+or the operator is actively clicking around the canvas to find the right node.
+
 ## Export shape — what the active exporter and REST lane produce
 
 The active exporter's export (contract: `references/figma-agent-plugin-brief.md`) and the
