@@ -100,6 +100,117 @@ test("codeLocation file missing -> missing-code-location defect, does not throw"
   ]);
 });
 
+test("css-scalar: aligned rem value converts to px and matches figma's raw number", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "core", modes: ["default"], variables: [{ name: "radius/action-radius-round", valuesByMode: { default: 4 } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "core/radius/action-radius-round": { codeLocation: "styles.css", tokenName: "--action-radius-round", extraction: "css-scalar" },
+      },
+    },
+    css: `@theme inline {\n  --action-radius-round: 0.25rem;\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("css-scalar: tolerates Figma's float export noise (0.10000000149011612 vs 0.1s)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "motion", modes: ["Mode 1"], variables: [{ name: "duration/100", valuesByMode: { "Mode 1": 0.10000000149011612 } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "motion/duration/100": { codeLocation: "styles.css", tokenName: "--duration-100", extraction: "css-scalar" },
+      },
+    },
+    css: `@theme inline {\n  --duration-100: 0.1s;\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("css-scalar: bezier-object figma value normalizes to a cubic-bezier() string for comparison", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "motion",
+        modes: ["Mode 1"],
+        variables: [
+          {
+            name: "easing/circ-in-out",
+            valuesByMode: { "Mode 1": { easingType: 7, bezierValues: { p1x: 0.8500000238418579, p1y: 0, p2x: 0.15000000596046448, p2y: 1 } } },
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "motion/easing/circ-in-out": { codeLocation: "styles.css", tokenName: "--easing-circ-in-out", extraction: "css-scalar" },
+      },
+    },
+    css: `@theme inline {\n  --easing-circ-in-out: cubic-bezier(0.85, 0, 0.15, 1);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("css-scalar: resolves one level of var(--x) indirection before comparing", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "core", modes: ["default"], variables: [{ name: "border/border-200", valuesByMode: { default: 1.5 } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "core/border/border-200": { codeLocation: "styles.css", tokenName: "--button-border-100", extraction: "css-scalar" },
+      },
+    },
+    css: `@theme inline {\n  --border-200: 0.09375rem;\n  --button-border-100: var(--border-200);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("css-scale: drifted mode-200 value -> one value_mismatch defect naming that mode", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "action",
+        modes: ["100", "200", "300", "400"],
+        variables: [{ name: "dimension/button-height", valuesByMode: { "100": 24, "200": 32, "300": 56, "400": 72 } }],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "action/dimension/button-height": { codeLocation: "styles.css", tokenName: "--button-height-{mode}", extraction: "css-scale" },
+      },
+    },
+    css: `@theme inline {\n  --button-height-100: 1.5rem;\n  --button-height-200: 2.5rem;\n  --button-height-300: 3.5rem;\n  --button-height-400: 4.5rem;\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].mode, "200");
+  assert.equal(result.defects[0].type, "value_mismatch");
+  assert.equal(result.defects[0].old, 32);
+  assert.equal(result.defects[0].new, 40);
+});
+
 test("CLI exits 0 when ok:true, nonzero when ok:false", () => {
   const aligned = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
