@@ -12,8 +12,8 @@ build. The fix is an order of operations: **numbers before pictures.**
 
 ## Lane choice — three lanes, one hierarchy
 
-Both MCP and REST are correct, at different layers — pick by what's available and what
-you're reading, not by habit:
+MCP, REST, and the live listener are correct at different layers — pick by what's
+available and what you're reading, not by habit:
 
 1. **Portability floor — MCP (this skill's steps below).** Works for any file, no
    dependencies beyond the Figma desktop MCP bridge (operator ruling). Every stage in
@@ -21,26 +21,101 @@ you're reading, not by habit:
    (`get_variable_defs`, `get_metadata`, `get_screenshot`) precisely so the skill is
    self-sufficient with nothing else installed or configured. Use this lane whenever
    `FIGMA_TOKEN` isn't available, or the target file needs a one-off, human-in-loop read.
-2. **Preferred lane — REST + Capture Figma plugin, when `FIGMA_TOKEN` exists.** For
-   tree/structure (pages, frames, components, variant matrices), the discipline plugin's
-   `scripts/figma-capture.mjs` against the plain REST API (`depth`/`ids` omitted) is
-   best-in-class: no active-tab constraint, no lazy-page gaps, real `?version=` pinning
-   (research decision, `documents/figma-reading-research.md`). For variables with full
-   mode coverage, pair it with the Capture Figma plugin
-   (Plugin API `getLocalVariablesAsync`/`getLocalVariableCollectionsAsync`) — the only
-   non-Enterprise route to every mode, every collection. Prefer this pairing over MCP
-   whenever both a token and the plugin are available; it produces the deterministic,
-   diffable capture the Recapture section below depends on.
-3. **Ad-hoc/live-lookup lane — MCP, always available as a fallback.** Even when REST is
-   the default, MCP remains the right tool for a quick live check against whatever's on
-   screen right now — confirming a single value, sanity-checking a REST pull, walking a
-   file nobody has piped a token for yet.
+2. **REST lane, when `FIGMA_TOKEN` exists — pinned tree/versions.** For tree/structure
+   (pages, frames, components, variant matrices) and real version pinning, the discipline
+   plugin's `scripts/figma-capture.mjs` (snapshot/delta) plus `scripts/capture-poll.mjs`
+   against the plain REST API (`depth`/`ids` omitted) is best-in-class: no active-tab
+   constraint, no lazy-page gaps, real `?version=` pinning (research decision,
+   `documents/figma-reading-research.md`). Use this lane for anything that needs to be
+   pinned to a specific version id and diffed structurally later (`figma-capture.mjs
+   versions` / `snapshot --version <id>` / `delta`).
+3. **Active variables/styles/components lane — the Figma-agent-built exporter, live
+   sync.** For variables, styles, and component/layer-binding exports with full mode
+   coverage, the ACTIVE exporter (operator ruling 2026-07-26) is the Figma-in-app-agent-
+   built "Variable & style exporter" plugin, built to the contract in
+   `references/figma-agent-plugin-brief.md` — read that file, it IS the current contract,
+   not this skill's paraphrase of it. It streams its export to the local **capture
+   listener** (`scripts/capture-listener.mjs`, `POST /capture` on `localhost:4411`),
+   which writes the artifact and computes change records (see "Export shape" and "Change
+   taxonomy" below). The repo's own `figma-plugin/capture-figma` (v1.2.0) is RETIRED from
+   active use — kept solely as the contract's reference source, never dispatched as the
+   live exporter. Improvements flow brief → Figma agent → adopted into the contract, not
+   hand-edited into the retired plugin.
+
+Ad-hoc/live-lookup: even when the REST or listener lane is the default for a file, MCP
+remains the right tool for a quick live check against whatever's on screen right now —
+confirming a single value, sanity-checking a pull, walking a file nobody has piped a
+token for yet.
 
 The steps below (Steps 1-4, the layer model, "The order," recapture) are written as the
-MCP-only procedure — the portability floor. When the preferred lane is available, run the
-same conceptual stages (architecture → styles/variables → components → blocks) through
-REST + plugin output instead of MCP tool calls; the sequence and the operator rulings
-don't change, only which tool produces each layer's data.
+MCP-only procedure — the portability floor. When a REST or listener lane is available, run
+the same conceptual stages (architecture → styles/variables → components → blocks) through
+that lane's output instead of MCP tool calls; the sequence and the operator rulings don't
+change, only which tool produces each layer's data.
+
+## Export shape — what the active exporter and REST lane produce
+
+The active exporter's export (contract: `references/figma-agent-plugin-brief.md`) and the
+REST lane's snapshot both carry more than a flat token list — extraction reads all of it:
+
+- **Stable ids for rename detection.** Variables and styles carry an OPTIONAL `id`
+  (Figma's persistent id); components carry `key`, which already served this purpose.
+  When an id is present on both sides of a sync, the listener correlates by id first —
+  a renamed entry reads as a rename, never as a spurious removed+added pair. Treat a
+  file's ids as available-but-optional: older exports without them fall back to
+  name-only diffing, and that fallback is not itself a defect.
+- **Components, standalone and sets, with full prop schemas.** Standalone components and
+  component sets each carry their typed prop schema (VARIANT props with their option
+  list, BOOLEAN/TEXT/INSTANCE_SWAP props with defaults and, for INSTANCE_SWAP,
+  preferred component keys) — read this as the props API (Step 4), not a flat list.
+- **Per-variant layer bindings — the component-internals chain.** Each variant in a
+  component set may carry `bindings`: an array of `{ layer, property, value }` recording
+  which layer *inside* the component instance binds which property to which variable
+  (alias) or holds it raw. This is the anatomy walk (see "Anatomy — components are
+  composition trees") made machine-readable — read a variant's bindings before assuming
+  its internals are uniform across the matrix.
+
+## Change taxonomy — the listener's reading vocabulary for "what changed"
+
+The listener (`scripts/capture-listener.mjs`) computes a richer change record than any
+exporter's own changelog — its own changelog is add/remove-only; `changes.jsonl` adds
+per-mode and per-binding modification detail. Read a delta report using this vocabulary,
+not ad-hoc prose:
+
+- **Per-mode value changes** — a variable's value changed old→new within one mode,
+  keyed by variable path + mode. This is the base case: neither an alias nor a rename.
+- **Renames** — `variablesRenamed` / `stylesRenamed` / `componentsRenamed`: an entry's
+  stable id matched across syncs while its name changed (`{ bucket, id, oldName,
+  newName }`). Never confuse with a removed+added pair — that's the point of the id.
+- **`alias_repointed`** — a per-mode value change where BOTH the old and new value are
+  alias strings pointing at different targets (`{ path, mode, aliasFrom, aliasTo, type }`
+  in `changed.aliasRepoints`) — a structural rewire, not a value edit.
+- **`binding_broken`** — alias → raw: a variable that used to point at another variable
+  now holds a literal value. Same `aliasRepoints` array, same shape, `type` distinguishes
+  it from a repoint.
+- **`binding_added`** — raw → alias: the reverse of broken — a literal became an alias.
+- **`layer_binding_*`** (`layer_binding_repointed` / `layer_binding_broken` /
+  `layer_binding_added` / `layer_binding_removed`) — the same four-way classification,
+  one layer down: applied to a component set VARIANT's internal `bindings` (matched
+  variants diffed by `layer`+`property`) rather than a top-level variable. Kept in its
+  own `changed.layerBindings` array and its own `summary.layerBindings` count — a
+  different chain (component internals) from top-level variable/style aliasing, never
+  merged into `repointed`.
+
+Use this vocabulary when writing a delta report or a capture document's changelog
+section — "what changed" is answered in these terms, not "some values moved."
+
+## Verification rule — from the week's failures
+
+Emission/render questions (does this token/binding actually reach rendered output?) are
+answered by **curling served CSS from a fresh client**, never by reading a stale browser
+tab or a cached preview. A tab open from before the change under test proves nothing —
+open a new client (or a fresh curl) after the change lands, and read what it actually
+serves. Artifacts (the architecture map, the variables ledger, a delta report) never
+re-derive a value from first principles — they **diff exports**: the current pull against
+the banked one, or the listener's `changes.jsonl` against the prior capture. If a claim
+about "what changed" or "what's live now" isn't backed by a fresh export or a fresh
+served response, it isn't verified yet.
 
 ## Step 1: architecture read — before any value capture
 
@@ -432,7 +507,7 @@ capture:
    Frontmatter: `file_key`, `file_name`, `capture_date`, `version` (the pinned version id,
    or an explicit "unpinned" note with why), `coverage` (a list of `page_id`/`page_name`
    pairs actually pulled), `method` (which tool and mode — e.g. "MCP get_variable_defs per
-   page, single-mode" or "REST + Capture Figma plugin, all modes"). Body: variables and
+   page, single-mode" or "active exporter + capture listener, all modes"). Body: variables and
    styles grouped by collection/type, sorted alphabetically within each group (recapture
    discipline's determinism rule applies here too), with discrepancies and coverage gaps
    called out as their own sections.
@@ -498,9 +573,12 @@ turns a snapshot into a changelog — using only the MCP tools, on any Figma fil
   comparison window there can silently expire; the vault's git history does not.
 
 **Supplementary mechanics:** when the discipline plugin's `scripts/figma-capture.mjs`
-and a `FIGMA_TOKEN` are available — the preferred lane per "Lane choice" above — use
-it for true REST version pinning: `versions` to list real version ids, `snapshot
---version <id>` to pin a capture to one, `delta` to structurally diff two normalized
-snapshots. The MCP-only recapture discipline above is the portability floor: it never
-depends on the script, so the steps are complete and self-sufficient on any file with
-no token and no plugin — but when the preferred lane is available, prefer it here too.
+and a `FIGMA_TOKEN` are available — the REST lane per "Lane choice" above — use it for
+true REST version pinning: `versions` to list real version ids, `snapshot --version <id>`
+to pin a capture to one, `delta` to structurally diff two normalized snapshots. When the
+active exporter's live sync is running instead, `scripts/capture-poll.mjs` and the
+capture listener's `GET /changes?n=` serve the equivalent recapture-delta role — poll
+`/changes` rather than re-running a full snapshot. The MCP-only recapture discipline
+above is the portability floor: it never depends on either script, so the steps are
+complete and self-sufficient on any file with no token and no listener running — but when
+a faster lane is available, prefer it here too.

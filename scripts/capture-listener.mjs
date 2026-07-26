@@ -54,8 +54,8 @@
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
        variablesRemoved, variablesRenamed, aliasRepoints, styles,
        stylesRenamed, components, componentsAdded, componentsRemoved,
-       componentsRenamed }, counts, summary: { added, modified, removed,
-       renamed, repointed } }
+       componentsRenamed, layerBindings }, counts, summary: { added, modified,
+       removed, renamed, repointed, layerBindings } }
 
    RENAME DETECTION: variables/styles/components each carry an OPTIONAL
    stable id (variables/styles: `id`; components: the existing `key` field —
@@ -73,6 +73,17 @@
    raw is `binding_broken`; raw -> alias is `binding_added`. Only a plain
    value-to-value change (neither side an alias, or an unchanged alias
    target) stays in `variables`.
+   LAYER BINDINGS: component SETS may OPTIONALLY carry per-variant layer
+   bindings (variants[].bindings — component-internals chain data, see the
+   brief). For sets correlated between the two exports (key-then-name, same
+   as the outer set correlation), each matched variant's bindings are diffed
+   by `layer`+`property`: alias->alias (different target) is
+   `layer_binding_repointed`, alias->raw is `layer_binding_broken`, raw->alias
+   or an entry appearing only on the new side is `layer_binding_added`, an
+   entry appearing only on the old side is `layer_binding_removed`. Records
+   land in `changed.layerBindings` as
+   { set, variant, layer, property, from, to, type }.
+
    `summary` totals the per-bucket added/modified/removed arrays into one
    cross-bucket count (styles has no separate added/removed array, so it
    only contributes to `modified` — see diffStyles' header comment).
@@ -409,11 +420,76 @@ function diffStyles(oldStyles, newStyles) {
 // removed+added; the property diff still runs for the matched pair under the
 // new name. Name-only diffing is the fallback when `key` is absent on either
 // side (older exports).
+// Diffs one matched component SET's per-variant layer bindings
+// (variants[].bindings — see the brief's OUTPUT JSON SHAPE: component-internals
+// chain data, OPTIONAL on every set/variant). Variants within the set are
+// correlated by variant.key first (falls back to variant.name, same
+// key-then-name pattern as the outer set/standalone correlation), and each
+// matched variant's bindings are keyed by `layer\0property` since a variant
+// can bind several properties on the same layer. A binding entry appearing
+// only on the new side is `layer_binding_added`, only on the old side is
+// `layer_binding_removed`; a value present on both sides that changed is
+// classified the same way alias transitions are classified for variables:
+// alias->alias (different target) is `layer_binding_repointed`, alias->raw is
+// `layer_binding_broken`, raw->alias is `layer_binding_added`.
+function diffSetBindings(setName, oldComp, newComp, layerBindings) {
+  const oldVariants = oldComp.variants || [];
+  const newVariants = newComp.variants || [];
+  const oldByKey = new Map(oldVariants.filter((v) => v.key).map((v) => [v.key, v]));
+  const newByKey = new Map(newVariants.filter((v) => v.key).map((v) => [v.key, v]));
+  const oldByName = new Map(oldVariants.map((v) => [v.name, v]));
+  const matchedOld = new Set();
+  const matchedNew = new Set();
+
+  function diffBindings(variantName, oldVariant, newVariant) {
+    const keyOf = (b) => `${b.layer} ${b.property}`;
+    const oldB = new Map((oldVariant.bindings || []).map((b) => [keyOf(b), b]));
+    const newB = new Map((newVariant.bindings || []).map((b) => [keyOf(b), b]));
+    const keys = new Set([...oldB.keys(), ...newB.keys()]);
+    for (const k of keys) {
+      const ob = oldB.get(k);
+      const nb = newB.get(k);
+      if (!ob) {
+        layerBindings.push({ set: setName, variant: variantName, layer: nb.layer, property: nb.property, from: null, to: nb.value, type: "layer_binding_added" });
+        continue;
+      }
+      if (!nb) {
+        layerBindings.push({ set: setName, variant: variantName, layer: ob.layer, property: ob.property, from: ob.value, to: null, type: "layer_binding_removed" });
+        continue;
+      }
+      if (ob.value === nb.value) continue;
+      const oldAlias = isAliasValue(ob.value);
+      const newAlias = isAliasValue(nb.value);
+      let type;
+      if (oldAlias && newAlias) type = "layer_binding_repointed";
+      else if (oldAlias && !newAlias) type = "layer_binding_broken";
+      else if (!oldAlias && newAlias) type = "layer_binding_added";
+      else continue; // raw->raw: not a binding-chain event, unspecified — skip
+      layerBindings.push({ set: setName, variant: variantName, layer: ob.layer, property: ob.property, from: ob.value, to: nb.value, type });
+    }
+  }
+
+  for (const [key, nv] of newByKey) {
+    const ov = oldByKey.get(key);
+    if (!ov) continue;
+    matchedOld.add(ov);
+    matchedNew.add(nv);
+    diffBindings(nv.name, ov, nv);
+  }
+  for (const nv of newVariants) {
+    if (matchedNew.has(nv)) continue;
+    const ov = oldByName.get(nv.name);
+    if (!ov || matchedOld.has(ov)) continue;
+    diffBindings(nv.name, ov, nv);
+  }
+}
+
 function diffComponents(oldComponents, newComponents) {
   const componentsAdded = [];
   const componentsRemoved = [];
   const componentsRenamed = [];
   const components = [];
+  const layerBindings = [];
 
   function diffBucket(bucketName, oldList, newList) {
     const oldByName = new Map((oldList || []).map((c) => [c.name, c]));
@@ -472,6 +548,7 @@ function diffComponents(oldComponents, newComponents) {
         componentsRenamed.push({ bucket: bucketName, id: key, oldName: oldComp.name, newName: newComp.name });
       }
       diffProps(newComp.name, oldComp, newComp);
+      if (bucketName === "sets") diffSetBindings(newComp.name, oldComp, newComp, layerBindings);
     }
 
     // Pass 2: name-only fallback for everything key correlation didn't match.
@@ -483,6 +560,7 @@ function diffComponents(oldComponents, newComponents) {
         continue;
       }
       diffProps(name, oldComp, newComp);
+      if (bucketName === "sets") diffSetBindings(name, oldComp, newComp, layerBindings);
     }
     for (const [name, oldComp] of oldByName) {
       if (matchedOldComps.has(oldComp)) continue;
@@ -493,7 +571,7 @@ function diffComponents(oldComponents, newComponents) {
   diffBucket("standalone", oldComponents?.standalone, newComponents?.standalone);
   diffBucket("sets", oldComponents?.sets, newComponents?.sets);
 
-  return { components, componentsAdded, componentsRemoved, componentsRenamed };
+  return { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings };
 }
 
 function writeAtomic(path, contents) {
@@ -600,7 +678,7 @@ function handleCapture(req, res) {
             parsed.collections
           );
           const { styles, stylesRenamed } = diffStyles(prevState.export.styles, parsed.styles);
-          const { components, componentsAdded, componentsRemoved, componentsRenamed } = diffComponents(
+          const { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings } = diffComponents(
             prevState.export.components,
             parsed.components
           );
@@ -616,6 +694,7 @@ function handleCapture(req, res) {
             componentsAdded,
             componentsRemoved,
             componentsRenamed,
+            layerBindings,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -629,6 +708,7 @@ function handleCapture(req, res) {
             componentsAdded: componentsAdded.length,
             componentsRemoved: componentsRemoved.length,
             componentsRenamed: componentsRenamed.length,
+            layerBindings: layerBindings.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
@@ -639,13 +719,17 @@ function handleCapture(req, res) {
           // renamed buckets; `repointed` is the alias-repoint/binding-change
           // count from `aliasRepoints` (all three of its record types —
           // alias_repointed, binding_broken, binding_added — count as one
-          // "repointed" drift signal here).
+          // "repointed" drift signal here); `layerBindings` totals
+          // `changed.layerBindings` (all four of its record types) as its own
+          // signal — it's a different chain (component-internals, not
+          // variable/style aliasing) so it isn't folded into `repointed`.
           changeRecord.summary = {
             added: variablesAdded.length + componentsAdded.length,
             modified: variables.length + styles.length + components.length,
             removed: variablesRemoved.length + componentsRemoved.length,
             renamed: variablesRenamed.length + stylesRenamed.length + componentsRenamed.length,
             repointed: aliasRepoints.length,
+            layerBindings: layerBindings.length,
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");

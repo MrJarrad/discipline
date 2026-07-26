@@ -13,7 +13,9 @@
              "disallowedTools": "Bash(rm:*) (optional, passed through as --disallowedTools)",
              "jsonSchema": "{...} or a path (optional, passed through as --json-schema)",
              "effort": "low|medium|high|xhigh (optional, passed through as --effort)",
-             "permissionMode": "acceptEdits|plan|... (optional, defaults to acceptEdits)",
+             "permissionMode": "bypassPermissions|acceptEdits|plan|... (optional, defaults to
+               bypassPermissions — set acceptEdits to restore mechanical tool denies for
+               untrusted work)",
              "maxTurns": "50 (optional, passed through as --max-turns)",
              "maxBudgetUsd": "5 (optional, passed through as --max-budget-usd)",
              "fallbackModel": "haiku (optional, passed through as --fallback-model)",
@@ -33,13 +35,23 @@
    <persona>-<model>:<short-task-tag> — so journal entries and console output
    name who ran the step and on what model at a glance.
 
+   Default permission-mode is bypassPermissions (operator ruling 2026-07-26):
+   dispatched specialists run with full read/write, no prompt friction. Under
+   bypass, the deny fence below (git push, git reset --hard, rm -rf) is NOT
+   mechanically enforced by the tool layer — those constraints hold only
+   because (a) every brief's scope fence says "do NOT push" and (b) the
+   reviewer gate sits before any merge. If a spec needs the mechanical denies
+   back (untrusted work), set that agent's `permissionMode` to "acceptEdits".
+
    Every spawn also always carries --settings <plugin root>/runner-settings.json:
    standing tool-level allow/deny rights (Edit, Write, git checkout/add/commit/
    status/diff/log/branch, npx tsc, npm run typecheck, grep, rg allowed; git
-   push, git reset --hard, rm -rf denied) so specialists get dispatch-level
-   permissions from the runner itself — no repo-local settings file needed,
-   operator/interactive posture untouched. Per-agent `allowedTools` in the
-   spec is additive on top of this file, never a replacement for it.
+   push, git reset --hard, rm -rf denied). This file still applies whenever a
+   spec overrides permissionMode to something stricter than bypass (e.g.
+   acceptEdits) — harmless and inert under bypass itself, but documents intent
+   and gives the runner dispatch-level permissions without a repo-local
+   settings file. Per-agent `allowedTools` in the spec is additive on top of
+   this file, never a replacement for it.
 
    Housekeeping note: dispatched-repo .claude/journal.jsonl files (session
    journals a doer's own tooling may write inside the target repo) should be
@@ -110,7 +122,7 @@ const spawnEnv = {
 
 function runClaude({
   prompt, model = "sonnet", cwd = process.cwd(), allowedTools, disallowedTools, persona,
-  jsonSchema, effort, permissionMode = "acceptEdits", maxTurns, maxBudgetUsd, fallbackModel,
+  jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
   sessionId, label,
 }) {
   return new Promise((resolve) => {
