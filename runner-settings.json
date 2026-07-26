@@ -15,7 +15,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm run typecheck:*)",
       "Bash(grep:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(git merge:*)",
+      "Bash(git revert:*)"
     ],
     "deny": [
       "Bash(git push:*)",
