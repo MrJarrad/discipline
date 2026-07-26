@@ -29,6 +29,23 @@
        when not overridden). Only Figma modes named "light"/"dark" are
        checked against this extraction — other mode names are skipped (no
        defect), since there's no code-side counterpart to compare against.
+     "css-scalar" — tokenName is a single CSS custom property, declared
+       anywhere in the file (last declaration wins, regardless of selector —
+       used for non-theme-mode tokens like motion durations/easings or a
+       radius ramp, which live in `@theme inline` rather than `:root`/
+       `.dark`). The raw value is resolved through one level of `var(--x)`
+       indirection and unit-normalized (rem -> px, trailing "s" stripped) so
+       it compares against Figma's raw numeric export value; non-numeric
+       values (bezier strings, keywords) pass through as-is. Figma variables
+       using this extraction typically carry a single mode under any name
+       ("default", "Mode 1", ...) — the main loop falls back to a extractor
+       result's sole value when the exact mode name isn't present.
+     "css-scale" — tokenName is a template string containing the literal
+       "{mode}" placeholder (e.g. "--button-height-{mode}"), substituted with
+       each Figma mode name to locate that mode's own CSS custom property
+       (the code-side convention for a component's numbered size ramp:
+       100/200/300/400 are four separate declarations, not one token
+       overridden per mode). Same var()/unit resolution as "css-scalar".
 */
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -128,8 +145,63 @@ function extractCssRootDark(cssText, tokenName) {
   return result;
 }
 
+// Finds the last declared value for a CSS custom property anywhere in the
+// file (source order = override, same rule as parseCssCustomProps, but not
+// restricted to :root/.dark — @theme inline and other blocks are fair game).
+function findCssPropertyValue(cssText, propName) {
+  const name = propName.replace(/^--/, "");
+  const re = new RegExp(`--${name}\\s*:\\s*([^;]+);`, "g");
+  let match;
+  let last;
+  while ((match = re.exec(cssText)) !== null) last = match[1].trim();
+  return last;
+}
+
+// Resolves a raw CSS value down to a comparable primitive: follows one
+// `var(--x)` hop at a time (bounded depth guards a reference cycle), then
+// converts rem -> px and strips a trailing "s" (seconds) so the result lines
+// up with Figma's unitless raw numbers. Anything else (bezier strings,
+// keywords) passes through as the trimmed raw string.
+function parseCssScalar(cssText, rawValue, depth = 0) {
+  if (rawValue === undefined) return undefined;
+  const varRef = rawValue.match(/^var\((--[a-zA-Z0-9-]+)\)$/);
+  if (varRef && depth < 5) {
+    return parseCssScalar(cssText, findCssPropertyValue(cssText, varRef[1]), depth + 1);
+  }
+  const remMatch = rawValue.match(/^(-?[\d.]+)rem$/);
+  if (remMatch) return parseFloat(remMatch[1]) * 16;
+  const pxMatch = rawValue.match(/^(-?[\d.]+)px$/);
+  if (pxMatch) return parseFloat(pxMatch[1]);
+  const secondsMatch = rawValue.match(/^(-?[\d.]+)s$/);
+  if (secondsMatch) return parseFloat(secondsMatch[1]);
+  const num = Number(rawValue);
+  if (rawValue !== "" && !Number.isNaN(num)) return num;
+  return rawValue;
+}
+
+function extractCssScalar(cssText, tokenName) {
+  return { value: parseCssScalar(cssText, findCssPropertyValue(cssText, tokenName)) };
+}
+
+// The code-side numbered-ramp convention: modes 100/200/300/400 are four
+// separate CSS custom properties (e.g. --button-height-100..400), not one
+// token overridden per mode. tokenTemplate carries the literal "{mode}"
+// placeholder to substitute.
+const SCALE_MODES = ["100", "200", "300", "400"];
+
+function extractCssScale(cssText, tokenTemplate) {
+  const result = {};
+  for (const mode of SCALE_MODES) {
+    const propName = tokenTemplate.replace("{mode}", mode);
+    result[mode] = parseCssScalar(cssText, findCssPropertyValue(cssText, propName));
+  }
+  return result;
+}
+
 const EXTRACTORS = {
   "css-root-dark": extractCssRootDark,
+  "css-scalar": extractCssScalar,
+  "css-scale": extractCssScale,
 };
 
 // ---- Core check ------------------------------------------------------------
@@ -141,6 +213,32 @@ function resolveCodeLocation(mappingPath, codeLocation) {
 
 function normalize(v) {
   return String(v).trim().toLowerCase();
+}
+
+// A Figma EASING variable resolves to a bezierValues object ({p1x,p1y,p2x,
+// p2y}), not a plain scalar — convert it to the same cubic-bezier(...)
+// string CSS authors it as, rounding away the export's float noise (e.g.
+// 0.8500000238418579 -> 0.85) before formatting.
+function normalizeFigmaValue(value) {
+  if (value && typeof value === "object" && value.bezierValues) {
+    const { p1x, p1y, p2x, p2y } = value.bezierValues;
+    const round = (n) => Number(n.toFixed(4));
+    return `cubic-bezier(${round(p1x)}, ${round(p1y)}, ${round(p2x)}, ${round(p2y)})`;
+  }
+  return value;
+}
+
+// Figma's exported floats carry binary-conversion noise (0.1 ->
+// 0.10000000149011612); compare numerically within a tight tolerance when
+// both sides parse as numbers, and fall back to exact string equality
+// otherwise (hex colors, bezier strings, keywords).
+function valuesMatch(a, b) {
+  const na = Number(a);
+  const nb = Number(b);
+  if (a !== "" && b !== "" && !Number.isNaN(na) && !Number.isNaN(nb)) {
+    return Math.abs(na - nb) < 0.01;
+  }
+  return normalize(a) === normalize(b);
 }
 
 export function runConformanceCheck({ capturePath, mappingPath }) {
@@ -179,8 +277,14 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
     const codeValues = extractor(readFileSync(codeFilePath, "utf8"), tokenName);
     const figmaModes = Object.keys(variable.valuesByMode);
 
+    const codeValueKeys = Object.keys(codeValues);
+
     for (const mode of figmaModes) {
-      const codeValue = codeValues[mode];
+      // Some extractions (css-scalar) return one value regardless of the
+      // Figma mode's own name (e.g. "Mode 1", "default") — when the mode
+      // isn't a key but exactly one value was extracted, that's the value,
+      // mirroring resolveValue's own single-mode alias fallback below.
+      const codeValue = mode in codeValues ? codeValues[mode] : codeValueKeys.length === 1 ? codeValues[codeValueKeys[0]] : undefined;
       if (codeValue === undefined) continue; // extraction has nothing for this mode — no code counterpart to compare
 
       const resolved = resolveValue(figmaPath, mode, index);
@@ -189,8 +293,9 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
         continue;
       }
 
-      if (normalize(resolved.value) !== normalize(codeValue)) {
-        defects.push({ path: figmaPath, mode, old: resolved.value, new: codeValue, codeLocation, tokenName, type: "value_mismatch" });
+      const figmaValue = normalizeFigmaValue(resolved.value);
+      if (!valuesMatch(figmaValue, codeValue)) {
+        defects.push({ path: figmaPath, mode, old: figmaValue, new: codeValue, codeLocation, tokenName, type: "value_mismatch" });
       }
     }
   }
