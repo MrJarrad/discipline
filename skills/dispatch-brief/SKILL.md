@@ -71,4 +71,5 @@ pushes, not the doer.
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
 [ ] Branch/cwd stated; out-of-bounds named; "do NOT push" for repo work
 [ ] model set from the model-routing table (sonnet default); opus escalation justified in writing
+[ ] caps set (maxTurns; budget if long-running); effort matched to stage
 ```
