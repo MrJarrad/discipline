@@ -41,11 +41,16 @@
    no-op sync (nothing changed since last time): the artifact file is not
    rewritten, and the receipt line gets `unchanged: true`. A POST whose hash
    differs is diffed against the sidecar's previous export — variables
-   (keyed by collection/name, compared per mode, added/removed) and styles
-   (keyed by type/name, compared per property, added/removed) — and one
-   record is appended to ~/JHD/captures/live/changes.jsonl:
+   (keyed by collection/name, compared per mode, added/removed), styles
+   (keyed by type/name, compared per property, added/removed), and components
+   (keyed by name within standalone/sets, added/removed; for sets: per-prop
+   defaultValue changes, per-VARIANT-prop option added/removed, prop
+   added/removed — OPTIONAL, only diffed when both sides carry
+   body.components) — and one record is appended to
+   ~/JHD/captures/live/changes.jsonl:
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
-       variablesRemoved, styles }, counts }
+       variablesRemoved, styles, components, componentsAdded,
+       componentsRemoved }, counts }
    The first-ever sync for a file (no sidecar yet) logs { initial: true }
    with no diff, since there's nothing to compare against.
 
@@ -110,6 +115,16 @@ function validateExportShape(body) {
   // non-empty string, but its absence is never a rejection.
   if (header.fileKey !== undefined && (typeof header.fileKey !== "string" || !header.fileKey)) {
     return "header.fileKey, when present, must be a non-empty string";
+  }
+  // components is OPTIONAL (older contract plugins never send it) — when
+  // present, validate loosely: an object with standalone/sets arrays. We
+  // never require specific fields inside each entry so a future exporter can
+  // add fields without breaking validation.
+  if (body.components !== undefined) {
+    const c = body.components;
+    if (!c || typeof c !== "object") return "components, when present, must be an object";
+    if (c.standalone !== undefined && !Array.isArray(c.standalone)) return "components.standalone, when present, must be an array";
+    if (c.sets !== undefined && !Array.isArray(c.sets)) return "components.sets, when present, must be an array";
   }
   return null;
 }
@@ -246,6 +261,80 @@ function diffStyles(oldStyles, newStyles) {
   return styles;
 }
 
+// Components are keyed by name (standalone components and component sets
+// live in separate namespaces per the exporter's own top-level split, so a
+// standalone and a set can share a name without colliding here). For sets,
+// each VARIANT-typed property's `options` list is diffed for added/removed
+// option strings, and every property (VARIANT or not) has its `defaultValue`
+// compared for a changed-default record. Property added/removed is caught by
+// diffing the property-name sets themselves. Variant instances themselves
+// (the individual variant nodes in `variants[]`) are not diffed further here
+// — the option-list diff on the driving VARIANT property already captures
+// "a variant option was added/removed", which is the changelog-worthy event;
+// per-variant node churn (key, description) is not surfaced as its own
+// modification-level record.
+function diffComponents(oldComponents, newComponents) {
+  const componentsAdded = [];
+  const componentsRemoved = [];
+  const components = [];
+
+  function diffBucket(bucketName, oldList, newList) {
+    const oldMap = new Map((oldList || []).map((c) => [c.name, c]));
+    const newMap = new Map((newList || []).map((c) => [c.name, c]));
+
+    for (const [name, newComp] of newMap) {
+      if (!oldMap.has(name)) {
+        componentsAdded.push({ bucket: bucketName, name });
+        continue;
+      }
+      const oldComp = oldMap.get(name);
+      const oldProps = oldComp.properties || {};
+      const newProps = newComp.properties || {};
+      const propNames = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
+      for (const propName of propNames) {
+        const oldProp = oldProps[propName];
+        const newProp = newProps[propName];
+        if (oldProp === undefined) {
+          components.push({ bucket: bucketName, name, property: propName, change: "propertyAdded", new: newProp });
+          continue;
+        }
+        if (newProp === undefined) {
+          components.push({ bucket: bucketName, name, property: propName, change: "propertyRemoved", old: oldProp });
+          continue;
+        }
+        if (!jsonEq(oldProp.defaultValue, newProp.defaultValue)) {
+          components.push({
+            bucket: bucketName,
+            name,
+            property: propName,
+            change: "defaultValue",
+            old: oldProp.defaultValue,
+            new: newProp.defaultValue,
+          });
+        }
+        const oldOptions = oldProp.options || [];
+        const newOptions = newProp.options || [];
+        const optionsAdded = newOptions.filter((o) => !oldOptions.includes(o));
+        const optionsRemoved = oldOptions.filter((o) => !newOptions.includes(o));
+        if (optionsAdded.length) {
+          components.push({ bucket: bucketName, name, property: propName, change: "optionsAdded", options: optionsAdded });
+        }
+        if (optionsRemoved.length) {
+          components.push({ bucket: bucketName, name, property: propName, change: "optionsRemoved", options: optionsRemoved });
+        }
+      }
+    }
+    for (const name of oldMap.keys()) {
+      if (!newMap.has(name)) componentsRemoved.push({ bucket: bucketName, name });
+    }
+  }
+
+  diffBucket("standalone", oldComponents?.standalone, newComponents?.standalone);
+  diffBucket("sets", oldComponents?.sets, newComponents?.sets);
+
+  return { components, componentsAdded, componentsRemoved };
+}
+
 function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -350,12 +439,27 @@ function handleCapture(req, res) {
             parsed.collections
           );
           const styles = diffStyles(prevState.export.styles, parsed.styles);
-          changeRecord.changed = { variables, variablesAdded, variablesRemoved, styles };
+          const { components, componentsAdded, componentsRemoved } = diffComponents(
+            prevState.export.components,
+            parsed.components
+          );
+          changeRecord.changed = {
+            variables,
+            variablesAdded,
+            variablesRemoved,
+            styles,
+            components,
+            componentsAdded,
+            componentsRemoved,
+          };
           changeRecord.counts = {
             variablesChanged: variables.length,
             variablesAdded: variablesAdded.length,
             variablesRemoved: variablesRemoved.length,
             stylesChanged: styles.length,
+            componentsChanged: components.length,
+            componentsAdded: componentsAdded.length,
+            componentsRemoved: componentsRemoved.length,
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
