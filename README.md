@@ -43,12 +43,13 @@ routes to `ux-designer`. No agent names, no menus.
 - `test-first`
 - `verify-finding`
 
-**6 agents** — a role fleet you can dispatch as Claude Code subagents:
+**7 agents** — a role fleet you can dispatch as Claude Code subagents:
 
 - **ceo** (`opus`) — The orchestrator.
 - **project-manager** (`haiku`) — Mechanical task setup and board hygiene.
 - **engineer** (`sonnet`) — Implementation specialist.
 - **reviewer** (`sonnet`) — The merge gate.
+- **releaseops** (`sonnet`) — The release gate. Owns push -> deploy-verify -> rollback, single-threaded, after the reviewer gate has passed.
 - **ux-designer** (`sonnet`) — Visual quality and design-system coherence.
 - **researcher** (`sonnet`) — Answers open questions with sourced, adversarially-verified findings; runs competitive and market analysis; synthesizes evidence into decision-ready briefs.
 
