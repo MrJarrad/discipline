@@ -104,13 +104,18 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { runConformanceCheck } from "./conformance-check.mjs";
 
 const PORT = Number(process.env.CAPTURE_LISTENER_PORT || 4411);
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // ~50MB
-const CAPTURES_DIR = join(homedir(), "JHD", "captures", "live");
+// CAPTURES_DIR is overridable (test isolation only — production always uses
+// the default) so tests can point the listener at a scratch directory
+// instead of the real ~/JHD/captures/live artifacts.
+const CAPTURES_DIR = process.env.CAPTURES_DIR ? resolve(process.env.CAPTURES_DIR) : join(homedir(), "JHD", "captures", "live");
 const RECEIPTS_PATH = join(CAPTURES_DIR, "receipts.jsonl");
 const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
+const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
 
 mkdirSync(CAPTURES_DIR, { recursive: true });
@@ -733,6 +738,24 @@ function handleCapture(req, res) {
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
+
+        // Opt-in conformance check (CONFORMANCE_MAP_PATH): unset by default,
+        // so this block never runs unless explicitly configured — existing
+        // behavior is unchanged with nothing configured. Never lets a check
+        // failure fail the capture request; a broken mapping/capture just
+        // logs and skips the append.
+        if (process.env.CONFORMANCE_MAP_PATH) {
+          try {
+            const result = runConformanceCheck({ capturePath: outPath, mappingPath: process.env.CONFORMANCE_MAP_PATH });
+            appendFileSync(
+              CONFORMANCE_PATH,
+              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result }) + "\n",
+              "utf8"
+            );
+          } catch (err) {
+            console.error(`[capture-listener] conformance check failed: ${err.message}`);
+          }
+        }
 
         receipt = {
           ts: new Date().toISOString(),
