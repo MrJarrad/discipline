@@ -31,6 +31,8 @@ who's doing what, on what model, in which repo. The Agent-tool `description` fie
 itself must lead with `persona (model):` so the thread UI names the dispatch — e.g.
 "Researcher (sonnet): competitive scan" — never a bare or anonymous agent run.
 
+Model tier is chosen from the model-routing skill's table — load it alongside this skill; never inherit the session model.
+
 ## Mandatory skill invocations
 
 Frontmatter skill bindings on an agent don't guarantee the agent invokes them — the
@@ -68,4 +70,5 @@ pushes, not the doer.
 [ ] Required skills named per the work-type table above
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
 [ ] Branch/cwd stated; out-of-bounds named; "do NOT push" for repo work
+[ ] model set from the model-routing table (sonnet default); opus escalation justified in writing
 ```
