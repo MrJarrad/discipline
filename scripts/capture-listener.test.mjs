@@ -72,6 +72,64 @@ test("CONFORMANCE_MAP_PATH set: a changed sync appends a conformance.jsonl recor
   rmSync(repoRoot, { recursive: true, force: true });
 });
 
+test("CONFORMANCE_MAP_PATH set with a components section: binding drift appears in conformance.jsonl under `binding`", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  mkdirSync(join(repoRoot, "src"), { recursive: true });
+  writeFileSync(join(repoRoot, "src", "hero.tsx"), `titleStep="title-style1-500"`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "wrapper/Content/Title/Title",
+            property: "textStyle",
+            codeLocation: "src/hero.tsx",
+            assertion: { kind: "css-class" },
+          },
+        ],
+      },
+    }),
+    "utf8"
+  );
+
+  const componentsBody = {
+    header: { fileName: "Test File", pluginVersion: "1.0.0", exportedAt: Date.now(), counts: {} },
+    collections: [],
+    components: {
+      standalone: [],
+      sets: [
+        {
+          name: "HeroText",
+          key: "abc",
+          variants: [
+            { name: "device=desktop", key: "v1", bindings: [{ layer: "wrapper/Content/Title/Title", property: "textStyle", value: "title-style1/300" }] },
+          ],
+        },
+      ],
+    },
+  };
+
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(componentsBody) });
+    assert.equal(res.status, 200);
+  });
+
+  const conformancePath = join(capturesDir, "conformance.jsonl");
+  const record = JSON.parse(readFileSync(conformancePath, "utf8").trim().split("\n")[0]);
+  assert.equal(record.binding.ok, false);
+  assert.equal(record.binding.defects.length, 1);
+  assert.equal(record.binding.defects[0].type, "binding_mismatch");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

@@ -106,6 +106,7 @@ import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { runConformanceCheck } from "./conformance-check.mjs";
+import { runBindingCheck } from "./binding-check.mjs";
 
 const PORT = Number(process.env.CAPTURE_LISTENER_PORT || 4411);
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // ~50MB
@@ -743,13 +744,18 @@ function handleCapture(req, res) {
         // so this block never runs unless explicitly configured — existing
         // behavior is unchanged with nothing configured. Never lets a check
         // failure fail the capture request; a broken mapping/capture just
-        // logs and skips the append.
+        // logs and skips the append. Runs BOTH lanes off the same mapping
+        // file — the value lane (`entries`, top-level result fields) and
+        // the binding lane (`components.entries`, nested under `binding`) —
+        // so a mapping with no "components" section still works exactly as
+        // before (runBindingCheck sees zero entries and reports ok:true).
         if (process.env.CONFORMANCE_MAP_PATH) {
           try {
             const result = runConformanceCheck({ capturePath: outPath, mappingPath: process.env.CONFORMANCE_MAP_PATH });
+            const binding = runBindingCheck({ capturePath: outPath, mappingPath: process.env.CONFORMANCE_MAP_PATH });
             appendFileSync(
               CONFORMANCE_PATH,
-              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result }) + "\n",
+              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",
               "utf8"
             );
           } catch (err) {
