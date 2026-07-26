@@ -117,6 +117,27 @@ recorded once the architecture read is in hand and before the deeper layers get 
    fields carry derivation recipes and intent (per the alpha-quantization ruling). Empty
    descriptions are a countable documentation-gap finding class — capture reports the count
    per collection/style group, never judges individual gaps.
+8. **Semantics are mapped to variables — follow the trail.** A step's semantic truth is
+   never one layer; it's the full chain: named STYLE → its bound VARIABLE(s) → per-mode
+   alias → PRIMITIVE value. Reading any single layer alone misleads — raw style numbers
+   look authoritative but can be stale snapshots; a bare variable ramp can be mid-churn;
+   primitives alone carry no naming intent. Walk all four links before recording a value.
+   **Both-directions rule:** a step exists only if the STYLE exists — a variable with no
+   style behind it (an orphaned `500`/`600` ramp step, say) is plumbing or churn, not a
+   real step, and code must never bind to it. Conversely a style with a raw property where
+   a binding is expected is its own finding (ruling 3, above) — the two directions catch
+   different defects. **Break taxonomy**, three kinds, name which one on sight:
+   - *Dangling* — a bound property resolves to a raw `VariableID:` instead of a name; the
+     variable it points at either doesn't exist in this capture's scope or was deleted.
+   - *Raw-where-bound-expected* — a property that should be system-governed (matches its
+     sibling properties' binding pattern) holds a hardcoded number instead.
+   - *Style-variable disagreement* — the style's own raw value and its bound variable's
+     resolved value (at the style's own mode) don't match; also record if two properties
+     on one step bind through different chain depths (one direct-to-primitive, one through
+     a mode-responsive alias) — same step, inconsistent trail, a break worth naming even
+     when both ends individually resolve.
+   Every break is a finding to record precisely (which link broke, old vs new if churn
+   explains it), never noise to average away.
 
 ## Step 3: sections and frames — before variant capture
 

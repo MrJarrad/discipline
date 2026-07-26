@@ -52,8 +52,27 @@
    body.components) — and one record is appended to
    ~/JHD/captures/live/changes.jsonl:
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
-       variablesRemoved, styles, components, componentsAdded,
-       componentsRemoved }, counts, summary: { added, modified, removed } }
+       variablesRemoved, variablesRenamed, aliasRepoints, styles,
+       stylesRenamed, components, componentsAdded, componentsRemoved,
+       componentsRenamed }, counts, summary: { added, modified, removed,
+       renamed, repointed } }
+
+   RENAME DETECTION: variables/styles/components each carry an OPTIONAL
+   stable id (variables/styles: `id`; components: the existing `key` field —
+   see the brief's OUTPUT JSON SHAPE). When both the old and new export carry
+   an id for an entry, entries are correlated by id FIRST — same id +
+   different name is a `renamed` record ({ bucket, id, oldName, newName }) in
+   the matching *Renamed array, never a removed+added pair. Name-only diffing
+   is the fallback whenever an id is missing on either side (older exports
+   from plugins that predate this field) — ids are never required.
+
+   ALIAS REPOINTS: a per-mode variable value change is classified before it
+   lands in `variables` (the generic modified list) or `aliasRepoints` (the
+   alias-specific one): old-alias -> new-alias with a different target is
+   `alias_repointed` ({ path, mode, aliasFrom, aliasTo, type }); alias ->
+   raw is `binding_broken`; raw -> alias is `binding_added`. Only a plain
+   value-to-value change (neither side an alias, or an unchanged alias
+   target) stays in `variables`.
    `summary` totals the per-bucket added/modified/removed arrays into one
    cross-bucket count (styles has no separate added/removed array, so it
    only contributes to `modified` — see diffStyles' header comment).
@@ -182,46 +201,115 @@ function jsonEq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// An alias value is the "→ {collection}/{variable}" string form (see the
+// brief's OUTPUT JSON SHAPE) — never resolved, so a raw string comparison
+// against that arrow prefix is sufficient to tell alias from raw value.
+function isAliasValue(v) {
+  return typeof v === "string" && v.startsWith("→ ");
+}
+
+// Classifies one per-mode value change as an alias-specific flavor, or null
+// when it's a generic (non-alias-involving) value change that belongs in the
+// plain `variables` modified list. A mode added/removed (old or new value
+// undefined) is never an alias flavor — there's no "from" or "to" binding to
+// describe, just presence/absence.
+function classifyModeChange(oldV, newV) {
+  if (oldV === undefined || newV === undefined) return null;
+  const oldAlias = isAliasValue(oldV);
+  const newAlias = isAliasValue(newV);
+  if (oldAlias && newAlias) return { type: "alias_repointed", aliasFrom: oldV, aliasTo: newV };
+  if (oldAlias && !newAlias) return { type: "binding_broken", aliasFrom: oldV, raw: newV };
+  if (!oldAlias && newAlias) return { type: "binding_added", aliasTo: newV, raw: oldV };
+  return null;
+}
+
 // Variables are keyed by collection name + variable name; each variable's
 // value is compared per mode (the mode-vector model — a variable's value is
 // a map of mode name -> value, and modes can be added/removed/changed
-// independently of the variable itself). An alias ("→ collection/name") is
-// just a string value here, so a changed alias target is caught by the same
-// per-mode value comparison as any other changed value.
+// independently of the variable itself).
+//
+// RENAME DETECTION: when a variable carries a stable `id` (Figma's persistent
+// id, OPTIONAL — see the brief) on both sides, entries are correlated by id
+// FIRST. Same id + different path = a `renamed` record, not a removed+added
+// pair. Id-matched entries are still diffed per-mode for value changes (under
+// the new path). Name-only diffing (the original behaviour) is the fallback
+// for entries without an id on both sides — ids are never required.
+//
+// ALIAS REPOINTS: a per-mode change where both the old and new value are
+// alias strings ("→ target") but the target differs is an `alias_repointed`
+// record, not a generic modified-value record — it's a structural rewire, not
+// a value edit. A change from alias to raw (or raw to alias) is its own
+// flavor (`binding_broken` / `binding_added`) — these three land in
+// `aliasRepoints`, not in the generic `variables` list.
 function diffVariables(oldCollections, newCollections) {
-  const toMap = (collections) => {
-    const map = new Map();
+  const buildMaps = (collections) => {
+    const byKey = new Map(); // "collection name" -> entry
+    const byId = new Map(); // variable.id -> entry (only when id present)
     for (const col of collections || []) {
       for (const v of col.variables || []) {
-        map.set(`${col.name} ${v.name}`, v.valuesByMode || {});
+        const entry = { path: `${col.name}/${v.name}`, collection: col.name, valuesByMode: v.valuesByMode || {} };
+        byKey.set(`${col.name} ${v.name}`, entry);
+        if (v.id) byId.set(v.id, entry);
       }
     }
-    return map;
+    return { byKey, byId };
   };
-  const oldMap = toMap(oldCollections);
-  const newMap = toMap(newCollections);
+  const oldM = buildMaps(oldCollections);
+  const newM = buildMaps(newCollections);
+
   const variables = [];
   const variablesAdded = [];
   const variablesRemoved = [];
+  const variablesRenamed = [];
+  const aliasRepoints = [];
 
-  for (const [key, newValues] of newMap) {
-    const path = key.replace(" ", "/");
-    if (!oldMap.has(key)) {
-      variablesAdded.push(path);
-      continue;
-    }
-    const oldValues = oldMap.get(key);
+  const matchedOldEntries = new Set();
+  const matchedNewEntries = new Set();
+
+  function diffModes(path, oldValues, newValues) {
     const modes = new Set([...Object.keys(oldValues), ...Object.keys(newValues)]);
     for (const mode of modes) {
-      if (!jsonEq(oldValues[mode], newValues[mode])) {
-        variables.push({ path, mode, old: oldValues[mode], new: newValues[mode] });
+      const oldV = oldValues[mode];
+      const newV = newValues[mode];
+      if (jsonEq(oldV, newV)) continue;
+      const kind = classifyModeChange(oldV, newV);
+      if (kind) {
+        aliasRepoints.push({ path, mode, ...kind });
+      } else {
+        variables.push({ path, mode, old: oldV, new: newV });
       }
     }
   }
-  for (const key of oldMap.keys()) {
-    if (!newMap.has(key)) variablesRemoved.push(key.replace(" ", "/"));
+
+  // Pass 1: id correlation — rename detection + value diff under the id.
+  for (const [id, newEntry] of newM.byId) {
+    const oldEntry = oldM.byId.get(id);
+    if (!oldEntry) continue;
+    matchedOldEntries.add(oldEntry);
+    matchedNewEntries.add(newEntry);
+    if (oldEntry.path !== newEntry.path) {
+      variablesRenamed.push({ bucket: newEntry.collection, id, oldName: oldEntry.path, newName: newEntry.path });
+    }
+    diffModes(newEntry.path, oldEntry.valuesByMode, newEntry.valuesByMode);
   }
-  return { variables, variablesAdded, variablesRemoved };
+
+  // Pass 2: name-only fallback for everything id correlation didn't match
+  // (no id on one or both sides, or an id present only on one side).
+  for (const [key, newEntry] of newM.byKey) {
+    if (matchedNewEntries.has(newEntry)) continue;
+    const oldEntry = oldM.byKey.get(key);
+    if (!oldEntry) {
+      variablesAdded.push(newEntry.path);
+      continue;
+    }
+    diffModes(newEntry.path, oldEntry.valuesByMode, newEntry.valuesByMode);
+  }
+  for (const [key, oldEntry] of oldM.byKey) {
+    if (matchedOldEntries.has(oldEntry)) continue;
+    if (!newM.byKey.has(key)) variablesRemoved.push(oldEntry.path);
+  }
+
+  return { variables, variablesAdded, variablesRemoved, variablesRenamed, aliasRepoints };
 }
 
 // Styles are keyed by type (text/paint/effect/grid) + name. `properties` is
@@ -230,20 +318,31 @@ function diffVariables(oldCollections, newCollections) {
 // order-sensitive and don't have a stable per-item key to diff finer than
 // that). A style with no counterpart on the other side is one record with
 // property "(style)" and old or new set to null.
+//
+// RENAME DETECTION: same id-first, name-fallback correlation as
+// diffVariables (see its header comment) — a style's stable `id`, OPTIONAL,
+// is compared within its own type bucket (a text style never renames into a
+// paint style). Same id + different name = a `renamed` record in
+// `stylesRenamed`, not removed+added; the property diff still runs for the
+// matched pair under the new name.
 function diffStyles(oldStyles, newStyles) {
   const styles = [];
+  const stylesRenamed = [];
   const types = new Set([...Object.keys(oldStyles || {}), ...Object.keys(newStyles || {})]);
   for (const type of types) {
     if (type === "total" || type === "emptyDescriptions") continue; // styleCounts fields, not a style bucket
-    const oldMap = new Map((oldStyles?.[type] || []).map((s) => [s.name, s]));
-    const newMap = new Map((newStyles?.[type] || []).map((s) => [s.name, s]));
+    const oldList = oldStyles?.[type] || [];
+    const newList = newStyles?.[type] || [];
+    const oldByName = new Map(oldList.map((s) => [s.name, s]));
+    const newByName = new Map(newList.map((s) => [s.name, s]));
+    const oldById = new Map(oldList.filter((s) => s.id).map((s) => [s.id, s]));
+    const newById = new Map(newList.filter((s) => s.id).map((s) => [s.id, s]));
 
-    for (const [name, newStyle] of newMap) {
-      if (!oldMap.has(name)) {
-        styles.push({ type, name, property: "(style)", old: null, new: newStyle.properties });
-        continue;
-      }
-      const oldProps = oldMap.get(name).properties;
+    const matchedOldStyles = new Set();
+    const matchedNewStyles = new Set();
+
+    function diffProps(name, oldStyle, newStyle) {
+      const oldProps = oldStyle.properties;
       const newProps = newStyle.properties;
       if (Array.isArray(oldProps) || Array.isArray(newProps)) {
         if (!jsonEq(oldProps, newProps)) {
@@ -258,13 +357,37 @@ function diffStyles(oldStyles, newStyles) {
         }
       }
     }
-    for (const [name, oldStyle] of oldMap) {
-      if (!newMap.has(name)) {
+
+    // Pass 1: id correlation — rename detection + property diff under the id.
+    for (const [id, newStyle] of newById) {
+      const oldStyle = oldById.get(id);
+      if (!oldStyle) continue;
+      matchedOldStyles.add(oldStyle);
+      matchedNewStyles.add(newStyle);
+      if (oldStyle.name !== newStyle.name) {
+        stylesRenamed.push({ bucket: type, id, oldName: oldStyle.name, newName: newStyle.name });
+      }
+      diffProps(newStyle.name, oldStyle, newStyle);
+    }
+
+    // Pass 2: name-only fallback for everything id correlation didn't match.
+    for (const [name, newStyle] of newByName) {
+      if (matchedNewStyles.has(newStyle)) continue;
+      const oldStyle = oldByName.get(name);
+      if (!oldStyle) {
+        styles.push({ type, name, property: "(style)", old: null, new: newStyle.properties });
+        continue;
+      }
+      diffProps(name, oldStyle, newStyle);
+    }
+    for (const [name, oldStyle] of oldByName) {
+      if (matchedOldStyles.has(oldStyle)) continue;
+      if (!newByName.has(name)) {
         styles.push({ type, name, property: "(style)", old: oldStyle.properties, new: null });
       }
     }
   }
-  return styles;
+  return { styles, stylesRenamed };
 }
 
 // Components are keyed by name (standalone components and component sets
@@ -279,21 +402,29 @@ function diffStyles(oldStyles, newStyles) {
 // "a variant option was added/removed", which is the changelog-worthy event;
 // per-variant node churn (key, description) is not surfaced as its own
 // modification-level record.
+//
+// RENAME DETECTION: components already carry a stable `key` (Figma's own
+// component key) — that's the "id" for this bucket per the brief. Same key +
+// different name = a `renamed` record in `componentsRenamed`, not
+// removed+added; the property diff still runs for the matched pair under the
+// new name. Name-only diffing is the fallback when `key` is absent on either
+// side (older exports).
 function diffComponents(oldComponents, newComponents) {
   const componentsAdded = [];
   const componentsRemoved = [];
+  const componentsRenamed = [];
   const components = [];
 
   function diffBucket(bucketName, oldList, newList) {
-    const oldMap = new Map((oldList || []).map((c) => [c.name, c]));
-    const newMap = new Map((newList || []).map((c) => [c.name, c]));
+    const oldByName = new Map((oldList || []).map((c) => [c.name, c]));
+    const newByName = new Map((newList || []).map((c) => [c.name, c]));
+    const oldByKey = new Map((oldList || []).filter((c) => c.key).map((c) => [c.key, c]));
+    const newByKey = new Map((newList || []).filter((c) => c.key).map((c) => [c.key, c]));
 
-    for (const [name, newComp] of newMap) {
-      if (!oldMap.has(name)) {
-        componentsAdded.push({ bucket: bucketName, name });
-        continue;
-      }
-      const oldComp = oldMap.get(name);
+    const matchedOldComps = new Set();
+    const matchedNewComps = new Set();
+
+    function diffProps(name, oldComp, newComp) {
       const oldProps = oldComp.properties || {};
       const newProps = newComp.properties || {};
       const propNames = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
@@ -330,15 +461,39 @@ function diffComponents(oldComponents, newComponents) {
         }
       }
     }
-    for (const name of oldMap.keys()) {
-      if (!newMap.has(name)) componentsRemoved.push({ bucket: bucketName, name });
+
+    // Pass 1: key correlation — rename detection + property diff under the key.
+    for (const [key, newComp] of newByKey) {
+      const oldComp = oldByKey.get(key);
+      if (!oldComp) continue;
+      matchedOldComps.add(oldComp);
+      matchedNewComps.add(newComp);
+      if (oldComp.name !== newComp.name) {
+        componentsRenamed.push({ bucket: bucketName, id: key, oldName: oldComp.name, newName: newComp.name });
+      }
+      diffProps(newComp.name, oldComp, newComp);
+    }
+
+    // Pass 2: name-only fallback for everything key correlation didn't match.
+    for (const [name, newComp] of newByName) {
+      if (matchedNewComps.has(newComp)) continue;
+      const oldComp = oldByName.get(name);
+      if (!oldComp) {
+        componentsAdded.push({ bucket: bucketName, name });
+        continue;
+      }
+      diffProps(name, oldComp, newComp);
+    }
+    for (const [name, oldComp] of oldByName) {
+      if (matchedOldComps.has(oldComp)) continue;
+      if (!newByName.has(name)) componentsRemoved.push({ bucket: bucketName, name });
     }
   }
 
   diffBucket("standalone", oldComponents?.standalone, newComponents?.standalone);
   diffBucket("sets", oldComponents?.sets, newComponents?.sets);
 
-  return { components, componentsAdded, componentsRemoved };
+  return { components, componentsAdded, componentsRemoved, componentsRenamed };
 }
 
 function writeAtomic(path, contents) {
@@ -440,12 +595,12 @@ function handleCapture(req, res) {
         if (prevState === null) {
           changeRecord.initial = true;
         } else {
-          const { variables, variablesAdded, variablesRemoved } = diffVariables(
+          const { variables, variablesAdded, variablesRemoved, variablesRenamed, aliasRepoints } = diffVariables(
             prevState.export.collections,
             parsed.collections
           );
-          const styles = diffStyles(prevState.export.styles, parsed.styles);
-          const { components, componentsAdded, componentsRemoved } = diffComponents(
+          const { styles, stylesRenamed } = diffStyles(prevState.export.styles, parsed.styles);
+          const { components, componentsAdded, componentsRemoved, componentsRenamed } = diffComponents(
             prevState.export.components,
             parsed.components
           );
@@ -453,30 +608,44 @@ function handleCapture(req, res) {
             variables,
             variablesAdded,
             variablesRemoved,
+            variablesRenamed,
+            aliasRepoints,
             styles,
+            stylesRenamed,
             components,
             componentsAdded,
             componentsRemoved,
+            componentsRenamed,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
             variablesAdded: variablesAdded.length,
             variablesRemoved: variablesRemoved.length,
+            variablesRenamed: variablesRenamed.length,
+            aliasRepoints: aliasRepoints.length,
             stylesChanged: styles.length,
+            stylesRenamed: stylesRenamed.length,
             componentsChanged: components.length,
             componentsAdded: componentsAdded.length,
             componentsRemoved: componentsRemoved.length,
+            componentsRenamed: componentsRenamed.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
           // (variables, components); styles has no separate added/removed
           // array (an added/removed style shows up as a "(style)" entry
           // inside `styles` itself, per diffStyles' header comment), so it
-          // only contributes to `modified`.
+          // only contributes to `modified`. `renamed` totals the three
+          // renamed buckets; `repointed` is the alias-repoint/binding-change
+          // count from `aliasRepoints` (all three of its record types —
+          // alias_repointed, binding_broken, binding_added — count as one
+          // "repointed" drift signal here).
           changeRecord.summary = {
             added: variablesAdded.length + componentsAdded.length,
             modified: variables.length + styles.length + components.length,
             removed: variablesRemoved.length + componentsRemoved.length,
+            renamed: variablesRenamed.length + stylesRenamed.length + componentsRenamed.length,
+            repointed: aliasRepoints.length,
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
