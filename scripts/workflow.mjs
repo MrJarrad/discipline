@@ -12,11 +12,13 @@
              "allowedTools": "Bash(git:*) (optional, passed through as --allowedTools)",
              "disallowedTools": "Bash(rm:*) (optional, passed through as --disallowedTools)",
              "jsonSchema": "{...} or a path (optional, passed through as --json-schema)",
-             "effort": "low|medium|high|xhigh (optional, passed through as --effort)",
+             "effort": "low|medium|high|xhigh (optional, passed through as --effort; haiku
+               agents default to low when unset)",
              "permissionMode": "bypassPermissions|acceptEdits|plan|... (optional, defaults to
                bypassPermissions — set acceptEdits to restore mechanical tool denies for
                untrusted work)",
-             "maxTurns": "50 (optional, passed through as --max-turns)",
+             "maxTurns": "50 (optional, passed through as --max-turns; defaults to 60 when
+               unset — set explicit null to deliberately run uncapped)",
              "maxBudgetUsd": "5 (optional, passed through as --max-budget-usd)",
              "fallbackModel": "haiku (optional, passed through as --fallback-model)",
              "sessionId": "explicit UUID (optional — otherwise derived deterministically
@@ -60,23 +62,63 @@
    output under ~/JHD/captures/) must never land inside a git-tracked
    plugin directory (e.g. figma-plugin/capture-figma/) — they're written
    to ~/JHD/captures/ specifically so this distinction is structural, not
-   just a gitignore rule, but keep it in mind if that ever changes.        */
+   just a gitignore rule, but keep it in mind if that ever changes.
+
+   Burn defaults (operator ruling 2026-07-26, after a fleet burn drained a
+   day's credit pool — see skills/model-routing/SKILL.md footnote): every
+   agent gets a default `maxTurns` of DEFAULT_MAX_TURNS unless the spec sets
+   its own; every haiku agent gets a default `effort` of "low" unless the
+   spec sets its own. Both are spec-overridable, additive-only — an existing
+   spec that already sets maxTurns/effort is untouched. A spec that wants a
+   deliberately uncapped agent can still opt out by setting `"maxTurns":
+   null` explicitly (the pre-existing "don't pass --max-turns" convention);
+   doing so is exactly what the no-cap burn-warning below flags. Any spec
+   that dispatches more than HEAVY_AGENT_THRESHOLD agents, or any agent on
+   "opus" or explicitly opted out of the turn cap, gets a `burn-warning`
+   journal entry (and a console.warn) so heavy runs are visible, not
+   silent — this does not block the run.                                  */
 import { readFileSync, appendFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
-const specPath = process.argv[2];
-if (!specPath) { console.error("usage: workflow <spec.json>"); process.exit(1); }
-const spec = JSON.parse(readFileSync(specPath, "utf8"));
-const journal = specPath.replace(/\.json$/, "") + ".journal.jsonl";
-const log = (e) => appendFileSync(journal, JSON.stringify({ t: new Date().toISOString(), ...e }) + "\n");
-
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
 const pluginRoot = dirname(scriptsDir);
 const operatorRulesPath = join(pluginRoot, "operator-rules.md");
 const runnerSettingsPath = join(pluginRoot, "runner-settings.json");
+
+export const DEFAULT_MAX_TURNS = 60;
+export const DEFAULT_HAIKU_EFFORT = "low";
+export const HEAVY_AGENT_THRESHOLD = 6;
+
+// Fills in spend-guardrail defaults an agent didn't set itself. Pure and
+// additive: a key already present on `agent` (including an explicit `null`
+// opting out of a cap) is never touched.
+export function applyAgentDefaults(agent) {
+  const out = { ...agent };
+  if (!("maxTurns" in out)) out.maxTurns = DEFAULT_MAX_TURNS;
+  if (out.model === "haiku" && !("effort" in out)) out.effort = DEFAULT_HAIKU_EFFORT;
+  return out;
+}
+
+// Scans the raw (pre-default) spec for heavy-spend shapes worth surfacing:
+// more than HEAVY_AGENT_THRESHOLD agents total, any opus agent, or any agent
+// that explicitly opted out of the turn cap (`"maxTurns": null`). Returns an
+// array of human-readable warning strings; empty when nothing is heavy.
+export function collectBurnWarnings(spec) {
+  const warnings = [];
+  const allAgents = spec.phases.flatMap((p) => p.agents);
+  if (allAgents.length > HEAVY_AGENT_THRESHOLD) {
+    warnings.push(`spec dispatches ${allAgents.length} agents (> ${HEAVY_AGENT_THRESHOLD}) — heavy run`);
+  }
+  for (const a of allAgents) {
+    const label = a.label ?? "(unlabeled)";
+    if (a.model === "opus") warnings.push(`opus agent dispatched: ${label}`);
+    if ("maxTurns" in a && a.maxTurns == null) warnings.push(`no-cap agent (maxTurns disabled): ${label}`);
+  }
+  return warnings;
+}
 
 function loadPersona(persona) {
   const path = join(pluginRoot, "agents", `${persona}.md`);
@@ -120,30 +162,45 @@ const spawnEnv = {
   BASH_MAX_OUTPUT_LENGTH: "150000",
 };
 
+// Pure argv builder — no I/O, no spec/session knowledge — so the actual
+// flags a set of agent options resolves to (including the burn defaults
+// above) can be asserted on directly, without spawning a real `claude`.
+export function buildArgs({
+  prompt, model = "sonnet", allowedTools, disallowedTools,
+  jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
+  sessionId,
+}) {
+  const args = [
+    "-p", prompt,
+    "--model", model,
+    "--output-format", "json",
+    "--permission-mode", permissionMode,
+    "--append-system-prompt-file", operatorRulesPath,
+    "--settings", runnerSettingsPath,
+  ];
+  if (allowedTools) args.push("--allowedTools", allowedTools);
+  if (disallowedTools) args.push("--disallowedTools", disallowedTools);
+  if (jsonSchema) args.push("--json-schema", jsonSchema);
+  if (effort) args.push("--effort", effort);
+  if (maxTurns != null) args.push("--max-turns", String(maxTurns));
+  if (maxBudgetUsd != null) args.push("--max-budget-usd", String(maxBudgetUsd));
+  if (fallbackModel) args.push("--fallback-model", fallbackModel);
+  if (sessionId) args.push("--session-id", sessionId);
+  return args;
+}
+
 function runClaude({
   prompt, model = "sonnet", cwd = process.cwd(), allowedTools, disallowedTools, persona,
   jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
   sessionId, label,
-}) {
+}, specName) {
   return new Promise((resolve) => {
     const finalPrompt = applyPersona(prompt, persona);
-    const args = [
-      "-p", finalPrompt,
-      "--model", model,
-      "--output-format", "json",
-      "--permission-mode", permissionMode,
-      "--append-system-prompt-file", operatorRulesPath,
-      "--settings", runnerSettingsPath,
-    ];
-    if (allowedTools) args.push("--allowedTools", allowedTools);
-    if (disallowedTools) args.push("--disallowedTools", disallowedTools);
-    if (jsonSchema) args.push("--json-schema", jsonSchema);
-    if (effort) args.push("--effort", effort);
-    if (maxTurns != null) args.push("--max-turns", String(maxTurns));
-    if (maxBudgetUsd != null) args.push("--max-budget-usd", String(maxBudgetUsd));
-    if (fallbackModel) args.push("--fallback-model", fallbackModel);
-    const resolvedSessionId = sessionId ?? (label ? deterministicSessionId(`${spec.name}:${label}`) : undefined);
-    if (resolvedSessionId) args.push("--session-id", resolvedSessionId);
+    const resolvedSessionId = sessionId ?? (label ? deterministicSessionId(`${specName}:${label}`) : undefined);
+    const args = buildArgs({
+      prompt: finalPrompt, model, allowedTools, disallowedTools, jsonSchema, effort,
+      permissionMode, maxTurns, maxBudgetUsd, fallbackModel, sessionId: resolvedSessionId,
+    });
 
     const child = spawn("claude", args, { cwd, env: spawnEnv, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
@@ -161,30 +218,51 @@ function runClaude({
   });
 }
 
-const summary = [];
-for (const phase of spec.phases) {
-  console.log(`▸ ${phase.title} (${phase.agents.length} agents)`);
-  log({ type: "phase", title: phase.title });
-  const results = await Promise.all(phase.agents.map(async (a) => {
-    const r = await runClaude(a);
-    log({ type: "agent", label: a.label, ok: r.ok, sessionId: r.sessionId, result: r.result?.slice?.(0, 4000) });
-    return { ...a, ...r };
-  }));
-  let kept = results.filter((x) => x.ok);
-  for (const r of results.filter((x) => !x.ok)) console.log(`  ✗ failed: ${r.label}`);
-  if (phase.verify) {
-    kept = [];
-    for (const r of results.filter((x) => x.ok)) {
-      const votes = await Promise.all(Array.from({ length: phase.verify.votes ?? 2 }, () =>
-        runClaude({ prompt: phase.verify.prompt.replaceAll("{{RESULT}}", String(r.result).slice(0, 6000)) +
-          '\nReply with exactly REFUTED or CONFIRMED as your last word.', model: phase.verify.model ?? "haiku", cwd: r.cwd })));
-      const confirmed = votes.filter((v) => /CONFIRMED\s*$/.test(String(v.result))).length;
-      const survives = confirmed > votes.length / 2;
-      log({ type: "verify", label: r.label, confirmed, of: votes.length, survives });
-      if (survives) kept.push(r); else console.log(`  ✗ refuted: ${r.label}`);
-    }
+async function runWorkflow(spec, log) {
+  for (const warning of collectBurnWarnings(spec)) {
+    console.warn(`  ⚠ ${warning}`);
+    log({ type: "burn-warning", message: warning });
   }
-  summary.push({ phase: phase.title, ran: results.length, survived: kept.length });
+
+  const summary = [];
+  for (const phase of spec.phases) {
+    console.log(`▸ ${phase.title} (${phase.agents.length} agents)`);
+    log({ type: "phase", title: phase.title });
+    const results = await Promise.all(phase.agents.map(async (a) => {
+      const r = await runClaude(applyAgentDefaults(a), spec.name);
+      log({ type: "agent", label: a.label, ok: r.ok, sessionId: r.sessionId, result: r.result?.slice?.(0, 4000) });
+      return { ...a, ...r };
+    }));
+    let kept = results.filter((x) => x.ok);
+    for (const r of results.filter((x) => !x.ok)) console.log(`  ✗ failed: ${r.label}`);
+    if (phase.verify) {
+      kept = [];
+      for (const r of results.filter((x) => x.ok)) {
+        const votes = await Promise.all(Array.from({ length: phase.verify.votes ?? 2 }, () =>
+          runClaude(applyAgentDefaults({ prompt: phase.verify.prompt.replaceAll("{{RESULT}}", String(r.result).slice(0, 6000)) +
+            '\nReply with exactly REFUTED or CONFIRMED as your last word.', model: phase.verify.model ?? "haiku", cwd: r.cwd }), spec.name)));
+        const confirmed = votes.filter((v) => /CONFIRMED\s*$/.test(String(v.result))).length;
+        const survives = confirmed > votes.length / 2;
+        log({ type: "verify", label: r.label, confirmed, of: votes.length, survives });
+        if (survives) kept.push(r); else console.log(`  ✗ refuted: ${r.label}`);
+      }
+    }
+    summary.push({ phase: phase.title, ran: results.length, survived: kept.length });
+  }
+  console.log(JSON.stringify({ name: spec.name, summary }, null, 2));
+  log({ type: "done", summary });
+  return summary;
 }
-console.log(JSON.stringify({ name: spec.name, summary }, null, 2));
-log({ type: "done", summary });
+
+function isMainModule() {
+  return import.meta.url === `file://${process.argv[1]}`;
+}
+
+if (isMainModule()) {
+  const specPath = process.argv[2];
+  if (!specPath) { console.error("usage: workflow <spec.json>"); process.exit(1); }
+  const spec = JSON.parse(readFileSync(specPath, "utf8"));
+  const journalPath = specPath.replace(/\.json$/, "") + ".journal.jsonl";
+  const log = (e) => appendFileSync(journalPath, JSON.stringify({ t: new Date().toISOString(), ...e }) + "\n");
+  await runWorkflow(spec, log);
+}
