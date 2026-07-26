@@ -32,6 +32,9 @@
                       receipt line to ~/JHD/captures/live/receipts.jsonl:
                         { ts, fileName, fileKey, counts }
      GET  /health     -> 200 "ok"
+     GET  /changes    -> 200, JSON array of the last 10 changes.jsonl records
+                      (newest first); ?n= overrides the count, up to 50.
+                      Empty array when changes.jsonl doesn't exist yet.
 
    Dedup + change log: every POST is hashed (sha256 of a stable-key-sorted
    stringify of the body, excluding header.exportedAt so identical file
@@ -50,9 +53,12 @@
    ~/JHD/captures/live/changes.jsonl:
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
        variablesRemoved, styles, components, componentsAdded,
-       componentsRemoved }, counts }
+       componentsRemoved }, counts, summary: { added, modified, removed } }
+   `summary` totals the per-bucket added/modified/removed arrays into one
+   cross-bucket count (styles has no separate added/removed array, so it
+   only contributes to `modified` — see diffStyles' header comment).
    The first-ever sync for a file (no sidecar yet) logs { initial: true }
-   with no diff, since there's nothing to compare against.
+   with no diff (and no `summary`), since there's nothing to compare against.
 
    Bind: 127.0.0.1 only, never 0.0.0.0 — this is a localhost-only bridge, no
    auth needed because nothing outside the machine can reach it. Bodies over
@@ -461,6 +467,17 @@ function handleCapture(req, res) {
             componentsAdded: componentsAdded.length,
             componentsRemoved: componentsRemoved.length,
           };
+          // Cross-bucket totals for a quick at-a-glance read of the record —
+          // added/removed come from the buckets that track them separately
+          // (variables, components); styles has no separate added/removed
+          // array (an added/removed style shows up as a "(style)" entry
+          // inside `styles` itself, per diffStyles' header comment), so it
+          // only contributes to `modified`.
+          changeRecord.summary = {
+            added: variablesAdded.length + componentsAdded.length,
+            modified: variables.length + styles.length + components.length,
+            removed: variablesRemoved.length + componentsRemoved.length,
+          };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
 
@@ -486,6 +503,38 @@ function handleCapture(req, res) {
   );
 }
 
+// GET /changes[?n=] — the last `n` records from changes.jsonl (default 10,
+// capped at 50), newest first. Reads the whole file (it's an append-only
+// log of small JSON lines, not a large binary) and parses each line
+// independently so one corrupt trailing line can't sink the whole response.
+const CHANGES_DEFAULT_N = 10;
+const CHANGES_MAX_N = 50;
+
+function handleGetChanges(req, res) {
+  const url = new URL(req.url, "http://localhost");
+  let n = Number(url.searchParams.get("n") || CHANGES_DEFAULT_N);
+  if (!Number.isFinite(n) || n <= 0) n = CHANGES_DEFAULT_N;
+  n = Math.min(n, CHANGES_MAX_N);
+
+  let records = [];
+  if (existsSync(CHANGES_PATH)) {
+    const lines = readFileSync(CHANGES_PATH, "utf8").split("\n").filter((l) => l.trim());
+    records = lines
+      .map((l) => {
+        try {
+          return JSON.parse(l);
+        } catch {
+          return null; // skip a corrupt/partial line rather than failing the whole response
+        }
+      })
+      .filter((r) => r !== null);
+  }
+  const latest = records.slice(-n).reverse();
+
+  res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+  res.end(JSON.stringify(latest));
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -502,6 +551,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "POST" && req.url === "/capture") {
     handleCapture(req, res);
+    return;
+  }
+  if (req.method === "GET" && (req.url === "/changes" || req.url.startsWith("/changes?"))) {
+    handleGetChanges(req, res);
     return;
   }
   res.writeHead(404, { "Content-Type": "text/plain", ...CORS_HEADERS });
