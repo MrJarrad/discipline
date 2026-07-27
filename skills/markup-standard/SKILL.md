@@ -155,6 +155,59 @@ inherits the bare root `<title>` with no override.
   past dev — **[Audit #11]** flags `/v2` and `/projects/yardsale/v2` as crawlable today
   with no `noindex`, both titled "(prototype)."
 
+## Exceed tier (operator-adopted 2026-07-27) — beyond this skill's own floor
+
+Three gates layered on top of everything above, adopted the same day as this skill's
+markup floor, grounded in `launch-plan-2026-07-27.md`'s "Exceed tier" entry: **W3C
+validator zero errors/warnings**, **APCA contrast** (WCAG-3 draft algorithm, beyond AA
+ratios), and **full function with JavaScript disabled**. Findings cited below as
+**[Audit #E-N]**, from the dedicated exceed-tier audit
+(`~/JHD/vault/artifacts/2026-07-27-exceed-tier-audit.md`) — same live-curl, same 11
+routes, same methodology as the markup audit above, extended rather than repeated.
+
+**Validator-zero.** Prefer `npx vnu-jar` (the Nu Html Checker) — it needs a Java
+runtime; where that's unavailable, `html-validate` (`npx html-validate`) is the
+sanctioned fallback, but its `recommended`/`document` presets are *stricter than actual
+HTML5 validity* and will over-report: `void-style`, `attr-case`,
+`attribute-boolean-style`, `attribute-empty-style`, and `valid-id`'s letter-start rule
+all flag markup WHATWG explicitly permits (attribute names are ASCII case-insensitive;
+a void element's trailing slash is a parser no-op; a boolean attribute may be
+empty-string or value-less; an id has no letter-start requirement) — mostly
+framework-internal output (React/Next hydration ids and script attributes) outside app
+code's control besides. `require-sri` and `no-inline-style` are security/CSP
+best-practice opinions, not validity rules — the `style` attribute is a defined global
+attribute. Disable all of these in `.htmlvalidate.json` before trusting a "zero" count;
+otherwise a healthy page reads as dozens of "errors" that aren't. **[Audit #E-1]** —
+scoping this way took the reported total from 46+ false positives per route down to the
+real 13 (12 ARIA misuse + 1 heading-order), both fixed, verified zero after.
+
+**APCA contrast.** Compute with `apca-w3`'s `APCAcontrast(sRGBtoY(text),
+sRGBtoY(bg))`; walk every visible text node with Playwright (`page.evaluate` a
+`TreeWalker` over elements with a direct, non-whitespace text-node child), resolving
+the effective background by compositing up the ancestor chain until full opacity.
+Thresholds (WCAG-3 draft / APCA Bronze guidance): body text `|Lc| >= 75`, large/display
+text (≈24px+ bold or ≈36px+ regular) `|Lc| >= 60`. **[Audit #E-2]** — every failure
+sitewide traced to one single token/background pair (a `--muted-foreground` value
+against the page background, Lc 73.3, 1.7 short of body threshold) — fix a token
+failure with an *existing* compliant token if one already exists; if the only fix is
+changing the token's own value, that's a design decision, not a code fix — put it on an
+operator-visible list (token, affected routes, current Lc, candidate Lc) instead of
+silently changing it.
+
+**No-JS function.** Two passes, both required: `curl` the route (confirms the static
+HTML itself, independent of any browser) and Playwright with
+`javaScriptEnabled: false` in the browser context (confirms real rendering/paint,
+catches CSS-only interactions curl can't see). Check three things per route: nav
+`<a href>`s resolve and are real links (not `onClick` router pushes); every visible
+piece of text exists in the same static HTML a JS-disabled visitor gets (nothing
+client-only-rendered); every `<video>` carries a `poster` attribute and every
+client-rendered media component degrades to a real, src-populated `<img>`/`<video>`.
+**[Audit #E-3]** — a component that assigns `<video src>` via an
+`IntersectionObserver` effect (lazy-load-near-viewport) left the element with no `src`
+*and* no `poster` in its server-rendered initial state, so a no-JS visit painted a
+fully blank box; the effect is an enhancement, the `poster` attribute is the floor a
+no-JS browser actually gets — never gate the fallback still on JS running at all.
+
 ## Verification recipe
 
 Run this before claiming any markup change done — it's how the audit itself was
@@ -181,6 +234,15 @@ produced, so it's reproducible by construction.
 6. **Read the `<head>`** on the touched route: title, description, OG/Twitter, canonical,
    JSON-LD present and route-specific (not the shared default) when the route has its
    own identity.
+7. **[Exceed tier] Validator-zero** — run `vnu-jar` (or the scoped `html-validate`
+   fallback above) against every route's served HTML; zero errors/warnings, or the run
+   isn't done.
+8. **[Exceed tier] APCA pass** — run the `apca-w3` + Playwright enumeration above
+   against every route; every text/background pair clears its threshold (Lc75 body /
+   Lc60 large), or the gap is on the operator-visible list, never silently shipped.
+9. **[Exceed tier] No-JS pass** — `curl` plus a Playwright `javaScriptEnabled: false`
+   context against every route; nav works, all text is present, every video has a
+   `poster`.
 
 None of these require a passing "vibe" read of the JSX — every check above resolves to
 a count, a boolean, or an axe violation list. Attach the actual output (outline list,
