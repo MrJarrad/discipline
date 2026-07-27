@@ -1,0 +1,54 @@
+{
+ "schemaVersion": 1,
+ "meta": {
+  "name": "jhd-design-system",
+  "capturedAt": "2026-07-27",
+  "source": "jhd",
+  "classification": null
+ },
+ "typeRoles": [],
+ "spacingScale": {
+  "module": null,
+  "steps": [],
+  "evidence": [],
+  "confidence": "inferred"
+ },
+ "palette": [
+  { "value": "oklch(1 0 0)", "usageCount": 1, "roleGuess": "surface", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 97 }], "confidence": "observed" },
+  { "value": "oklch(0.145 0 0)", "usageCount": 1, "roleGuess": "text", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 98 }], "confidence": "observed" },
+  { "value": "oklch(0.205 0 0)", "usageCount": 1, "roleGuess": "accent", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 103 }], "confidence": "observed" },
+  { "value": "oklch(0.97 0 0)", "usageCount": 1, "roleGuess": "surface", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 105 }], "confidence": "observed" },
+  { "value": "oklch(0.577 0.245 27.325)", "usageCount": 1, "roleGuess": "destructive", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 111 }], "confidence": "observed" },
+  { "value": "oklch(0.6 0.13 152)", "usageCount": 1, "roleGuess": "success", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 112 }], "confidence": "observed" },
+  { "value": "oklch(0.62 0.14 65)", "usageCount": 1, "roleGuess": "warning", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 113 }], "confidence": "observed" },
+  { "value": "oklch(0.922 0 0)", "usageCount": 1, "roleGuess": "border", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 114 }], "confidence": "observed" },
+  { "value": "#6366f1", "usageCount": 1, "roleGuess": "chart-1", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 119 }], "confidence": "observed" },
+  { "value": "#0ea5e9", "usageCount": 1, "roleGuess": "chart-2", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 120 }], "confidence": "observed" },
+  { "value": "#10b981", "usageCount": 1, "roleGuess": "chart-3", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 121 }], "confidence": "observed" },
+  { "value": "#f59e0b", "usageCount": 1, "roleGuess": "chart-4", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 122 }], "confidence": "observed" },
+  { "value": "#ef4444", "usageCount": 1, "roleGuess": "chart-5", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 123 }], "confidence": "observed" },
+  { "value": "#ec4899", "usageCount": 1, "roleGuess": "chart-6", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 124 }], "confidence": "observed" },
+  { "value": "#8b5cf6", "usageCount": 1, "roleGuess": "chart-7", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 125 }], "confidence": "observed" },
+  { "value": "#64748b", "usageCount": 1, "roleGuess": "chart-8", "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 126 }], "confidence": "observed" }
+ ],
+ "radii": [
+  { "value": "6px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 69 }], "confidence": "observed" },
+  { "value": "8px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 70 }], "confidence": "observed" },
+  { "value": "10px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 71 }], "confidence": "observed" },
+  { "value": "14px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 72 }], "confidence": "observed" },
+  { "value": "18px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 73 }], "confidence": "observed" },
+  { "value": "22px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 74 }], "confidence": "observed" },
+  { "value": "26px", "usageCount": 1, "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 75 }], "confidence": "observed" }
+ ],
+ "motionVocabulary": [],
+ "stack": {
+  "framework": "react",
+  "metaFramework": null,
+  "animationLibraries": ["tw-animate-css"],
+  "scrollTech": "native",
+  "motionConstruction": "css",
+  "scrollJack": false,
+  "viewTransitions": false,
+  "evidence": [{ "file": "skills/design-system/references/starter/index.css", "index": 15 }]
+ }
+}
