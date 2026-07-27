@@ -65,3 +65,16 @@ anyway and flag the tie in a sentence.
 The best work is the work you never made. Stop at the first sufficient rung.
 Review for deletion, not just correctness. Prefer the platform primitive over a
 hand-rolled reinvention of it.
+
+## Checklist before `done`/`in_review`
+
+```
+[ ] Best-in-class or a named gap — measured against the category's best example
+[ ] Verified with evidence attached (build/run output, URL, cited file:line) — not "should work"
+[ ] Nothing fabricated — every fact traces to a real file, API, or datum
+[ ] Reuses the shared foundation — no duplicated primitive
+[ ] Shipped HTML/UI: `design-craft` applied (tokens/composition) AND `markup-standard`
+    applied (semantics/landmarks/outline/alt/class discipline/head hygiene) — both, not
+    either; `design-craft` is the visual bar, `markup-standard` is the document beneath it
+[ ] Self-review answered: is this best-in-class, and what did friction reveal?
+```
