@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "reference-tokens/v1",
+  "title": "capture-website reference tokens",
+  "description": "Stage-2 structured sidecar (style-roles.json) for a capture-website reference. Compatible in spirit with capture-figma's structured lane (typed roles, evidence citations, observed/inferred marking) so a script can gap-compare a live-website capture against a Figma/JHD token set without an LLM re-reading prose.",
+  "type": "object",
+  "required": ["schemaVersion", "meta", "typeRoles", "spacingScale", "palette", "radii", "motionVocabulary", "stack"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "meta": {
+      "type": "object",
+      "required": ["name", "capturedAt", "source"],
+      "properties": {
+        "name": { "type": "string", "description": "Reference name, e.g. toby-ng" },
+        "capturedAt": { "type": "string", "description": "ISO date of capture" },
+        "source": { "type": "string", "description": "url captured, or 'jhd' for the JHD-side token set" },
+        "classification": { "enum": ["MARKETING", "APP", "DOCS", null] }
+      }
+    },
+    "typeRoles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/typeRole" }
+    },
+    "spacingScale": {
+      "type": "object",
+      "required": ["module", "steps", "evidence", "confidence"],
+      "properties": {
+        "module": { "type": ["number", "null"] },
+        "steps": { "type": "array", "items": { "type": "number" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "palette": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/paletteEntry" }
+    },
+    "radii": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/radiusEntry" }
+    },
+    "motionVocabulary": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/motionEntry" }
+    },
+    "stack": { "$ref": "#/$defs/stack" }
+  },
+  "$defs": {
+    "confidence": { "enum": ["observed", "inferred"] },
+    "evidenceRef": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "description": "path relative to the capture folder, e.g. home/tokens.json" },
+        "index": { "type": "number", "description": "array index within that file, when the file is a JSON array" }
+      }
+    },
+    "typeRole": {
+      "type": "object",
+      "required": ["role", "font", "size", "weight", "tracking", "leading", "declaredVar", "usageCount", "evidence", "confidence"],
+      "properties": {
+        "role": { "type": "string", "description": "site-vocabulary role name where available (class/custom-property name), else an induced label" },
+        "font": { "type": "string" },
+        "size": { "type": "string" },
+        "weight": { "type": "string" },
+        "tracking": { "type": "string" },
+        "leading": { "type": "string" },
+        "declaredVar": { "type": ["string", "null"], "description": "custom-property this size/weight/etc traces to, or null when it is a literal in the cascade" },
+        "usageCount": { "type": "number" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "paletteEntry": {
+      "type": "object",
+      "required": ["value", "usageCount", "roleGuess", "evidence", "confidence"],
+      "properties": {
+        "value": { "type": "string", "description": "computed color, e.g. rgb(33, 37, 41)" },
+        "usageCount": { "type": "number" },
+        "roleGuess": { "type": ["string", "null"], "description": "e.g. text-default, surface, accent" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "radiusEntry": {
+      "type": "object",
+      "required": ["value", "usageCount", "evidence", "confidence"],
+      "properties": {
+        "value": { "type": "string" },
+        "usageCount": { "type": "number" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "motionEntry": {
+      "type": "object",
+      "required": ["name", "property", "duration", "curve", "trigger", "stagger", "declared", "observed", "evidence", "confidence"],
+      "properties": {
+        "name": { "type": "string", "description": "e.g. nav-hover, hero-entrance, scroll-reveal-card" },
+        "property": { "type": "string", "description": "CSS property animated, e.g. opacity, transform" },
+        "duration": { "type": ["string", "null"], "description": "e.g. 0.2s; measured when observed=true, declared value otherwise" },
+        "curve": { "type": ["string", "null"], "description": "easing, e.g. cubic-bezier(0.25, 1, 0.5, 1)" },
+        "trigger": { "enum": ["load", "hover", "press", "scroll", "click", "unknown"] },
+        "stagger": { "type": ["string", "null"], "description": "delay between successive elements in a choreographed group, e.g. 0.08s" },
+        "declared": { "type": "boolean", "description": "true when a transition/animation CSS property declares this" },
+        "observed": { "type": "boolean", "description": "true when runtime sampling (getAnimations()/rAF) actually measured this firing" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "required": ["framework", "metaFramework", "animationLibraries", "scrollTech", "motionConstruction", "scrollJack", "viewTransitions", "evidence"],
+      "properties": {
+        "framework": { "type": ["string", "null"], "description": "e.g. react, vue, wordpress, static" },
+        "metaFramework": { "type": ["string", "null"], "description": "e.g. next, nuxt, astro" },
+        "animationLibraries": { "type": "array", "items": { "type": "string" }, "description": "e.g. framer-motion, gsap, lenis" },
+        "scrollTech": { "enum": ["native", "smooth-scroll-lib", "scroll-jack", "unknown"] },
+        "motionConstruction": { "enum": ["css", "js", "mixed", "unknown"], "description": "whether the observed motion is CSS transition/animation-driven, JS-driven (WAAPI/rAF), or both" },
+        "scrollJack": { "type": "boolean" },
+        "viewTransitions": { "type": "boolean", "description": "uses the View Transitions API (document.startViewTransition / view-transition-name)" },
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidenceRef" } }
+      }
+    }
+  }
+}
