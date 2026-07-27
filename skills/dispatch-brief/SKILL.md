@@ -41,8 +41,8 @@ brief must name the exact skills the receiving agent is required to invoke
 
 | Work type | Required skills |
 |---|---|
-| Build / fix | `quality` + `test-first` (+ `design-craft` if UI is touched) |
-| Review | `qa-acceptance` + `verify-finding` |
+| Build / fix | `quality` + `test-first` (+ `design-craft` + `markup-standard` if UI is touched) |
+| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` if UI is touched) |
 | Research | `research-synthesis` + `perplexity-research` |
 | Capture | `capture-figma` or `capture-website` |
 | Motion | `motion-craft` |

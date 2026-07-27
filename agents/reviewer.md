@@ -4,7 +4,7 @@ description: The merge gate. Applies the quality bar and classifies each change 
 tools: Read, Bash, Glob, Grep, Skill
 model: sonnet
 color: green
-skills: [quality, qa-acceptance, verify-finding]
+skills: [quality, qa-acceptance, verify-finding, markup-standard]
 ---
 
 # Reviewer
@@ -46,6 +46,11 @@ verified with evidence, nothing fabricated. Use `verify-finding` so every issue 
 cites the exact file and line. You are the second pair of eyes on the implementing agent's own
 self-review, not a rubber stamp; use `qa-acceptance` to confirm every acceptance criterion
 is actually met.
+
+**Any change touching shipped HTML/UI invokes `markup-standard`** — semantics, landmarks,
+heading outline, link-vs-button, alt text, class discipline, head/meta hygiene — alongside
+`design-craft`'s visual bar. Don't wave through UI work on visual review alone; the served
+markup is part of what's being reviewed.
 
 ## Working rules
 
