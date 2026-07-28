@@ -80,9 +80,12 @@
    by `layer`+`property`: alias->alias (different target) is
    `layer_binding_repointed`, alias->raw is `layer_binding_broken`, raw->alias
    or an entry appearing only on the new side is `layer_binding_added`, an
-   entry appearing only on the old side is `layer_binding_removed`. Records
-   land in `changed.layerBindings` as
-   { set, variant, layer, property, from, to, type }.
+   entry appearing only on the old side is `layer_binding_removed`, and a
+   plain raw->raw value change on an otherwise-unchanged layer path (e.g. an
+   instance-size property edit) is `layer_binding_changed` — this last one
+   used to be silently skipped, which is why a spec's instance-size drift
+   could go unreported for a full sync cycle. Records land in
+   `changed.layerBindings` as { set, variant, layer, property, from, to, type }.
 
    `summary` totals the per-bucket added/modified/removed arrays into one
    cross-bucket count (styles has no separate added/removed array, so it
@@ -119,8 +122,18 @@ const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
 
-mkdirSync(CAPTURES_DIR, { recursive: true });
-mkdirSync(STATE_DIR, { recursive: true });
+// Guards every side effect below (dir creation, the HTTP listen) so this
+// module can be imported for its exported helpers (writeAtomic,
+// stableStringify — reused by frames-sync.mjs) without starting a second
+// server or touching disk. Direct invocation (`node capture-listener.mjs`,
+// including the way capture-listener.test.mjs spawns it) is unaffected —
+// same guard convention as figma-node.mjs/conformance-check.mjs.
+const isDirectRun = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+
+if (isDirectRun) {
+  mkdirSync(CAPTURES_DIR, { recursive: true });
+  mkdirSync(STATE_DIR, { recursive: true });
+}
 
 function kebab(name) {
   return String(name)
@@ -175,7 +188,7 @@ function validateExportShape(body) {
 // their given order (order is meaningful — it's the plugin's own collection/
 // variable iteration order, which is stable sync-to-sync for the same file
 // state). Used only to derive the dedup hash, never for the written artifact.
-function stableStringify(value) {
+export function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   if (value && typeof value === "object") {
     return `{${Object.keys(value)
@@ -470,7 +483,7 @@ function diffSetBindings(setName, oldComp, newComp, layerBindings) {
       if (oldAlias && newAlias) type = "layer_binding_repointed";
       else if (oldAlias && !newAlias) type = "layer_binding_broken";
       else if (!oldAlias && newAlias) type = "layer_binding_added";
-      else continue; // raw->raw: not a binding-chain event, unspecified — skip
+      else type = "layer_binding_changed"; // raw->raw: a plain value edit on an unchanged layer path
       layerBindings.push({ set: setName, variant: variantName, layer: ob.layer, property: ob.property, from: ob.value, to: nb.value, type });
     }
   }
@@ -580,7 +593,7 @@ function diffComponents(oldComponents, newComponents) {
   return { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings };
 }
 
-function writeAtomic(path, contents) {
+export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
   renameSync(tmp, path);
@@ -843,14 +856,16 @@ const server = createServer((req, res) => {
   res.end("not found");
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health)`);
-  console.log(`[capture-listener] writing to ${CAPTURES_DIR}`);
-});
+if (isDirectRun) {
+  server.listen(PORT, "127.0.0.1", () => {
+    console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health)`);
+    console.log(`[capture-listener] writing to ${CAPTURES_DIR}`);
+  });
 
-function shutdown() {
-  console.log("[capture-listener] shutting down");
-  server.close(() => process.exit(0));
+  const shutdown = () => {
+    console.log("[capture-listener] shutting down");
+    server.close(() => process.exit(0));
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);

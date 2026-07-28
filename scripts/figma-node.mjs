@@ -34,7 +34,7 @@
    sourced, set it durably with `launchctl setenv FIGMA_TOKEN <token>`
    (session-scoped — re-run after each login/reboot) or bake it into that
    specific plist's <key>EnvironmentVariables</key> dict, same pattern as
-   com.jhd.capture-listener.plist's commented-out CONFORMANCE_MAP_PATH entry.
+   com.jhd.capture-listener.plist's own CONFORMANCE_MAP_PATH entry.
 
    Errors: 403 (no access), 404 (not found), and 429 (rate limited) each get
    a distinct, non-generic message. 429 respects a `Retry-After` response
