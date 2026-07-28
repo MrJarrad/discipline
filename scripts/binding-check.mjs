@@ -205,7 +205,7 @@ if (isMainModule()) {
     "--capture",
     join(process.env.HOME, "JHD", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
   );
-  const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio-v2", "design", "figma-map.json"));
+  const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio", "design", "figma-map.json"));
 
   try {
     const result = runBindingCheck({ capturePath, mappingPath });
