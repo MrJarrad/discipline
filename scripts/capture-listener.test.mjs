@@ -130,6 +130,62 @@ test("CONFORMANCE_MAP_PATH set with a components section: binding drift appears 
   rmSync(repoRoot, { recursive: true, force: true });
 });
 
+test("changes.jsonl reports a raw->raw layer-binding value change (regression: instance-size change on an unchanged layer path was silently dropped)", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const bindingsBody = (sizeValue) => ({
+    header: { fileName: "Test File", pluginVersion: "1.0.0", exportedAt: Date.now(), counts: {} },
+    collections: [],
+    components: {
+      standalone: [],
+      sets: [
+        {
+          name: "HeroText",
+          key: "hero-key",
+          variants: [
+            {
+              name: "device=desktop",
+              key: "v1",
+              bindings: [{ layer: "wrapper/Content/SpacerTop", property: "instance", value: sizeValue }],
+            },
+          ],
+        },
+      ],
+    },
+  });
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(bindingsBody("screen-100")),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(bindingsBody("screen-400")),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const secondRecord = JSON.parse(lines[1]);
+  assert.equal(secondRecord.changed.layerBindings.length, 1);
+  assert.deepEqual(secondRecord.changed.layerBindings[0], {
+    set: "HeroText",
+    variant: "device=desktop",
+    layer: "wrapper/Content/SpacerTop",
+    property: "instance",
+    from: "screen-100",
+    to: "screen-400",
+    type: "layer_binding_changed",
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

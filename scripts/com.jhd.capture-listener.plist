@@ -18,9 +18,9 @@
     launchctl unload ~/Library/LaunchAgents/com.jhd.capture-listener.plist
     rm ~/Library/LaunchAgents/com.jhd.capture-listener.plist
 
-  To opt into the conformance-check hook under launchd, uncomment the
-  CONFORMANCE_MAP_PATH EnvironmentVariables entry below and point it at your
-  mapping file first.
+  The conformance-check hook is on by default under launchd (CONFORMANCE_MAP_PATH
+  below, pointed at portfolio's figma-map.json) — edit or remove the
+  EnvironmentVariables entry to point elsewhere or opt back out.
 -->
 <plist version="1.0">
 <dict>
@@ -43,12 +43,10 @@
   <key>StandardErrorPath</key>
   <string>/Users/jarradharvey/Library/Logs/capture-listener.error.log</string>
 
-  <!--
   <key>EnvironmentVariables</key>
   <dict>
     <key>CONFORMANCE_MAP_PATH</key>
-    <string>/Users/jarradharvey/JHD/portfolio-v2/design/figma-map.json</string>
+    <string>/Users/jarradharvey/JHD/portfolio/design/figma-map.json</string>
   </dict>
-  -->
 </dict>
 </plist>
