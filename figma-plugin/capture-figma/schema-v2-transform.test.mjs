@@ -4,7 +4,19 @@
 // verbatim; the sync-check test at the bottom of this file guards drift).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities, buildWarnings } from "./schema-v2-transform.mjs";
+
+// Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
+// "=== END SCHEMA V2 TRANSFORM ===" marker comments. The marker lines
+// themselves are allowed to differ (each file names the other as the
+// duplication source); only the enclosed function/const bodies must match.
+function extractSchemaV2Block(source) {
+  const match = /=== SCHEMA V2 TRANSFORM[^\n]*===\n([\s\S]*?)\n\/\/ === END SCHEMA V2 TRANSFORM ===/.exec(source);
+  if (!match) throw new Error("SCHEMA V2 TRANSFORM markers not found");
+  return match[1];
+}
 
 test("buildComponentSets: maps a component-set snapshot to key/id/name/description/properties/variantCount", () => {
   const sets = [
@@ -211,4 +223,11 @@ test("buildWarnings: does not flag the device axis itself diverging between an M
   });
 
   assert.deepEqual(result, []);
+});
+
+test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {
+  const thisFile = readFileSync(join(import.meta.dirname, "schema-v2-transform.mjs"), "utf8");
+  const codeJs = readFileSync(join(import.meta.dirname, "code.js"), "utf8");
+
+  assert.equal(extractSchemaV2Block(codeJs), extractSchemaV2Block(thisFile));
 });
