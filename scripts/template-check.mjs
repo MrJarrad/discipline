@@ -14,6 +14,43 @@
          a token restep is picked up automatically)
      (c) computed style probes per block role (nav background transparency,
          spacer heights, font-size steps, ...)
+     (d) outer spacer state (spacerTop/spacerBottom) per block instance
+
+   OPINION GRADIENT (design-system-opinion-gradient.md, ratified 2026-07-29 —
+   read this before editing template-spec.json or this file):
+     (a) A TEMPLATE is a page layout, the top of the gradient: ALL the
+         opinion. The Example frame's RESOLVED INSTANCE STATE — every
+         override already applied — IS the spec. A per-instance override in
+         the spec is the layout's rightful opinion, never drift to reconcile
+         toward some lower-level "default".
+     (b) AXIS OWNERSHIP: `device` is the one axis a BLOCK owns (its own
+         internal adaptation — e.g. NavigationHeader always renders both its
+         fixed top bar and its mobile-nav pill in the DOM; CSS breakpoints
+         just hide one — see navigation-header.tsx). Every other axis belongs
+         to the LAYOUT, one opinion per axis, so a template's D-/M- Example
+         frames are ONE layout opinion rendered twice. evaluateDevicePairing
+         checks this: same block sequence (minus any block marked
+         `deviceOnly: true` — that block's presence IS its own device
+         chrome, not a layout decision) and the same non-geometry props
+         (styleProbes) on every role shared by both sides. A content-driven
+         block (any geometry field "content") is exempt from the sequence
+         check too — its repeat count is real-project-driven, not a fixed
+         layout opinion, so the D/M Example frames may legitimately demo a
+         different count.
+     (c) SPACERS: a block's outer spacerTop/spacerBottom is itself a layout
+         opinion (token-rulings.md "Blocks carry OUTER spacers; default
+         spacer-top = FALSE", 2026-07-29) — the component's own default is
+         off; a template only turns one on where the layout needs the gap.
+         evaluateSpacerState checks a spec block's declared spacerTop/
+         spacerBottom (when present — omitted stays unchecked, the schema's
+         standing convention) against the live DOM's actual first/last-child
+         `[data-kind="space-vertical"]` presence.
+     (d) NAVIGATIONHEADER FILL: its Figma fill is bound-but-unused
+         (capability-present-unused, token-rulings.md 2026-07-29) — code
+         renders no background on any route. The background-color
+         styleProbe expects "transparent" everywhere navigation-header is
+         checked; that is the ruling working as intended, not a bug to
+         "fix" by asserting a real color.
 
    Interface (deep module — small surface; the measurement mechanics below
    are all implementation):
@@ -21,16 +58,23 @@
      computeGridColumns({ viewportWidth, margin, gap, columns }) -> grid
      evaluateGridConformance({ gridChecks, measuredCells, grid, tolerancePx }) -> defects
      compareBlockGeometry({ blocks, measuredBlocks }) -> defects
+     evaluateSpacerState({ blocks, measuredBlocks }) -> defects
      evaluateStyleProbes({ probes, measuredStyles }) -> defects
+     evaluateDevicePairing({ templateD, templateM, templateId }) -> defects
+       (spec-level, not tied to any live capture — one layout opinion per
+       axis across a template's D-/M- pair; see rule (b) above)
+     deriveDevicePairs(templates) -> Map<baseName, { D: templateId, M: templateId }>
      computeTemplateDefects({ template, templateId, route, viewportName, measured }) -> defects
-       (composes the three pure checks above against one route x viewport
-       capture)
+       (composes the per-capture pure checks above against one route x
+       viewport capture; evaluateDevicePairing runs separately, once per
+       spec, not per capture — see runTemplateCheck)
      runTemplateCheck({ specPath, mapPath, baseUrl, startServerDir, measureImpl }) -> { ok, defects, summary }
        (impure orchestrator: reads spec+map, optionally starts a server,
        drives Playwright (or an injected measureImpl — the test seam) per
-       route x viewport, and appends a `templates` envelope to
-       conformance.jsonl; never throws on a defect, only on a hard config
-       error, mirroring conformance-check.mjs/binding-check.mjs)
+       route x viewport, runs evaluateDevicePairing once per D/M pair in the
+       spec, and appends a `templates` envelope to conformance.jsonl; never
+       throws on a defect, only on a hard config error, mirroring
+       conformance-check.mjs/binding-check.mjs)
 
    TEMPLATE SPEC schema (template-spec.json, see scripts/template-spec.json
    for the checked-in DS-Example-derived spec):
@@ -39,7 +83,8 @@
          "<templateId>": {
            "viewport": "<viewport name, e.g. D | M>",
            "blocks": [
-             { "role", "index"?, "y"?, "x"?, "height"?, "width"?, "tolerance"? }
+             { "role", "index"?, "y"?, "x"?, "height"?, "width"?, "tolerance"?,
+               "spacerTop"?, "spacerBottom"?, "deviceOnly"? }
            ],
            "gridChecks": [ { "role", "cellSelector" } ],
            "styleProbes": [ { "role", "index"?, "property", "expected", "tolerance"? } ]
@@ -204,6 +249,33 @@ export function compareBlockGeometry({ blocks, measuredBlocks }) {
   return defects;
 }
 
+// ---- spacer state ------------------------------------------------------
+
+// Compares each spec block's declared spacerTop/spacerBottom (a BLOCK-level
+// structural opinion — see design-system-opinion-gradient.md: blocks carry
+// outer SpaceVertical wrappers for inter-block page rhythm; the component
+// default is always off, so the template's own state is the layout's
+// opinion, not drift) against the measured DOM's actual first/last-child
+// presence. Either side omitted from the spec block is unchecked, same
+// content-skip convention as compareBlockGeometry.
+export function evaluateSpacerState({ blocks, measuredBlocks }) {
+  const defects = [];
+  for (const block of blocks || []) {
+    const index = block.index ?? 0;
+    const measured = findMeasuredBlock(measuredBlocks, block.role, index);
+    if (!measured) continue; // missing-block-instance already reported by compareBlockGeometry
+    for (const side of ["spacerTop", "spacerBottom"]) {
+      const expected = block[side];
+      if (expected === undefined) continue;
+      const value = Boolean(measured[side]);
+      if (value !== expected) {
+        defects.push({ type: "spacer-state-mismatch", role: block.role, index, side, expected, measured: value });
+      }
+    }
+  }
+  return defects;
+}
+
 // ---- computed style probes ---------------------------------------------
 
 // Parses a leading numeric prefix off a CSS computed-style string (e.g.
@@ -256,6 +328,104 @@ export function evaluateStyleProbes({ probes, measuredStyles }) {
   return defects;
 }
 
+// ---- device pairing (axis ownership) -----------------------------------
+
+// device is the ONE axis a block owns (its own internal adaptation); every
+// other axis — block sequence, props, style — belongs to the layout, and a
+// layout holds ONE opinion per axis (design-system-opinion-gradient.md,
+// "Axis ownership rule"). So a template's D- and M- Example frames are the
+// SAME layout opinion rendered through each block's own device axis: same
+// blocks in the same order, same non-geometry props. A block whose very
+// presence IS the device's own chrome (e.g. NavigationHeader's mobile-nav
+// pill, rendered by the same component instance purely via CSS breakpoint)
+// opts out with `deviceOnly: true` — anything else diverging between the
+// pair is a defect the device axis can't explain.
+// A content-driven block (any geometry field valued "content" — a repeating
+// case-study section, a card row) has a count that varies with real project
+// content, not a fixed layout opinion; the DS Example frames may legitimately
+// demo a different repeat count per device (e.g. 3 FeatureText/SplitContent
+// pairs on D-Project's example vs 1 on M-Project's), so its presence/count
+// is excluded from the sequence comparison on BOTH sides, same "content
+// skips the check" convention compareBlockGeometry already applies per-field.
+function isContentDriven(block) {
+  return GEOMETRY_FIELDS.some((field) => block[field] === "content");
+}
+
+function devicePairingSignature(template) {
+  return (template?.blocks || [])
+    .filter((b) => !b.deviceOnly)
+    .filter((b) => !isContentDriven(b))
+    .map((b) => ({ role: b.role, index: b.index ?? 0 }));
+}
+
+function styleProbeMap(template) {
+  const map = new Map();
+  for (const p of template?.styleProbes || []) {
+    map.set(`${p.role}#${p.index ?? 0}#${p.property}`, p.expected);
+  }
+  return map;
+}
+
+export function evaluateDevicePairing({ templateD, templateM, templateId }) {
+  const defects = [];
+  if (!templateD || !templateM) return defects; // no full D/M pair to compare — not this check's job
+
+  const seqD = devicePairingSignature(templateD);
+  const seqM = devicePairingSignature(templateM);
+  const sameSequence =
+    seqD.length === seqM.length && seqD.every((entry, i) => entry.role === seqM[i].role && entry.index === seqM[i].index);
+  if (!sameSequence) {
+    defects.push({
+      type: "device-pairing-sequence-mismatch",
+      templateId,
+      d: seqD.map((e) => `${e.role}#${e.index}`),
+      m: seqM.map((e) => `${e.role}#${e.index}`),
+    });
+  }
+
+  const sharedRoleKeys = new Set(
+    seqD.map((e) => `${e.role}#${e.index}`).filter((key) => seqM.some((e) => `${e.role}#${e.index}` === key))
+  );
+
+  const probesD = styleProbeMap(templateD);
+  const probesM = styleProbeMap(templateM);
+  for (const key of new Set([...probesD.keys(), ...probesM.keys()])) {
+    const [role, index, property] = key.split("#");
+    if (!sharedRoleKeys.has(`${role}#${index}`)) continue; // role isn't shared (device-only) — device explains the gap
+    const dExpected = probesD.get(key);
+    const mExpected = probesM.get(key);
+    if (dExpected !== mExpected) {
+      defects.push({
+        type: "device-pairing-style-probe-mismatch",
+        templateId,
+        role,
+        index: Number(index),
+        property,
+        d: dExpected,
+        m: mExpected,
+      });
+    }
+  }
+
+  return defects;
+}
+
+// Groups a spec's template ids ("D-Home"/"M-Home", ...) into { D, M } pairs
+// keyed by the shared base name, for evaluateDevicePairing to walk.
+export function deriveDevicePairs(templates) {
+  const pairs = new Map();
+  for (const id of Object.keys(templates || {})) {
+    const dashIdx = id.indexOf("-");
+    if (dashIdx === -1) continue;
+    const prefix = id.slice(0, dashIdx);
+    const base = id.slice(dashIdx + 1);
+    if (prefix !== "D" && prefix !== "M") continue;
+    if (!pairs.has(base)) pairs.set(base, {});
+    pairs.get(base)[prefix] = id;
+  }
+  return pairs;
+}
+
 // ---- one route x viewport capture -----------------------------------------
 
 // Composes the three pure checks against one template's spec + one live
@@ -272,6 +442,7 @@ export function computeTemplateDefects({ template, templateId, route, viewportNa
 
   const defects = [
     ...compareBlockGeometry({ blocks: template.blocks, measuredBlocks: measured.blocks }),
+    ...evaluateSpacerState({ blocks: template.blocks, measuredBlocks: measured.blocks }),
     ...evaluateGridConformance({
       gridChecks: template.gridChecks,
       measuredCells: measured.gridCells || [],
@@ -360,6 +531,19 @@ export async function runTemplateCheck({
     }
   }
 
+  // Spec-level check, independent of any live capture: does each D/M pair in
+  // the spec hold to ONE layout opinion per axis (device pairing rule)? Runs
+  // once per pair regardless of which routes the map actually declares.
+  for (const [base, pair] of deriveDevicePairs(spec.templates)) {
+    if (!pair.D || !pair.M) continue; // no full pair — not this check's job
+    const pairingDefects = evaluateDevicePairing({
+      templateD: spec.templates[pair.D],
+      templateM: spec.templates[pair.M],
+      templateId: base,
+    });
+    defects.push(...pairingDefects.map((d) => ({ ...d, route: "(spec)", viewport: "D+M" })));
+  }
+
   const ok = defects.length === 0;
   const summaryLines = [`Template check: ${checkedCount} route x viewport captures checked, ${defects.length} defects.`];
   for (const d of defects) {
@@ -443,10 +627,22 @@ async function measureWithBrowser(browser, { url, viewport, template }) {
       for (const b of tmpl.blocks || []) {
         if (!seenBlockSelectors.has(b.role)) seenBlockSelectors.set(b.role, selectorFor(b));
       }
+      // A block's outer spacer is its first/last DOM child rendering the
+      // shared SpaceVertical primitive (data-kind="space-vertical") — see
+      // design-system-opinion-gradient.md: blocks own this ONE structural
+      // opinion, toggled per-instance, default off.
+      const hasSpacer = (el, child) => child?.getAttribute?.("data-kind") === "space-vertical";
+
       const blocks = [];
       for (const [role, selector] of seenBlockSelectors) {
         document.querySelectorAll(selector).forEach((el, index) => {
-          blocks.push({ role, index, ...rectFor(el) });
+          blocks.push({
+            role,
+            index,
+            ...rectFor(el),
+            spacerTop: hasSpacer(el, el.firstElementChild),
+            spacerBottom: hasSpacer(el, el.lastElementChild),
+          });
         });
       }
 

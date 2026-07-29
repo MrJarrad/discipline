@@ -9,7 +9,9 @@ import {
   computeGridColumns,
   evaluateGridConformance,
   compareBlockGeometry,
+  evaluateSpacerState,
   evaluateStyleProbes,
+  evaluateDevicePairing,
   computeTemplateDefects,
   runTemplateCheck,
   parseArgs,
@@ -107,6 +109,35 @@ test("compareBlockGeometry: spec block with no measured counterpart -> missing-b
   assert.deepEqual(defects, [{ type: "missing-block-instance", role: "pagination-page", index: 0 }]);
 });
 
+test("evaluateSpacerState: measured matches declared spacerTop/spacerBottom -> no defect", () => {
+  const blocks = [{ role: "hero-text", spacerTop: false, spacerBottom: true }];
+  const measuredBlocks = [{ role: "hero-text", index: 0, spacerTop: false, spacerBottom: true }];
+
+  const defects = evaluateSpacerState({ blocks, measuredBlocks });
+
+  assert.deepEqual(defects, []);
+});
+
+test("evaluateSpacerState: measured spacerTop on when spec declares it off -> spacer-state-mismatch defect", () => {
+  const blocks = [{ role: "hero-text", spacerTop: false, spacerBottom: true }];
+  const measuredBlocks = [{ role: "hero-text", index: 0, spacerTop: true, spacerBottom: true }];
+
+  const defects = evaluateSpacerState({ blocks, measuredBlocks });
+
+  assert.deepEqual(defects, [
+    { type: "spacer-state-mismatch", role: "hero-text", index: 0, side: "spacerTop", expected: false, measured: true },
+  ]);
+});
+
+test("evaluateSpacerState: side omitted from spec block -> not checked", () => {
+  const blocks = [{ role: "hero-text", spacerBottom: true }];
+  const measuredBlocks = [{ role: "hero-text", index: 0, spacerTop: true, spacerBottom: true }];
+
+  const defects = evaluateSpacerState({ blocks, measuredBlocks });
+
+  assert.deepEqual(defects, []);
+});
+
 test("evaluateStyleProbes: matching computed style -> no defect", () => {
   const probes = [{ role: "navigation-header", property: "background-color", expected: "transparent" }];
   const measuredStyles = [{ role: "navigation-header", index: 0, property: "background-color", value: "transparent" }];
@@ -149,6 +180,87 @@ test("evaluateStyleProbes: probe with no measured counterpart -> missing-style-p
   const defects = evaluateStyleProbes({ probes, measuredStyles });
 
   assert.deepEqual(defects, [{ type: "missing-style-probe", role: "pagination-page", index: 0, property: "background-color" }]);
+});
+
+test("evaluateDevicePairing: same block sequence, same shared style probes -> no defect", () => {
+  const templateD = {
+    blocks: [{ role: "navigation-header" }, { role: "hero-text" }],
+    styleProbes: [{ role: "navigation-header", property: "background-color", expected: "transparent" }],
+  };
+  const templateM = {
+    blocks: [{ role: "navigation-header" }, { role: "hero-text" }],
+    styleProbes: [{ role: "navigation-header", property: "background-color", expected: "transparent" }],
+  };
+
+  const defects = evaluateDevicePairing({ templateD, templateM, templateId: "Home" });
+
+  assert.deepEqual(defects, []);
+});
+
+test("evaluateDevicePairing: M drops a block D has -> device-pairing-sequence-mismatch defect", () => {
+  const templateD = { blocks: [{ role: "navigation-header" }, { role: "hero-text" }] };
+  const templateM = { blocks: [{ role: "navigation-header" }] };
+
+  const defects = evaluateDevicePairing({ templateD, templateM, templateId: "Home" });
+
+  assert.deepEqual(defects, [
+    { type: "device-pairing-sequence-mismatch", templateId: "Home", d: ["navigation-header#0", "hero-text#0"], m: ["navigation-header#0"] },
+  ]);
+});
+
+test("evaluateDevicePairing: a role shared by both D and M has a style probe on only one side -> device-pairing-style-probe-mismatch defect (the D-Home/M-Home nav-transparency gap)", () => {
+  const templateD = {
+    blocks: [{ role: "navigation-header" }],
+    styleProbes: [{ role: "navigation-header", property: "background-color", expected: "transparent" }],
+  };
+  const templateM = { blocks: [{ role: "navigation-header" }] };
+
+  const defects = evaluateDevicePairing({ templateD, templateM, templateId: "Home" });
+
+  assert.deepEqual(defects, [
+    {
+      type: "device-pairing-style-probe-mismatch",
+      templateId: "Home",
+      role: "navigation-header",
+      index: 0,
+      property: "background-color",
+      d: "transparent",
+      m: undefined,
+    },
+  ]);
+});
+
+test("evaluateDevicePairing: a block marked deviceOnly is excluded from the sequence comparison (mobile-nav's own device chrome)", () => {
+  const templateD = { blocks: [{ role: "navigation-header" }] };
+  const templateM = { blocks: [{ role: "navigation-header" }, { role: "mobile-nav", deviceOnly: true }] };
+
+  const defects = evaluateDevicePairing({ templateD, templateM, templateId: "Home" });
+
+  assert.deepEqual(defects, []);
+});
+
+test("evaluateDevicePairing: a content-driven block (repeating case-study section) is excluded from the sequence comparison even when its count differs across the pair", () => {
+  const templateD = {
+    blocks: [
+      { role: "navigation-header" },
+      { role: "feature-text-block", index: 0, height: "content" },
+      { role: "feature-text-block", index: 1, height: "content" },
+      { role: "feature-text-block", index: 2, height: "content" },
+    ],
+  };
+  const templateM = {
+    blocks: [{ role: "navigation-header" }, { role: "feature-text-block", index: 0, height: "content" }],
+  };
+
+  const defects = evaluateDevicePairing({ templateD, templateM, templateId: "Project" });
+
+  assert.deepEqual(defects, []);
+});
+
+test("evaluateDevicePairing: no M side for a D-only template (e.g. hidden future page) -> not this check's job", () => {
+  const defects = evaluateDevicePairing({ templateD: { blocks: [] }, templateM: undefined, templateId: "About" });
+
+  assert.deepEqual(defects, []);
 });
 
 test("computeTemplateDefects: composes geometry + grid + style defects, tagged with templateId/route/viewport", () => {
@@ -315,6 +427,57 @@ test("runTemplateCheck: appends a `templates`-keyed envelope to conformance.json
   assert.equal(record.templates.ok, false);
   assert.equal(record.templates.defects.length, 1);
   assert.match(record.templates.summary, /1 defect/);
+});
+
+test("runTemplateCheck: a spec's D/M pair diverging on a shared-role style probe surfaces a device-pairing defect, even with an aligned live measurement", async () => {
+  const pairedSpec = {
+    $schema: "template-spec/v1",
+    templates: {
+      "D-Home": {
+        viewport: "D",
+        blocks: [{ role: "hero-text", y: 0, height: 648, tolerance: 6 }],
+        styleProbes: [{ role: "hero-text", property: "background-color", expected: "transparent" }],
+      },
+      "M-Home": { viewport: "M", blocks: [{ role: "hero-text", y: 0, height: 648, tolerance: 6 }] },
+    },
+  };
+  const pairedMap = {
+    templates: {
+      viewports: [{ name: "D", width: 1280, height: 720 }],
+      routes: [{ route: "/", templates: { D: "D-Home" } }],
+    },
+  };
+  const { specPath, mapPath } = makeFixture({ spec: pairedSpec, map: pairedMap });
+
+  const measured = {
+    ...okMeasured(),
+    styles: [{ role: "hero-text", index: 0, property: "background-color", value: "transparent" }],
+  };
+  const result = await runTemplateCheck({
+    specPath,
+    mapPath,
+    baseUrl: "http://localhost:9999",
+    measureImpl: async () => measured,
+    appendEnvelope: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(
+    result.defects.filter((d) => d.type === "device-pairing-style-probe-mismatch"),
+    [
+      {
+        type: "device-pairing-style-probe-mismatch",
+        templateId: "Home",
+        role: "hero-text",
+        index: 0,
+        property: "background-color",
+        d: "transparent",
+        m: undefined,
+        route: "(spec)",
+        viewport: "D+M",
+      },
+    ]
+  );
 });
 
 test("parseArgs: reads --map/--spec/--base-url/--start-server/--port, with defaults", () => {
