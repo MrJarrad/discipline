@@ -4,7 +4,7 @@
 // this IS the boundary (an HTTP server), so no mocking, just a real process.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -291,6 +291,34 @@ test("OPTIONS /todos answers the CORS preflight for the Figma plugin's cross-ori
   assert.equal(res.headers.get("access-control-allow-origin"), "*");
   assert.equal(res.headers.get("access-control-allow-methods"), "POST, GET, OPTIONS");
   assert.equal(res.headers.get("access-control-allow-headers"), "content-type");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("todo-queue.json is persisted atomically: no leftover tmp file, content survives back-to-back writes", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const enqueueRes = await fetch(`${base}/todos`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: [{ id: "todo-1", text: "First" }, { id: "todo-2", text: "Second" }] }),
+    });
+    assert.equal(enqueueRes.status, 200);
+
+    const ackRes = await fetch(`${base}/todos/ack`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["todo-1"] }),
+    });
+    assert.equal(ackRes.status, 200);
+  });
+
+  const entries = readdirSync(capturesDir);
+  assert.equal(entries.some((name) => name.includes(".tmp-")), false);
+
+  const onDisk = JSON.parse(readFileSync(join(capturesDir, "todo-queue.json"), "utf8"));
+  assert.deepEqual(onDisk.items, [{ id: "todo-2", text: "Second" }]);
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
