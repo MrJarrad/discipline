@@ -55,6 +55,13 @@
      code-string transform (an instance swap, a CSS var reference, a prop
      default) — extend with new kinds as new code shapes need support,
      mirroring conformance-check.mjs's EXTRACTORS enum.
+
+   THIRD LANE: this is the BINDING lane. There are two siblings —
+   conformance-check.mjs (does a mapped token's resolved VALUE match?) and
+   template-check.mjs (does the rendered page's block geometry/grid/
+   computed-style match the DS Example templates?). Reviewers run all three
+   before merging a visual/layout change — see template-check.mjs's header
+   for the full integration note.
 */
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

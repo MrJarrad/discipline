@@ -1,0 +1,15 @@
+{
+  "$schema": "template-map/v1",
+  "$note": "Reference example of the 'templates' section template-check.mjs's --map flag expects — either inline as a `templates` key inside the consuming repo's own figma-map.json (alongside its existing `entries`/`components` sections), or as a standalone sibling file like this one, pointed to directly via --map. Routes below match portfolio's actual template pages: '/' (Home), '/projects' (project index), '/projects/yardsale' (a built case study, standing in for 'one case-study route').",
+  "templates": {
+    "viewports": [
+      { "name": "D", "width": 1280, "height": 720 },
+      { "name": "M", "width": 375, "height": 812 }
+    ],
+    "routes": [
+      { "route": "/", "templates": { "D": "D-Home", "M": "M-Home" } },
+      { "route": "/projects", "templates": { "D": "D-Projects", "M": "M-Projects" } },
+      { "route": "/projects/yardsale", "templates": { "D": "D-Project", "M": "M-Project" } }
+    ]
+  }
+}

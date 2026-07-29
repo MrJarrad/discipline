@@ -1,0 +1,104 @@
+{
+  "$schema": "template-spec/v1",
+  "$source": "~/JHD/captures/examples/example-templates-inventory-2026-07-28.md (DS Examples page, JHD-Spec-DesignSystem, desktop MCP read 2026-07-28). Operator ruling recorded there: the Example frames ARE the page templates.",
+  "$conventions": [
+    "Each block's `role` is looked up in the live DOM via [data-kind=\"<role>\"] (the codebase's own component-root convention). A height/y/x/width field valued the literal string \"content\" is content-driven (depends on real project count/copy/media) and is always skipped, never a defect — see template-check.mjs's header comment.",
+    "gridChecks only apply to Desktop (D) templates: the site's own CSS gates the 12-col grid behind the `lg` breakpoint (`lg:grid-cols-12` / `.layout-grid-grid[data-columns]`); Mobile (M) layouts are single-column, so a grid-snap check there would be meaningless.",
+    "A field simply omitted (not present on the block) is not checked at all — used where the DS inventory gave no number to check against, to avoid asserting a value that was never actually sourced."
+  ],
+  "templates": {
+    "D-Home": {
+      "viewport": "D",
+      "gridTolerancePx": 3,
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "hero-text", "y": 0, "height": 648, "tolerance": 6 },
+        { "role": "split-asymmetric", "index": 0, "height": "content" },
+        { "role": "split-asymmetric", "index": 1, "height": "content" },
+        { "role": "split-asymmetric", "index": 2, "height": "content" },
+        { "role": "split-asymmetric", "index": 3, "height": "content" },
+        { "role": "split-asymmetric", "index": 4, "height": "content" },
+        { "role": "split-asymmetric", "index": 5, "height": "content" },
+        { "role": "split-asymmetric", "index": 6, "height": "content" },
+        { "role": "split-asymmetric", "index": 7, "height": "content" },
+        { "role": "split-asymmetric", "index": 8, "height": "content" },
+        { "role": "split-asymmetric", "index": 9, "height": "content" },
+        { "role": "split-asymmetric", "index": 10, "height": "content" }
+      ],
+      "$note": "Inventory's 'hidden PaginationPage 648 at end' is a hidden Figma variant, not part of the visible Home template — intentionally not asserted (asserting it would fabricate a defect for a component that isn't supposed to render here).",
+      "gridChecks": [{ "role": "split-asymmetric", "cellSelector": ".split-asymmetric-cell" }],
+      "styleProbes": [
+        { "role": "navigation-header", "property": "background-color", "expected": "transparent", "$note": "Home's NavigationHeader is explicitly annotated '(overlay)' in the inventory — floats over the hero, so its own background must stay transparent." }
+      ]
+    },
+
+    "M-Home": {
+      "viewport": "M",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4 },
+        { "role": "hero-text", "y": 0, "height": 568, "tolerance": 6 },
+        { "role": "split-asymmetric", "index": 0, "height": "content" },
+        { "role": "split-asymmetric", "index": 1, "height": "content" },
+        { "role": "split-asymmetric", "index": 2, "height": "content" },
+        { "role": "split-asymmetric", "index": 3, "height": "content" },
+        { "role": "split-asymmetric", "index": 4, "height": "content" },
+        { "role": "split-asymmetric", "index": 5, "height": "content" },
+        { "role": "split-asymmetric", "index": 6, "height": "content" },
+        { "role": "split-asymmetric", "index": 7, "height": "content" },
+        { "role": "split-asymmetric", "index": 8, "height": "content" },
+        { "role": "split-asymmetric", "index": 9, "height": "content" },
+        { "role": "split-asymmetric", "index": 10, "height": "content" }
+      ]
+    },
+
+    "D-Projects": {
+      "viewport": "D",
+      "gridTolerancePx": 3,
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "hero-text", "y": 0, "height": 648, "tolerance": 6 },
+        { "role": "layout-grid", "y": 648, "height": "content", "tolerance": 6 }
+      ],
+      "gridChecks": [{ "role": "layout-grid", "cellSelector": ".layout-grid-grid > li" }]
+    },
+
+    "M-Projects": {
+      "viewport": "M",
+      "$note": "The inventory doc has no dedicated M-Projects section (only D-Projects was captured) — kept minimal to what's actually sourced (the shared mobile nav chrome) rather than inventing grid/hero numbers.",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4 }
+      ]
+    },
+
+    "D-Project": {
+      "viewport": "D",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "header-media", "y": 0, "height": 1549, "tolerance": 4 },
+        { "role": "feature-text-block", "index": 0, "height": "content" },
+        { "role": "split-content", "index": 0, "height": "content" },
+        { "role": "feature-text-block", "index": 1, "height": "content" },
+        { "role": "split-content", "index": 1, "height": "content" },
+        { "role": "feature-text-block", "index": 2, "height": "content" },
+        { "role": "split-content", "index": 2, "height": "content" },
+        { "role": "pagination-page", "height": 648, "tolerance": 6 }
+      ],
+      "$note": "header-media is the operator's known open item (HeaderMedia +48) pending the portfolio round; this spec asserts the DS Example's actual 1549 so the defect surfaces rather than being papered over. feature-text-block's 464 in the inventory is that ONE example's own prose length, not a fixed contract — feature-text.tsx (verified against source) has no height/min-height constraint, its total height is SpacerTop(space-500) + prose (unbounded) + SpacerBottom(space-600), so it's marked content-driven here rather than asserting a number the component was never built to hold to."
+    },
+
+    "M-Project": {
+      "viewport": "M",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4 },
+        { "role": "header-media", "y": 0, "height": 1061, "tolerance": 6 },
+        { "role": "feature-text-block", "index": 0, "height": "content" },
+        { "role": "split-content", "index": 0, "height": "content" },
+        { "role": "pagination-page", "height": 568, "tolerance": 6 }
+      ],
+      "$note": "feature-text-block is content-driven (see D-Project's note — verified against feature-text.tsx source, no height constraint on the component)."
+    }
+  }
+}
