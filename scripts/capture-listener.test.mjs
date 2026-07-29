@@ -279,6 +279,22 @@ test("POST /todos/ack with a done[] field logs a receipt with lane: todos", asyn
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("OPTIONS /todos answers the CORS preflight for the Figma plugin's cross-origin fetch", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let res;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    res = await fetch(`${base}/todos`, { method: "OPTIONS" });
+  });
+
+  assert.equal(res.status, 204);
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.equal(res.headers.get("access-control-allow-methods"), "POST, GET, OPTIONS");
+  assert.equal(res.headers.get("access-control-allow-headers"), "content-type");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
