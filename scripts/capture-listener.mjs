@@ -36,6 +36,24 @@
                       (newest first); ?n= overrides the count, up to 50.
                       Empty array when changes.jsonl doesn't exist yet.
 
+     GET  /todos      -> 200 {"items":[{"id":string,"text":string}]} — the
+                      pending todo queue, read from
+                      ~/JHD/captures/live/todo-queue.json (empty items[] when
+                      the file is missing or corrupt). This is the operator's
+                      in-Figma todo plugin's pull channel.
+     POST /todos      body = {"items":[{"text":string,"id"?:string}]} —
+                      pipeline producers (conformance lanes, later; manual
+                      curl for now) enqueue items here. Deduped by text
+                      against the current queue; an omitted id is generated
+                      (crypto.randomUUID). Writes atomically. Responds with
+                      the updated queue.
+     POST /todos/ack  body = {"ids":[string], "done"?:[string]} — the plugin
+                      acks items it pulled; matching ids are removed from the
+                      queue (atomic write). An optional `done` list appends
+                      one receipts.jsonl record ({ ts, lane: "todos", ids,
+                      done }) as a seam for future two-way sync — it never
+                      gates the removal. Responds with the updated queue.
+
    Dedup + change log: every POST is hashed (sha256 of a stable-key-sorted
    stringify of the body, excluding header.exportedAt so identical file
    state hashes identical regardless of when it was exported). The hash and
@@ -105,7 +123,7 @@ import {
   readFileSync,
   existsSync,
 } from "node:fs";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { runConformanceCheck } from "./conformance-check.mjs";
@@ -121,6 +139,7 @@ const RECEIPTS_PATH = join(CAPTURES_DIR, "receipts.jsonl");
 const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
+const TODO_QUEUE_PATH = join(CAPTURES_DIR, "todo-queue.json");
 
 // Guards every side effect below (dir creation, the HTTP listen) so this
 // module can be imported for its exported helpers (writeAtomic,
@@ -830,6 +849,110 @@ function handleGetChanges(req, res) {
   res.end(JSON.stringify(latest));
 }
 
+// The todo queue is the operator's Figma plugin's pull channel: pipeline
+// producers (conformance lanes, manual curl for now) POST items here, the
+// in-Figma plugin GETs them, and acks the ones it consumed. Read failures
+// (missing file, corrupt JSON) fall back to an empty queue rather than 500ing
+// — a plugin poll shouldn't break because the file hasn't been seeded yet.
+function readTodoQueue() {
+  if (!existsSync(TODO_QUEUE_PATH)) return { items: [] };
+  try {
+    const parsed = JSON.parse(readFileSync(TODO_QUEUE_PATH, "utf8"));
+    return { items: Array.isArray(parsed.items) ? parsed.items : [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+function handleGetTodos(req, res) {
+  res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+  res.end(JSON.stringify(readTodoQueue()));
+}
+
+// POST /todos body = { items: [{ text, id? }] } — pipeline producers (the
+// conformance lanes, later; manual curl for now) enqueue items here. Dedupe
+// is by text against the current queue: a producer re-running the same lane
+// shouldn't pile up duplicate todos every sync. An id is generated when the
+// producer doesn't supply one; a caller-supplied id is trusted as-is (the
+// seed file's todo-1..todo-10 scheme relies on this).
+function handlePostTodos(req, res) {
+  readBody(
+    req,
+    (buf) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(buf.toString("utf8"));
+      } catch {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid JSON body");
+        return;
+      }
+      if (!parsed || !Array.isArray(parsed.items)) {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid body: items must be an array");
+        return;
+      }
+      const queue = readTodoQueue();
+      const existingTexts = new Set(queue.items.map((i) => i.text));
+      for (const item of parsed.items) {
+        if (!item || typeof item.text !== "string" || !item.text) continue;
+        if (existingTexts.has(item.text)) continue;
+        const id = typeof item.id === "string" && item.id ? item.id : randomUUID();
+        queue.items.push({ id, text: item.text });
+        existingTexts.add(item.text);
+      }
+      writeAtomic(TODO_QUEUE_PATH, JSON.stringify(queue, null, 2) + "\n");
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+      res.end(JSON.stringify(queue));
+    },
+    (status, message) => {
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
+      res.end(message);
+    }
+  );
+}
+
+// POST /todos/ack body = { ids: [...], done?: [...] } — the plugin acks the
+// items it has pulled and removes them from the queue. `done` is optional
+// and purely a receipt for future two-way sync (which ids the plugin
+// actually marked complete, vs. just dequeued) — it never gates the removal.
+function handleAckTodos(req, res) {
+  readBody(
+    req,
+    (buf) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(buf.toString("utf8"));
+      } catch {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid JSON body");
+        return;
+      }
+      if (!parsed || !Array.isArray(parsed.ids)) {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid body: ids must be an array");
+        return;
+      }
+      const ackIds = new Set(parsed.ids);
+      const queue = readTodoQueue();
+      queue.items = queue.items.filter((item) => !ackIds.has(item.id));
+      writeAtomic(TODO_QUEUE_PATH, JSON.stringify(queue, null, 2) + "\n");
+
+      if (Array.isArray(parsed.done)) {
+        const receipt = { ts: new Date().toISOString(), lane: "todos", ids: parsed.ids, done: parsed.done };
+        appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+      res.end(JSON.stringify(queue));
+    },
+    (status, message) => {
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
+      res.end(message);
+    }
+  );
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -852,13 +975,25 @@ const server = createServer((req, res) => {
     handleGetChanges(req, res);
     return;
   }
+  if (req.method === "GET" && req.url === "/todos") {
+    handleGetTodos(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/todos/ack") {
+    handleAckTodos(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/todos") {
+    handlePostTodos(req, res);
+    return;
+  }
   res.writeHead(404, { "Content-Type": "text/plain", ...CORS_HEADERS });
   res.end("not found");
 });
 
 if (isDirectRun) {
   server.listen(PORT, "127.0.0.1", () => {
-    console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health)`);
+    console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health, GET/POST /todos)`);
     console.log(`[capture-listener] writing to ${CAPTURES_DIR}`);
   });
 
