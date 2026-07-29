@@ -46,6 +46,13 @@
        (the code-side convention for a component's numbered size ramp:
        100/200/300/400 are four separate declarations, not one token
        overridden per mode). Same var()/unit resolution as "css-scalar".
+
+   THIRD LANE: this is the VALUE lane. There are two siblings — binding-
+   check.mjs (does a component layer bind to the named token/variant Figma's
+   own bindings declare?) and template-check.mjs (does the rendered page's
+   block geometry/grid/computed-style match the DS Example templates?).
+   Reviewers run all three before merging a visual/layout change — see
+   template-check.mjs's header for the full integration note.
 */
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

@@ -1,0 +1,112 @@
+{
+  "$schema": "template-spec/v1",
+  "$source": "~/JHD/captures/examples/example-templates-inventory-2026-07-28.md (DS Examples page, JHD-Spec-DesignSystem, desktop MCP read 2026-07-28). Operator ruling recorded there: the Example frames ARE the page templates.",
+  "$conventions": [
+    "Each block's `role` is looked up in the live DOM via [data-kind=\"<role>\"] (the codebase's own component-root convention). A height/y/x/width field valued the literal string \"content\" is content-driven (depends on real project count/copy/media) and is always skipped, never a defect — see template-check.mjs's header comment.",
+    "gridChecks only apply to Desktop (D) templates: the site's own CSS gates the 12-col grid behind the `lg` breakpoint (`lg:grid-cols-12` / `.layout-grid-grid[data-columns]`); Mobile (M) layouts are single-column, so a grid-snap check there would be meaningless.",
+    "A field simply omitted (not present on the block) is not checked at all — used where the DS inventory gave no number to check against, to avoid asserting a value that was never actually sourced.",
+    "OPINION GRADIENT (design-system-opinion-gradient.md, ratified 2026-07-29): a TEMPLATE is a page layout — the highest level, ALL the opinion (which blocks, in what order, with which props/overrides). The Example frame's RESOLVED INSTANCE STATE (after every override) IS this spec — an override is the layout exercising its rightful opinion, never drift to reconcile away.",
+    "AXIS OWNERSHIP: `device` is the one axis a block owns (its own internal adaptation, e.g. NavigationHeader always renders both its top bar and its mobile-nav pill in the DOM, CSS just breakpoint-hides one — see navigation-header.tsx). Every other axis belongs to the layout, ONE opinion per axis, so a template's D-/M- pair is one layout opinion rendered twice. `deviceOnly: true` on a block marks it as that block's own device chrome (excluded from the D/M sequence comparison); a role present on both sides that isn't deviceOnly must carry identical non-geometry props (styleProbes, spacer state) — device explains geometry differences (heights/positions), never a style/props divergence.",
+    "SPACERS: a block's outer spacerTop/spacerBottom is authored layout opinion (zero-opinion component default is OFF — token-rulings.md 'Blocks carry OUTER spacers; default spacer-top = FALSE', 2026-07-29). Declare `spacerTop`/`spacerBottom` on a block entry only where verified against the real call site (page.tsx); omitted means unchecked, same as any other field.",
+    "NAVIGATIONHEADER FILL: its Figma fill is bound-but-unused (capability-present-unused, token-rulings.md 2026-07-29) — code renders no background anywhere, so the computed background-color probe expects \"transparent\" universally. This is NOT the Figma-side invisible-fill capability seed showing through as a code bug; never 'fix' it by asserting a real color."
+  ],
+  "templates": {
+    "D-Home": {
+      "viewport": "D",
+      "gridTolerancePx": 3,
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "hero-text", "y": 0, "height": 648, "tolerance": 6, "spacerTop": false, "spacerBottom": true },
+        { "role": "split-asymmetric", "index": 0, "height": "content" },
+        { "role": "split-asymmetric", "index": 1, "height": "content" },
+        { "role": "split-asymmetric", "index": 2, "height": "content" },
+        { "role": "split-asymmetric", "index": 3, "height": "content" },
+        { "role": "split-asymmetric", "index": 4, "height": "content" },
+        { "role": "split-asymmetric", "index": 5, "height": "content" },
+        { "role": "split-asymmetric", "index": 6, "height": "content" },
+        { "role": "split-asymmetric", "index": 7, "height": "content" },
+        { "role": "split-asymmetric", "index": 8, "height": "content" },
+        { "role": "split-asymmetric", "index": 9, "height": "content" },
+        { "role": "split-asymmetric", "index": 10, "height": "content" }
+      ],
+      "$note": "Inventory's 'hidden PaginationPage 648 at end' is a hidden Figma variant, not part of the visible Home template — intentionally not asserted (asserting it would fabricate a defect for a component that isn't supposed to render here).",
+      "gridChecks": [{ "role": "split-asymmetric", "cellSelector": ".split-asymmetric-cell" }],
+      "styleProbes": [
+        { "role": "navigation-header", "property": "background-color", "expected": "transparent", "$note": "NavigationHeader's fill is bound-but-unused in Figma (capability-present-unused, token-rulings.md 2026-07-29) — code renders NO background on every route, not just Home's overlay pages. This probe holds on every template that checks navigation-header, mirrored on M-Home per the device-pairing rule (design-system-opinion-gradient.md): background-color isn't a device axis, so the D/M pair must carry the identical opinion." }
+      ]
+    },
+
+    "M-Home": {
+      "viewport": "M",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4, "deviceOnly": true },
+        { "role": "hero-text", "y": 0, "height": 568, "tolerance": 6, "spacerTop": false, "spacerBottom": true },
+        { "role": "split-asymmetric", "index": 0, "height": "content" },
+        { "role": "split-asymmetric", "index": 1, "height": "content" },
+        { "role": "split-asymmetric", "index": 2, "height": "content" },
+        { "role": "split-asymmetric", "index": 3, "height": "content" },
+        { "role": "split-asymmetric", "index": 4, "height": "content" },
+        { "role": "split-asymmetric", "index": 5, "height": "content" },
+        { "role": "split-asymmetric", "index": 6, "height": "content" },
+        { "role": "split-asymmetric", "index": 7, "height": "content" },
+        { "role": "split-asymmetric", "index": 8, "height": "content" },
+        { "role": "split-asymmetric", "index": 9, "height": "content" },
+        { "role": "split-asymmetric", "index": 10, "height": "content" }
+      ],
+      "styleProbes": [
+        { "role": "navigation-header", "property": "background-color", "expected": "transparent", "$note": "Mirrors D-Home's probe — see D-Home's $note. Device-pairing check (design-system-opinion-gradient.md) flagged this as missing before the fix; background-color isn't a device axis so the pair must match." }
+      ]
+    },
+
+    "D-Projects": {
+      "viewport": "D",
+      "gridTolerancePx": 3,
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "hero-text", "y": 0, "height": 648, "tolerance": 6, "spacerTop": false, "spacerBottom": true },
+        { "role": "layout-grid", "y": 648, "height": "content", "tolerance": 6 }
+      ],
+      "gridChecks": [{ "role": "layout-grid", "cellSelector": ".layout-grid-grid > li" }]
+    },
+
+    "M-Projects": {
+      "viewport": "M",
+      "$note": "The inventory doc has no dedicated M-Projects section (only D-Projects was captured). hero-text is added here anyway (568/tall, not content-driven) because it's sourced by inference, not invention: Projects passes HeroText the identical height=medium/heightLg=tall/hasDescription=false props as Home (verified against projects/page.tsx and page.tsx), so it resolves to the same mobile height M-Home's own hero-text entry asserts — the device-pairing check (design-system-opinion-gradient.md) flagged its total absence as a sequence mismatch device can't explain. layout-grid stays omitted: no sourced mobile grid/card numbers exist, and its D-side entry is content-driven (height: 'content'), which the pairing check exempts from requiring a mirrored M entry.",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4, "deviceOnly": true },
+        { "role": "hero-text", "y": 0, "height": 568, "tolerance": 6, "spacerTop": false, "spacerBottom": true }
+      ]
+    },
+
+    "D-Project": {
+      "viewport": "D",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 104, "tolerance": 4 },
+        { "role": "header-media", "y": 0, "height": 1549, "tolerance": 4 },
+        { "role": "feature-text-block", "index": 0, "height": "content" },
+        { "role": "split-content", "index": 0, "height": "content" },
+        { "role": "feature-text-block", "index": 1, "height": "content" },
+        { "role": "split-content", "index": 1, "height": "content" },
+        { "role": "feature-text-block", "index": 2, "height": "content" },
+        { "role": "split-content", "index": 2, "height": "content" },
+        { "role": "pagination-page", "height": 648, "tolerance": 6 }
+      ],
+      "$note": "header-media is the operator's known open item (HeaderMedia +48) pending the portfolio round; this spec asserts the DS Example's actual 1549 so the defect surfaces rather than being papered over. feature-text-block's 464 in the inventory is that ONE example's own prose length, not a fixed contract — feature-text.tsx (verified against source) has no height/min-height constraint, its total height is SpacerTop(space-500) + prose (unbounded) + SpacerBottom(space-600), so it's marked content-driven here rather than asserting a number the component was never built to hold to."
+    },
+
+    "M-Project": {
+      "viewport": "M",
+      "blocks": [
+        { "role": "navigation-header", "y": 0, "height": 70, "tolerance": 4 },
+        { "role": "mobile-nav", "height": 96, "tolerance": 4, "deviceOnly": true },
+        { "role": "header-media", "y": 0, "height": 1061, "tolerance": 6 },
+        { "role": "feature-text-block", "index": 0, "height": "content" },
+        { "role": "split-content", "index": 0, "height": "content" },
+        { "role": "pagination-page", "height": 568, "tolerance": 6 }
+      ],
+      "$note": "feature-text-block is content-driven (see D-Project's note — verified against feature-text.tsx source, no height constraint on the component)."
+    }
+  }
+}
