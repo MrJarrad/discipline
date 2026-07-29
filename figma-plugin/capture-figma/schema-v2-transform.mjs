@@ -72,6 +72,22 @@ function buildTemplateFrames(frameSnapshots) {
   }));
 }
 
+// latentCapabilities[]: verbatim field selection off each capability-node
+// snapshot — {id, name, visible, binding}. A capability node is a
+// component-tree layer whose bound-but-possibly-invisible fill/stroke is
+// intentional DS headroom (vault ruling: "NavigationHeader bound-but-
+// invisible fill = capability seed" — capability-present-unused, never
+// drift). `visible` is captured as authored (true or false, never omitted)
+// so the diff can track a capability flipping on later.
+function buildLatentCapabilities(capSnapshots) {
+  return (capSnapshots || []).map((cap) => ({
+    id: cap.id,
+    name: cap.name,
+    visible: cap.visible,
+    binding: cap.binding,
+  }));
+}
+
 // === END SCHEMA V2 TRANSFORM ===
 
-export { buildComponentSets, buildExampleStructure, buildTemplateFrames };
+export { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities };

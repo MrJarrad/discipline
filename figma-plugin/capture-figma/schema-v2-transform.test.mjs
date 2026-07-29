@@ -4,7 +4,7 @@
 // verbatim; the sync-check test at the bottom of this file guards drift).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildComponentSets, buildExampleStructure, buildTemplateFrames } from "./schema-v2-transform.mjs";
+import { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities } from "./schema-v2-transform.mjs";
 
 test("buildComponentSets: maps a component-set snapshot to key/id/name/description/properties/variantCount", () => {
   const sets = [
@@ -124,4 +124,14 @@ test("buildTemplateFrames: passes overrides through verbatim (id/property/value 
   const result = buildTemplateFrames(frames);
 
   assert.deepEqual(result[0].instances[0].overrides, [{ id: "inst-1/Hero/SpacerTop", property: "visible", value: true }]);
+});
+
+test("buildLatentCapabilities: maps a capability-node snapshot to id/name/visible/binding, dropping unrelated fields", () => {
+  const caps = [
+    { id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised", nodeType: "RECTANGLE" },
+  ];
+
+  const result = buildLatentCapabilities(caps);
+
+  assert.deepEqual(result, [{ id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised" }]);
 });
