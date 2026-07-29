@@ -290,12 +290,23 @@ function findMeasuredStyle(measuredStyles, role, index, property) {
   return measuredStyles.find((s) => s.role === role && (s.index ?? 0) === index && s.property === property);
 }
 
+// getComputedStyle never returns the literal keyword "transparent" for
+// background-color — every engine serializes it as "rgba(0, 0, 0, 0)" (found
+// live running this check against portfolio's own :3230 server: a spec
+// authored with the human-readable keyword flagged every correct page as a
+// false style-mismatch). Canonicalize known CSS keyword/serialization pairs
+// before the string comparison so a spec can keep reading as intent.
+const CSS_VALUE_ALIASES = { transparent: "rgba(0, 0, 0, 0)" };
+function canonicalizeCssValue(value) {
+  return CSS_VALUE_ALIASES[value] ?? value;
+}
+
 // Compares each spec probe's expected computed-style value against the live
 // measurement (matched by role+index+property). expected: "content" skips
 // the probe (rare, but mirrors compareBlockGeometry's content-skip). A
 // numeric `expected` with a numeric measured prefix compares within
 // `tolerance` (default 0 — exact); anything else compares as an exact
-// string (colors, keywords).
+// string (colors, keywords), after canonicalizing known aliases.
 export function evaluateStyleProbes({ probes, measuredStyles }) {
   const defects = [];
   for (const probe of probes || []) {
@@ -312,7 +323,7 @@ export function evaluateStyleProbes({ probes, measuredStyles }) {
       const numericValue = parseNumericPrefix(value);
       mismatched = numericValue === undefined || Math.abs(numericValue - probe.expected) > (probe.tolerance ?? 0);
     } else {
-      mismatched = value !== probe.expected;
+      mismatched = canonicalizeCssValue(value) !== canonicalizeCssValue(probe.expected);
     }
     if (mismatched) {
       defects.push({

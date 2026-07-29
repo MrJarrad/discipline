@@ -147,6 +147,15 @@ test("evaluateStyleProbes: matching computed style -> no defect", () => {
   assert.deepEqual(defects, []);
 });
 
+test("evaluateStyleProbes: expected \"transparent\" matches the browser's real computed serialization \"rgba(0, 0, 0, 0)\" -> no defect (found live against portfolio's :3230 dev server)", () => {
+  const probes = [{ role: "navigation-header", property: "background-color", expected: "transparent" }];
+  const measuredStyles = [{ role: "navigation-header", index: 0, property: "background-color", value: "rgba(0, 0, 0, 0)" }];
+
+  const defects = evaluateStyleProbes({ probes, measuredStyles });
+
+  assert.deepEqual(defects, []);
+});
+
 test("evaluateStyleProbes: mismatched computed style -> style-mismatch defect", () => {
   const probes = [{ role: "navigation-header", property: "background-color", expected: "transparent" }];
   const measuredStyles = [{ role: "navigation-header", index: 0, property: "background-color", value: "rgb(255, 255, 255)" }];
