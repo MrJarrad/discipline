@@ -42,6 +42,8 @@ duplicating them. Match the surrounding code's style. You draw on a discipline s
   question to ask, not a gap to guess across.
 - Keep to the assigned task. Adjacent work you spot → file a follow-up, don't expand the
   pull request.
+- Verification servers you start run on `:3211` and up — never the operator's live `:3210`
+  dev server. Commit after each coherent slice; a turn-cap must never strand uncommitted work.
 
 ## Hand-off and escalation
 
