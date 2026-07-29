@@ -53,6 +53,19 @@
                       one receipts.jsonl record ({ ts, lane: "todos", ids,
                       done }) as a seam for future two-way sync — it never
                       gates the removal. Responds with the updated queue.
+     POST /todos/push body = {"items":[{"id":string,"text":string,
+                      "status":string}]} — the operator's todo plugin's
+                      OUTBOUND mirror: its full current list, pushed wholesale
+                      on every change (not the pipeline's inbound queue above
+                      — a separate file, separate direction). Persisted
+                      atomically to ~/JHD/captures/live/todo-state.json,
+                      replacing the prior state entirely. `status` is one of
+                      the plugin's five (todo/inprogress/blocked/done/wontdo)
+                      but trusted as-is, unvalidated — the listener mirrors
+                      the plugin's state machine, it doesn't own it. `text` is
+                      markdown-capable and stored verbatim. Appends one
+                      receipts.jsonl record ({ ts, lane: "todos", action:
+                      "push", count }). Responds with the persisted state.
 
    Dedup + change log: every POST is hashed (sha256 of a stable-key-sorted
    stringify of the body, excluding header.exportedAt so identical file
@@ -140,6 +153,8 @@ const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
 const TODO_QUEUE_PATH = join(CAPTURES_DIR, "todo-queue.json");
+const TODO_STATE_PATH = join(CAPTURES_DIR, "todo-state.json");
+const WARNINGS_PATH = join(CAPTURES_DIR, "latest-warnings.json");
 
 // Guards every side effect below (dir creation, the HTTP listen) so this
 // module can be imported for its exported helpers (writeAtomic,
@@ -953,6 +968,55 @@ function handleAckTodos(req, res) {
   );
 }
 
+// POST /todos/push body = { items: [{ id, text, status }] } — the operator's
+// todo plugin's outbound mirror: it pushes its FULL current list on every
+// change, not incremental deltas, so this replaces todo-state.json wholesale
+// (unlike /todos, which is the pipeline's inbound enqueue channel into a
+// separate file, todo-queue.json). `status` is trusted as-is — the listener
+// mirrors the plugin's state machine, it doesn't validate it, so a future
+// status the plugin adds never requires a listener change. `text` is
+// markdown-capable per the plugin's data model; the listener stores it
+// verbatim, no markdown parsing happens here.
+function handlePushTodos(req, res) {
+  readBody(
+    req,
+    (buf) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(buf.toString("utf8"));
+      } catch {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid JSON body");
+        return;
+      }
+      if (!parsed || !Array.isArray(parsed.items)) {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid body: items must be an array");
+        return;
+      }
+      for (const item of parsed.items) {
+        if (!item || typeof item.id !== "string" || !item.id || typeof item.text !== "string" || typeof item.status !== "string" || !item.status) {
+          res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+          res.end("invalid body: every item needs id, text, status");
+          return;
+        }
+      }
+      const state = { items: parsed.items };
+      writeAtomic(TODO_STATE_PATH, JSON.stringify(state, null, 2) + "\n");
+
+      const receipt = { ts: new Date().toISOString(), lane: "todos", action: "push", count: parsed.items.length };
+      appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
+
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+      res.end(JSON.stringify(state));
+    },
+    (status, message) => {
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
+      res.end(message);
+    }
+  );
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -981,6 +1045,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "POST" && req.url === "/todos/ack") {
     handleAckTodos(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/todos/push") {
+    handlePushTodos(req, res);
     return;
   }
   if (req.method === "POST" && req.url === "/todos") {

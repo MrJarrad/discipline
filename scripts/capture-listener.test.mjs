@@ -279,6 +279,39 @@ test("POST /todos/ack with a done[] field logs a receipt with lane: todos", asyn
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const pushedItems = [
+    { id: "t-1", text: "**Fix** the header", status: "todo" },
+    { id: "t-2", text: "Ship it", status: "inprogress" },
+  ];
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/todos/push`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: pushedItems }),
+    });
+    assert.equal(res.status, 200);
+    body = await res.json();
+  });
+
+  assert.deepEqual(body.items, pushedItems);
+
+  const onDisk = JSON.parse(readFileSync(join(capturesDir, "todo-state.json"), "utf8"));
+  assert.deepEqual(onDisk.items, pushedItems);
+
+  const receipts = readFileSync(join(capturesDir, "receipts.jsonl"), "utf8").trim().split("\n");
+  const receipt = JSON.parse(receipts[receipts.length - 1]);
+  assert.equal(receipt.lane, "todos");
+  assert.equal(receipt.action, "push");
+  assert.equal(receipt.count, 2);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("OPTIONS /todos answers the CORS preflight for the Figma plugin's cross-origin fetch", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
