@@ -215,6 +215,22 @@ function validateExportShape(body) {
     if (c.standalone !== undefined && !Array.isArray(c.standalone)) return "components.standalone, when present, must be an array";
     if (c.sets !== undefined && !Array.isArray(c.sets)) return "components.sets, when present, must be an array";
   }
+  // schemaVersion is OPTIONAL — its absence means v1 (the original
+  // variables+styles+components contract). When present it must be a number;
+  // no specific value is enforced here (future schema bumps shouldn't need a
+  // listener change just to be accepted — the diff logic below is what
+  // actually branches on the value 2).
+  if (header.schemaVersion !== undefined && typeof header.schemaVersion !== "number") {
+    return "header.schemaVersion, when present, must be a number";
+  }
+  // v2's additive top-level buckets are all OPTIONAL and validated loosely —
+  // an array, no shape enforced on entries (same spirit as `components`
+  // above: a future field a producer adds shouldn't break validation).
+  for (const field of ["componentSets", "exampleStructure", "templateFrames", "latentCapabilities", "warnings"]) {
+    if (body[field] !== undefined && !Array.isArray(body[field])) {
+      return `${field}, when present, must be an array`;
+    }
+  }
   return null;
 }
 

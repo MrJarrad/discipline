@@ -19,6 +19,37 @@ function exportBody(overrides = {}) {
   };
 }
 
+// v2 schema fixture: the operator's live capture plugin's richer DS-documentation
+// payload — component descriptions, sectioned Examples, resolved template-frame
+// instance state, latent capability booleans, and structural warnings.
+function v2ExportBody(overrides = {}) {
+  return {
+    header: { fileName: "Test File", pluginVersion: "2.0.0", exportedAt: Date.now(), counts: {}, schemaVersion: 2 },
+    collections: [],
+    componentSets: [{ key: "set-hero", name: "HeroText", description: "Marketing hero block." }],
+    exampleStructure: [{ name: "M-Example", frames: [{ id: "frame-1", name: "Default" }] }],
+    templateFrames: [
+      {
+        id: "tf-1",
+        name: "Homepage",
+        instances: [
+          {
+            id: "inst-1",
+            name: "Hero",
+            component: "HeroText",
+            variantProps: { device: "desktop", height: "L" },
+            properties: { title: "Welcome" },
+            overrides: [{ id: "ov-1", property: "spacerTop", value: "40" }],
+          },
+        ],
+      },
+    ],
+    latentCapabilities: [{ id: "cap-1", name: "has-background", visible: true, binding: "color/surface/raised" }],
+    warnings: ["HeroText is missing a description on the M-Example frame."],
+    ...overrides,
+  };
+}
+
 async function withListener(env, fn) {
   const port = 20000 + Math.floor(Math.random() * 10000);
   const child = spawn("node", [LISTENER_PATH], {
@@ -275,6 +306,62 @@ test("POST /todos/ack with a done[] field logs a receipt with lane: todos", asyn
   const receipt = JSON.parse(receipts[receipts.length - 1]);
   assert.equal(receipt.lane, "todos");
   assert.deepEqual(receipt.done, ["todo-1"]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture accepts a v2 payload and persists every new field losslessly", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const body = v2ExportBody();
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    assert.equal(res.status, 200);
+  });
+
+  const written = JSON.parse(readFileSync(join(capturesDir, "test-file-variables-styles.json"), "utf8"));
+  assert.equal(written.header.schemaVersion, 2);
+  assert.deepEqual(written.componentSets, body.componentSets);
+  assert.deepEqual(written.exampleStructure, body.exampleStructure);
+  assert.deepEqual(written.templateFrames, body.templateFrames);
+  assert.deepEqual(written.latentCapabilities, body.latentCapabilities);
+  assert.deepEqual(written.warnings, body.warnings);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture rejects a v2 payload whose new fields have the wrong shape", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const badSchemaVersion = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ header: { ...v2ExportBody().header, schemaVersion: "two" } })),
+    });
+    assert.equal(badSchemaVersion.status, 400);
+
+    const badComponentSets = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ componentSets: { not: "an array" } })),
+    });
+    assert.equal(badComponentSets.status, 400);
+
+    const badTemplateFrames = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ templateFrames: "nope" })),
+    });
+    assert.equal(badTemplateFrames.status, 400);
+
+    const badWarnings = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ warnings: "nope" })),
+    });
+    assert.equal(badWarnings.status, 400);
+  });
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
