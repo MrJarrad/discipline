@@ -479,6 +479,119 @@ test("changes.jsonl reports example_section_added/removed and example_frame_adde
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("changes.jsonl reports the full templateFrames diff surface, filtering device-axis variant noise via the axis-ownership rule", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const before = [
+    {
+      id: "tf-1",
+      name: "Homepage",
+      instances: [
+        {
+          id: "inst-1",
+          name: "Hero",
+          component: "HeroText",
+          variantProps: { device: "desktop", height: "L" },
+          properties: { title: "Welcome" },
+          overrides: [
+            { id: "ov-1", property: "spacerTop", value: "40" },
+            { id: "ov-2", property: "spacerBottom", value: "20" },
+          ],
+        },
+        { id: "inst-2", name: "OldWidget", component: "Widget", variantProps: {}, properties: {}, overrides: [] },
+      ],
+    },
+    { id: "tf-2", name: "AboutPage", instances: [] },
+  ];
+
+  const after = [
+    {
+      id: "tf-1",
+      name: "Homepage",
+      instances: [
+        {
+          id: "inst-1",
+          name: "Hero",
+          component: "HeroText",
+          variantProps: { device: "mobile", height: "M" },
+          properties: { title: "Welcome back" },
+          overrides: [
+            { id: "ov-1", property: "spacerTop", value: "80" },
+            { id: "ov-3", property: "spacerLeft", value: "10" },
+          ],
+        },
+        { id: "inst-3", name: "NewWidget", component: "Widget", variantProps: {}, properties: {}, overrides: [] },
+      ],
+    },
+    { id: "tf-3", name: "ContactPage", instances: [] },
+  ];
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ templateFrames: before })) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ templateFrames: after })) });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  const byType = (type) => diffed.changed.templateFrames.filter((r) => r.type === type);
+
+  assert.deepEqual(byType("template_frame_added"), [{ type: "template_frame_added", name: "ContactPage" }]);
+  assert.deepEqual(byType("template_frame_removed"), [{ type: "template_frame_removed", name: "AboutPage" }]);
+  assert.deepEqual(byType("template_instance_added"), [{ type: "template_instance_added", frame: "Homepage", name: "NewWidget" }]);
+  assert.deepEqual(byType("template_instance_removed"), [{ type: "template_instance_removed", frame: "Homepage", name: "OldWidget" }]);
+  // device is block-owned (axis-ownership global rule) — its change is adaptation noise, never reported.
+  assert.deepEqual(byType("template_variant_changed"), [
+    { type: "template_variant_changed", frame: "Homepage", instance: "Hero", axis: "height", old: "L", new: "M" },
+  ]);
+  assert.deepEqual(byType("template_properties_changed"), [
+    { type: "template_properties_changed", frame: "Homepage", instance: "Hero", property: "title", old: "Welcome", new: "Welcome back" },
+  ]);
+  const overrideRecords = byType("template_overrides_changed");
+  assert.equal(overrideRecords.length, 3);
+  assert.deepEqual(
+    overrideRecords.find((r) => r.id === "ov-1"),
+    { type: "template_overrides_changed", frame: "Homepage", instance: "Hero", id: "ov-1", property: "spacerTop", change: "changed", old: "40", new: "80" }
+  );
+  assert.deepEqual(
+    overrideRecords.find((r) => r.id === "ov-2"),
+    { type: "template_overrides_changed", frame: "Homepage", instance: "Hero", id: "ov-2", property: "spacerBottom", change: "removed", old: "20" }
+  );
+  assert.deepEqual(
+    overrideRecords.find((r) => r.id === "ov-3"),
+    { type: "template_overrides_changed", frame: "Homepage", instance: "Hero", id: "ov-3", property: "spacerLeft", change: "added", new: "10" }
+  );
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("template_variant_changed honors a componentSet's @axis-ownership annotation over the global rule", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const componentSets = [{ key: "set-hero", name: "HeroText", description: "Marketing hero block.\n@axis-ownership device=layout" }];
+  const before = [{ id: "tf-1", name: "Homepage", instances: [{ id: "inst-1", name: "Hero", component: "HeroText", variantProps: { device: "desktop" }, properties: {}, overrides: [] }] }];
+  const after = [{ id: "tf-1", name: "Homepage", instances: [{ id: "inst-1", name: "Hero", component: "HeroText", variantProps: { device: "mobile" }, properties: {}, overrides: [] }] }];
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ componentSets, templateFrames: before })) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ componentSets, templateFrames: after })) });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  // annotation flips device to layout-owned for this set, so its change now reports instead of being suppressed.
+  assert.deepEqual(diffed.changed.templateFrames.filter((r) => r.type === "template_variant_changed"), [
+    { type: "template_variant_changed", frame: "Homepage", instance: "Hero", axis: "device", old: "desktop", new: "mobile" },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

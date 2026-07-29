@@ -738,6 +738,167 @@ function diffExampleStructure(oldStructure, newStructure) {
   return records;
 }
 
+// AXIS OWNERSHIP (operator-ratified, 2026-07-29 — see the vault's
+// design-system-opinion-gradient.md "Axis ownership rule" and
+// token-rulings.md's todo-triage-filter entry): variant axes split by
+// design-system level. `device` is always the BLOCK's own adaptation
+// machinery (how a chosen variant renders per breakpoint) — a device-axis
+// change on a template instance is block-internal noise, not a layout
+// opinion. Every OTHER variant axis belongs to the LAYOUT (its opinion:
+// HeroText `height`, SplitContent `layout`, alignment axes, etc.) — a change
+// there is a real, changelog-worthy layout decision. This is a GLOBAL rule,
+// hardcoded, with NO in-file sentinel by default (the ruling explicitly
+// rejected one unless a second block-owned axis ever exists).
+const AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS = "device";
+
+// A componentSet's description MAY carry an explicit `@axis-ownership
+// <axis>=block|layout` annotation that overrides the global rule for that
+// one set (the ruling's escape hatch — "parser ready, unused today"). One
+// annotation per line, any number of axes.
+const AXIS_OWNERSHIP_ANNOTATION_RE = /@axis-ownership\s+([a-zA-Z0-9_-]+)=(block|layout)/g;
+
+function parseAxisOwnershipAnnotations(description) {
+  const map = {};
+  if (!description) return map;
+  for (const match of description.matchAll(AXIS_OWNERSHIP_ANNOTATION_RE)) {
+    map[match[1]] = match[2];
+  }
+  return map;
+}
+
+// True when `axis` is block-owned (device-adaptation noise, not a layout
+// opinion) for the component set carrying `description` — annotation first,
+// global rule as fallback.
+function isBlockOwnedAxis(axis, description) {
+  const annotations = parseAxisOwnershipAnnotations(description);
+  if (axis in annotations) return annotations[axis] === "block";
+  return axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS;
+}
+
+// templateFrames are the resolved instance state of the layout's Example
+// frames (see the vault ruling: "resolved instance state of the DS Example
+// frames IS the spec — read overrides as authored intent"). Frames and their
+// instances both use the usual id-first/name-fallback correlation.
+//
+// Per matched instance:
+//  - variantProps (the instance's resolved variant selection per axis) are
+//    diffed per axis; a BLOCK-owned axis change (see AXIS OWNERSHIP above) is
+//    suppressed — it's the block's own adaptation, not a layout decision —
+//    while a LAYOUT-owned axis change is `template_variant_changed`.
+//  - properties (non-variant componentProperties — text/boolean/instance-swap
+//    values) are diffed key by key -> `template_properties_changed`.
+//  - overrides (per-instance layer overrides, each carrying its own stable
+//    id — "per-instance, id-first" per the brief) are correlated by id;
+//    added/removed/changed all land in `template_overrides_changed`.
+function diffTemplateFrames(oldFrames, newFrames, componentSetsByName) {
+  const records = [];
+  const oldByKey = new Map((oldFrames || []).filter((f) => f.id).map((f) => [f.id, f]));
+  const newByKey = new Map((newFrames || []).filter((f) => f.id).map((f) => [f.id, f]));
+  const oldByName = new Map((oldFrames || []).map((f) => [f.name, f]));
+  const newByName = new Map((newFrames || []).map((f) => [f.name, f]));
+  const matchedOldFrames = new Set();
+  const matchedNewFrames = new Set();
+
+  function diffInstances(frameName, oldInstances, newInstances) {
+    const oldIByKey = new Map((oldInstances || []).filter((i) => i.id).map((i) => [i.id, i]));
+    const newIByKey = new Map((newInstances || []).filter((i) => i.id).map((i) => [i.id, i]));
+    const oldIByName = new Map((oldInstances || []).map((i) => [i.name, i]));
+    const newIByName = new Map((newInstances || []).map((i) => [i.name, i]));
+    const matchedOldI = new Set();
+    const matchedNewI = new Set();
+
+    function diffInstance(oldInst, newInst) {
+      const description = componentSetsByName.get(newInst.component)?.description;
+
+      const oldVariant = oldInst.variantProps || {};
+      const newVariant = newInst.variantProps || {};
+      const axes = new Set([...Object.keys(oldVariant), ...Object.keys(newVariant)]);
+      for (const axis of axes) {
+        if (jsonEq(oldVariant[axis], newVariant[axis])) continue;
+        if (isBlockOwnedAxis(axis, description)) continue; // block-adaptation noise, never reported
+        records.push({ type: "template_variant_changed", frame: frameName, instance: newInst.name, axis, old: oldVariant[axis], new: newVariant[axis] });
+      }
+
+      const oldProps = oldInst.properties || {};
+      const newProps = newInst.properties || {};
+      const propNames = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
+      for (const propName of propNames) {
+        if (jsonEq(oldProps[propName], newProps[propName])) continue;
+        records.push({ type: "template_properties_changed", frame: frameName, instance: newInst.name, property: propName, old: oldProps[propName], new: newProps[propName] });
+      }
+
+      const oldOverrides = oldInst.overrides || [];
+      const newOverrides = newInst.overrides || [];
+      const oldOByKey = new Map(oldOverrides.filter((o) => o.id).map((o) => [o.id, o]));
+      const newOByKey = new Map(newOverrides.filter((o) => o.id).map((o) => [o.id, o]));
+      const overrideIds = new Set([...oldOByKey.keys(), ...newOByKey.keys()]);
+      for (const id of overrideIds) {
+        const oldO = oldOByKey.get(id);
+        const newO = newOByKey.get(id);
+        if (!oldO) {
+          records.push({ type: "template_overrides_changed", frame: frameName, instance: newInst.name, id, property: newO.property, change: "added", new: newO.value });
+          continue;
+        }
+        if (!newO) {
+          records.push({ type: "template_overrides_changed", frame: frameName, instance: newInst.name, id, property: oldO.property, change: "removed", old: oldO.value });
+          continue;
+        }
+        if (!jsonEq(oldO.value, newO.value)) {
+          records.push({ type: "template_overrides_changed", frame: frameName, instance: newInst.name, id, property: newO.property, change: "changed", old: oldO.value, new: newO.value });
+        }
+      }
+    }
+
+    for (const [id, newInst] of newIByKey) {
+      const oldInst = oldIByKey.get(id);
+      if (!oldInst) continue;
+      matchedOldI.add(oldInst);
+      matchedNewI.add(newInst);
+      diffInstance(oldInst, newInst);
+    }
+    for (const newInst of newInstances || []) {
+      if (matchedNewI.has(newInst) || (newInst.id && oldIByKey.has(newInst.id))) continue;
+      const oldInst = oldIByName.get(newInst.name);
+      if (!oldInst || matchedOldI.has(oldInst)) {
+        if (!oldInst) records.push({ type: "template_instance_added", frame: frameName, name: newInst.name });
+        continue;
+      }
+      diffInstance(oldInst, newInst);
+    }
+    for (const oldInst of oldInstances || []) {
+      if (matchedOldI.has(oldInst) || (oldInst.id && newIByKey.has(oldInst.id))) continue;
+      if (!newIByName.has(oldInst.name)) {
+        records.push({ type: "template_instance_removed", frame: frameName, name: oldInst.name });
+      }
+    }
+  }
+
+  for (const [id, newFrame] of newByKey) {
+    const oldFrame = oldByKey.get(id);
+    if (!oldFrame) continue;
+    matchedOldFrames.add(oldFrame);
+    matchedNewFrames.add(newFrame);
+    diffInstances(newFrame.name, oldFrame.instances, newFrame.instances);
+  }
+  for (const newFrame of newFrames || []) {
+    if (matchedNewFrames.has(newFrame) || (newFrame.id && oldByKey.has(newFrame.id))) continue;
+    const oldFrame = oldByName.get(newFrame.name);
+    if (!oldFrame || matchedOldFrames.has(oldFrame)) {
+      if (!oldFrame) records.push({ type: "template_frame_added", name: newFrame.name });
+      continue;
+    }
+    diffInstances(newFrame.name, oldFrame.instances, newFrame.instances);
+  }
+  for (const oldFrame of oldFrames || []) {
+    if (matchedOldFrames.has(oldFrame) || (oldFrame.id && newByKey.has(oldFrame.id))) continue;
+    if (!newByName.has(oldFrame.name)) {
+      records.push({ type: "template_frame_removed", name: oldFrame.name });
+    }
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -854,6 +1015,8 @@ function handleCapture(req, res) {
           );
           const componentSets = diffComponentSets(prevState.export.componentSets, parsed.componentSets);
           const examples = diffExampleStructure(prevState.export.exampleStructure, parsed.exampleStructure);
+          const componentSetsByName = new Map((parsed.componentSets || []).map((s) => [s.name, s]));
+          const templateFrames = diffTemplateFrames(prevState.export.templateFrames, parsed.templateFrames, componentSetsByName);
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -869,6 +1032,7 @@ function handleCapture(req, res) {
             layerBindings,
             componentSets,
             examples,
+            templateFrames,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -885,6 +1049,7 @@ function handleCapture(req, res) {
             layerBindings: layerBindings.length,
             componentSets: componentSets.length,
             examples: examples.length,
+            templateFrames: templateFrames.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
