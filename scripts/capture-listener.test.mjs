@@ -408,6 +408,30 @@ test("changes.jsonl records default to schemaVersion 1 and warningCount 0 for a 
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("changes.jsonl reports component_description_changed when a componentSet's description changes", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ componentSets: [{ key: "set-hero", name: "HeroText", description: "Updated hero copy." }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.componentSets, [
+    { type: "component_description_changed", key: "set-hero", name: "HeroText", old: "Marketing hero block.", new: "Updated hero copy." },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

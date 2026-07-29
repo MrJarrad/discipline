@@ -643,6 +643,47 @@ function diffComponents(oldComponents, newComponents) {
   return { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings };
 }
 
+// v2 schema diffing (componentSets, exampleStructure, templateFrames,
+// latentCapabilities — see the file header's SCHEMA V2 section). Each diff
+// function returns a flat array of type-tagged records, same convention as
+// aliasRepoints/layerBindings above, so a downstream reader filters on
+// `.type` rather than juggling one array per diff flavor.
+
+// componentSets are keyed by `key` (Figma's stable component-set key) first,
+// falling back to `name` — same id-first/name-fallback correlation as
+// diffComponents. Only `description` is diffed (v2's one new per-set field);
+// structural changes to the set itself are still covered by diffComponents.
+function diffComponentSets(oldSets, newSets) {
+  const records = [];
+  const oldByKey = new Map((oldSets || []).filter((s) => s.key).map((s) => [s.key, s]));
+  const newByKey = new Map((newSets || []).filter((s) => s.key).map((s) => [s.key, s]));
+  const oldByName = new Map((oldSets || []).map((s) => [s.name, s]));
+  const matchedOld = new Set();
+  const matchedNew = new Set();
+
+  function diffDescription(oldSet, newSet) {
+    if (oldSet.description !== newSet.description) {
+      records.push({ type: "component_description_changed", key: newSet.key, name: newSet.name, old: oldSet.description, new: newSet.description });
+    }
+  }
+
+  for (const [key, newSet] of newByKey) {
+    const oldSet = oldByKey.get(key);
+    if (!oldSet) continue;
+    matchedOld.add(oldSet);
+    matchedNew.add(newSet);
+    diffDescription(oldSet, newSet);
+  }
+  for (const newSet of newSets || []) {
+    if (matchedNew.has(newSet) || (newSet.key && oldByKey.has(newSet.key))) continue;
+    const oldSet = oldByName.get(newSet.name);
+    if (!oldSet || matchedOld.has(oldSet)) continue;
+    diffDescription(oldSet, newSet);
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -757,6 +798,7 @@ function handleCapture(req, res) {
             prevState.export.components,
             parsed.components
           );
+          const componentSets = diffComponentSets(prevState.export.componentSets, parsed.componentSets);
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -770,6 +812,7 @@ function handleCapture(req, res) {
             componentsRemoved,
             componentsRenamed,
             layerBindings,
+            componentSets,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -784,6 +827,7 @@ function handleCapture(req, res) {
             componentsRemoved: componentsRemoved.length,
             componentsRenamed: componentsRenamed.length,
             layerBindings: layerBindings.length,
+            componentSets: componentSets.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
