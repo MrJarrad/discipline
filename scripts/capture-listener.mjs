@@ -36,6 +36,24 @@
                       (newest first); ?n= overrides the count, up to 50.
                       Empty array when changes.jsonl doesn't exist yet.
 
+     GET  /todos      -> 200 {"items":[{"id":string,"text":string}]} — the
+                      pending todo queue, read from
+                      ~/JHD/captures/live/todo-queue.json (empty items[] when
+                      the file is missing or corrupt). This is the operator's
+                      in-Figma todo plugin's pull channel.
+     POST /todos      body = {"items":[{"text":string,"id"?:string}]} —
+                      pipeline producers (conformance lanes, later; manual
+                      curl for now) enqueue items here. Deduped by text
+                      against the current queue; an omitted id is generated
+                      (crypto.randomUUID). Writes atomically. Responds with
+                      the updated queue.
+     POST /todos/ack  body = {"ids":[string], "done"?:[string]} — the plugin
+                      acks items it pulled; matching ids are removed from the
+                      queue (atomic write). An optional `done` list appends
+                      one receipts.jsonl record ({ ts, lane: "todos", ids,
+                      done }) as a seam for future two-way sync — it never
+                      gates the removal. Responds with the updated queue.
+
    Dedup + change log: every POST is hashed (sha256 of a stable-key-sorted
    stringify of the body, excluding header.exportedAt so identical file
    state hashes identical regardless of when it was exported). The hash and
@@ -975,7 +993,7 @@ const server = createServer((req, res) => {
 
 if (isDirectRun) {
   server.listen(PORT, "127.0.0.1", () => {
-    console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health)`);
+    console.log(`[capture-listener] listening on http://127.0.0.1:${PORT}  (POST /capture, GET /health, GET/POST /todos)`);
     console.log(`[capture-listener] writing to ${CAPTURES_DIR}`);
   });
 
