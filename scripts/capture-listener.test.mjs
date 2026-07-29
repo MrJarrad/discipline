@@ -231,6 +231,54 @@ test("POST /todos enqueues items and dedupes by text", async () => {
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("POST /todos/ack removes the given ids from the queue", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  writeFileSync(
+    join(capturesDir, "todo-queue.json"),
+    JSON.stringify({ items: [{ id: "todo-1", text: "First" }, { id: "todo-2", text: "Second" }, { id: "todo-3", text: "Third" }] }),
+    "utf8"
+  );
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/todos/ack`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["todo-1", "todo-3"] }),
+    });
+    assert.equal(res.status, 200);
+    body = await res.json();
+  });
+
+  assert.deepEqual(body.items, [{ id: "todo-2", text: "Second" }]);
+
+  const onDisk = JSON.parse(readFileSync(join(capturesDir, "todo-queue.json"), "utf8"));
+  assert.deepEqual(onDisk.items, [{ id: "todo-2", text: "Second" }]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /todos/ack with a done[] field logs a receipt with lane: todos", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  writeFileSync(join(capturesDir, "todo-queue.json"), JSON.stringify({ items: [{ id: "todo-1", text: "First" }] }), "utf8");
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/todos/ack`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: ["todo-1"], done: ["todo-1"] }),
+    });
+    assert.equal(res.status, 200);
+  });
+
+  const receipts = readFileSync(join(capturesDir, "receipts.jsonl"), "utf8").trim().split("\n");
+  const receipt = JSON.parse(receipts[receipts.length - 1]);
+  assert.equal(receipt.lane, "todos");
+  assert.deepEqual(receipt.done, ["todo-1"]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

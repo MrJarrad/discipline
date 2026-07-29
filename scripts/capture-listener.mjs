@@ -894,6 +894,47 @@ function handlePostTodos(req, res) {
   );
 }
 
+// POST /todos/ack body = { ids: [...], done?: [...] } — the plugin acks the
+// items it has pulled and removes them from the queue. `done` is optional
+// and purely a receipt for future two-way sync (which ids the plugin
+// actually marked complete, vs. just dequeued) — it never gates the removal.
+function handleAckTodos(req, res) {
+  readBody(
+    req,
+    (buf) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(buf.toString("utf8"));
+      } catch {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid JSON body");
+        return;
+      }
+      if (!parsed || !Array.isArray(parsed.ids)) {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid body: ids must be an array");
+        return;
+      }
+      const ackIds = new Set(parsed.ids);
+      const queue = readTodoQueue();
+      queue.items = queue.items.filter((item) => !ackIds.has(item.id));
+      writeAtomic(TODO_QUEUE_PATH, JSON.stringify(queue, null, 2) + "\n");
+
+      if (Array.isArray(parsed.done)) {
+        const receipt = { ts: new Date().toISOString(), lane: "todos", ids: parsed.ids, done: parsed.done };
+        appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
+      }
+
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+      res.end(JSON.stringify(queue));
+    },
+    (status, message) => {
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
+      res.end(message);
+    }
+  );
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -918,6 +959,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "GET" && req.url === "/todos") {
     handleGetTodos(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/todos/ack") {
+    handleAckTodos(req, res);
     return;
   }
   if (req.method === "POST" && req.url === "/todos") {
