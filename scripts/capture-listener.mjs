@@ -105,7 +105,7 @@ import {
   readFileSync,
   existsSync,
 } from "node:fs";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { runConformanceCheck } from "./conformance-check.mjs";
@@ -851,6 +851,49 @@ function handleGetTodos(req, res) {
   res.end(JSON.stringify(readTodoQueue()));
 }
 
+// POST /todos body = { items: [{ text, id? }] } — pipeline producers (the
+// conformance lanes, later; manual curl for now) enqueue items here. Dedupe
+// is by text against the current queue: a producer re-running the same lane
+// shouldn't pile up duplicate todos every sync. An id is generated when the
+// producer doesn't supply one; a caller-supplied id is trusted as-is (the
+// seed file's todo-1..todo-10 scheme relies on this).
+function handlePostTodos(req, res) {
+  readBody(
+    req,
+    (buf) => {
+      let parsed;
+      try {
+        parsed = JSON.parse(buf.toString("utf8"));
+      } catch {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid JSON body");
+        return;
+      }
+      if (!parsed || !Array.isArray(parsed.items)) {
+        res.writeHead(400, { "Content-Type": "text/plain", ...CORS_HEADERS });
+        res.end("invalid body: items must be an array");
+        return;
+      }
+      const queue = readTodoQueue();
+      const existingTexts = new Set(queue.items.map((i) => i.text));
+      for (const item of parsed.items) {
+        if (!item || typeof item.text !== "string" || !item.text) continue;
+        if (existingTexts.has(item.text)) continue;
+        const id = typeof item.id === "string" && item.id ? item.id : randomUUID();
+        queue.items.push({ id, text: item.text });
+        existingTexts.add(item.text);
+      }
+      writeAtomic(TODO_QUEUE_PATH, JSON.stringify(queue, null, 2) + "\n");
+      res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+      res.end(JSON.stringify(queue));
+    },
+    (status, message) => {
+      res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
+      res.end(message);
+    }
+  );
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -875,6 +918,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "GET" && req.url === "/todos") {
     handleGetTodos(req, res);
+    return;
+  }
+  if (req.method === "POST" && req.url === "/todos") {
+    handlePostTodos(req, res);
     return;
   }
   res.writeHead(404, { "Content-Type": "text/plain", ...CORS_HEADERS });

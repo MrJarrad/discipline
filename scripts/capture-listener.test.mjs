@@ -202,6 +202,35 @@ test("GET /todos serves the seeded queue", async () => {
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("POST /todos enqueues items and dedupes by text", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  writeFileSync(join(capturesDir, "todo-queue.json"), JSON.stringify({ items: [{ id: "todo-1", text: "Existing item" }] }), "utf8");
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/todos`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: [{ text: "Existing item" }, { text: "New item" }, { id: "todo-explicit", text: "Explicit id item" }] }),
+    });
+    assert.equal(res.status, 200);
+    body = await res.json();
+  });
+
+  assert.equal(body.items.length, 3);
+  assert.equal(body.items[0].text, "Existing item");
+  assert.equal(body.items[0].id, "todo-1");
+  assert.equal(body.items[1].text, "New item");
+  assert.equal(typeof body.items[1].id, "string");
+  assert.notEqual(body.items[1].id, "");
+  assert.deepEqual(body.items[2], { id: "todo-explicit", text: "Explicit id item" });
+
+  const onDisk = JSON.parse(readFileSync(join(capturesDir, "todo-queue.json"), "utf8"));
+  assert.equal(onDisk.items.length, 3);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
