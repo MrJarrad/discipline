@@ -186,6 +186,22 @@ test("changes.jsonl reports a raw->raw layer-binding value change (regression: i
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("GET /todos serves the seeded queue", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  writeFileSync(join(capturesDir, "todo-queue.json"), JSON.stringify({ items: [{ id: "todo-1", text: "Do the thing" }] }), "utf8");
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/todos`);
+    assert.equal(res.status, 200);
+    body = await res.json();
+  });
+
+  assert.deepEqual(body, { items: [{ id: "todo-1", text: "Do the thing" }] });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl written", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

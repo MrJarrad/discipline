@@ -121,6 +121,7 @@ const RECEIPTS_PATH = join(CAPTURES_DIR, "receipts.jsonl");
 const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
+const TODO_QUEUE_PATH = join(CAPTURES_DIR, "todo-queue.json");
 
 // Guards every side effect below (dir creation, the HTTP listen) so this
 // module can be imported for its exported helpers (writeAtomic,
@@ -830,6 +831,26 @@ function handleGetChanges(req, res) {
   res.end(JSON.stringify(latest));
 }
 
+// The todo queue is the operator's Figma plugin's pull channel: pipeline
+// producers (conformance lanes, manual curl for now) POST items here, the
+// in-Figma plugin GETs them, and acks the ones it consumed. Read failures
+// (missing file, corrupt JSON) fall back to an empty queue rather than 500ing
+// — a plugin poll shouldn't break because the file hasn't been seeded yet.
+function readTodoQueue() {
+  if (!existsSync(TODO_QUEUE_PATH)) return { items: [] };
+  try {
+    const parsed = JSON.parse(readFileSync(TODO_QUEUE_PATH, "utf8"));
+    return { items: Array.isArray(parsed.items) ? parsed.items : [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+function handleGetTodos(req, res) {
+  res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+  res.end(JSON.stringify(readTodoQueue()));
+}
+
 const server = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     // Preflight for the plugin's cross-origin POST from ui.html. No auth
@@ -850,6 +871,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "GET" && (req.url === "/changes" || req.url.startsWith("/changes?"))) {
     handleGetChanges(req, res);
+    return;
+  }
+  if (req.method === "GET" && req.url === "/todos") {
+    handleGetTodos(req, res);
     return;
   }
   res.writeHead(404, { "Content-Type": "text/plain", ...CORS_HEADERS });
