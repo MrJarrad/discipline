@@ -35,6 +35,10 @@
      GET  /changes    -> 200, JSON array of the last 10 changes.jsonl records
                       (newest first); ?n= overrides the count, up to 50.
                       Empty array when changes.jsonl doesn't exist yet.
+     GET  /warnings   -> 200, JSON array — the most recently synced capture's
+                      warnings[] (v2's structural-warning bucket, see SCHEMA
+                      V2 below). [] before any capture, or when the latest
+                      capture was v1.
 
      GET  /todos      -> 200 {"items":[{"id":string,"text":string}]} — the
                       pending todo queue, read from
@@ -1079,6 +1083,7 @@ function handleCapture(req, res) {
       } else {
         writeAtomic(outPath, JSON.stringify(parsed, null, 2) + "\n");
         writeAtomic(sidecarPath, JSON.stringify({ hash, export: parsed }) + "\n");
+        writeAtomic(WARNINGS_PATH, JSON.stringify(Array.isArray(parsed.warnings) ? parsed.warnings : []) + "\n");
 
         const changeRecord = {
           ts: new Date().toISOString(),
@@ -1239,6 +1244,23 @@ function handleGetChanges(req, res) {
 
   res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
   res.end(JSON.stringify(latest));
+}
+
+// GET /warnings — the most recently synced capture's warnings[] (v2's
+// structural-warning bucket). [] when no capture has synced yet, or when the
+// latest capture was v1 (no warnings field).
+function handleGetWarnings(req, res) {
+  let warnings = [];
+  if (existsSync(WARNINGS_PATH)) {
+    try {
+      const parsed = JSON.parse(readFileSync(WARNINGS_PATH, "utf8"));
+      if (Array.isArray(parsed)) warnings = parsed;
+    } catch {
+      // corrupt file — fall back to []
+    }
+  }
+  res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
+  res.end(JSON.stringify(warnings));
 }
 
 // The todo queue is the operator's Figma plugin's pull channel: pipeline
@@ -1414,6 +1436,10 @@ const server = createServer((req, res) => {
   }
   if (req.method === "GET" && (req.url === "/changes" || req.url.startsWith("/changes?"))) {
     handleGetChanges(req, res);
+    return;
+  }
+  if (req.method === "GET" && req.url === "/warnings") {
+    handleGetWarnings(req, res);
     return;
   }
   if (req.method === "GET" && req.url === "/todos") {

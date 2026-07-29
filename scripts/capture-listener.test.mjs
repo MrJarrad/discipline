@@ -630,6 +630,56 @@ test("changes.jsonl reports capability_added/removed/visibility_changed/binding_
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("GET /warnings returns [] before any capture has synced", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/warnings`);
+    assert.equal(res.status, 200);
+    body = await res.json();
+  });
+
+  assert.deepEqual(body, []);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("GET /warnings returns the latest v2 capture's warnings[]", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ warnings: ["First warning.", "Second warning."] })) });
+    assert.equal(res.status, 200);
+
+    const warningsRes = await fetch(`${base}/warnings`);
+    assert.equal(warningsRes.status, 200);
+    body = await warningsRes.json();
+  });
+
+  assert.deepEqual(body, ["First warning.", "Second warning."]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("GET /warnings returns [] for a v1 capture (no warnings field)", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(res.status, 200);
+
+    const warningsRes = await fetch(`${base}/warnings`);
+    body = await warningsRes.json();
+  });
+
+  assert.deepEqual(body, []);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
