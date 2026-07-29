@@ -37,6 +37,18 @@ function buildExampleStructure(sectionSnapshots) {
   }));
 }
 
+// AXIS OWNERSHIP global rule (operator-ratified, 2026-07-29 — see the
+// vault's design-system-opinion-gradient.md "Axis ownership rule"): `device`
+// is always the BLOCK's own adaptation machinery; every other variant axis
+// belongs to the LAYOUT, which holds exactly ONE opinion per axis — never a
+// per-device pair. This constant mirrors scripts/capture-listener.mjs's
+// identical constant of the same name (same global rule, applied here to
+// flag an M/D-Example divergence the device axis can't explain — "free
+// extra check" per the ruling — while the listener uses it to filter
+// device-axis noise out of template_variant_changed). Do not fork the
+// definition; if the rule ever changes, update both.
+const AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS = "device";
+
 // templateFrames[]: the resolved instance state of the layout's Example
 // frames — {id, name, instances:[{id,name,component,variantProps,
 // properties,overrides}]}. Each instance's raw componentProperties (Figma's
@@ -88,6 +100,109 @@ function buildLatentCapabilities(capSnapshots) {
   }));
 }
 
+// SPACER NAMING (vault ruling, token-rulings.md "Spacer instance renaming IS
+// the interface convention"): the DS spacer COMPONENT is SpaceVertical/
+// SpaceHorizontal; block-internal instances of it MUST be renamed to their
+// function. Flag both violations: (a) an instance left un-renamed (still
+// bearing the raw component name), (b) a malformed rename (typo, wrong
+// case, kebab-case, etc).
+const CANONICAL_SPACER_INSTANCE_NAMES = new Set(["SpacerTop", "SpacerBottom", "SpacerHorizontal", "SpacerVertical"]);
+const RAW_SPACER_COMPONENT_NAMES = new Set(["SpaceVertical", "SpaceHorizontal"]);
+
+function buildMalformedSpacerNameWarnings(spacerInstances) {
+  const warnings = [];
+  for (const inst of spacerInstances || []) {
+    if (CANONICAL_SPACER_INSTANCE_NAMES.has(inst.name)) continue;
+    const label = inst.path || inst.name;
+    if (RAW_SPACER_COMPONENT_NAMES.has(inst.name)) {
+      warnings.push(`${label} is an un-renamed ${inst.name} spacer instance — rename to SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`);
+    } else {
+      warnings.push(`${label} has a malformed spacer name "${inst.name}" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`);
+    }
+  }
+  return warnings;
+}
+
+// DUPLICATE SIBLING NAMES: the id-first/name-fallback correlation every v2
+// diff function uses (diffComponentSets, diffExampleStructure,
+// diffTemplateFrames, diffLatentCapabilities in capture-listener.mjs) falls
+// back to matching by name among siblings when an id isn't stable — two
+// siblings sharing a name breaks that fallback ambiguously, so it's flagged
+// as a structural warning wherever it occurs.
+function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
+  const byParent = new Map();
+  for (const node of nodeSnapshots || []) {
+    const key = node.parentId || "";
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(node);
+  }
+  const warnings = [];
+  for (const siblings of byParent.values()) {
+    const seen = new Set();
+    const flagged = new Set();
+    for (const node of siblings) {
+      if (seen.has(node.name) && !flagged.has(node.name)) {
+        warnings.push(`Duplicate sibling name "${node.name}" under ${node.parentPath || siblings[0].parentId} — layer names must be unique among siblings for stable id/name-fallback matching.`);
+        flagged.add(node.name);
+      }
+      seen.add(node.name);
+    }
+  }
+  return warnings;
+}
+
+// AXIS OWNERSHIP VIOLATION: an M-/D-Example frame pair is one layout
+// opinion rendered through each block's device axis (vault ruling — "M/D
+// divergence the device axis can't explain = machine-detectable
+// inconsistency"). Frames pair by name (M-<base> / D-<base>); instances
+// within a pair correlate by name (same convention as everything else in
+// this bucket). Any non-device-axis value that differs between the paired
+// instances is flagged — the device axis itself is exempt by definition.
+function buildAxisOwnershipViolationWarnings(templateFrames) {
+  const pairsByBase = new Map();
+  for (const frame of templateFrames || []) {
+    const match = /^([MD])-(.+)$/.exec(frame.name);
+    if (!match) continue;
+    const [, prefix, base] = match;
+    if (!pairsByBase.has(base)) pairsByBase.set(base, {});
+    pairsByBase.get(base)[prefix] = frame;
+  }
+
+  const warnings = [];
+  for (const [base, pair] of pairsByBase) {
+    if (!pair.M || !pair.D) continue;
+    const dByName = new Map((pair.D.instances || []).map((inst) => [inst.name, inst]));
+    for (const mInst of pair.M.instances || []) {
+      const dInst = dByName.get(mInst.name);
+      if (!dInst) continue;
+      const mVariant = mInst.variantProps || {};
+      const dVariant = dInst.variantProps || {};
+      const axes = new Set([...Object.keys(mVariant), ...Object.keys(dVariant)]);
+      for (const axis of axes) {
+        if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
+        if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
+        warnings.push(
+          `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`
+        );
+      }
+    }
+  }
+  return warnings;
+}
+
+// warnings[]: the plugin's structural-lint bucket — combines every lint
+// type into one flat array of human-readable strings (same convention as
+// the fixture in capture-listener.test.mjs; the listener only counts
+// warnings.length, no shape enforced beyond "array").
+function buildWarnings(input) {
+  const snapshot = input || {};
+  return [
+    ...buildMalformedSpacerNameWarnings(snapshot.spacerInstances),
+    ...buildDuplicateSiblingNameWarnings(snapshot.nodeSnapshots),
+    ...buildAxisOwnershipViolationWarnings(snapshot.templateFrames),
+  ];
+}
+
 // === END SCHEMA V2 TRANSFORM ===
 
-export { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities };
+export { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities, buildWarnings };
