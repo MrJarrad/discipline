@@ -680,6 +680,36 @@ test("GET /warnings returns [] for a v1 capture (no warnings field)", async () =
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("v1 regression: a diffed v1 sync gets empty v2 diff buckets, not errors or garbage", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+
+  assert.equal(diffed.schemaVersion, 1);
+  assert.equal(diffed.warningCount, 0);
+  assert.deepEqual(diffed.changed.componentSets, []);
+  assert.deepEqual(diffed.changed.examples, []);
+  assert.deepEqual(diffed.changed.templateFrames, []);
+  assert.deepEqual(diffed.changed.capabilities, []);
+  // pre-existing v1 diff behavior is untouched: the variable value change still reports.
+  assert.equal(diffed.changed.variables.length, 1);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
