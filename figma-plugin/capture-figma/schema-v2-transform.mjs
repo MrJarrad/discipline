@@ -37,6 +37,41 @@ function buildExampleStructure(sectionSnapshots) {
   }));
 }
 
+// templateFrames[]: the resolved instance state of the layout's Example
+// frames — {id, name, instances:[{id,name,component,variantProps,
+// properties,overrides}]}. Each instance's raw componentProperties (Figma's
+// merged variant+non-variant property map, {name:{value,type}}) is split by
+// type: VARIANT entries become variantProps (the instance's resolved
+// variant selection per axis), everything else becomes properties
+// (text/boolean/instance-swap values). overrides are passed through
+// verbatim — resolving a live node's overridden value and building its
+// {instance-id}/{node-name-path} id requires walking the actual instance
+// tree, which only code.js's traversal (not this pure function) can do.
+function buildTemplateFrames(frameSnapshots) {
+  return (frameSnapshots || []).map((frame) => ({
+    id: frame.id,
+    name: frame.name,
+    instances: (frame.instances || []).map((inst) => {
+      const variantProps = {};
+      const properties = {};
+      const componentProperties = inst.componentProperties || {};
+      for (const propName of Object.keys(componentProperties)) {
+        const prop = componentProperties[propName];
+        if (prop.type === "VARIANT") variantProps[propName] = prop.value;
+        else properties[propName] = prop.value;
+      }
+      return {
+        id: inst.id,
+        name: inst.name,
+        component: inst.component,
+        variantProps: variantProps,
+        properties: properties,
+        overrides: (inst.overrides || []).map((o) => ({ id: o.id, property: o.property, value: o.value })),
+      };
+    }),
+  }));
+}
+
 // === END SCHEMA V2 TRANSFORM ===
 
-export { buildComponentSets, buildExampleStructure };
+export { buildComponentSets, buildExampleStructure, buildTemplateFrames };

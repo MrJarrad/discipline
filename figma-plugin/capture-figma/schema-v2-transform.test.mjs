@@ -4,7 +4,7 @@
 // verbatim; the sync-check test at the bottom of this file guards drift).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildComponentSets, buildExampleStructure } from "./schema-v2-transform.mjs";
+import { buildComponentSets, buildExampleStructure, buildTemplateFrames } from "./schema-v2-transform.mjs";
 
 test("buildComponentSets: maps a component-set snapshot to key/id/name/description/properties/variantCount", () => {
   const sets = [
@@ -59,4 +59,69 @@ test("buildExampleStructure: maps section snapshots to {name, frames:[{id,name}]
       ],
     },
   ]);
+});
+
+test("buildTemplateFrames: splits an instance's componentProperties into variantProps (type VARIANT) vs properties (everything else)", () => {
+  const frames = [
+    {
+      id: "tf-1",
+      name: "Homepage",
+      instances: [
+        {
+          id: "inst-1",
+          name: "Hero",
+          component: "HeroText",
+          componentProperties: {
+            device: { value: "desktop", type: "VARIANT" },
+            height: { value: "L", type: "VARIANT" },
+            title: { value: "Welcome", type: "TEXT" },
+          },
+          overrides: [],
+        },
+      ],
+    },
+  ];
+
+  const result = buildTemplateFrames(frames);
+
+  assert.deepEqual(result, [
+    {
+      id: "tf-1",
+      name: "Homepage",
+      instances: [
+        {
+          id: "inst-1",
+          name: "Hero",
+          component: "HeroText",
+          variantProps: { device: "desktop", height: "L" },
+          properties: { title: "Welcome" },
+          overrides: [],
+        },
+      ],
+    },
+  ]);
+});
+
+test("buildTemplateFrames: passes overrides through verbatim (id/property/value already resolved by the caller)", () => {
+  const frames = [
+    {
+      id: "tf-1",
+      name: "Homepage",
+      instances: [
+        {
+          id: "inst-1",
+          name: "Hero",
+          component: "HeroText",
+          componentProperties: {},
+          overrides: [
+            { id: "inst-1/Hero/SpacerTop", property: "visible", value: true, unrelatedField: "ignored" },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const result = buildTemplateFrames(frames);
+
+  assert.deepEqual(result[0].instances[0].overrides, [{ id: "inst-1/Hero/SpacerTop", property: "visible", value: true }]);
 });
