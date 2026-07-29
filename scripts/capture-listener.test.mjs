@@ -432,6 +432,53 @@ test("changes.jsonl reports component_description_changed when a componentSet's 
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("changes.jsonl reports example_section_added/removed and example_frame_added/removed/renamed", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        v2ExportBody({
+          exampleStructure: [
+            { name: "M-Example", frames: [{ id: "frame-1", name: "Default" }, { id: "frame-2", name: "Empty state" }] },
+            { name: "D-Example", frames: [{ id: "frame-3", name: "Default" }] },
+          ],
+        })
+      ),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        v2ExportBody({
+          exampleStructure: [
+            { name: "M-Example", frames: [{ id: "frame-1", name: "Default (renamed)" }, { id: "frame-4", name: "New frame" }] },
+          ],
+        })
+      ),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  const byType = (type) => diffed.changed.examples.filter((r) => r.type === type);
+
+  assert.deepEqual(byType("example_section_removed"), [{ type: "example_section_removed", name: "D-Example" }]);
+  assert.deepEqual(byType("example_frame_removed"), [{ type: "example_frame_removed", section: "M-Example", name: "Empty state" }]);
+  assert.deepEqual(byType("example_frame_added"), [{ type: "example_frame_added", section: "M-Example", name: "New frame" }]);
+  assert.deepEqual(byType("example_frame_renamed"), [
+    { type: "example_frame_renamed", section: "M-Example", id: "frame-1", oldName: "Default", newName: "Default (renamed)" },
+  ]);
+  assert.deepEqual(byType("example_section_added"), []);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

@@ -684,6 +684,60 @@ function diffComponentSets(oldSets, newSets) {
   return records;
 }
 
+// exampleStructure sections are keyed by name only (the brief names no
+// stable section id, and M-/D-Example section names are themselves the
+// stable identity per the M/D section-pairing convention). Frames within a
+// matched section use the usual id-first/name-fallback correlation.
+function diffExampleStructure(oldStructure, newStructure) {
+  const records = [];
+  const oldByName = new Map((oldStructure || []).map((s) => [s.name, s]));
+  const newByName = new Map((newStructure || []).map((s) => [s.name, s]));
+
+  for (const [name, newSection] of newByName) {
+    if (!oldByName.has(name)) {
+      records.push({ type: "example_section_added", name });
+    }
+  }
+  for (const [name, oldSection] of oldByName) {
+    if (!newByName.has(name)) {
+      records.push({ type: "example_section_removed", name });
+      continue;
+    }
+    const newSection = newByName.get(name);
+    const oldFrames = oldSection.frames || [];
+    const newFrames = newSection.frames || [];
+    const oldByKey = new Map(oldFrames.filter((f) => f.id).map((f) => [f.id, f]));
+    const newByKey = new Map(newFrames.filter((f) => f.id).map((f) => [f.id, f]));
+    const oldFrameByName = new Map(oldFrames.map((f) => [f.name, f]));
+    const matchedOld = new Set();
+    const matchedNew = new Set();
+
+    for (const [id, newFrame] of newByKey) {
+      const oldFrame = oldByKey.get(id);
+      if (!oldFrame) continue;
+      matchedOld.add(oldFrame);
+      matchedNew.add(newFrame);
+      if (oldFrame.name !== newFrame.name) {
+        records.push({ type: "example_frame_renamed", section: name, id, oldName: oldFrame.name, newName: newFrame.name });
+      }
+    }
+    for (const newFrame of newFrames) {
+      if (matchedNew.has(newFrame) || (newFrame.id && oldByKey.has(newFrame.id))) continue;
+      if (!oldFrameByName.has(newFrame.name)) {
+        records.push({ type: "example_frame_added", section: name, name: newFrame.name });
+      }
+    }
+    for (const oldFrame of oldFrames) {
+      if (matchedOld.has(oldFrame) || (oldFrame.id && newByKey.has(oldFrame.id))) continue;
+      if (!newFrames.some((f) => f.name === oldFrame.name)) {
+        records.push({ type: "example_frame_removed", section: name, name: oldFrame.name });
+      }
+    }
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -799,6 +853,7 @@ function handleCapture(req, res) {
             parsed.components
           );
           const componentSets = diffComponentSets(prevState.export.componentSets, parsed.componentSets);
+          const examples = diffExampleStructure(prevState.export.exampleStructure, parsed.exampleStructure);
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -813,6 +868,7 @@ function handleCapture(req, res) {
             componentsRenamed,
             layerBindings,
             componentSets,
+            examples,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -828,6 +884,7 @@ function handleCapture(req, res) {
             componentsRenamed: componentsRenamed.length,
             layerBindings: layerBindings.length,
             componentSets: componentSets.length,
+            examples: examples.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
