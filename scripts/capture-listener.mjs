@@ -738,7 +738,13 @@ function handleCapture(req, res) {
         writeAtomic(outPath, JSON.stringify(parsed, null, 2) + "\n");
         writeAtomic(sidecarPath, JSON.stringify({ hash, export: parsed }) + "\n");
 
-        const changeRecord = { ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null };
+        const changeRecord = {
+          ts: new Date().toISOString(),
+          fileName: parsed.header.fileName,
+          fileKey: fileKey || null,
+          schemaVersion: parsed.header.schemaVersion || 1,
+          warningCount: Array.isArray(parsed.warnings) ? parsed.warnings.length : 0,
+        };
         if (prevState === null) {
           changeRecord.initial = true;
         } else {

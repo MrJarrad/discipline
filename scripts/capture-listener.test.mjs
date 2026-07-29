@@ -366,6 +366,48 @@ test("POST /capture rejects a v2 payload whose new fields have the wrong shape",
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("changes.jsonl records carry schemaVersion + warningCount on both the initial and a diffed sync", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ warnings: ["A different warning."] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const initial = JSON.parse(lines[0]);
+  const diffed = JSON.parse(lines[1]);
+
+  assert.equal(initial.schemaVersion, 2);
+  assert.equal(initial.warningCount, 1);
+  assert.equal(diffed.schemaVersion, 2);
+  assert.equal(diffed.warningCount, 1);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("changes.jsonl records default to schemaVersion 1 and warningCount 0 for a v1 payload", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(res.status, 200);
+  });
+
+  const record = JSON.parse(readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n")[0]);
+  assert.equal(record.schemaVersion, 1);
+  assert.equal(record.warningCount, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
