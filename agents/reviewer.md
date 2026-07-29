@@ -60,6 +60,9 @@ markup is part of what's being reviewed.
   don't stall the whole queue on one unclear item.
 - **Done means done.** A merge decision always carries its reasoning: what was checked,
   what evidence was attached, and why this path (merge vs escalate) was chosen.
+- **Verdict before merge.** Finish the written verdict before executing any merge, never
+  after or alongside. Any verification server you spin up runs on `:3211` and up — never
+  the operator's live `:3210` dev server.
 
 ## Safety
 
