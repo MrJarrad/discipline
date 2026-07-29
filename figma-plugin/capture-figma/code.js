@@ -15,13 +15,15 @@
 // preserved verbatim (not omitted) because a description gap is itself
 // countable capture signal (ruling 7).
 //
-// Output shape (v1.2.0):
+// Output shape (v1.3.0, schema v2 — see the "SCHEMA V2 TRANSFORM" and
+// "schema v2: live document traversal" sections below for the five
+// additive buckets' derivation):
 //   {
 //     header: {
 //       fileName, fileKey (figma.fileKey — omitted when undefined; Figma
 //       leaves this unset in some contexts, e.g. a file that has never been
 //       saved/published, so callers must not assume presence),
-//       pluginVersion, exportedAt,
+//       pluginVersion, exportedAt, schemaVersion: 2,
 //       counts: { <collection name>: <variable count>, ... ,
 //                 "styles/text": n, "styles/paint": n,
 //                 "styles/effect": n, "styles/grid": n },
@@ -34,7 +36,13 @@
 //       paint:  [ { name, type: "PAINT",  description, properties: {...} }, ... ],
 //       effect: [ { name, type: "EFFECT", description, properties: {...} }, ... ],
 //       grid:   [ { name, type: "GRID",   description, properties: {...} }, ... ],
-//     }
+//     },
+//     componentSets: [ { key, id, name, description, properties, variantCount }, ... ],
+//     exampleStructure: [ { name, frames: [ { id, name }, ... ] }, ... ],
+//     templateFrames: [ { id, name, instances: [ { id, name, component,
+//       variantProps, properties, overrides: [ { id, property, value } ] }, ... ] }, ... ],
+//     latentCapabilities: [ { id, name, visible, binding }, ... ],
+//     warnings: [ "...", ... ]
 //   }
 // Each style list is sorted by name (type is fixed per list, so sort order
 // is effectively type-then-name across the whole `styles` block). Every
@@ -62,7 +70,7 @@
 // run of the styles export is the outstanding verification — see the
 // engineering note at the bottom of this file.
 
-const PLUGIN_VERSION = "1.2.0";
+const PLUGIN_VERSION = "1.3.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
