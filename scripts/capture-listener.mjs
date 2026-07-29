@@ -124,6 +124,44 @@
    The first-ever sync for a file (no sidecar yet) logs { initial: true }
    with no diff (and no `summary`), since there's nothing to compare against.
 
+   SCHEMA V2: header.schemaVersion=2 (OPTIONAL — absence means v1) marks a
+   richer DS-documentation payload with five additive top-level buckets, all
+   OPTIONAL and validated loosely (array shape only):
+     componentSets[]        { key?, name, description } — a set's own
+                             description, separate from body.components.sets'
+                             structural (variant/property) data.
+     exampleStructure[]     { name, frames: [{ id?, name }] } — sectioned
+                             Example frames (M-/D- section pairing).
+     templateFrames[]       { id?, name, instances: [{ id?, name, component,
+                             variantProps: {axis:value}, properties:
+                             {name:value}, overrides: [{id?, property,
+                             value}] }] } — resolved instance state of the
+                             layout's Example frames (per the vault ruling:
+                             "resolved instance state ... IS the spec").
+     latentCapabilities[]   { id?, name, visible, binding } — capability-
+                             present-unused booleans and what they're bound to.
+     warnings[]             free-form strings the plugin surfaces about its
+                             own capture (missing descriptions, unresolved
+                             instances, etc.) — see GET /warnings below.
+   Every changes.jsonl record (initial or diffed) carries `schemaVersion`
+   (default 1) and `warningCount` (warnings.length, default 0) regardless of
+   which schema produced it.
+   On a diffed sync, all five buckets are diffed the same id-first/name-
+   fallback way as every other bucket, landing in changeRecord.changed:
+     componentSets   -> component_description_changed
+     examples         -> example_section_added/removed,
+                         example_frame_added/removed/renamed
+     templateFrames   -> template_frame_added/removed,
+                         template_instance_added/removed,
+                         template_variant_changed (axis-ownership filtered —
+                         see AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS below),
+                         template_properties_changed,
+                         template_overrides_changed (per-instance, id-first)
+     capabilities     -> capability_added/removed/visibility_changed/
+                         binding_changed
+   v1 payloads (no schemaVersion, none of the five buckets) diff to empty
+   arrays in all five — no behavior change from the pre-v2 listener.
+
    Bind: 127.0.0.1 only, never 0.0.0.0 — this is a localhost-only bridge, no
    auth needed because nothing outside the machine can reach it. Bodies over
    ~50MB or non-JSON bodies are rejected with 4xx and never written.        */
@@ -899,6 +937,54 @@ function diffTemplateFrames(oldFrames, newFrames, componentSetsByName) {
   return records;
 }
 
+// latentCapabilities are keyed by id-first, name-fallback (same convention
+// as every other v2 bucket). `visible` and `binding` are each diffed
+// independently — a capability can flip visibility without rebinding, or
+// rebind without a visibility change, and each is its own changelog signal.
+function diffLatentCapabilities(oldCaps, newCaps) {
+  const records = [];
+  const oldByKey = new Map((oldCaps || []).filter((c) => c.id).map((c) => [c.id, c]));
+  const newByKey = new Map((newCaps || []).filter((c) => c.id).map((c) => [c.id, c]));
+  const oldByName = new Map((oldCaps || []).map((c) => [c.name, c]));
+  const newByName = new Map((newCaps || []).map((c) => [c.name, c]));
+  const matchedOld = new Set();
+  const matchedNew = new Set();
+
+  function diffCap(oldCap, newCap) {
+    if (oldCap.visible !== newCap.visible) {
+      records.push({ type: "capability_visibility_changed", id: newCap.id, name: newCap.name, old: oldCap.visible, new: newCap.visible });
+    }
+    if (!jsonEq(oldCap.binding, newCap.binding)) {
+      records.push({ type: "capability_binding_changed", id: newCap.id, name: newCap.name, old: oldCap.binding, new: newCap.binding });
+    }
+  }
+
+  for (const [id, newCap] of newByKey) {
+    const oldCap = oldByKey.get(id);
+    if (!oldCap) continue;
+    matchedOld.add(oldCap);
+    matchedNew.add(newCap);
+    diffCap(oldCap, newCap);
+  }
+  for (const newCap of newCaps || []) {
+    if (matchedNew.has(newCap) || (newCap.id && oldByKey.has(newCap.id))) continue;
+    const oldCap = oldByName.get(newCap.name);
+    if (!oldCap || matchedOld.has(oldCap)) {
+      if (!oldCap) records.push({ type: "capability_added", id: newCap.id, name: newCap.name });
+      continue;
+    }
+    diffCap(oldCap, newCap);
+  }
+  for (const oldCap of oldCaps || []) {
+    if (matchedOld.has(oldCap) || (oldCap.id && newByKey.has(oldCap.id))) continue;
+    if (!newByName.has(oldCap.name)) {
+      records.push({ type: "capability_removed", id: oldCap.id, name: oldCap.name });
+    }
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -1017,6 +1103,7 @@ function handleCapture(req, res) {
           const examples = diffExampleStructure(prevState.export.exampleStructure, parsed.exampleStructure);
           const componentSetsByName = new Map((parsed.componentSets || []).map((s) => [s.name, s]));
           const templateFrames = diffTemplateFrames(prevState.export.templateFrames, parsed.templateFrames, componentSetsByName);
+          const capabilities = diffLatentCapabilities(prevState.export.latentCapabilities, parsed.latentCapabilities);
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -1033,6 +1120,7 @@ function handleCapture(req, res) {
             componentSets,
             examples,
             templateFrames,
+            capabilities,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -1050,6 +1138,7 @@ function handleCapture(req, res) {
             componentSets: componentSets.length,
             examples: examples.length,
             templateFrames: templateFrames.length,
+            capabilities: capabilities.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately

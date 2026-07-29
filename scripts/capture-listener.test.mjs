@@ -592,6 +592,44 @@ test("template_variant_changed honors a componentSet's @axis-ownership annotatio
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("changes.jsonl reports capability_added/removed/visibility_changed/binding_changed", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const before = [
+    { id: "cap-1", name: "has-background", visible: true, binding: "color/surface/raised" },
+    { id: "cap-2", name: "has-icon", visible: false, binding: null },
+    { id: "cap-3", name: "has-border", visible: true, binding: "color/border/default" },
+  ];
+  const after = [
+    { id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised" },
+    { id: "cap-2", name: "has-icon", visible: false, binding: "color/icon/muted" },
+    { id: "cap-4", name: "has-shadow", visible: true, binding: null },
+  ];
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ latentCapabilities: before })) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody({ latentCapabilities: after })) });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  const byType = (type) => diffed.changed.capabilities.filter((r) => r.type === type);
+
+  assert.deepEqual(byType("capability_added"), [{ type: "capability_added", id: "cap-4", name: "has-shadow" }]);
+  assert.deepEqual(byType("capability_removed"), [{ type: "capability_removed", id: "cap-3", name: "has-border" }]);
+  assert.deepEqual(byType("capability_visibility_changed"), [
+    { type: "capability_visibility_changed", id: "cap-1", name: "has-background", old: true, new: false },
+  ]);
+  assert.deepEqual(byType("capability_binding_changed"), [
+    { type: "capability_binding_changed", id: "cap-2", name: "has-icon", old: null, new: "color/icon/muted" },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("POST /todos/push persists the full pushed state to todo-state.json and logs a todos receipt", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
