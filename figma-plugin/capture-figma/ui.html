@@ -133,6 +133,11 @@
     const syncStatus = document.getElementById("sync-status");
 
     let syncOn = false;
+    // Tracks the blob URL currently on downloadLink.href, so it can be
+    // revoked before the next one replaces it — createObjectURL()'s
+    // reference otherwise stays alive for the panel's whole lifetime, and a
+    // sync session runs one export per document change.
+    let currentDownloadUrl = null;
 
     syncBtn.addEventListener("click", () => {
       if (syncOn) {
@@ -153,6 +158,23 @@
     });
 
     copyBtn.addEventListener("click", () => {
+      // navigator.clipboard is the modern API, but it can reject inside a
+      // plugin iframe without a "clipboard-write" permissions policy — fall
+      // back to the older selection-based execCommand("copy") either when
+      // the API isn't present at all, or when it's present but rejects.
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(output.value).then(
+          () => {
+            status.textContent = "Copied to clipboard.";
+          },
+          () => {
+            output.select();
+            document.execCommand("copy");
+            status.textContent = "Copied to clipboard.";
+          }
+        );
+        return;
+      }
       output.select();
       document.execCommand("copy");
       status.textContent = "Copied to clipboard.";
@@ -178,6 +200,22 @@
         const payloadBytes = new Blob([payload]).size;
         const LISTENER_MAX_BYTES = 50 * 1024 * 1024;
         const WARN_THRESHOLD_BYTES = LISTENER_MAX_BYTES * 0.9;
+        if (payloadBytes > LISTENER_MAX_BYTES) {
+          // REFUSE to POST at all — the listener rejects bodies over 50MB
+          // outright (scripts/capture-listener.mjs's MAX_BODY_BYTES), so
+          // sending anyway just burns a round trip to get the same 413 back.
+          // This is the ONE POST code path shared by every trigger (the
+          // immediate export on "Start sync" and every debounced
+          // document-change resync), so the refusal covers both.
+          syncStatus.classList.add("error");
+          const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
+          syncStatus.textContent = "Payload is " + mb + "MB — over the listener's 50MB limit, refusing to POST.";
+          parent.postMessage(
+            { pluginMessage: { type: "sync-post-result", ok: false, error: "payload " + mb + "MB exceeds the listener's 50MB limit" } },
+            "*"
+          );
+          return;
+        }
         if (payloadBytes >= WARN_THRESHOLD_BYTES) {
           // Shown directly here (no round trip through code.js needed — the
           // payload and the fetch both live in this iframe already); the
@@ -185,9 +223,7 @@
           // once the POST resolves, same as any other sync-status update.
           syncStatus.classList.add("warn");
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
-          syncStatus.textContent = payloadBytes > LISTENER_MAX_BYTES
-            ? "Payload is " + mb + "MB — over the listener's 50MB limit, POST will be rejected."
-            : "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
+          syncStatus.textContent = "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
         }
 
         fetch(CAPTURE_LISTENER_URL, {
@@ -197,10 +233,33 @@
         })
           .then((res) => {
             if (res.ok) {
-              parent.postMessage(
-                { pluginMessage: { type: "sync-post-result", ok: true, status: res.status } },
-                "*"
-              );
+              // Parse the listener's response body for warningCount/summary
+              // (scripts/capture-listener.mjs's POST /capture contract) so
+              // code.js's "synced" status can show them without a separate
+              // GET /changes round trip. A body that fails to parse still
+              // reports the successful POST — just without those extras.
+              res
+                .json()
+                .then((body) => {
+                  parent.postMessage(
+                    {
+                      pluginMessage: {
+                        type: "sync-post-result",
+                        ok: true,
+                        status: res.status,
+                        warningCount: body && typeof body.warningCount === "number" ? body.warningCount : 0,
+                        summary: body && body.summary ? body.summary : null,
+                      },
+                    },
+                    "*"
+                  );
+                })
+                .catch(() => {
+                  parent.postMessage(
+                    { pluginMessage: { type: "sync-post-result", ok: true, status: res.status } },
+                    "*"
+                  );
+                });
               return;
             }
             // Failure: surface the listener's own response body (its
@@ -244,6 +303,22 @@
         return;
       }
 
+      if (msg.type === "export-progress") {
+        // One-way phase status during buildExport() (collecting variables/
+        // styles/components, resolving templates, scanning capabilities,
+        // linting) — shown on whichever status line is currently active so
+        // it's visible for both a manual export and a sync run. Falls
+        // through without touching exportBtn/copyBtn/downloadLink state —
+        // this is mid-export, not a completion.
+        status.classList.remove("error");
+        status.textContent = msg.text;
+        if (syncOn) {
+          syncStatus.classList.remove("warn", "error");
+          syncStatus.textContent = msg.text;
+        }
+        return;
+      }
+
       exportBtn.disabled = false;
 
       if (msg.type === "export-result") {
@@ -252,7 +327,11 @@
         copyBtn.disabled = false;
 
         const blob = new Blob([json], { type: "application/json" });
+        if (currentDownloadUrl) {
+          URL.revokeObjectURL(currentDownloadUrl);
+        }
         const url = URL.createObjectURL(blob);
+        currentDownloadUrl = url;
         downloadLink.href = url;
         downloadLink.classList.add("enabled");
 
@@ -266,6 +345,11 @@
         const styleCounts =
           msg.data.header && msg.data.header.styleCounts ? msg.data.header.styleCounts : null;
         const styleCount = styleCounts ? styleCounts.total : 0;
+
+        const componentCounts =
+          msg.data.header && msg.data.header.componentCounts ? msg.data.header.componentCounts : null;
+        const warningCount =
+          msg.data.header && typeof msg.data.header.warningCount === "number" ? msg.data.header.warningCount : 0;
 
         status.textContent =
           "Exported " +
@@ -282,7 +366,11 @@
           (styleCounts ? styleCounts.effect : 0) +
           ", grid " +
           (styleCounts ? styleCounts.grid : 0) +
-          ").";
+          "), " +
+          (componentCounts ? componentCounts.standalone + componentCounts.sets : 0) +
+          " components" +
+          (warningCount > 0 ? ", " + warningCount + " warning(s)" : "") +
+          ".";
       } else if (msg.type === "export-error") {
         status.classList.add("error");
         status.textContent = "Export failed: " + msg.message;
@@ -303,8 +391,28 @@
           syncStatus.textContent = "Sync is off. One-shot export above still works with no listener running.";
         } else if (msg.state === "synced") {
           const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-          syncStatus.textContent =
+          let text =
             "Last sync: " + t + " — " + msg.lastSyncCount + " item(s) sent to listener.";
+          // msg.summary mirrors the listener's changes.jsonl cross-bucket
+          // summary (scripts/capture-listener.mjs) — absent on the very
+          // first sync of a file (nothing to diff against yet) and on an
+          // unchanged/no-op sync.
+          if (msg.summary) {
+            const s = msg.summary;
+            const parts = [];
+            if (s.added) parts.push(s.added + " added");
+            if (s.modified) parts.push(s.modified + " modified");
+            if (s.removed) parts.push(s.removed + " removed");
+            if (s.renamed) parts.push(s.renamed + " renamed");
+            if (s.repointed) parts.push(s.repointed + " repointed");
+            if (s.layerBindings) parts.push(s.layerBindings + " layer binding(s)");
+            if (parts.length) text += " (" + parts.join(", ") + ")";
+          }
+          if (msg.warningCount > 0) {
+            syncStatus.classList.add("warn");
+            text += " — " + msg.warningCount + " warning(s).";
+          }
+          syncStatus.textContent = text;
         } else if (msg.state === "restored") {
           // From clientStorage, loaded once at panel-open — a prior
           // session's last successful sync, shown before this session has

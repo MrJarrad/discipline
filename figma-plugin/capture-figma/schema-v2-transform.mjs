@@ -268,6 +268,111 @@ function isBoundButHiddenPaint(paint, node) {
   return !(paintVisible && nodeVisible);
 }
 
+// One latentCapabilities entry per bound-but-hidden paint across a node's
+// FULL fills+strokes arrays — a prior version only ever checked fills[0]/
+// strokes[0], silently missing every other bound-but-hidden paint on a node
+// with more than one (adopt-list #5, a real bug, not a design choice).
+// `resolvedPaints` is [{paint, binding}] — the async alias-to-name
+// resolution happens in code.js's live traversal (needs variableById +
+// figma.getVariableByIdAsync); this function is the pure per-paint filter/map
+// so the "check every paint, not just the first" fix is unit-testable
+// without a figma.* dependency.
+function collectNodeLatentCapabilities(node, resolvedPaints) {
+  const out = [];
+  for (const entry of resolvedPaints || []) {
+    if (entry.binding && isBoundButHiddenPaint(entry.paint, node)) {
+      out.push({ id: node.id, name: node.name, visible: node.visible !== false, binding: entry.binding });
+    }
+  }
+  return out;
+}
+
+// serializeColor: an unbound RGB/RGBA color -> "#rrggbb" hex, or, when alpha
+// is present and not fully opaque, "rgba(r, g, b, a)" with alpha rounded to
+// 4 decimals — matches reference implementation A's serializeColor (adopt-
+// list #2), replacing the raw {r,g,b,a} object every unbound color field
+// (paint/effect/grid/gradient-stop colors) previously emitted verbatim.
+// NOTE: this changes what stableStringify hashes those fields to, so the
+// FIRST sync after this ships will show every unbound color field as
+// "modified" once, even with no real edit — see this change's commit
+// message.
+function serializeColor(color) {
+  const r = Math.round(color.r * 255);
+  const g = Math.round(color.g * 255);
+  const b = Math.round(color.b * 255);
+  const hex =
+    "#" +
+    [r, g, b]
+      .map((c) => c.toString(16).padStart(2, "0"))
+      .join("");
+  if (typeof color.a === "number" && color.a !== 1) {
+    return "rgba(" + r + ", " + g + ", " + b + ", " + parseFloat(color.a.toFixed(4)) + ")";
+  }
+  return hex;
+}
+
+// components{}: the v1 standalone+sets+variants+layer-bindings export the v2
+// rewrite dropped, leaving the listener's diffComponents/diffSetBindings
+// component-diff lane permanently dead (capture plugin A/B comparison
+// 2026-07-30, adopt-list #1 — CONFIRMED lost functionality, not a deliberate
+// removal). Reshaped from reference implementation A's collectComponents/
+// collectComponentBindings to the listener's OWN existing contract
+// (scripts/capture-listener.mjs's validateExportShape + diffComponents):
+// components: { standalone: [{name, key, properties}], sets: [{name, key,
+// properties, variants: [{name, key, bindings: [{layer, property,
+// value}]}]}] } — NOT A's flat components[]+componentSets[] split with
+// name-split variant-property parsing (vetoed; the listener already derives
+// variant identity from componentSets[]/componentPropertyDefinitions
+// elsewhere, and componentSetKey/variantProperties fields don't exist on
+// this contract).
+//
+// Property definitions are reshaped to {defaultValue, options} — the exact
+// shape diffComponents' diffProps reads (`oldProp.defaultValue`,
+// `oldProp.options`) — never Figma's own componentPropertyDefinitions shape
+// ({type, defaultValue, variantOptions, preferredValues}), which stays
+// verbatim in the separate componentSets[] v2 bucket (buildComponentSets
+// above) since that bucket's own diff (diffComponentSets) never reads
+// component-diff's `properties` field at all.
+function buildComponentProperties(componentPropertyDefinitions) {
+  const out = {};
+  for (const key of Object.keys(componentPropertyDefinitions || {})) {
+    const def = componentPropertyDefinitions[key];
+    const propOut = { defaultValue: def.defaultValue };
+    if (Array.isArray(def.variantOptions)) propOut.options = def.variantOptions.slice();
+    out[key] = propOut;
+  }
+  return out;
+}
+
+// snapshot: { standalone: [{key,name,componentPropertyDefinitions}], sets:
+// [{key,name,componentPropertyDefinitions,variants:[{key,name,bindings}]}] }
+// — code.js's traversal reads live nodes into this shape (no figma.* calls
+// in this function); variants[].bindings are already-resolved
+// {layer,property,value} entries collected during the SAME walkV2Subtree
+// pass that gathers nodeSnapshots/spacerInstances/latentCapabilities (never
+// a second per-component tree walk, never a getNodeByIdAsync refetch of a
+// node the traversal already holds a reference to — reference implementation
+// A's per-component refetch-after-the-fact is exactly what this avoids).
+function buildComponents(snapshot) {
+  const input = snapshot || {};
+  const standalone = (input.standalone || []).map((c) => ({
+    name: c.name,
+    key: c.key,
+    properties: buildComponentProperties(c.componentPropertyDefinitions),
+  }));
+  const sets = (input.sets || []).map((set) => ({
+    name: set.name,
+    key: set.key,
+    properties: buildComponentProperties(set.componentPropertyDefinitions),
+    variants: (set.variants || []).map((variant) => ({
+      name: variant.name,
+      key: variant.key,
+      bindings: variant.bindings || [],
+    })),
+  }));
+  return { standalone, sets };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -293,4 +398,8 @@ export {
   resolveComponentSetName,
   nextRecordState,
   isBoundButHiddenPaint,
+  collectNodeLatentCapabilities,
+  buildComponentProperties,
+  buildComponents,
+  serializeColor,
 };

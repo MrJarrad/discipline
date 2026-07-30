@@ -15,6 +15,10 @@ import {
   resolveComponentSetName,
   nextRecordState,
   isBoundButHiddenPaint,
+  collectNodeLatentCapabilities,
+  buildComponentProperties,
+  buildComponents,
+  serializeColor,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -80,6 +84,36 @@ test("buildExampleStructure: maps section snapshots to {name, frames:[{id,name}]
       ],
     },
   ]);
+});
+
+test("buildExampleStructure + buildTemplateFrames: a nested SECTION-in-SECTION and a bare page-level frame each get their own entry", () => {
+  // Shape code.js's buildExampleData produces for an Example page with:
+  //   SECTION "M-Example" (frame "Default")
+  //     SECTION "M-Example/Nested" (frame "Inner")   <- SECTION-in-SECTION
+  //   FRAME "Orphan"                                 <- bare page-level frame
+  const sections = [
+    { name: "M-Example", frames: [{ id: "frame-1", name: "Default" }] },
+    { name: "M-Example/Nested", frames: [{ id: "frame-2", name: "Inner" }] },
+    { name: "", frames: [{ id: "frame-3", name: "Orphan" }] },
+  ];
+  const frames = [
+    { id: "frame-1", name: "Default", instances: [] },
+    { id: "frame-2", name: "Inner", instances: [] },
+    { id: "frame-3", name: "Orphan", instances: [] },
+  ];
+
+  const structure = buildExampleStructure(sections);
+  const templateFrames = buildTemplateFrames(frames);
+
+  assert.deepEqual(structure, [
+    { name: "M-Example", frames: [{ id: "frame-1", name: "Default" }] },
+    { name: "M-Example/Nested", frames: [{ id: "frame-2", name: "Inner" }] },
+    { name: "", frames: [{ id: "frame-3", name: "Orphan" }] },
+  ]);
+  assert.deepEqual(
+    templateFrames.map((f) => f.id),
+    ["frame-1", "frame-2", "frame-3"]
+  );
 });
 
 test("buildTemplateFrames: splits an instance's componentProperties into variantProps (type VARIANT) vs properties (everything else)", () => {
@@ -332,6 +366,110 @@ test("isBoundButHiddenPaint: a bound, visible, rendering paint is not latent", (
 
 test("isBoundButHiddenPaint: no paint at all is never latent", () => {
   assert.equal(isBoundButHiddenPaint(null, { visible: true }), false);
+});
+
+test("collectNodeLatentCapabilities: flags every bound-but-hidden paint across a node's fills+strokes, not just the first (adopt-list #5 bug fix)", () => {
+  const node = { id: "n1", name: "NavigationHeader", visible: true };
+  const resolvedPaints = [
+    { paint: { visible: true }, binding: "color/surface/base" }, // fills[0]: bound + visible, not latent
+    { paint: { visible: false }, binding: "color/surface/raised" }, // fills[1]: bound + hidden, LATENT — missed by a fills[0]-only scan
+    { paint: { visible: false }, binding: "color/border/accent" }, // strokes[0]: bound + hidden, LATENT
+  ];
+
+  const result = collectNodeLatentCapabilities(node, resolvedPaints);
+
+  assert.deepEqual(result, [
+    { id: "n1", name: "NavigationHeader", visible: true, binding: "color/surface/raised" },
+    { id: "n1", name: "NavigationHeader", visible: true, binding: "color/border/accent" },
+  ]);
+});
+
+test("collectNodeLatentCapabilities: an unbound paint (no binding) never contributes a capability", () => {
+  const node = { id: "n1", name: "Icon", visible: true };
+  const result = collectNodeLatentCapabilities(node, [{ paint: { visible: false }, binding: null }]);
+  assert.deepEqual(result, []);
+});
+
+test("buildComponentProperties: maps Figma's raw componentPropertyDefinitions to {defaultValue, options} per the listener's diffComponents.diffProps contract", () => {
+  const defs = {
+    device: { type: "VARIANT", defaultValue: "desktop", variantOptions: ["mobile", "desktop"] },
+    label: { type: "TEXT", defaultValue: "Click me" },
+  };
+
+  const result = buildComponentProperties(defs);
+
+  assert.deepEqual(result, {
+    device: { defaultValue: "desktop", options: ["mobile", "desktop"] },
+    label: { defaultValue: "Click me" },
+  });
+});
+
+test("buildComponentProperties: no definitions maps to an empty object", () => {
+  assert.deepEqual(buildComponentProperties(undefined), {});
+});
+
+test("buildComponents: reshapes standalone + set snapshots into the listener's components:{standalone,sets} contract (adopt-list #1)", () => {
+  const snapshot = {
+    standalone: [
+      {
+        key: "comp-icon",
+        name: "Icon",
+        componentPropertyDefinitions: { name: { type: "INSTANCE_SWAP", defaultValue: "check" } },
+      },
+    ],
+    sets: [
+      {
+        key: "set-hero",
+        name: "HeroText",
+        componentPropertyDefinitions: {
+          height: { type: "VARIANT", defaultValue: "M", variantOptions: ["S", "M", "L"] },
+        },
+        variants: [
+          {
+            key: "variant-m",
+            name: "height=M",
+            bindings: [{ layer: "Title", property: "textStyle", value: "Heading/L" }],
+          },
+          { key: "variant-l", name: "height=L", bindings: [] },
+        ],
+      },
+    ],
+  };
+
+  const result = buildComponents(snapshot);
+
+  assert.deepEqual(result, {
+    standalone: [
+      { name: "Icon", key: "comp-icon", properties: { name: { defaultValue: "check" } } },
+    ],
+    sets: [
+      {
+        name: "HeroText",
+        key: "set-hero",
+        properties: { height: { defaultValue: "M", options: ["S", "M", "L"] } },
+        variants: [
+          { name: "height=M", key: "variant-m", bindings: [{ layer: "Title", property: "textStyle", value: "Heading/L" }] },
+          { name: "height=L", key: "variant-l", bindings: [] },
+        ],
+      },
+    ],
+  });
+});
+
+test("buildComponents: no snapshot maps to empty standalone/sets arrays", () => {
+  assert.deepEqual(buildComponents(undefined), { standalone: [], sets: [] });
+});
+
+test("serializeColor: a fully-opaque RGB color serializes to hex", () => {
+  assert.equal(serializeColor({ r: 1, g: 0, b: 0 }), "#ff0000");
+});
+
+test("serializeColor: an RGBA color with alpha 1 still serializes to hex (opaque, no rgba() needed)", () => {
+  assert.equal(serializeColor({ r: 0, g: 0.5019607843137255, b: 1, a: 1 }), "#0080ff");
+});
+
+test("serializeColor: an RGBA color with alpha < 1 serializes to rgba() with alpha rounded to 4 decimals", () => {
+  assert.equal(serializeColor({ r: 0, g: 0, b: 0, a: 0.3333333333 }), "rgba(0, 0, 0, 0.3333)");
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {

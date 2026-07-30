@@ -1051,6 +1051,13 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "content-type",
 };
 
+// Response body: { ok, path, unchanged, receipt, warningCount, summary? }.
+// `warningCount` is always present (parsed.warnings.length, 0 default).
+// `summary` mirrors the changes.jsonl record's cross-bucket summary (see
+// this file's header) and is present ONLY on a diffed, non-initial sync —
+// an initial sync has nothing to diff against, and an unchanged sync has no
+// changeRecord at all. ui.html reads these to show "N change(s), M
+// warning(s)" from the sync response itself, no GET /changes round trip.
 function handleCapture(req, res) {
   readBody(
     req,
@@ -1084,6 +1091,9 @@ function handleCapture(req, res) {
       const unchanged = prevState !== null && prevState.hash === hash;
 
       let receipt;
+      // Set only when this sync actually diffed something (see response
+      // shape note above handleCapture).
+      let changeRecord = null;
       if (unchanged) {
         receipt = {
           ts: new Date().toISOString(),
@@ -1100,7 +1110,7 @@ function handleCapture(req, res) {
         writeAtomic(sidecarPath, JSON.stringify({ hash, export: parsed }) + "\n");
         writeAtomic(WARNINGS_PATH, JSON.stringify(Array.isArray(parsed.warnings) ? parsed.warnings : []) + "\n");
 
-        const changeRecord = {
+        changeRecord = {
           ts: new Date().toISOString(),
           fileName: parsed.header.fileName,
           fileKey: fileKey || null,
@@ -1236,8 +1246,18 @@ function handleCapture(req, res) {
         console.log(`[capture-listener] wrote ${outPath} (${parsed.header.fileName})`);
       }
 
+      const responseBody = {
+        ok: true,
+        path: outPath,
+        unchanged,
+        receipt,
+        warningCount: Array.isArray(parsed.warnings) ? parsed.warnings.length : 0,
+      };
+      if (changeRecord && changeRecord.summary) {
+        responseBody.summary = changeRecord.summary;
+      }
       res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
-      res.end(JSON.stringify({ ok: true, path: outPath, unchanged, receipt }));
+      res.end(JSON.stringify(responseBody));
     },
     (status, message) => {
       res.writeHead(status, { "Content-Type": "text/plain", ...CORS_HEADERS });
