@@ -254,6 +254,17 @@ async function resolveFieldValue(container, fieldName, rawValue, variableById) {
   return rawValue;
 }
 
+// Same alias-vs-raw resolution as resolveFieldValue, but serializes an
+// unbound raw color (paint/effect/grid/gradient-stop) to hex/rgba (adopt-
+// list #2) instead of emitting the {r,g,b,a} object verbatim. An aliased
+// color is untouched — resolveFieldValue already returned the "→ " notation
+// string, distinguishable from the raw object by reference (resolveFieldValue
+// returns the SAME rawValue reference when unbound, never a copy).
+async function resolveColorFieldValue(container, fieldName, rawColor, variableById) {
+  const resolved = await resolveFieldValue(container, fieldName, rawColor, variableById);
+  return resolved === rawColor ? serializeColor(rawColor) : resolved;
+}
+
 // Text style properties: family/style are read together as fontName since
 // Figma doesn't expose fontFamily/fontStyle as separate scalar fields, but
 // boundVariables can still bind "fontFamily" independently of "fontStyle".
@@ -299,7 +310,7 @@ async function buildPaintEntry(paint, variableById) {
     blendMode: paint.blendMode,
   };
   if (paint.type === "SOLID") {
-    out.color = await resolveFieldValue(paint, "color", paint.color, variableById);
+    out.color = await resolveColorFieldValue(paint, "color", paint.color, variableById);
   }
   if (Array.isArray(paint.gradientStops)) {
     out.gradientTransform = paint.gradientTransform;
@@ -307,8 +318,8 @@ async function buildPaintEntry(paint, variableById) {
     for (let i = 0; i < paint.gradientStops.length; i++) {
       const stop = paint.gradientStops[i];
       out.gradientStops.push({
-        position: stop.position,
-        color: await resolveFieldValue(stop, "color", stop.color, variableById),
+        position: parseFloat(stop.position.toFixed(4)),
+        color: await resolveColorFieldValue(stop, "color", stop.color, variableById),
       });
     }
   }
@@ -335,7 +346,7 @@ async function buildEffectEntry(effect, variableById) {
     visible: effect.visible !== undefined ? effect.visible : true,
   };
   if (effect.color !== undefined) {
-    out.color = await resolveFieldValue(effect, "color", effect.color, variableById);
+    out.color = await resolveColorFieldValue(effect, "color", effect.color, variableById);
   }
   if (effect.offset !== undefined) {
     out.offset = await resolveFieldValue(effect, "offset", effect.offset, variableById);
@@ -370,7 +381,7 @@ async function buildGridEntry(grid, variableById) {
     count: await resolveFieldValue(grid, "count", grid.count, variableById),
     sectionSize: await resolveFieldValue(grid, "sectionSize", grid.sectionSize, variableById),
     offset: await resolveFieldValue(grid, "offset", grid.offset, variableById),
-    color: await resolveFieldValue(grid, "color", grid.color, variableById),
+    color: await resolveColorFieldValue(grid, "color", grid.color, variableById),
     visible: grid.visible !== undefined ? grid.visible : true,
   };
 }
@@ -722,6 +733,30 @@ function collectNodeLatentCapabilities(node, resolvedPaints) {
     }
   }
   return out;
+}
+
+// serializeColor: an unbound RGB/RGBA color -> "#rrggbb" hex, or, when alpha
+// is present and not fully opaque, "rgba(r, g, b, a)" with alpha rounded to
+// 4 decimals — matches reference implementation A's serializeColor (adopt-
+// list #2), replacing the raw {r,g,b,a} object every unbound color field
+// (paint/effect/grid/gradient-stop colors) previously emitted verbatim.
+// NOTE: this changes what stableStringify hashes those fields to, so the
+// FIRST sync after this ships will show every unbound color field as
+// "modified" once, even with no real edit — see this change's commit
+// message.
+function serializeColor(color) {
+  const r = Math.round(color.r * 255);
+  const g = Math.round(color.g * 255);
+  const b = Math.round(color.b * 255);
+  const hex =
+    "#" +
+    [r, g, b]
+      .map((c) => c.toString(16).padStart(2, "0"))
+      .join("");
+  if (typeof color.a === "number" && color.a !== 1) {
+    return "rgba(" + r + ", " + g + ", " + b + ", " + parseFloat(color.a.toFixed(4)) + ")";
+  }
+  return hex;
 }
 
 // components{}: the v1 standalone+sets+variants+layer-bindings export the v2

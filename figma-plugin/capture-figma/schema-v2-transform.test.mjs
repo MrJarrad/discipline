@@ -18,6 +18,7 @@ import {
   collectNodeLatentCapabilities,
   buildComponentProperties,
   buildComponents,
+  serializeColor,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -427,6 +428,18 @@ test("buildComponents: reshapes standalone + set snapshots into the listener's c
 
 test("buildComponents: no snapshot maps to empty standalone/sets arrays", () => {
   assert.deepEqual(buildComponents(undefined), { standalone: [], sets: [] });
+});
+
+test("serializeColor: a fully-opaque RGB color serializes to hex", () => {
+  assert.equal(serializeColor({ r: 1, g: 0, b: 0 }), "#ff0000");
+});
+
+test("serializeColor: an RGBA color with alpha 1 still serializes to hex (opaque, no rgba() needed)", () => {
+  assert.equal(serializeColor({ r: 0, g: 0.5019607843137255, b: 1, a: 1 }), "#0080ff");
+});
+
+test("serializeColor: an RGBA color with alpha < 1 serializes to rgba() with alpha rounded to 4 decimals", () => {
+  assert.equal(serializeColor({ r: 0, g: 0, b: 0, a: 0.3333333333 }), "rgba(0, 0, 0, 0.3333)");
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {

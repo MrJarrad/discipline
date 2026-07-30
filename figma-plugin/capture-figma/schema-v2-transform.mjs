@@ -287,6 +287,30 @@ function collectNodeLatentCapabilities(node, resolvedPaints) {
   return out;
 }
 
+// serializeColor: an unbound RGB/RGBA color -> "#rrggbb" hex, or, when alpha
+// is present and not fully opaque, "rgba(r, g, b, a)" with alpha rounded to
+// 4 decimals — matches reference implementation A's serializeColor (adopt-
+// list #2), replacing the raw {r,g,b,a} object every unbound color field
+// (paint/effect/grid/gradient-stop colors) previously emitted verbatim.
+// NOTE: this changes what stableStringify hashes those fields to, so the
+// FIRST sync after this ships will show every unbound color field as
+// "modified" once, even with no real edit — see this change's commit
+// message.
+function serializeColor(color) {
+  const r = Math.round(color.r * 255);
+  const g = Math.round(color.g * 255);
+  const b = Math.round(color.b * 255);
+  const hex =
+    "#" +
+    [r, g, b]
+      .map((c) => c.toString(16).padStart(2, "0"))
+      .join("");
+  if (typeof color.a === "number" && color.a !== 1) {
+    return "rgba(" + r + ", " + g + ", " + b + ", " + parseFloat(color.a.toFixed(4)) + ")";
+  }
+  return hex;
+}
+
 // components{}: the v1 standalone+sets+variants+layer-bindings export the v2
 // rewrite dropped, leaving the listener's diffComponents/diffSetBindings
 // component-diff lane permanently dead (capture plugin A/B comparison
@@ -377,4 +401,5 @@ export {
   collectNodeLatentCapabilities,
   buildComponentProperties,
   buildComponents,
+  serializeColor,
 };
