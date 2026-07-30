@@ -5,7 +5,10 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { runBootstrap } from "./session-bootstrap.mjs";
+
+const CLI_PATH = join(import.meta.dirname, "session-bootstrap.mjs");
 
 // Builds a fixture dir with a plugin.json (marketplace version) and a cache
 // dir containing version-numbered subdirs, matching the real repo layout
@@ -280,4 +283,51 @@ test("stale worktrees beyond the main tree and .claude/worktrees are counted", a
   });
 
   assert.match(result.line, /worktrees:1/);
+});
+
+// CLI-level test: spawns the real script as a real process (real zsh token
+// resolution, real npm/git subprocess failures) but every path is redirected
+// via env vars into a scratch fixture — never the operator's real
+// listener/dev-server/portfolio/zshrc/plugin-cache — matching the
+// SESSION_BOOTSTRAP_* env-override convention (test-isolation only; direct
+// CLI invocation with no env vars set always uses the production defaults).
+test("CLI: unreachable listener/dev + non-git portfolio dir -> exit 0, one compact stdout line, bootstrap.jsonl entry appended", () => {
+  const fixture = makeFixture();
+  const scratchDir = mkdtempSync(join(tmpdir(), "session-bootstrap-cli-test-"));
+  const portfolioDir = join(scratchDir, "portfolio"); // exists but is NOT a git repo
+  mkdirSync(portfolioDir, { recursive: true });
+  const zshrcPath = join(scratchDir, ".zshrc");
+  writeFileSync(zshrcPath, 'export FIGMA_TOKEN=figd_clitest\nexport CLAUDE_CODE_OAUTH_TOKEN=sk-cli-oauth\n', "utf8");
+  const logPath = join(scratchDir, "bootstrap.jsonl");
+
+  const res = spawnSync(process.execPath, [CLI_PATH], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      SESSION_BOOTSTRAP_LISTENER_URL: "http://127.0.0.1:14411/health", // nothing listens here
+      SESSION_BOOTSTRAP_DEV_URL: "http://127.0.0.1:14412", // nothing listens here
+      SESSION_BOOTSTRAP_PORTFOLIO_DIR: portfolioDir,
+      SESSION_BOOTSTRAP_DEV_LOG: join(scratchDir, "dev.log"),
+      SESSION_BOOTSTRAP_LISTENER_LOG: join(scratchDir, "listener.log"),
+      SESSION_BOOTSTRAP_LISTENER_SCRIPT: join(scratchDir, "does-not-exist.mjs"),
+      SESSION_BOOTSTRAP_CONFORMANCE_MAP: join(scratchDir, "figma-map.json"),
+      SESSION_BOOTSTRAP_ZSHRC: zshrcPath,
+      SESSION_BOOTSTRAP_PLUGIN_JSON: fixture.pluginJsonPath,
+      SESSION_BOOTSTRAP_CACHE_DIR: fixture.cacheDir,
+      SESSION_BOOTSTRAP_LOG_PATH: logPath,
+    },
+    timeout: 10_000,
+  });
+
+  assert.equal(res.status, 0, `stderr: ${res.stderr}`);
+  const lines = res.stdout.trim().split("\n");
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^bootstrap: listener[✓✗] dev[✓✗] tokens[✓✗] plugin v[\d.?]+ \(cache [a-z? ]+\) worktrees:(\d+|\?)/);
+  assert.match(lines[0], /tokens✓/); // real zsh sourcing of the fixture .zshrc resolved both tokens
+
+  assert.ok(existsSync(logPath));
+  const record = JSON.parse(readFileSync(logPath, "utf8").trim().split("\n").pop());
+  assert.ok(record.ts);
+  assert.ok(record.checks);
+  assert.equal(record.checks.tokens.ok, true);
 });

@@ -42,19 +42,24 @@ import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
+// Every field is overridable via a SESSION_BOOTSTRAP_* env var — test
+// isolation only (see the CLI test in session-bootstrap.test.mjs). Direct
+// invocation with no env vars set always uses the production defaults below,
+// same convention as capture-listener.mjs's CAPTURES_DIR override.
 function defaultPaths() {
+  const env = process.env;
   return {
-    listenerUrl: "http://127.0.0.1:4411/health",
-    listenerScript: join(SCRIPT_DIR, "capture-listener.mjs"),
-    conformanceMapPath: "/Users/jarradharvey/JHD/portfolio/design/figma-map.json",
-    listenerLog: "/tmp/capture-listener.log",
-    devUrl: "http://localhost:3210",
-    portfolioDir: "/Users/jarradharvey/JHD/portfolio",
-    devLog: "/tmp/portfolio-dev.log",
-    zshrcPath: join(homedir(), ".zshrc"),
-    pluginJsonPath: join(SCRIPT_DIR, "..", ".claude-plugin", "plugin.json"),
-    cacheDir: join(homedir(), ".claude", "plugins", "cache", "discipline", "discipline"),
-    logPath: join(homedir(), "JHD", "captures", "live", "bootstrap.jsonl"),
+    listenerUrl: env.SESSION_BOOTSTRAP_LISTENER_URL || "http://127.0.0.1:4411/health",
+    listenerScript: env.SESSION_BOOTSTRAP_LISTENER_SCRIPT || join(SCRIPT_DIR, "capture-listener.mjs"),
+    conformanceMapPath: env.SESSION_BOOTSTRAP_CONFORMANCE_MAP || "/Users/jarradharvey/JHD/portfolio/design/figma-map.json",
+    listenerLog: env.SESSION_BOOTSTRAP_LISTENER_LOG || "/tmp/capture-listener.log",
+    devUrl: env.SESSION_BOOTSTRAP_DEV_URL || "http://localhost:3210",
+    portfolioDir: env.SESSION_BOOTSTRAP_PORTFOLIO_DIR || "/Users/jarradharvey/JHD/portfolio",
+    devLog: env.SESSION_BOOTSTRAP_DEV_LOG || "/tmp/portfolio-dev.log",
+    zshrcPath: env.SESSION_BOOTSTRAP_ZSHRC || join(homedir(), ".zshrc"),
+    pluginJsonPath: env.SESSION_BOOTSTRAP_PLUGIN_JSON || join(SCRIPT_DIR, "..", ".claude-plugin", "plugin.json"),
+    cacheDir: env.SESSION_BOOTSTRAP_CACHE_DIR || join(homedir(), ".claude", "plugins", "cache", "discipline", "discipline"),
+    logPath: env.SESSION_BOOTSTRAP_LOG_PATH || join(homedir(), "JHD", "captures", "live", "bootstrap.jsonl"),
   };
 }
 
