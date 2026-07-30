@@ -45,7 +45,15 @@ function v2ExportBody(overrides = {}) {
       },
     ],
     latentCapabilities: [{ id: "cap-1", name: "has-background", visible: true, binding: "color/surface/raised" }],
-    warnings: ["HeroText is missing a description on the M-Example frame."],
+    warnings: [
+      {
+        type: "malformed_spacer_name",
+        nodeId: "spacer-1",
+        nodeName: "SpaceBottom",
+        context: "Homepage/Hero/SpaceBottom",
+        message: 'Homepage/Hero/SpaceBottom has a malformed spacer name "SpaceBottom" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+      },
+    ],
     ...overrides,
   };
 }
@@ -706,6 +714,103 @@ test("v1 regression: a diffed v1 sync gets empty v2 diff buckets, not errors or 
   assert.deepEqual(diffed.changed.capabilities, []);
   // pre-existing v1 diff behavior is untouched: the variable value change still reports.
   assert.equal(diffed.changed.variables.length, 1);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("regression: a producer that stops sending body.components (e.g. the live plugin's v2 export, which never carries it) does not report every previously-known component as removed", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const withComponents = {
+    header: { fileName: "Test File", pluginVersion: "1.0.0", exportedAt: Date.now(), counts: {} },
+    collections: [],
+    components: {
+      standalone: [{ name: "Icon" }],
+      sets: [{ name: "HeroText", key: "hero-key", variants: [{ name: "device=desktop", key: "v1" }] }],
+    },
+  };
+  // A v2 plugin export never carries `components` at all — a field that was
+  // reported before and simply isn't reported this sync is not the same
+  // claim as "it was deleted from the file".
+  const withoutComponents = v2ExportBody();
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(withComponents) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(withoutComponents) });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+
+  assert.deepEqual(diffed.changed.componentsRemoved, []);
+  assert.deepEqual(diffed.changed.componentsAdded, []);
+  assert.deepEqual(diffed.changed.components, []);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("regression: a v2 producer that stops sending a v2 bucket (e.g. reverting to a v1 export) does not report every previously-known entry in that bucket as removed", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const withCapabilities = v2ExportBody({
+    latentCapabilities: [{ id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised" }],
+  });
+  const v1Only = exportBody();
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(withCapabilities) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v1Only) });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+
+  assert.deepEqual(diffed.changed.capabilities, []);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("regression: two v2 syncs that both carry every v2 bucket diff cleanly instead of crashing the listener (bothSidesDefined was undefined)", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  const before = v2ExportBody();
+  const after = v2ExportBody({
+    componentSets: [{ key: "set-hero", name: "HeroText", description: "Updated hero block." }],
+    latentCapabilities: [{ id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised" }],
+  });
+
+  let first, second;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(before) });
+    second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(after) });
+  });
+
+  // The bug crashed the listener process itself on the second POST (every v2
+  // bucket is defined on both sides, so every bothSidesDefined() call site
+  // was reached) — a dead socket, not a clean HTTP response. Asserting 200
+  // on both proves the process survived, not just that a handler returned.
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+
+  assert.deepEqual(diffed.changed.componentSets, [
+    { type: "component_description_changed", key: "set-hero", name: "HeroText", old: "Marketing hero block.", new: "Updated hero block." },
+  ]);
+  assert.deepEqual(diffed.changed.capabilities, [
+    { type: "capability_visibility_changed", id: "cap-1", name: "has-background", old: true, new: false },
+  ]);
+  // Buckets that didn't change between the two syncs still resolve to an
+  // empty diff, not an error or a false full-removal report.
+  assert.deepEqual(diffed.changed.examples, []);
+  assert.deepEqual(diffed.changed.templateFrames, []);
 
   rmSync(capturesDir, { recursive: true, force: true });
 });

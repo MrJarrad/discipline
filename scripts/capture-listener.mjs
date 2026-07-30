@@ -144,9 +144,15 @@
                              "resolved instance state ... IS the spec").
      latentCapabilities[]   { id?, name, visible, binding } — capability-
                              present-unused booleans and what they're bound to.
-     warnings[]             free-form strings the plugin surfaces about its
-                             own capture (missing descriptions, unresolved
-                             instances, etc.) — see GET /warnings below.
+     warnings[]              { type, nodeId, nodeName, context, message } —
+                             typed structural-lint records the plugin
+                             surfaces about its own capture (malformed
+                             spacer names, duplicate sibling names, axis-
+                             ownership violations, etc.) — see GET /warnings
+                             below. Validated loosely (array shape only,
+                             same as every other v2 bucket); a consumer
+                             keying off `.type` should not assume every
+                             record populates every field.
    Every changes.jsonl record (initial or diffed) carries `schemaVersion`
    (default 1) and `warningCount` (warnings.length, default 0) regardless of
    which schema produced it.
@@ -321,6 +327,15 @@ function readState(path) {
 
 function jsonEq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// A v2 bucket (components, componentSets, exampleStructure, templateFrames,
+// latentCapabilities) is OPTIONAL per sync — a producer simply not reporting
+// it this time is not the same claim as "everything it used to hold is gone"
+// (see the bothSidesDefined() call sites' comment). Only when BOTH the prior
+// and current export actually carry the field does a diff mean anything.
+function bothSidesDefined(oldValue, newValue) {
+  return oldValue !== undefined && newValue !== undefined;
 }
 
 // An alias value is the "→ {collection}/{variable}" string form (see the
@@ -1100,15 +1115,32 @@ function handleCapture(req, res) {
             parsed.collections
           );
           const { styles, stylesRenamed } = diffStyles(prevState.export.styles, parsed.styles);
-          const { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings } = diffComponents(
-            prevState.export.components,
-            parsed.components
-          );
-          const componentSets = diffComponentSets(prevState.export.componentSets, parsed.componentSets);
-          const examples = diffExampleStructure(prevState.export.exampleStructure, parsed.exampleStructure);
+          // `components` and every v2 bucket are documented OPTIONAL fields
+          // reported by some producers and not others (e.g. the live plugin
+          // never sends `components` at all — see figma-capture.mjs's REST
+          // lane vs. code.js). A field simply not being reported this sync
+          // is not the same claim as "every entry it used to hold is gone" —
+          // diffing against an absent side unconditionally treats the whole
+          // prior bucket as removed (or, symmetrically, the whole new bucket
+          // as added). Only diff when BOTH sides actually carry the field;
+          // otherwise it contributes nothing to this sync's diff.
+          const { components, componentsAdded, componentsRemoved, componentsRenamed, layerBindings } =
+            bothSidesDefined(prevState.export.components, parsed.components)
+              ? diffComponents(prevState.export.components, parsed.components)
+              : { components: [], componentsAdded: [], componentsRemoved: [], componentsRenamed: [], layerBindings: [] };
+          const componentSets = bothSidesDefined(prevState.export.componentSets, parsed.componentSets)
+            ? diffComponentSets(prevState.export.componentSets, parsed.componentSets)
+            : [];
+          const examples = bothSidesDefined(prevState.export.exampleStructure, parsed.exampleStructure)
+            ? diffExampleStructure(prevState.export.exampleStructure, parsed.exampleStructure)
+            : [];
           const componentSetsByName = new Map((parsed.componentSets || []).map((s) => [s.name, s]));
-          const templateFrames = diffTemplateFrames(prevState.export.templateFrames, parsed.templateFrames, componentSetsByName);
-          const capabilities = diffLatentCapabilities(prevState.export.latentCapabilities, parsed.latentCapabilities);
+          const templateFrames = bothSidesDefined(prevState.export.templateFrames, parsed.templateFrames)
+            ? diffTemplateFrames(prevState.export.templateFrames, parsed.templateFrames, componentSetsByName)
+            : [];
+          const capabilities = bothSidesDefined(prevState.export.latentCapabilities, parsed.latentCapabilities)
+            ? diffLatentCapabilities(prevState.export.latentCapabilities, parsed.latentCapabilities)
+            : [];
           changeRecord.changed = {
             variables,
             variablesAdded,
