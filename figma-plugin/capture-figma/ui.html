@@ -258,6 +258,22 @@
         return;
       }
 
+      if (msg.type === "export-progress") {
+        // One-way phase status during buildExport() (collecting variables/
+        // styles/components, resolving templates, scanning capabilities,
+        // linting) — shown on whichever status line is currently active so
+        // it's visible for both a manual export and a sync run. Falls
+        // through without touching exportBtn/copyBtn/downloadLink state —
+        // this is mid-export, not a completion.
+        status.classList.remove("error");
+        status.textContent = msg.text;
+        if (syncOn) {
+          syncStatus.classList.remove("warn", "error");
+          syncStatus.textContent = msg.text;
+        }
+        return;
+      }
+
       exportBtn.disabled = false;
 
       if (msg.type === "export-result") {

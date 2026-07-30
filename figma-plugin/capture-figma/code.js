@@ -1222,6 +1222,17 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
   return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
 }
 
+// Per-phase progress reporting during buildExport() — a full export on a
+// large file can take several seconds with no other feedback; this is a
+// one-way status line, never gated on a UI acknowledgement (matches every
+// other figma.ui.postMessage call in this file — buildExport() has no
+// caller-specific knowledge of whether it's running for a manual export or
+// a sync POST, so it just reports; both ui.html paths render the same
+// "export-progress" message the same way).
+function reportPhase(text) {
+  figma.ui.postMessage({ type: "export-progress", text: text });
+}
+
 async function buildExport() {
   // v2's componentSets/exampleStructure/templateFrames/latentCapabilities/
   // warnings buckets traverse every page (component pages) plus the page
@@ -1234,6 +1245,7 @@ async function buildExport() {
   await ensureAllPagesLoaded();
   figma.skipInvisibleInstanceChildren = false;
 
+  reportPhase("Collecting variables…");
   const rawCollections = await getCollections();
   const rawVariables = await getVariables();
 
@@ -1318,6 +1330,7 @@ async function buildExport() {
     });
   }
 
+  reportPhase("Collecting styles…");
   const stylesExport = await buildStylesExport(variableById);
   for (const key of ["text", "paint", "effect", "grid"]) {
     counts["styles/" + key] = stylesExport.styleCounts[key];
@@ -1331,12 +1344,14 @@ async function buildExport() {
   // see walkV2Subtree's header comment.
   const warningsCollector = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
 
+  reportPhase("Collecting components…");
   const componentSetNodes = await findAllComponentSets();
   for (const set of componentSetNodes) {
     await walkV2Subtree(set, variableById, warningsCollector, true);
   }
   const standaloneComponentNodes = await findAllStandaloneComponents();
 
+  reportPhase("Resolving templates…");
   const examplePage = findExamplePage();
   const exampleData = await buildExampleData(examplePage, variableById, warningsCollector);
 
@@ -1346,7 +1361,11 @@ async function buildExport() {
   );
   const exampleStructure = buildExampleStructure(exampleData.sectionSnapshots);
   const templateFrames = buildTemplateFrames(exampleData.frameSnapshots);
+
+  reportPhase("Scanning capabilities…");
   const latentCapabilities = buildLatentCapabilities(warningsCollector.latentCapabilities);
+
+  reportPhase("Running lint checks…");
   const warnings = buildWarnings({
     spacerInstances: warningsCollector.spacerInstances,
     nodeSnapshots: warningsCollector.nodeSnapshots,
