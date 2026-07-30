@@ -33,9 +33,8 @@
    process always exits 0 — a bootstrap must never block session start.
    Structured detail (ts, checks, actions taken) is appended as one JSONL
    record to ~/JHD/captures/live/bootstrap.jsonl. */
-import { spawn } from "node:child_process";
-import { spawnSync } from "node:child_process";
-import { openSync, appendFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { openSync, appendFileSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
