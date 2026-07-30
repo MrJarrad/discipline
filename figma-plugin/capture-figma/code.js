@@ -39,6 +39,12 @@
 //       effect: [ { name, type: "EFFECT", description, properties: {...} }, ... ],
 //       grid:   [ { name, type: "GRID",   description, properties: {...} }, ... ],
 //     },
+//     components: { standalone: [ { name, key, properties } ], sets: [
+//       { name, key, properties, variants: [ { name, key, bindings: [
+//         { layer, property, value } ] } ] } ] } — the listener's own
+//       diffComponents/diffSetBindings contract (scripts/capture-listener.mjs),
+//       restored after the v2 rewrite dropped it (capture plugin A/B
+//       comparison 2026-07-30, adopt-list #1).
 //     componentSets: [ { key, id, name, description, properties, variantCount }, ... ],
 //     exampleStructure: [ { name, frames: [ { id, name }, ... ] }, ... ],
 //     templateFrames: [ { id, name, instances: [ { id, name, component,
@@ -129,6 +135,16 @@ async function getVariableById(id) {
   }
   if (typeof figma.variables.getVariableById === "function") {
     return figma.variables.getVariableById(id);
+  }
+  return null;
+}
+
+async function getStyleById(id) {
+  if (typeof figma.getStyleByIdAsync === "function") {
+    return figma.getStyleByIdAsync(id);
+  }
+  if (typeof figma.getStyleById === "function") {
+    return figma.getStyleById(id);
   }
   return null;
 }
@@ -708,6 +724,68 @@ function collectNodeLatentCapabilities(node, resolvedPaints) {
   return out;
 }
 
+// components{}: the v1 standalone+sets+variants+layer-bindings export the v2
+// rewrite dropped, leaving the listener's diffComponents/diffSetBindings
+// component-diff lane permanently dead (capture plugin A/B comparison
+// 2026-07-30, adopt-list #1 — CONFIRMED lost functionality, not a deliberate
+// removal). Reshaped from reference implementation A's collectComponents/
+// collectComponentBindings to the listener's OWN existing contract
+// (scripts/capture-listener.mjs's validateExportShape + diffComponents):
+// components: { standalone: [{name, key, properties}], sets: [{name, key,
+// properties, variants: [{name, key, bindings: [{layer, property,
+// value}]}]}] } — NOT A's flat components[]+componentSets[] split with
+// name-split variant-property parsing (vetoed; the listener already derives
+// variant identity from componentSets[]/componentPropertyDefinitions
+// elsewhere, and componentSetKey/variantProperties fields don't exist on
+// this contract).
+//
+// Property definitions are reshaped to {defaultValue, options} — the exact
+// shape diffComponents' diffProps reads (`oldProp.defaultValue`,
+// `oldProp.options`) — never Figma's own componentPropertyDefinitions shape
+// ({type, defaultValue, variantOptions, preferredValues}), which stays
+// verbatim in the separate componentSets[] v2 bucket (buildComponentSets
+// above) since that bucket's own diff (diffComponentSets) never reads
+// component-diff's `properties` field at all.
+function buildComponentProperties(componentPropertyDefinitions) {
+  const out = {};
+  for (const key of Object.keys(componentPropertyDefinitions || {})) {
+    const def = componentPropertyDefinitions[key];
+    const propOut = { defaultValue: def.defaultValue };
+    if (Array.isArray(def.variantOptions)) propOut.options = def.variantOptions.slice();
+    out[key] = propOut;
+  }
+  return out;
+}
+
+// snapshot: { standalone: [{key,name,componentPropertyDefinitions}], sets:
+// [{key,name,componentPropertyDefinitions,variants:[{key,name,bindings}]}] }
+// — code.js's traversal reads live nodes into this shape (no figma.* calls
+// in this function); variants[].bindings are already-resolved
+// {layer,property,value} entries collected during the SAME walkV2Subtree
+// pass that gathers nodeSnapshots/spacerInstances/latentCapabilities (never
+// a second per-component tree walk, never a getNodeByIdAsync refetch of a
+// node the traversal already holds a reference to — reference implementation
+// A's per-component refetch-after-the-fact is exactly what this avoids).
+function buildComponents(snapshot) {
+  const input = snapshot || {};
+  const standalone = (input.standalone || []).map((c) => ({
+    name: c.name,
+    key: c.key,
+    properties: buildComponentProperties(c.componentPropertyDefinitions),
+  }));
+  const sets = (input.sets || []).map((set) => ({
+    name: set.name,
+    key: set.key,
+    properties: buildComponentProperties(set.componentPropertyDefinitions),
+    variants: (set.variants || []).map((variant) => ({
+      name: variant.name,
+      key: variant.key,
+      bindings: variant.bindings || [],
+    })),
+  }));
+  return { standalone, sets };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -784,6 +862,68 @@ async function resolveCapabilityBinding(paint, variableById) {
   return typeof notation === "string" ? notation.replace(/^→ /, "") : null;
 }
 
+// COMPONENT-INTERNALS BINDING CHAIN (adopt-list #1): which variable/style/
+// nested-instance a variant's own layer is bound to — the listener's
+// diffSetBindings input (components.sets[].variants[].bindings). Values are
+// the plain "{collection}/{name}" or style/instance name (never the "→ "
+// alias-arrow prefix the variables/styles sections use) — a binding here is
+// a fact about what a layer currently resolves to, not an alias-vs-raw
+// distinction, so a value changing IS the changelog-worthy event
+// (layer_binding_changed, e.g. a nested instance's variant swap or a text
+// style rename resolving to a different name).
+async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
+  function push(property, value) {
+    if (value === null || value === undefined) return;
+    const key = property + " " + value;
+    if (seen.has(key)) return;
+    seen.add(key);
+    bindingsOut.push({ layer: layer, property: property, value: value });
+  }
+
+  async function resolveVariableName(id) {
+    let target = variableById.get(id);
+    if (!target) {
+      target = await getVariableById(id);
+      if (target) variableById.set(id, target);
+    }
+    if (!target) return "[unresolved alias: " + id + "]";
+    const collectionName = collectionNameById.get(target.variableCollectionId) || "[unknown collection]";
+    return collectionName + "/" + target.name;
+  }
+
+  if (node.boundVariables) {
+    for (const prop of Object.keys(node.boundVariables)) {
+      const alias = node.boundVariables[prop];
+      if (!alias) continue;
+      const aliases = Array.isArray(alias) ? alias : [alias];
+      for (const a of aliases) {
+        if (a && typeof a.id === "string") push(prop, await resolveVariableName(a.id));
+      }
+    }
+  }
+  for (const bucket of [
+    { paints: node.fills, prefix: "fill" },
+    { paints: node.strokes, prefix: "stroke" },
+  ]) {
+    if (!Array.isArray(bucket.paints)) continue;
+    for (const paint of bucket.paints) {
+      if (!paint || !paint.boundVariables) continue;
+      for (const field of Object.keys(paint.boundVariables)) {
+        const alias = paint.boundVariables[field];
+        if (alias && typeof alias.id === "string") {
+          push(bucket.prefix + "." + field, await resolveVariableName(alias.id));
+        }
+      }
+    }
+  }
+  for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
+    const styleId = node[field];
+    if (typeof styleId !== "string" || !styleId) continue;
+    const style = await getStyleById(styleId);
+    push(field.replace(/Id$/, ""), style ? style.name : styleId);
+  }
+}
+
 // Walks `root`'s full subtree (including invisible nodes and instance
 // children — see the skipInvisibleInstanceChildren note above), collecting
 // the raw snapshots the transform functions need into `out`:
@@ -793,8 +933,20 @@ async function resolveCapabilityBinding(paint, variableById) {
 // nested arbitrarily deep inside a block), spacerInstances
 // (malformed_spacer_name), latentCapabilities (any bound-but-hidden
 // fill/stroke — see isBoundButHiddenPaint).
-async function walkV2Subtree(root, variableById, out) {
-  async function visit(node, parent, recordHere) {
+//
+// `collectBindings`: when true (only the componentSetNodes traversal passes
+// this — see buildExport), each variant COMPONENT directly under `root` (a
+// COMPONENT_SET) gets its own bindings array registered in
+// out.variantBindings (keyed by the variant's node id), populated by
+// collectLayerBindingEntries as this SAME recursive walk descends through
+// the variant's subtree — no second tree walk, no getNodeByIdAsync refetch
+// of a node this walk already holds a live reference to (the inefficiency
+// reference implementation A's per-component refetch introduced). An
+// INSTANCE child gets one "instance" binding entry (its main component's
+// name) but the binding chain does not descend further into the instance's
+// own internals — they belong to a different component, not this variant.
+async function walkV2Subtree(root, variableById, out, collectBindings) {
+  async function visit(node, parent, recordHere, bindingCtx) {
     if (recordHere) {
       out.nodeSnapshots.push({
         id: node.id,
@@ -810,6 +962,16 @@ async function walkV2Subtree(root, variableById, out) {
       if (mainComponentSetName && RAW_SPACER_COMPONENT_NAMES.has(mainComponentSetName)) {
         out.spacerInstances.push({ id: node.id, name: node.name, path: nodeNamePath(node, root) });
       }
+      if (bindingCtx) {
+        const boundName = mainComponent ? resolveComponentSetName(mainComponent) || mainComponent.name : null;
+        if (boundName) {
+          const key = "instance " + boundName;
+          if (!bindingCtx.seen.has(key)) {
+            bindingCtx.seen.add(key);
+            bindingCtx.bindings.push({ layer: bindingCtx.layer, property: "instance", value: boundName });
+          }
+        }
+      }
     }
 
     if (Array.isArray(node.fills) || Array.isArray(node.strokes)) {
@@ -823,14 +985,40 @@ async function walkV2Subtree(root, variableById, out) {
       out.latentCapabilities.push.apply(out.latentCapabilities, collectNodeLatentCapabilities(node, resolvedPaints));
     }
 
+    // bindingCtx.layer === "" marks the variant's own root (see the
+    // COMPONENT-boundary branch below) — A's collectComponentBindings only
+    // ever walks a component's CHILDREN, never binding-checks the component
+    // root itself, so this call is skipped there and fires from the first
+    // real child onward.
+    if (bindingCtx && node.type !== "INSTANCE" && bindingCtx.layer !== "") {
+      await collectLayerBindingEntries(node, bindingCtx.layer, variableById, bindingCtx.bindings, bindingCtx.seen);
+    }
+
     if (Array.isArray(node.children)) {
       const childRecordHere = nextRecordState(node, recordHere);
       for (const child of node.children) {
-        await visit(child, node, childRecordHere);
+        let childBindingCtx = null;
+        if (collectBindings && node === root && child.type === "COMPONENT") {
+          // `child` is a variant: a fresh binding chain starts at its own
+          // children (the variant node itself is never bound-checked here —
+          // matches reference implementation A's collectComponentBindings,
+          // which only walks a component's CHILDREN, never the component
+          // root itself).
+          const arr = [];
+          out.variantBindings.set(child.id, arr);
+          childBindingCtx = { layer: "", bindings: arr, seen: new Set() };
+        } else if (bindingCtx && node.type !== "INSTANCE") {
+          childBindingCtx = {
+            layer: bindingCtx.layer ? bindingCtx.layer + "/" + child.name : child.name,
+            bindings: bindingCtx.bindings,
+            seen: bindingCtx.seen,
+          };
+        }
+        await visit(child, node, childRecordHere, childBindingCtx);
       }
     }
   }
-  await visit(root, null, false);
+  await visit(root, null, false, null);
 }
 
 // Reads one overridden field's current value off the live node. Common
@@ -873,6 +1061,23 @@ async function findAllComponentSets() {
   return sets;
 }
 
+// Standalone components: COMPONENT nodes NOT inside a COMPONENT_SET (a set's
+// own variant members are collected separately, per-set, below) — the other
+// half of the v1 components[] export the v2 rewrite dropped (adopt-list #1).
+// Same "Example" page exclusion as findAllComponentSets (component pages
+// only; the Example page's own instances are templateFrames' concern).
+async function findAllStandaloneComponents() {
+  const components = [];
+  for (const page of figma.root.children) {
+    if (page.name === "Example") continue;
+    components.push.apply(
+      components,
+      page.findAll(function (n) { return n.type === "COMPONENT" && (!n.parent || n.parent.type !== "COMPONENT_SET"); })
+    );
+  }
+  return components;
+}
+
 function findExamplePage() {
   return figma.root.children.find(function (p) { return p.name === "Example"; }) || null;
 }
@@ -886,6 +1091,33 @@ function buildComponentSetSnapshots(componentSetNodes) {
     componentPropertyDefinitions: set.componentPropertyDefinitions,
     variantCount: Array.isArray(set.children) ? set.children.length : 0,
   }));
+}
+
+// Feeds buildComponents (the pure listener-contract reshape) with the raw
+// snapshot it expects — variants[].bindings come straight out of
+// variantBindings (populated by walkV2Subtree's SAME pass over each set's
+// subtree, keyed by variant node id; see the "COMPONENT-INTERNALS BINDING
+// CHAIN" comment above walkV2Subtree).
+function buildComponentSnapshots(componentSetNodes, standaloneComponentNodes, variantBindings) {
+  return {
+    standalone: standaloneComponentNodes.map((c) => ({
+      key: c.key,
+      name: c.name,
+      componentPropertyDefinitions: c.componentPropertyDefinitions,
+    })),
+    sets: componentSetNodes.map((set) => ({
+      key: set.key,
+      name: set.name,
+      componentPropertyDefinitions: set.componentPropertyDefinitions,
+      variants: (Array.isArray(set.children) ? set.children : [])
+        .filter(function (c) { return c.type === "COMPONENT"; })
+        .map((variant) => ({
+          key: variant.key,
+          name: variant.name,
+          bindings: variantBindings.get(variant.id) || [],
+        })),
+    })),
+  };
 }
 
 // Builds one Example-frame instance snapshot: componentProperties verbatim
@@ -1059,18 +1291,24 @@ async function buildExport() {
   // v2 traversal: componentSets/latentCapabilities/warnings off every
   // component page, exampleStructure/templateFrames off the "Example" page.
   // warningsCollector accumulates raw scan results across BOTH roots before
-  // any of the pure transform functions run on them.
-  const warningsCollector = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [] };
+  // any of the pure transform functions run on them. variantBindings is
+  // populated in the SAME componentSetNodes walk (collectBindings=true) —
+  // see walkV2Subtree's header comment.
+  const warningsCollector = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
 
   const componentSetNodes = await findAllComponentSets();
   for (const set of componentSetNodes) {
-    await walkV2Subtree(set, variableById, warningsCollector);
+    await walkV2Subtree(set, variableById, warningsCollector, true);
   }
+  const standaloneComponentNodes = await findAllStandaloneComponents();
 
   const examplePage = findExamplePage();
   const exampleData = await buildExampleData(examplePage, variableById, warningsCollector);
 
   const componentSets = buildComponentSets(buildComponentSetSnapshots(componentSetNodes));
+  const components = buildComponents(
+    buildComponentSnapshots(componentSetNodes, standaloneComponentNodes, warningsCollector.variantBindings)
+  );
   const exampleStructure = buildExampleStructure(exampleData.sectionSnapshots);
   const templateFrames = buildTemplateFrames(exampleData.frameSnapshots);
   const latentCapabilities = buildLatentCapabilities(warningsCollector.latentCapabilities);
@@ -1110,6 +1348,7 @@ async function buildExport() {
     header: header,
     collections: collectionsOut,
     styles: stylesExport.styles,
+    components: components,
     componentSets: componentSets,
     exampleStructure: exampleStructure,
     templateFrames: templateFrames,

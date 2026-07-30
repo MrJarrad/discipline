@@ -16,6 +16,8 @@ import {
   nextRecordState,
   isBoundButHiddenPaint,
   collectNodeLatentCapabilities,
+  buildComponentProperties,
+  buildComponents,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -355,6 +357,76 @@ test("collectNodeLatentCapabilities: an unbound paint (no binding) never contrib
   const node = { id: "n1", name: "Icon", visible: true };
   const result = collectNodeLatentCapabilities(node, [{ paint: { visible: false }, binding: null }]);
   assert.deepEqual(result, []);
+});
+
+test("buildComponentProperties: maps Figma's raw componentPropertyDefinitions to {defaultValue, options} per the listener's diffComponents.diffProps contract", () => {
+  const defs = {
+    device: { type: "VARIANT", defaultValue: "desktop", variantOptions: ["mobile", "desktop"] },
+    label: { type: "TEXT", defaultValue: "Click me" },
+  };
+
+  const result = buildComponentProperties(defs);
+
+  assert.deepEqual(result, {
+    device: { defaultValue: "desktop", options: ["mobile", "desktop"] },
+    label: { defaultValue: "Click me" },
+  });
+});
+
+test("buildComponentProperties: no definitions maps to an empty object", () => {
+  assert.deepEqual(buildComponentProperties(undefined), {});
+});
+
+test("buildComponents: reshapes standalone + set snapshots into the listener's components:{standalone,sets} contract (adopt-list #1)", () => {
+  const snapshot = {
+    standalone: [
+      {
+        key: "comp-icon",
+        name: "Icon",
+        componentPropertyDefinitions: { name: { type: "INSTANCE_SWAP", defaultValue: "check" } },
+      },
+    ],
+    sets: [
+      {
+        key: "set-hero",
+        name: "HeroText",
+        componentPropertyDefinitions: {
+          height: { type: "VARIANT", defaultValue: "M", variantOptions: ["S", "M", "L"] },
+        },
+        variants: [
+          {
+            key: "variant-m",
+            name: "height=M",
+            bindings: [{ layer: "Title", property: "textStyle", value: "Heading/L" }],
+          },
+          { key: "variant-l", name: "height=L", bindings: [] },
+        ],
+      },
+    ],
+  };
+
+  const result = buildComponents(snapshot);
+
+  assert.deepEqual(result, {
+    standalone: [
+      { name: "Icon", key: "comp-icon", properties: { name: { defaultValue: "check" } } },
+    ],
+    sets: [
+      {
+        name: "HeroText",
+        key: "set-hero",
+        properties: { height: { defaultValue: "M", options: ["S", "M", "L"] } },
+        variants: [
+          { name: "height=M", key: "variant-m", bindings: [{ layer: "Title", property: "textStyle", value: "Heading/L" }] },
+          { name: "height=L", key: "variant-l", bindings: [] },
+        ],
+      },
+    ],
+  });
+});
+
+test("buildComponents: no snapshot maps to empty standalone/sets arrays", () => {
+  assert.deepEqual(buildComponents(undefined), { standalone: [], sets: [] });
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {

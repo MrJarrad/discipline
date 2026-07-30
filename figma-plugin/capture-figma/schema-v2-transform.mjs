@@ -287,6 +287,68 @@ function collectNodeLatentCapabilities(node, resolvedPaints) {
   return out;
 }
 
+// components{}: the v1 standalone+sets+variants+layer-bindings export the v2
+// rewrite dropped, leaving the listener's diffComponents/diffSetBindings
+// component-diff lane permanently dead (capture plugin A/B comparison
+// 2026-07-30, adopt-list #1 — CONFIRMED lost functionality, not a deliberate
+// removal). Reshaped from reference implementation A's collectComponents/
+// collectComponentBindings to the listener's OWN existing contract
+// (scripts/capture-listener.mjs's validateExportShape + diffComponents):
+// components: { standalone: [{name, key, properties}], sets: [{name, key,
+// properties, variants: [{name, key, bindings: [{layer, property,
+// value}]}]}] } — NOT A's flat components[]+componentSets[] split with
+// name-split variant-property parsing (vetoed; the listener already derives
+// variant identity from componentSets[]/componentPropertyDefinitions
+// elsewhere, and componentSetKey/variantProperties fields don't exist on
+// this contract).
+//
+// Property definitions are reshaped to {defaultValue, options} — the exact
+// shape diffComponents' diffProps reads (`oldProp.defaultValue`,
+// `oldProp.options`) — never Figma's own componentPropertyDefinitions shape
+// ({type, defaultValue, variantOptions, preferredValues}), which stays
+// verbatim in the separate componentSets[] v2 bucket (buildComponentSets
+// above) since that bucket's own diff (diffComponentSets) never reads
+// component-diff's `properties` field at all.
+function buildComponentProperties(componentPropertyDefinitions) {
+  const out = {};
+  for (const key of Object.keys(componentPropertyDefinitions || {})) {
+    const def = componentPropertyDefinitions[key];
+    const propOut = { defaultValue: def.defaultValue };
+    if (Array.isArray(def.variantOptions)) propOut.options = def.variantOptions.slice();
+    out[key] = propOut;
+  }
+  return out;
+}
+
+// snapshot: { standalone: [{key,name,componentPropertyDefinitions}], sets:
+// [{key,name,componentPropertyDefinitions,variants:[{key,name,bindings}]}] }
+// — code.js's traversal reads live nodes into this shape (no figma.* calls
+// in this function); variants[].bindings are already-resolved
+// {layer,property,value} entries collected during the SAME walkV2Subtree
+// pass that gathers nodeSnapshots/spacerInstances/latentCapabilities (never
+// a second per-component tree walk, never a getNodeByIdAsync refetch of a
+// node the traversal already holds a reference to — reference implementation
+// A's per-component refetch-after-the-fact is exactly what this avoids).
+function buildComponents(snapshot) {
+  const input = snapshot || {};
+  const standalone = (input.standalone || []).map((c) => ({
+    name: c.name,
+    key: c.key,
+    properties: buildComponentProperties(c.componentPropertyDefinitions),
+  }));
+  const sets = (input.sets || []).map((set) => ({
+    name: set.name,
+    key: set.key,
+    properties: buildComponentProperties(set.componentPropertyDefinitions),
+    variants: (set.variants || []).map((variant) => ({
+      name: variant.name,
+      key: variant.key,
+      bindings: variant.bindings || [],
+    })),
+  }));
+  return { standalone, sets };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -313,4 +375,6 @@ export {
   nextRecordState,
   isBoundButHiddenPaint,
   collectNodeLatentCapabilities,
+  buildComponentProperties,
+  buildComponents,
 };
