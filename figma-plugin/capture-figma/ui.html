@@ -297,6 +297,11 @@
           msg.data.header && msg.data.header.styleCounts ? msg.data.header.styleCounts : null;
         const styleCount = styleCounts ? styleCounts.total : 0;
 
+        const componentCounts =
+          msg.data.header && msg.data.header.componentCounts ? msg.data.header.componentCounts : null;
+        const warningCount =
+          msg.data.header && typeof msg.data.header.warningCount === "number" ? msg.data.header.warningCount : 0;
+
         status.textContent =
           "Exported " +
           variableCount +
@@ -312,7 +317,11 @@
           (styleCounts ? styleCounts.effect : 0) +
           ", grid " +
           (styleCounts ? styleCounts.grid : 0) +
-          ").";
+          "), " +
+          (componentCounts ? componentCounts.standalone + componentCounts.sets : 0) +
+          " components" +
+          (warningCount > 0 ? ", " + warningCount + " warning(s)" : "") +
+          ".";
       } else if (msg.type === "export-error") {
         status.classList.add("error");
         status.textContent = "Export failed: " + msg.message;

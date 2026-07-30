@@ -30,7 +30,8 @@
 //                 "styles/text": n, "styles/paint": n,
 //                 "styles/effect": n, "styles/grid": n },
 //       styleCounts: { text, paint, effect, grid, total,
-//                       emptyDescriptions: { text, paint, effect, grid, total } }
+//                       emptyDescriptions: { text, paint, effect, grid, total } },
+//       componentCounts: { standalone: n, sets: n }, warningCount: n
 //     },
 //     collections: [ { name, modes: [...], variables: [...] }, ... ],
 //     styles: {
@@ -1386,6 +1387,8 @@ async function buildExport() {
     styleCounts: Object.assign({}, stylesExport.styleCounts, {
       emptyDescriptions: stylesExport.emptyDescriptions,
     }),
+    componentCounts: { standalone: components.standalone.length, sets: components.sets.length },
+    warningCount: warnings.length,
   };
   // figma.fileKey: undefined in some contexts (e.g. a file that has never
   // been saved to the cloud, or certain plugin-execution contexts per
