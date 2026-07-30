@@ -416,6 +416,59 @@ test("changes.jsonl records default to schemaVersion 1 and warningCount 0 for a 
   rmSync(capturesDir, { recursive: true, force: true });
 });
 
+test("POST /capture response body: the initial sync carries warningCount but no summary (nothing to diff against yet)", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody()) });
+    const body = await res.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.warningCount, 1);
+    assert.equal("summary" in body, false);
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture response body: a diffed sync surfaces warningCount + the cross-bucket summary so the UI can consume it without reading changes.jsonl", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(v2ExportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ warnings: ["A different warning.", "Second warning."] })),
+    });
+    const body = await second.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.warningCount, 2);
+    assert.equal(typeof body.summary, "object");
+    assert.equal(typeof body.summary.modified, "number");
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture response body: an unchanged (no-op) sync has no summary field", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const body = await second.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.unchanged, true);
+    assert.equal("summary" in body, false);
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("changes.jsonl reports component_description_changed when a componentSet's description changes", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 
