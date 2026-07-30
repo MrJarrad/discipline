@@ -268,6 +268,25 @@ function isBoundButHiddenPaint(paint, node) {
   return !(paintVisible && nodeVisible);
 }
 
+// One latentCapabilities entry per bound-but-hidden paint across a node's
+// FULL fills+strokes arrays — a prior version only ever checked fills[0]/
+// strokes[0], silently missing every other bound-but-hidden paint on a node
+// with more than one (adopt-list #5, a real bug, not a design choice).
+// `resolvedPaints` is [{paint, binding}] — the async alias-to-name
+// resolution happens in code.js's live traversal (needs variableById +
+// figma.getVariableByIdAsync); this function is the pure per-paint filter/map
+// so the "check every paint, not just the first" fix is unit-testable
+// without a figma.* dependency.
+function collectNodeLatentCapabilities(node, resolvedPaints) {
+  const out = [];
+  for (const entry of resolvedPaints || []) {
+    if (entry.binding && isBoundButHiddenPaint(entry.paint, node)) {
+      out.push({ id: node.id, name: node.name, visible: node.visible !== false, binding: entry.binding });
+    }
+  }
+  return out;
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -293,4 +312,5 @@ export {
   resolveComponentSetName,
   nextRecordState,
   isBoundButHiddenPaint,
+  collectNodeLatentCapabilities,
 };

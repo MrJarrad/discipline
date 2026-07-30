@@ -15,6 +15,7 @@ import {
   resolveComponentSetName,
   nextRecordState,
   isBoundButHiddenPaint,
+  collectNodeLatentCapabilities,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -332,6 +333,28 @@ test("isBoundButHiddenPaint: a bound, visible, rendering paint is not latent", (
 
 test("isBoundButHiddenPaint: no paint at all is never latent", () => {
   assert.equal(isBoundButHiddenPaint(null, { visible: true }), false);
+});
+
+test("collectNodeLatentCapabilities: flags every bound-but-hidden paint across a node's fills+strokes, not just the first (adopt-list #5 bug fix)", () => {
+  const node = { id: "n1", name: "NavigationHeader", visible: true };
+  const resolvedPaints = [
+    { paint: { visible: true }, binding: "color/surface/base" }, // fills[0]: bound + visible, not latent
+    { paint: { visible: false }, binding: "color/surface/raised" }, // fills[1]: bound + hidden, LATENT — missed by a fills[0]-only scan
+    { paint: { visible: false }, binding: "color/border/accent" }, // strokes[0]: bound + hidden, LATENT
+  ];
+
+  const result = collectNodeLatentCapabilities(node, resolvedPaints);
+
+  assert.deepEqual(result, [
+    { id: "n1", name: "NavigationHeader", visible: true, binding: "color/surface/raised" },
+    { id: "n1", name: "NavigationHeader", visible: true, binding: "color/border/accent" },
+  ]);
+});
+
+test("collectNodeLatentCapabilities: an unbound paint (no binding) never contributes a capability", () => {
+  const node = { id: "n1", name: "Icon", visible: true };
+  const result = collectNodeLatentCapabilities(node, [{ paint: { visible: false }, binding: null }]);
+  assert.deepEqual(result, []);
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {
