@@ -15,7 +15,7 @@
 // preserved verbatim (not omitted) because a description gap is itself
 // countable capture signal (ruling 7).
 //
-// Output shape (v1.3.0, schema v2 — see the "SCHEMA V2 TRANSFORM" and
+// Output shape (v1.14.0, schema v2 — see the "SCHEMA V2 TRANSFORM" and
 // "schema v2: live document traversal" sections below for the five
 // additive buckets' derivation):
 //   {
@@ -23,7 +23,9 @@
 //       fileName, fileKey (figma.fileKey — omitted when undefined; Figma
 //       leaves this unset in some contexts, e.g. a file that has never been
 //       saved/published, so callers must not assume presence),
-//       pluginVersion, exportedAt, schemaVersion: 2,
+//       pluginVersion (tracks .claude-plugin/plugin.json's version — the
+//       repo's single real version marker),
+//       exportedAt (ISO-8601 string), schemaVersion: 2,
 //       counts: { <collection name>: <variable count>, ... ,
 //                 "styles/text": n, "styles/paint": n,
 //                 "styles/effect": n, "styles/grid": n },
@@ -42,7 +44,7 @@
 //     templateFrames: [ { id, name, instances: [ { id, name, component,
 //       variantProps, properties, overrides: [ { id, property, value } ] }, ... ] }, ... ],
 //     latentCapabilities: [ { id, name, visible, binding }, ... ],
-//     warnings: [ "...", ... ]
+//     warnings: [ { type, nodeId, nodeName, context, message }, ... ]
 //   }
 // Each style list is sorted by name (type is fixed per list, so sort order
 // is effectively type-then-name across the whole `styles` block). Every
@@ -70,7 +72,14 @@
 // run of the styles export is the outstanding verification — see the
 // engineering note at the bottom of this file.
 
-const PLUGIN_VERSION = "1.3.0";
+// Tracks .claude-plugin/plugin.json's "version" — the repo's single real
+// version marker — not an independently-incrementing counter of its own.
+// header.pluginVersion previously drifted from that marker (this constant
+// carried its own private history, e.g. "1.3.0" while the repo was already
+// at 1.13.0), which made a capture's pluginVersion useless for correlating
+// it back to the commit/release that produced it. Bump this alongside every
+// plugin.json version bump.
+const PLUGIN_VERSION = "1.14.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
@@ -1052,7 +1061,12 @@ async function buildExport() {
   const header = {
     fileName: figma.root.name,
     pluginVersion: PLUGIN_VERSION,
-    exportedAt: Date.now(),
+    // ISO-8601, not epoch-ms — matches the format the listener's own
+    // isValidExportedAt() documents as the expected wire type (see
+    // capture-listener.mjs's header comment) and is legible when the raw
+    // artifact file is opened directly. The listener already accepts either
+    // shape, so this is a compatible change on the read side.
+    exportedAt: new Date().toISOString(),
     schemaVersion: 2,
     counts: counts,
     styleCounts: Object.assign({}, stylesExport.styleCounts, {
