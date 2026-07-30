@@ -178,6 +178,22 @@
         const payloadBytes = new Blob([payload]).size;
         const LISTENER_MAX_BYTES = 50 * 1024 * 1024;
         const WARN_THRESHOLD_BYTES = LISTENER_MAX_BYTES * 0.9;
+        if (payloadBytes > LISTENER_MAX_BYTES) {
+          // REFUSE to POST at all — the listener rejects bodies over 50MB
+          // outright (scripts/capture-listener.mjs's MAX_BODY_BYTES), so
+          // sending anyway just burns a round trip to get the same 413 back.
+          // This is the ONE POST code path shared by every trigger (the
+          // immediate export on "Start sync" and every debounced
+          // document-change resync), so the refusal covers both.
+          syncStatus.classList.add("error");
+          const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
+          syncStatus.textContent = "Payload is " + mb + "MB — over the listener's 50MB limit, refusing to POST.";
+          parent.postMessage(
+            { pluginMessage: { type: "sync-post-result", ok: false, error: "payload " + mb + "MB exceeds the listener's 50MB limit" } },
+            "*"
+          );
+          return;
+        }
         if (payloadBytes >= WARN_THRESHOLD_BYTES) {
           // Shown directly here (no round trip through code.js needed — the
           // payload and the fetch both live in this iframe already); the
@@ -185,9 +201,7 @@
           // once the POST resolves, same as any other sync-status update.
           syncStatus.classList.add("warn");
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
-          syncStatus.textContent = payloadBytes > LISTENER_MAX_BYTES
-            ? "Payload is " + mb + "MB — over the listener's 50MB limit, POST will be rejected."
-            : "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
+          syncStatus.textContent = "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
         }
 
         fetch(CAPTURE_LISTENER_URL, {
