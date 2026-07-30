@@ -6,7 +6,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildComponentSets, buildExampleStructure, buildTemplateFrames, buildLatentCapabilities, buildWarnings } from "./schema-v2-transform.mjs";
+import {
+  buildComponentSets,
+  buildExampleStructure,
+  buildTemplateFrames,
+  buildLatentCapabilities,
+  buildWarnings,
+  resolveComponentSetName,
+  nextRecordState,
+  isBoundButHiddenPaint,
+} from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
 // "=== END SCHEMA V2 TRANSFORM ===" marker comments. The marker lines
@@ -148,32 +157,50 @@ test("buildLatentCapabilities: maps a capability-node snapshot to id/name/visibl
   assert.deepEqual(result, [{ id: "cap-1", name: "has-background", visible: false, binding: "color/surface/raised" }]);
 });
 
-test("buildWarnings: flags a block-internal spacer instance left un-renamed (still SpaceVertical/SpaceHorizontal)", () => {
+test("buildWarnings: flags a block-internal spacer instance left un-renamed (still SpaceVertical/SpaceHorizontal), as a typed record", () => {
   const result = buildWarnings({
-    spacerInstances: [{ path: "Homepage/Hero/SpaceVertical", name: "SpaceVertical" }],
+    spacerInstances: [{ id: "n1", path: "Homepage/Hero/SpaceVertical", name: "SpaceVertical" }],
   });
 
   assert.deepEqual(result, [
-    'Homepage/Hero/SpaceVertical is an un-renamed SpaceVertical spacer instance — rename to SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+    {
+      type: "malformed_spacer_name",
+      nodeId: "n1",
+      nodeName: "SpaceVertical",
+      context: "Homepage/Hero/SpaceVertical",
+      message: 'Homepage/Hero/SpaceVertical is an un-renamed SpaceVertical spacer instance — rename to SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+    },
   ]);
 });
 
-test("buildWarnings: flags a malformed spacer rename (typo, kebab-case) distinctly from an un-renamed instance", () => {
+test("buildWarnings: flags a malformed spacer rename (typo, kebab-case) distinctly from an un-renamed instance, as typed records", () => {
   const result = buildWarnings({
     spacerInstances: [
-      { path: "Homepage/Hero/SpaceBottom", name: "SpaceBottom" },
-      { path: "Homepage/Hero/Spacer-top", name: "Spacer-top" },
-      { path: "Homepage/Hero/SpacerTop", name: "SpacerTop" },
+      { id: "n1", path: "Homepage/Hero/SpaceBottom", name: "SpaceBottom" },
+      { id: "n2", path: "Homepage/Hero/Spacer-top", name: "Spacer-top" },
+      { id: "n3", path: "Homepage/Hero/SpacerTop", name: "SpacerTop" },
     ],
   });
 
   assert.deepEqual(result, [
-    'Homepage/Hero/SpaceBottom has a malformed spacer name "SpaceBottom" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
-    'Homepage/Hero/Spacer-top has a malformed spacer name "Spacer-top" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+    {
+      type: "malformed_spacer_name",
+      nodeId: "n1",
+      nodeName: "SpaceBottom",
+      context: "Homepage/Hero/SpaceBottom",
+      message: 'Homepage/Hero/SpaceBottom has a malformed spacer name "SpaceBottom" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+    },
+    {
+      type: "malformed_spacer_name",
+      nodeId: "n2",
+      nodeName: "Spacer-top",
+      context: "Homepage/Hero/Spacer-top",
+      message: 'Homepage/Hero/Spacer-top has a malformed spacer name "Spacer-top" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.',
+    },
   ]);
 });
 
-test("buildWarnings: flags two siblings sharing a name under the same parent", () => {
+test("buildWarnings: flags two siblings sharing a name under the same parent, as a typed record", () => {
   const result = buildWarnings({
     nodeSnapshots: [
       { id: "n1", name: "Icon", parentId: "frame-1", parentPath: "Homepage/Hero" },
@@ -182,10 +209,18 @@ test("buildWarnings: flags two siblings sharing a name under the same parent", (
     ],
   });
 
-  assert.deepEqual(result, ['Duplicate sibling name "Icon" under Homepage/Hero — layer names must be unique among siblings for stable id/name-fallback matching.']);
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "Icon",
+      context: "Homepage/Hero",
+      message: 'Duplicate sibling name "Icon" under Homepage/Hero — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
 });
 
-test("buildWarnings: flags a non-device axis that diverges between an M-/D-Example frame pair (axis-ownership violation)", () => {
+test("buildWarnings: flags a non-device axis that diverges between an M-/D-Example frame pair (axis-ownership violation), as a typed record", () => {
   const result = buildWarnings({
     templateFrames: [
       {
@@ -202,7 +237,13 @@ test("buildWarnings: flags a non-device axis that diverges between an M-/D-Examp
   });
 
   assert.deepEqual(result, [
-    'Homepage: instance "Hero" has divergent height between M-Homepage ("L") and D-Homepage ("M") — a layout holds one opinion per non-device axis.',
+    {
+      type: "axis_ownership_violation",
+      nodeId: "inst-m",
+      nodeName: "Hero",
+      context: "Homepage/height",
+      message: 'Homepage: instance "Hero" has divergent height between M-Homepage ("L") and D-Homepage ("M") — a layout holds one opinion per non-device axis.',
+    },
   ]);
 });
 
@@ -223,6 +264,74 @@ test("buildWarnings: does not flag the device axis itself diverging between an M
   });
 
   assert.deepEqual(result, []);
+});
+
+test("buildWarnings: flags an axis-ownership violation when M-/D- frame names carry the real ' - ' spaced separator (not just a bare hyphen)", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Home",
+        instances: [{ id: "inst-m", name: "Hero", component: "HeroText", variantProps: { device: "mobile", height: "L" }, properties: {}, overrides: [] }],
+      },
+      {
+        id: "tf-d",
+        name: "D - Home",
+        instances: [{ id: "inst-d", name: "Hero", component: "HeroText", variantProps: { device: "desktop", height: "M" }, properties: {}, overrides: [] }],
+      },
+    ],
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "axis_ownership_violation");
+  assert.equal(result[0].nodeName, "Hero");
+});
+
+test("resolveComponentSetName: a variant component resolves to its COMPONENT_SET's name, not its own per-variant property string", () => {
+  const variant = { name: "size=8", parent: { type: "COMPONENT_SET", name: "SpaceVertical" } };
+  assert.equal(resolveComponentSetName(variant), "SpaceVertical");
+});
+
+test("resolveComponentSetName: a standalone (non-variant) component resolves to its own name", () => {
+  const standalone = { name: "Icon", parent: { type: "FRAME", name: "Icons" } };
+  assert.equal(resolveComponentSetName(standalone), "Icon");
+});
+
+test("resolveComponentSetName: null component resolves to null", () => {
+  assert.equal(resolveComponentSetName(null), null);
+});
+
+test("nextRecordState: a COMPONENT's children are in the override interface surface", () => {
+  assert.equal(nextRecordState({ type: "COMPONENT", name: "HeroText" }, false), true);
+});
+
+test("nextRecordState: a FRAME's children (template top-level instances) are in the override interface surface", () => {
+  assert.equal(nextRecordState({ type: "FRAME", name: "D - Home" }, false), true);
+});
+
+test("nextRecordState: a dot-prefixed sub-component's children extend the surface one level, but only when the parent itself was recorded", () => {
+  assert.equal(nextRecordState({ type: "INSTANCE", name: ".icon" }, true), true);
+  assert.equal(nextRecordState({ type: "INSTANCE", name: ".icon" }, false), false);
+});
+
+test("nextRecordState: a plain (non-boundary, non-dot-prefixed) node does not extend the surface", () => {
+  assert.equal(nextRecordState({ type: "GROUP", name: "base" }, true), false);
+});
+
+test("isBoundButHiddenPaint: a bound paint with visible:false is a latent capability", () => {
+  assert.equal(isBoundButHiddenPaint({ visible: false }, { visible: true }), true);
+});
+
+test("isBoundButHiddenPaint: a bound paint whose node is invisible is a latent capability, even if the paint itself is visible:true", () => {
+  assert.equal(isBoundButHiddenPaint({ visible: true }, { visible: false }), true);
+});
+
+test("isBoundButHiddenPaint: a bound, visible, rendering paint is not latent", () => {
+  assert.equal(isBoundButHiddenPaint({ visible: true }, { visible: true }), false);
+});
+
+test("isBoundButHiddenPaint: no paint at all is never latent", () => {
+  assert.equal(isBoundButHiddenPaint(null, { visible: true }), false);
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {

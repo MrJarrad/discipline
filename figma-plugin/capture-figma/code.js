@@ -521,18 +521,64 @@ function buildLatentCapabilities(capSnapshots) {
 const CANONICAL_SPACER_INSTANCE_NAMES = new Set(["SpacerTop", "SpacerBottom", "SpacerHorizontal", "SpacerVertical"]);
 const RAW_SPACER_COMPONENT_NAMES = new Set(["SpaceVertical", "SpaceHorizontal"]);
 
+// A variant's own .name is a per-variant property string (e.g. "size=8"),
+// never the addressable identity — that's the COMPONENT_SET's name (e.g.
+// "SpaceVertical"). Every caller matching a main component against a known
+// DS component name (spacer detection here; buildTemplateInstanceSnapshot's
+// `component` field in code.js) must resolve through the set, or every
+// variant member of a set silently fails the match. Falls back to the
+// component's own name for a standalone (non-variant) component.
+function resolveComponentSetName(component) {
+  if (!component) return null;
+  if (component.parent && component.parent.type === "COMPONENT_SET") {
+    return component.parent.name;
+  }
+  return component.name;
+}
+
 function buildMalformedSpacerNameWarnings(spacerInstances) {
   const warnings = [];
   for (const inst of spacerInstances || []) {
     if (CANONICAL_SPACER_INSTANCE_NAMES.has(inst.name)) continue;
     const label = inst.path || inst.name;
     if (RAW_SPACER_COMPONENT_NAMES.has(inst.name)) {
-      warnings.push(`${label} is an un-renamed ${inst.name} spacer instance — rename to SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`);
+      warnings.push({
+        type: "malformed_spacer_name",
+        nodeId: inst.id || null,
+        nodeName: inst.name,
+        context: label,
+        message: `${label} is an un-renamed ${inst.name} spacer instance — rename to SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`,
+      });
     } else {
-      warnings.push(`${label} has a malformed spacer name "${inst.name}" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`);
+      warnings.push({
+        type: "malformed_spacer_name",
+        nodeId: inst.id || null,
+        nodeName: inst.name,
+        context: label,
+        message: `${label} has a malformed spacer name "${inst.name}" — expected one of SpacerTop/SpacerBottom/SpacerHorizontal/SpacerVertical.`,
+      });
     }
   }
   return warnings;
+}
+
+// OVERRIDE INTERFACE SURFACE: duplicate_sibling_name only matters where a
+// name collision actually breaks the id-first/name-fallback correlation an
+// operator or diff depends on — a block's own addressable layers, never the
+// deep implementation nodes beneath them (icon vector internals routinely
+// reuse names like "base"/"Vector" by the dozen; they're never targeted by
+// name and were flooding this check tree-wide). In scope: the direct
+// children of a COMPONENT (a block's own top-level layers) or a FRAME (an
+// Example template's top-level instances) — a "boundary" node — plus one
+// more level for a dot-prefixed sub-component (the documented private-prefix
+// override surface). Nothing deeper than that.
+function isOverrideSurfaceBoundary(node) {
+  return !!node && (node.type === "COMPONENT" || node.type === "FRAME");
+}
+
+function nextRecordState(node, nodeWasRecorded) {
+  if (isOverrideSurfaceBoundary(node)) return true;
+  return !!nodeWasRecorded && typeof node.name === "string" && node.name.startsWith(".");
 }
 
 // DUPLICATE SIBLING NAMES: the id-first/name-fallback correlation every v2
@@ -540,7 +586,10 @@ function buildMalformedSpacerNameWarnings(spacerInstances) {
 // diffTemplateFrames, diffLatentCapabilities in capture-listener.mjs) falls
 // back to matching by name among siblings when an id isn't stable — two
 // siblings sharing a name breaks that fallback ambiguously, so it's flagged
-// as a structural warning wherever it occurs.
+// as a structural warning wherever it occurs. `nodeSnapshots` is expected to
+// already be scoped to the override interface surface (see
+// isOverrideSurfaceBoundary/nextRecordState above) by the caller's traversal
+// — this function itself has no opinion on scope, only on collision.
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   const byParent = new Map();
   for (const node of nodeSnapshots || []) {
@@ -554,7 +603,14 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
     const flagged = new Set();
     for (const node of siblings) {
       if (seen.has(node.name) && !flagged.has(node.name)) {
-        warnings.push(`Duplicate sibling name "${node.name}" under ${node.parentPath || siblings[0].parentId} — layer names must be unique among siblings for stable id/name-fallback matching.`);
+        const context = node.parentPath || siblings[0].parentId || null;
+        warnings.push({
+          type: "duplicate_sibling_name",
+          nodeId: node.id || null,
+          nodeName: node.name,
+          context: context,
+          message: `Duplicate sibling name "${node.name}" under ${context} — layer names must be unique among siblings for stable id/name-fallback matching.`,
+        });
         flagged.add(node.name);
       }
       seen.add(node.name);
@@ -570,10 +626,14 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
 // within a pair correlate by name (same convention as everything else in
 // this bucket). Any non-device-axis value that differs between the paired
 // instances is flagged — the device axis itself is exempt by definition.
+// The separator is matched loosely (`\s*-\s*`) because the real Example
+// frame naming convention is "M - Home" / "D - Home" (spaced en-dash-style
+// hyphen), not the bare "M-Home" the original regex required — the bare
+// form still matches too.
 function buildAxisOwnershipViolationWarnings(templateFrames) {
   const pairsByBase = new Map();
   for (const frame of templateFrames || []) {
-    const match = /^([MD])-(.+)$/.exec(frame.name);
+    const match = /^([MD])\s*-\s*(.+)$/.exec(frame.name);
     if (!match) continue;
     const [, prefix, base] = match;
     if (!pairsByBase.has(base)) pairsByBase.set(base, {});
@@ -593,19 +653,38 @@ function buildAxisOwnershipViolationWarnings(templateFrames) {
       for (const axis of axes) {
         if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
         if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
-        warnings.push(
-          `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`
-        );
+        warnings.push({
+          type: "axis_ownership_violation",
+          nodeId: mInst.id || null,
+          nodeName: mInst.name,
+          context: `${base}/${axis}`,
+          message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`,
+        });
       }
     }
   }
   return warnings;
 }
 
+// LATENT CAPABILITY: bound-but-hidden, not name-pattern-matched. The
+// canonical case — NavigationHeader's bound-but-invisible fill — has no
+// naming convention to key off: the operator explicitly vetoed adding one
+// (vault ruling "NavigationHeader has-background prop VETOED... No
+// boolean."). The only real signal left is structural: a paint carries a
+// bound variable and isn't currently rendering — either the paint's own
+// `visible` is false, or the node carrying it is invisible.
+function isBoundButHiddenPaint(paint, node) {
+  if (!paint) return false;
+  const paintVisible = paint.visible !== false;
+  const nodeVisible = !node || node.visible !== false;
+  return !(paintVisible && nodeVisible);
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
-// type into one flat array of human-readable strings (same convention as
-// the fixture in capture-listener.test.mjs; the listener only counts
-// warnings.length, no shape enforced beyond "array").
+// type into one flat array of typed records {type, nodeId, nodeName,
+// context, message} (per the published contract and its listener/test
+// consumers — a prior version emitted plain strings here, which broke any
+// consumer keying on `.type`).
 function buildWarnings(input) {
   const snapshot = input || {};
   return [
