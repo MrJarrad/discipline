@@ -211,10 +211,33 @@
         })
           .then((res) => {
             if (res.ok) {
-              parent.postMessage(
-                { pluginMessage: { type: "sync-post-result", ok: true, status: res.status } },
-                "*"
-              );
+              // Parse the listener's response body for warningCount/summary
+              // (scripts/capture-listener.mjs's POST /capture contract) so
+              // code.js's "synced" status can show them without a separate
+              // GET /changes round trip. A body that fails to parse still
+              // reports the successful POST — just without those extras.
+              res
+                .json()
+                .then((body) => {
+                  parent.postMessage(
+                    {
+                      pluginMessage: {
+                        type: "sync-post-result",
+                        ok: true,
+                        status: res.status,
+                        warningCount: body && typeof body.warningCount === "number" ? body.warningCount : 0,
+                        summary: body && body.summary ? body.summary : null,
+                      },
+                    },
+                    "*"
+                  );
+                })
+                .catch(() => {
+                  parent.postMessage(
+                    { pluginMessage: { type: "sync-post-result", ok: true, status: res.status } },
+                    "*"
+                  );
+                });
               return;
             }
             // Failure: surface the listener's own response body (its
@@ -342,8 +365,28 @@
           syncStatus.textContent = "Sync is off. One-shot export above still works with no listener running.";
         } else if (msg.state === "synced") {
           const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-          syncStatus.textContent =
+          let text =
             "Last sync: " + t + " — " + msg.lastSyncCount + " item(s) sent to listener.";
+          // msg.summary mirrors the listener's changes.jsonl cross-bucket
+          // summary (scripts/capture-listener.mjs) — absent on the very
+          // first sync of a file (nothing to diff against yet) and on an
+          // unchanged/no-op sync.
+          if (msg.summary) {
+            const s = msg.summary;
+            const parts = [];
+            if (s.added) parts.push(s.added + " added");
+            if (s.modified) parts.push(s.modified + " modified");
+            if (s.removed) parts.push(s.removed + " removed");
+            if (s.renamed) parts.push(s.renamed + " renamed");
+            if (s.repointed) parts.push(s.repointed + " repointed");
+            if (s.layerBindings) parts.push(s.layerBindings + " layer binding(s)");
+            if (parts.length) text += " (" + parts.join(", ") + ")";
+          }
+          if (msg.warningCount > 0) {
+            syncStatus.classList.add("warn");
+            text += " — " + msg.warningCount + " warning(s).";
+          }
+          syncStatus.textContent = text;
         } else if (msg.state === "restored") {
           // From clientStorage, loaded once at panel-open — a prior
           // session's last successful sync, shown before this session has

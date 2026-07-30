@@ -1545,6 +1545,8 @@ async function runSyncExport() {
     state: "synced",
     lastSyncAt: lastSyncAt,
     lastSyncCount: lastSyncCount,
+    warningCount: typeof result.warningCount === "number" ? result.warningCount : 0,
+    summary: result.summary || null,
   });
   await saveLastSyncToStorage(lastSyncAt, lastSyncCount);
 }
