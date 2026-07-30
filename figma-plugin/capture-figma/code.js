@@ -110,6 +110,12 @@ const SYNC_DEBOUNCE_MS = 5000;
 figma.showUI(__html__, { width: 480, height: 640 });
 loadLastSyncFromStorage();
 
+// Lets a user right-click the page/canvas → Plugins → Relaunch buttons →
+// jump straight back into this plugin without the full Plugins menu each
+// time. The "export" id here must match manifest.json's relaunchButtons
+// entry exactly — Figma keys the two together by id.
+figma.root.setRelaunchData({ export: "Export variables + styles" });
+
 async function getCollections() {
   if (typeof figma.variables.getLocalVariableCollectionsAsync === "function") {
     return figma.variables.getLocalVariableCollectionsAsync();

@@ -6,6 +6,9 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
+  "relaunchButtons": [
+    { "id": "export", "name": "Export variables + styles" }
+  ],
   "networkAccess": {
     "allowedDomains": [
       "http://localhost:4411"
