@@ -713,8 +713,6 @@ function buildWarnings(input) {
 // capability is latent precisely because it's hidden today), so this must
 // never be true during a v2 export.
 
-const CAPABILITY_NAME_RE = /^has-/;
-
 async function getNodeById(id) {
   if (typeof figma.getNodeByIdAsync === "function") {
     return figma.getNodeByIdAsync(id);
@@ -761,40 +759,47 @@ async function resolveCapabilityBinding(paint, variableById) {
 // Walks `root`'s full subtree (including invisible nodes and instance
 // children — see the skipInvisibleInstanceChildren note above), collecting
 // the raw snapshots the transform functions need into `out`:
-// nodeSnapshots (duplicate_sibling_name), spacerInstances
-// (malformed_spacer_name), latentCapabilities (has-* layers with a bound
-// fill/stroke).
+// nodeSnapshots (duplicate_sibling_name — scoped to the override interface
+// surface via nextRecordState, not every node visited; spacer/capability
+// detection stay full-depth since a spacer or a bound-hidden fill can be
+// nested arbitrarily deep inside a block), spacerInstances
+// (malformed_spacer_name), latentCapabilities (any bound-but-hidden
+// fill/stroke — see isBoundButHiddenPaint).
 async function walkV2Subtree(root, variableById, out) {
-  async function visit(node, parent) {
-    out.nodeSnapshots.push({
-      id: node.id,
-      name: node.name,
-      parentId: parent ? parent.id : null,
-      parentPath: parent ? nodeNamePath(parent, root) : null,
-    });
+  async function visit(node, parent, recordHere) {
+    if (recordHere) {
+      out.nodeSnapshots.push({
+        id: node.id,
+        name: node.name,
+        parentId: parent ? parent.id : null,
+        parentPath: parent ? nodeNamePath(parent, root) : null,
+      });
+    }
 
     if (node.type === "INSTANCE") {
       const mainComponent = await getInstanceMainComponent(node);
-      if (mainComponent && RAW_SPACER_COMPONENT_NAMES.has(mainComponent.name)) {
-        out.spacerInstances.push({ name: node.name, path: nodeNamePath(node, root) });
+      const mainComponentSetName = resolveComponentSetName(mainComponent);
+      if (mainComponentSetName && RAW_SPACER_COMPONENT_NAMES.has(mainComponentSetName)) {
+        out.spacerInstances.push({ id: node.id, name: node.name, path: nodeNamePath(node, root) });
       }
     }
 
-    if (CAPABILITY_NAME_RE.test(node.name) && (node.fills || node.strokes)) {
+    if (node.fills || node.strokes) {
       const paint = (Array.isArray(node.fills) && node.fills[0]) || (Array.isArray(node.strokes) && node.strokes[0]);
       const binding = await resolveCapabilityBinding(paint, variableById);
-      if (binding) {
+      if (binding && isBoundButHiddenPaint(paint, node)) {
         out.latentCapabilities.push({ id: node.id, name: node.name, visible: node.visible !== false, binding: binding });
       }
     }
 
     if (Array.isArray(node.children)) {
+      const childRecordHere = nextRecordState(node, recordHere);
       for (const child of node.children) {
-        await visit(child, node);
+        await visit(child, node, childRecordHere);
       }
     }
   }
-  await visit(root, null);
+  await visit(root, null, false);
 }
 
 // Reads one overridden field's current value off the live node. Common
@@ -858,12 +863,7 @@ function buildComponentSetSnapshots(componentSetNodes) {
 // keyed "{instance-id}/{node-name-path}".
 async function buildTemplateInstanceSnapshot(inst, variableById) {
   const mainComponent = await getInstanceMainComponent(inst);
-  const component =
-    mainComponent && mainComponent.parent && mainComponent.parent.type === "COMPONENT_SET"
-      ? mainComponent.parent.name
-      : mainComponent
-      ? mainComponent.name
-      : inst.name;
+  const component = resolveComponentSetName(mainComponent) || inst.name;
 
   const overrides = [];
   for (const ov of inst.overrides || []) {
@@ -887,7 +887,11 @@ async function buildTemplateInstanceSnapshot(inst, variableById) {
 
 // Walks the "Example" page's sections/frames, producing exampleStructure[]
 // and templateFrames[] snapshots together (both read the same frames) plus
-// the spacer/duplicate-sibling scan of every frame's subtree.
+// the spacer/duplicate-sibling scan of every frame's subtree. Frames
+// themselves are also recorded as siblings under their own SECTION (real
+// signal — e.g. two "D - Home" frames in the same section IS a duplicate
+// worth flagging) — walkV2Subtree can't see this on its own since each
+// frame is walked as an independent root.
 async function buildExampleData(examplePage, variableById, warningsCollector) {
   if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
 
@@ -900,6 +904,12 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
     sectionSnapshots.push({ name: section.name, frames: frames.map((f) => ({ id: f.id, name: f.name })) });
 
     for (const frame of frames) {
+      warningsCollector.nodeSnapshots.push({
+        id: frame.id,
+        name: frame.name,
+        parentId: section.id,
+        parentPath: section.name,
+      });
       await walkV2Subtree(frame, variableById, warningsCollector);
 
       const instances = frame.children.filter(function (n) { return n.type === "INSTANCE"; });
