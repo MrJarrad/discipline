@@ -189,13 +189,14 @@ async function getLocalEffectStyles() {
 // documentAccess is "dynamic-page" (manifest.json), so pages are lazily
 // loaded by default and figma.on('documentchange') cannot register in
 // incremental mode until every page has been loaded via
-// figma.loadAllPagesAsync(). buildExport() itself never needs this: it only
-// reads figma.variables and the four local style lists, all
-// document-global, none page-scoped — so the one-shot export path is left
-// alone (no correctness gap, no reason to pay the load-all-pages cost on
-// every manual export). Only the documentchange listener, used by live sync,
-// requires it — so it's awaited once in startSync(), before the handler is
-// registered.
+// figma.loadAllPagesAsync(). buildExport() DOES need this now: schema v2's
+// componentSets/exampleStructure/templateFrames/latentCapabilities/warnings
+// buckets traverse every page plus the page literally named "Example", both
+// page-scoped reads that throw on an unloaded page — see buildExport()'s own
+// call to this function, awaited before any page.children/findAll call.
+// startSync() awaits it too, for the same reason, before registering the
+// documentchange handler (which additionally cannot register in incremental
+// mode until every page is loaded, regardless of what it reads).
 async function ensureAllPagesLoaded() {
   if (typeof figma.loadAllPagesAsync === "function") {
     await figma.loadAllPagesAsync();

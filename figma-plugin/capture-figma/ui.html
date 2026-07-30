@@ -133,6 +133,11 @@
     const syncStatus = document.getElementById("sync-status");
 
     let syncOn = false;
+    // Tracks the blob URL currently on downloadLink.href, so it can be
+    // revoked before the next one replaces it — createObjectURL()'s
+    // reference otherwise stays alive for the panel's whole lifetime, and a
+    // sync session runs one export per document change.
+    let currentDownloadUrl = null;
 
     syncBtn.addEventListener("click", () => {
       if (syncOn) {
@@ -153,6 +158,23 @@
     });
 
     copyBtn.addEventListener("click", () => {
+      // navigator.clipboard is the modern API, but it can reject inside a
+      // plugin iframe without a "clipboard-write" permissions policy — fall
+      // back to the older selection-based execCommand("copy") either when
+      // the API isn't present at all, or when it's present but rejects.
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        navigator.clipboard.writeText(output.value).then(
+          () => {
+            status.textContent = "Copied to clipboard.";
+          },
+          () => {
+            output.select();
+            document.execCommand("copy");
+            status.textContent = "Copied to clipboard.";
+          }
+        );
+        return;
+      }
       output.select();
       document.execCommand("copy");
       status.textContent = "Copied to clipboard.";
@@ -305,7 +327,11 @@
         copyBtn.disabled = false;
 
         const blob = new Blob([json], { type: "application/json" });
+        if (currentDownloadUrl) {
+          URL.revokeObjectURL(currentDownloadUrl);
+        }
         const url = URL.createObjectURL(blob);
+        currentDownloadUrl = url;
         downloadLink.href = url;
         downloadLink.classList.add("enabled");
 
