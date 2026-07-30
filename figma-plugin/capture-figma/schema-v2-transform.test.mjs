@@ -86,6 +86,36 @@ test("buildExampleStructure: maps section snapshots to {name, frames:[{id,name}]
   ]);
 });
 
+test("buildExampleStructure + buildTemplateFrames: a nested SECTION-in-SECTION and a bare page-level frame each get their own entry", () => {
+  // Shape code.js's buildExampleData produces for an Example page with:
+  //   SECTION "M-Example" (frame "Default")
+  //     SECTION "M-Example/Nested" (frame "Inner")   <- SECTION-in-SECTION
+  //   FRAME "Orphan"                                 <- bare page-level frame
+  const sections = [
+    { name: "M-Example", frames: [{ id: "frame-1", name: "Default" }] },
+    { name: "M-Example/Nested", frames: [{ id: "frame-2", name: "Inner" }] },
+    { name: "", frames: [{ id: "frame-3", name: "Orphan" }] },
+  ];
+  const frames = [
+    { id: "frame-1", name: "Default", instances: [] },
+    { id: "frame-2", name: "Inner", instances: [] },
+    { id: "frame-3", name: "Orphan", instances: [] },
+  ];
+
+  const structure = buildExampleStructure(sections);
+  const templateFrames = buildTemplateFrames(frames);
+
+  assert.deepEqual(structure, [
+    { name: "M-Example", frames: [{ id: "frame-1", name: "Default" }] },
+    { name: "M-Example/Nested", frames: [{ id: "frame-2", name: "Inner" }] },
+    { name: "", frames: [{ id: "frame-3", name: "Orphan" }] },
+  ]);
+  assert.deepEqual(
+    templateFrames.map((f) => f.id),
+    ["frame-1", "frame-2", "frame-3"]
+  );
+});
+
 test("buildTemplateFrames: splits an instance's componentProperties into variantProps (type VARIANT) vs properties (everything else)", () => {
   const frames = [
     {

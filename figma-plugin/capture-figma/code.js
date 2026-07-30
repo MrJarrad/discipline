@@ -1190,6 +1190,29 @@ async function buildTemplateInstanceSnapshot(inst, variableById) {
   };
 }
 
+// Runs one Example frame through the same processing regardless of what it's
+// nested under (a section at any depth, or the bare page) — the spacer/
+// duplicate-sibling scan of its subtree, plus its own templateFrames
+// snapshot. `parentId`/`parentPath` feed warningsCollector.nodeSnapshots
+// exactly as before (a real SECTION's id/name, or the page itself for a
+// bare frame with no enclosing section).
+async function processExampleFrame(frame, parentId, parentPath, variableById, warningsCollector) {
+  warningsCollector.nodeSnapshots.push({
+    id: frame.id,
+    name: frame.name,
+    parentId: parentId,
+    parentPath: parentPath,
+  });
+  await walkV2Subtree(frame, variableById, warningsCollector);
+
+  const instances = frame.children.filter(function (n) { return n.type === "INSTANCE"; });
+  const instanceSnapshots = [];
+  for (const inst of instances) {
+    instanceSnapshots.push(await buildTemplateInstanceSnapshot(inst, variableById));
+  }
+  return { id: frame.id, name: frame.name, instances: instanceSnapshots };
+}
+
 // Walks the "Example" page's sections/frames, producing exampleStructure[]
 // and templateFrames[] snapshots together (both read the same frames) plus
 // the spacer/duplicate-sibling scan of every frame's subtree. Frames
@@ -1197,33 +1220,51 @@ async function buildTemplateInstanceSnapshot(inst, variableById) {
 // signal — e.g. two "D - Home" frames in the same section IS a duplicate
 // worth flagging) — walkV2Subtree can't see this on its own since each
 // frame is walked as an independent root.
+//
+// Sections nest arbitrarily deep — SECTION-in-SECTION is valid Figma
+// structure — so this recurses into every SECTION found at any depth, each
+// producing its own exampleStructure entry keyed by its own name and its
+// own DIRECT frame children only; a nested section's frames are never
+// folded into its parent's entry. A FRAME sitting directly on the page
+// with no enclosing SECTION is real too (a lone example with no section
+// wrapper); those are grouped into one entry with name "" — an authored
+// section name is genuinely absent here, kept verbatim rather than
+// synthesized or dropped, same convention as an empty description
+// elsewhere in this file's SCHEMA V2 TRANSFORM block.
 async function buildExampleData(examplePage, variableById, warningsCollector) {
   if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
 
   const sectionSnapshots = [];
   const frameSnapshots = [];
-  const sections = examplePage.children.filter(function (n) { return n.type === "SECTION"; });
 
-  for (const section of sections) {
+  async function walkSection(section) {
     const frames = section.children.filter(function (n) { return n.type === "FRAME"; });
-    sectionSnapshots.push({ name: section.name, frames: frames.map((f) => ({ id: f.id, name: f.name })) });
-
+    const frameDescs = [];
     for (const frame of frames) {
-      warningsCollector.nodeSnapshots.push({
-        id: frame.id,
-        name: frame.name,
-        parentId: section.id,
-        parentPath: section.name,
-      });
-      await walkV2Subtree(frame, variableById, warningsCollector);
-
-      const instances = frame.children.filter(function (n) { return n.type === "INSTANCE"; });
-      const instanceSnapshots = [];
-      for (const inst of instances) {
-        instanceSnapshots.push(await buildTemplateInstanceSnapshot(inst, variableById));
-      }
-      frameSnapshots.push({ id: frame.id, name: frame.name, instances: instanceSnapshots });
+      frameSnapshots.push(await processExampleFrame(frame, section.id, section.name, variableById, warningsCollector));
+      frameDescs.push({ id: frame.id, name: frame.name });
     }
+    sectionSnapshots.push({ name: section.name, frames: frameDescs });
+
+    const nestedSections = section.children.filter(function (n) { return n.type === "SECTION"; });
+    for (const nested of nestedSections) {
+      await walkSection(nested);
+    }
+  }
+
+  const topSections = examplePage.children.filter(function (n) { return n.type === "SECTION"; });
+  for (const section of topSections) {
+    await walkSection(section);
+  }
+
+  const bareFrames = examplePage.children.filter(function (n) { return n.type === "FRAME"; });
+  if (bareFrames.length > 0) {
+    const frameDescs = [];
+    for (const frame of bareFrames) {
+      frameSnapshots.push(await processExampleFrame(frame, examplePage.id, "", variableById, warningsCollector));
+      frameDescs.push({ id: frame.id, name: frame.name });
+    }
+    sectionSnapshots.push({ name: "", frames: frameDescs });
   }
 
   return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
