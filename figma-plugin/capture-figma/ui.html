@@ -37,9 +37,9 @@
       --radius-md: 8px;
       --space-1: 4px;
       --space-2: 8px;
-      --space-3: 10px;
-      --space-4: 16px;
-      --space-5: 20px;
+      --space-3: 20px;
+      --space-4: 26px;
+      --space-5: 24px;
       --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
       --font-mono: "SFMono-Regular", Consolas, Menlo, monospace;
     }
@@ -179,11 +179,12 @@
     .chip-row {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--space-2);
+      column-gap: 14px;
+      row-gap: 12px;
     }
     .stat-chip {
-      font-size: 12px;
-      padding: 6px 10px;
+      font-size: 13px;
+      padding: 8px 14px;
       border-radius: var(--radius-sm);
       background: var(--color-chip-bg);
       border: 1px solid var(--color-chip-border);
