@@ -917,7 +917,7 @@ async function resolveCapabilityBinding(paint, variableById) {
 async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
   function push(property, value) {
     if (value === null || value === undefined) return;
-    const key = property + " " + value;
+    const key = property + "\u0000" + value;
     if (seen.has(key)) return;
     seen.add(key);
     bindingsOut.push({ layer: layer, property: property, value: value });
@@ -1008,7 +1008,7 @@ async function walkV2Subtree(root, variableById, out, collectBindings) {
       if (bindingCtx) {
         const boundName = mainComponent ? resolveComponentSetName(mainComponent) || mainComponent.name : null;
         if (boundName) {
-          const key = "instance " + boundName;
+          const key = "instance\u0000" + boundName;
           if (!bindingCtx.seen.has(key)) {
             bindingCtx.seen.add(key);
             bindingCtx.bindings.push({ layer: bindingCtx.layer, property: "instance", value: boundName });
