@@ -285,6 +285,68 @@ test("buildWarnings: flags a non-device axis that diverges between an M-/D-Examp
   ]);
 });
 
+test("buildWarnings: a NavigationHeader layout divergence between M-/D- is a ratified_axis_exception, not an axis_ownership_violation (operator ruling 2026-08-01)", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Home",
+        instances: [
+          { id: "inst-m-title", name: "NavigationHeader", component: "NavigationHeader", variantProps: { device: "sm", layout: "title" }, properties: {}, overrides: [] },
+          { id: "inst-m-actions", name: "NavigationHeader", component: "NavigationHeader", variantProps: { device: "sm", layout: "actions" }, properties: {}, overrides: [] },
+        ],
+      },
+      {
+        id: "tf-d",
+        name: "D - Home",
+        instances: [
+          { id: "inst-d", name: "NavigationHeader", component: "NavigationHeader", variantProps: { device: "md+", layout: "title+actions" }, properties: {}, overrides: [] },
+        ],
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    result.filter((w) => w.type === "axis_ownership_violation"),
+    [],
+    "no axis_ownership_violation for the ratified NavigationHeader split"
+  );
+  const exceptions = result.filter((w) => w.type === "ratified_axis_exception");
+  assert.equal(exceptions.length, 2, "one exception per M-side instance compared against the single D-side opinion");
+  for (const w of exceptions) {
+    assert.equal(w.nodeName, "NavigationHeader");
+    assert.equal(w.context, "Home/layout");
+    assert.match(w.message, /ratified/i);
+    assert.match(w.message, /operator ruling 2026-08-01/);
+  }
+});
+
+test("buildWarnings + computeWarningsByType: a ratified NavigationHeader exception and a genuine Hero violation in the same run count separately, never merged", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Home",
+        instances: [
+          { id: "inst-m-nav", name: "NavigationHeader", component: "NavigationHeader", variantProps: { device: "sm", layout: "title" }, properties: {}, overrides: [] },
+          { id: "inst-m-hero", name: "Hero", component: "HeroText", variantProps: { device: "mobile", height: "L" }, properties: {}, overrides: [] },
+        ],
+      },
+      {
+        id: "tf-d",
+        name: "D - Home",
+        instances: [
+          { id: "inst-d-nav", name: "NavigationHeader", component: "NavigationHeader", variantProps: { device: "md+", layout: "title+actions" }, properties: {}, overrides: [] },
+          { id: "inst-d-hero", name: "Hero", component: "HeroText", variantProps: { device: "desktop", height: "M" }, properties: {}, overrides: [] },
+        ],
+      },
+    ],
+  });
+
+  const byType = computeWarningsByType(result);
+  assert.deepEqual(byType, { ratified_axis_exception: 1, axis_ownership_violation: 1 });
+});
+
 test("buildWarnings: does not flag the device axis itself diverging between an M-/D-Example frame pair", () => {
   const result = buildWarnings({
     templateFrames: [

@@ -724,6 +724,31 @@ function groupInstancesByName(instances) {
   return groups;
 }
 
+// RATIFIED AXIS EXCEPTIONS (operator ruling 2026-08-01, vault
+// memories/token-rulings.md "NavigationHeader M/D split composition is
+// INTENDED"): a documented, cited exception to the axis-ownership rule —
+// NavigationHeader's mobile split into title/actions instances vs desktop's
+// single title+actions instance is a ratified multi-instance composition,
+// not divergence. Keyed by the instance/component name (mInst.name — the
+// same identity groupInstancesByName groups on), with an optional `axis`
+// restriction so a future exception can scope to one axis without opening
+// every axis on that component. A match downgrades the would-be violation
+// to the distinct `ratified_axis_exception` informational type instead of
+// silently dropping it — the suppression stays visible and auditable.
+const RATIFIED_AXIS_EXCEPTIONS = {
+  NavigationHeader: {
+    axis: "layout",
+    citation: "operator ruling 2026-08-01, vault memories/token-rulings.md",
+  },
+};
+
+function findRatifiedAxisException(name, axis) {
+  const exception = RATIFIED_AXIS_EXCEPTIONS[name];
+  if (!exception) return null;
+  if (exception.axis && exception.axis !== axis) return null;
+  return exception;
+}
+
 function compareInstancePair(base, mInst, dInst) {
   const warnings = [];
   const mVariant = mInst.variantProps || {};
@@ -732,6 +757,17 @@ function compareInstancePair(base, mInst, dInst) {
   for (const axis of axes) {
     if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
     if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
+    const exception = findRatifiedAxisException(mInst.name, axis);
+    if (exception) {
+      warnings.push({
+        type: "ratified_axis_exception",
+        nodeId: mInst.id || null,
+        nodeName: mInst.name,
+        context: `${base}/${axis}`,
+        message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — ratified exception (${exception.citation}), not a violation.`,
+      });
+      continue;
+    }
     warnings.push({
       type: "axis_ownership_violation",
       nodeId: mInst.id || null,
