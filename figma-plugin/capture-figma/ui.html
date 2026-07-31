@@ -1,119 +1,262 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>Capture Figma</title>
   <style>
+    /* --- tokens: this file has no host design system to inherit from (a
+       self-contained Figma plugin iframe, no bundler/DS import), so this is
+       its own small token set — every color/spacing/radius below is a var
+       reference, never a bare literal in a rule. --- */
+    :root {
+      --color-bg: #ffffff;
+      --color-text: #1e1e1e;
+      --color-text-muted: #6b7280;
+      --color-border: #e5e7eb;
+      --color-chip-bg: #f3f4f6;
+      --color-chip-text: #374151;
+      --color-dot-idle: #9ca3af;
+      --color-dot-green: #22c55e;
+      --color-dot-purple: #a78bfa;
+      --color-dot-amber: #f59e0b;
+      --color-dot-red: #ef4444;
+      --color-sync-bg: #ecfdf5;
+      --color-sync-border: #bbf7d0;
+      --color-sync-text: #15803d;
+      --color-secondary-bg: #f9fafb;
+      --color-secondary-text: #374151;
+      --color-snapshot-bg: #f5f3ff;
+      --color-snapshot-border: #ddd6fe;
+      --color-snapshot-text: #6d28d9;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-pill: 999px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, Menlo, monospace;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
-      font-size: 12px;
       margin: 0;
-      padding: 12px;
+      padding: var(--space-3);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--color-text);
+      background: var(--color-bg);
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      box-sizing: border-box;
-      height: 100vh;
+      gap: var(--space-3);
     }
-    button {
-      font-family: inherit;
-      font-size: 12px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-    }
-    #export-btn {
-      background: #18a0fb;
-      color: #fff;
-      font-weight: 600;
-    }
-    #export-btn:disabled {
-      background: #a6d8fd;
-      cursor: default;
-    }
-    .row {
+
+    .panel-header {
       display: flex;
-      gap: 8px;
+      align-items: center;
+      gap: var(--space-2);
+      margin: 0;
+    }
+    .panel-header h1 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .panel-header .icon {
+      flex-shrink: 0;
+      color: var(--color-text-muted);
+    }
+
+    .status-row {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+    }
+    .status-row-top {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      min-width: 8px;
+      border-radius: 50%;
+      background: var(--color-dot-idle);
+    }
+    .status-dot.green { background: var(--color-dot-green); }
+    .status-dot.purple { background: var(--color-dot-purple); }
+    .status-dot.amber { background: var(--color-dot-amber); }
+    .status-dot.red { background: var(--color-dot-red); }
+    .status-state {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-detail {
+      color: var(--color-text-muted);
+      flex: 1;
+      min-width: 0;
+      overflow-wrap: break-word;
+    }
+    .status-time {
+      color: var(--color-text-muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .chip-btn-row {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .chip-btn {
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--color-border);
+      background: var(--color-secondary-bg);
+      color: var(--color-secondary-text);
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
       align-items: center;
     }
-    #status {
-      color: #666;
-      min-height: 14px;
-    }
-    #status.error {
-      color: #c0392b;
-    }
-    textarea {
-      flex: 1;
-      width: 100%;
-      box-sizing: border-box;
-      font-family: "SFMono-Regular", Consolas, Menlo, monospace;
-      font-size: 11px;
-      resize: none;
-      border: 1px solid #e6e6e6;
-      border-radius: 6px;
-      padding: 8px;
-    }
-    #copy-btn, #download-link {
-      background: #f0f0f0;
-      color: #333;
-    }
-    #download-link {
-      display: inline-block;
-      text-decoration: none;
-      padding: 8px 12px;
-      border-radius: 6px;
-      opacity: 0.4;
+    .chip-btn:disabled,
+    .chip-btn[aria-disabled="true"] {
+      opacity: 0.45;
+      cursor: default;
       pointer-events: none;
     }
-    #download-link.enabled {
-      opacity: 1;
-      pointer-events: auto;
+    .chip-btn.sync {
+      background: var(--color-sync-bg);
+      color: var(--color-sync-text);
+      border-color: var(--color-sync-border);
     }
-    #sync-btn {
-      background: #f0f0f0;
-      color: #333;
+    .chip-btn.sync.on {
+      background: var(--color-dot-green);
+      color: #ffffff;
+      border-color: var(--color-dot-green);
     }
-    #sync-btn.on {
-      background: #1bc47d;
-      color: #fff;
-      font-weight: 600;
+    .chip-btn.snapshot {
+      background: var(--color-snapshot-bg);
+      color: var(--color-snapshot-text);
+      border-color: var(--color-snapshot-border);
     }
-    #sync-status {
-      color: #666;
-      min-height: 14px;
-      font-size: 11px;
+
+    .count-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
     }
-    #sync-status.warn {
-      color: #b8860b;
+    .count-heading {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
     }
-    #sync-status.error {
-      color: #c0392b;
+    .count-number {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1;
     }
-    #sync-note {
-      color: #999;
+    .count-label {
       font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+    }
+    .stat-chip {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--color-chip-bg);
+      color: var(--color-chip-text);
+    }
+
+    details.raw-json {
+      border-top: 1px solid var(--color-border);
+      padding-top: var(--space-2);
+    }
+    details.raw-json summary {
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      list-style: none;
+    }
+    details.raw-json summary::-webkit-details-marker {
+      display: none;
+    }
+    details.raw-json pre {
+      margin: var(--space-2) 0 0;
+      max-height: 260px;
+      overflow: auto;
+      background: var(--color-secondary-bg);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      white-space: pre;
     }
   </style>
 </head>
 <body>
-  <div class="row">
-    <button id="export-btn">Export variables + styles</button>
-    <button id="copy-btn" disabled>Copy JSON</button>
-    <a id="download-link" download="capture-figma-export.json">Download JSON</a>
-  </div>
-  <div id="status"></div>
-  <div class="row">
-    <button id="sync-btn">Start sync</button>
-    <div id="sync-status">Sync is off. One-shot export above still works with no listener running.</div>
-  </div>
-  <div id="sync-note">
-    Live sync POSTs to a local listener on localhost only (never the internet) and only runs
-    while this plugin panel stays open in the file — Figma has no background execution, so
-    closing this panel stops sync.
-  </div>
-  <textarea id="output" readonly placeholder="Export output will appear here..."></textarea>
+  <header class="panel-header">
+    <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.3" />
+      <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3" />
+    </svg>
+    <h1>Capture Figma</h1>
+  </header>
+
+  <section class="status-row" id="sync-row" aria-label="Sync status">
+    <div class="status-row-top" role="status" aria-live="polite">
+      <span class="status-dot" id="sync-dot"></span>
+      <span class="status-state" id="sync-state">Ready</span>
+      <span class="status-detail" id="sync-detail">— click POST to sync</span>
+      <span class="status-time" id="sync-time"></span>
+    </div>
+    <div class="chip-btn-row">
+      <button
+        type="button"
+        class="chip-btn sync"
+        id="sync-btn"
+        title="Live sync POSTs to a local listener on localhost only (never the internet) and only runs while this plugin panel stays open — Figma has no background execution, so closing this panel stops sync."
+      >Sync</button>
+      <button type="button" class="chip-btn" id="copy-btn" disabled>Copy</button>
+      <a class="chip-btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
+    </div>
+  </section>
+
+  <section class="status-row" id="snapshot-row" aria-label="Snapshot status">
+    <div class="status-row-top" role="status" aria-live="polite">
+      <span class="status-dot" id="snapshot-dot"></span>
+      <span class="status-state" id="snapshot-state">No snapshot yet</span>
+      <span class="status-detail" id="snapshot-detail"></span>
+      <span class="status-time" id="snapshot-time"></span>
+    </div>
+    <div class="chip-btn-row">
+      <button type="button" class="chip-btn snapshot" id="snapshot-btn">Save snapshot</button>
+    </div>
+  </section>
+
+  <div id="counts"></div>
+
+  <details class="raw-json" id="raw-json">
+    <summary id="raw-json-summary">▶ Raw JSON</summary>
+    <pre id="raw-json-output"></pre>
+  </details>
 
   <script>
     // The only context in this plugin with a real fetch() — see code.js's
@@ -123,21 +266,51 @@
     // (not "127.0.0.1" — Figma's manifest validator only accepts bare
     // hostnames/domains there, so the fetch target has to match verbatim).
     const CAPTURE_LISTENER_URL = "http://localhost:4411/capture";
+    const LISTENER_MAX_BYTES = 50 * 1024 * 1024;
+    const WARN_THRESHOLD_BYTES = LISTENER_MAX_BYTES * 0.9;
 
-    const exportBtn = document.getElementById("export-btn");
-    const copyBtn = document.getElementById("copy-btn");
-    const downloadLink = document.getElementById("download-link");
-    const output = document.getElementById("output");
-    const status = document.getElementById("status");
+    const syncDot = document.getElementById("sync-dot");
+    const syncStateEl = document.getElementById("sync-state");
+    const syncDetailEl = document.getElementById("sync-detail");
+    const syncTimeEl = document.getElementById("sync-time");
     const syncBtn = document.getElementById("sync-btn");
-    const syncStatus = document.getElementById("sync-status");
+    const copyBtn = document.getElementById("copy-btn");
+    const downloadBtn = document.getElementById("download-btn");
+
+    const snapshotDot = document.getElementById("snapshot-dot");
+    const snapshotStateEl = document.getElementById("snapshot-state");
+    const snapshotDetailEl = document.getElementById("snapshot-detail");
+    const snapshotTimeEl = document.getElementById("snapshot-time");
+    const snapshotBtn = document.getElementById("snapshot-btn");
+
+    const countsEl = document.getElementById("counts");
+    const rawJsonDetails = document.getElementById("raw-json");
+    const rawJsonSummary = document.getElementById("raw-json-summary");
+    const rawJsonOutput = document.getElementById("raw-json-output");
 
     let syncOn = false;
-    // Tracks the blob URL currently on downloadLink.href, so it can be
+    let lastExportJson = null;
+    // Tracks the blob URL currently on downloadBtn.href, so it can be
     // revoked before the next one replaces it — createObjectURL()'s
     // reference otherwise stays alive for the panel's whole lifetime, and a
     // sync session runs one export per document change.
     let currentDownloadUrl = null;
+
+    function setSyncRow(dotClass, state, detail, time) {
+      syncDot.className = "status-dot" + (dotClass ? " " + dotClass : "");
+      syncStateEl.textContent = state;
+      syncDetailEl.textContent = detail || "";
+      syncTimeEl.textContent = time || "";
+    }
+
+    function setSnapshotRow(dotClass, state, detail, time) {
+      snapshotDot.className = "status-dot" + (dotClass ? " " + dotClass : "");
+      snapshotStateEl.textContent = state;
+      snapshotDetailEl.textContent = detail || "";
+      snapshotTimeEl.textContent = time || "";
+    }
+
+    // --- sync row --------------------------------------------------------
 
     syncBtn.addEventListener("click", () => {
       if (syncOn) {
@@ -147,38 +320,231 @@
       }
     });
 
-    exportBtn.addEventListener("click", () => {
-      status.classList.remove("error");
-      status.textContent = "Exporting...";
-      exportBtn.disabled = true;
-      copyBtn.disabled = true;
-      downloadLink.classList.remove("enabled");
-      output.value = "";
-      parent.postMessage({ pluginMessage: { type: "export" } }, "*");
-    });
+    function fallbackCopy(text) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
 
     copyBtn.addEventListener("click", () => {
+      if (!lastExportJson) return;
       // navigator.clipboard is the modern API, but it can reject inside a
       // plugin iframe without a "clipboard-write" permissions policy — fall
       // back to the older selection-based execCommand("copy") either when
       // the API isn't present at all, or when it's present but rejects.
       if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-        navigator.clipboard.writeText(output.value).then(
-          () => {
-            status.textContent = "Copied to clipboard.";
-          },
-          () => {
-            output.select();
-            document.execCommand("copy");
-            status.textContent = "Copied to clipboard.";
-          }
-        );
+        navigator.clipboard.writeText(lastExportJson).catch(() => fallbackCopy(lastExportJson));
         return;
       }
-      output.select();
-      document.execCommand("copy");
-      status.textContent = "Copied to clipboard.";
+      fallbackCopy(lastExportJson);
     });
+
+    function enableCopyDownload(data) {
+      lastExportJson = JSON.stringify(data, null, 2);
+      copyBtn.disabled = false;
+
+      const blob = new Blob([lastExportJson], { type: "application/json" });
+      if (currentDownloadUrl) {
+        URL.revokeObjectURL(currentDownloadUrl);
+      }
+      currentDownloadUrl = URL.createObjectURL(blob);
+      downloadBtn.href = currentDownloadUrl;
+      downloadBtn.setAttribute("aria-disabled", "false");
+    }
+
+    // --- count sections ----------------------------------------------------
+
+    function statChip(label, count) {
+      const el = document.createElement("span");
+      el.className = "stat-chip";
+      el.textContent = count.toLocaleString() + " " + label;
+      return el;
+    }
+
+    function slug(name) {
+      return name.trim().toLowerCase().replace(/\s+/g, "-");
+    }
+
+    function countSection(total, label, entries) {
+      const section = document.createElement("div");
+      section.className = "count-section";
+
+      const heading = document.createElement("div");
+      heading.className = "count-heading";
+      const num = document.createElement("span");
+      num.className = "count-number";
+      num.textContent = total.toLocaleString();
+      const lab = document.createElement("span");
+      lab.className = "count-label";
+      lab.textContent = label;
+      heading.appendChild(num);
+      heading.appendChild(lab);
+      section.appendChild(heading);
+
+      if (entries.length) {
+        const row = document.createElement("div");
+        row.className = "chip-row";
+        for (const [chipLabel, count] of entries) {
+          row.appendChild(statChip(chipLabel, count));
+        }
+        section.appendChild(row);
+      }
+
+      return section;
+    }
+
+    function renderCounts(data) {
+      countsEl.innerHTML = "";
+      const header = data.header || {};
+      const counts = header.counts || {};
+
+      // Variables: every counts[] entry not prefixed "styles/" (those are
+      // style-type counts, folded into the STYLES section below), one chip
+      // per collection, descending by count.
+      const varEntries = Object.entries(counts)
+        .filter(([key]) => key.indexOf("styles/") !== 0)
+        .sort((a, b) => b[1] - a[1]);
+      const varTotal = varEntries.reduce((sum, [, n]) => sum + n, 0);
+      countsEl.appendChild(
+        countSection(varTotal, "VARIABLES", varEntries.map(([name, n]) => [slug(name), n]))
+      );
+
+      // Styles: fixed type order (matches header.styleCounts' own shape),
+      // not desc-sorted — "text/paint/effect/grid" is a meaningful taxonomy
+      // order, not a ranked list.
+      const styleCounts = header.styleCounts || {};
+      const styleEntries = ["text", "paint", "effect", "grid"].map((t) => [t, styleCounts[t] || 0]);
+      const styleTotal =
+        typeof styleCounts.total === "number"
+          ? styleCounts.total
+          : styleEntries.reduce((sum, [, n]) => sum + n, 0);
+      countsEl.appendChild(countSection(styleTotal, "STYLES", styleEntries));
+
+      // Components: standalone + sets.
+      const componentCounts = header.componentCounts || { standalone: 0, sets: 0 };
+      const componentTotal = (componentCounts.standalone || 0) + (componentCounts.sets || 0);
+      countsEl.appendChild(
+        countSection(componentTotal, "COMPONENTS", [
+          ["standalone", componentCounts.standalone || 0],
+          ["sets", componentCounts.sets || 0],
+        ])
+      );
+
+      // Warnings: grouped by warnings[].type, descending by count — the
+      // count section this UI adds beyond what the plugin already tracked
+      // in header.warningCount.
+      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+      const byType = new Map();
+      for (const w of warnings) {
+        const key = w && w.type ? w.type : "unknown";
+        byType.set(key, (byType.get(key) || 0) + 1);
+      }
+      const warningEntries = Array.from(byType.entries()).sort((a, b) => b[1] - a[1]);
+      countsEl.appendChild(
+        countSection(
+          warnings.length,
+          "WARNINGS",
+          warningEntries.map(([type, n]) => [type.replace(/_/g, "-"), n])
+        )
+      );
+    }
+
+    function populateRawJson(data) {
+      rawJsonOutput.textContent = JSON.stringify(data, null, 2);
+    }
+
+    rawJsonDetails.addEventListener("toggle", () => {
+      rawJsonSummary.textContent = (rawJsonDetails.open ? "▼" : "▶") + " Raw JSON";
+    });
+
+    // --- snapshot row ------------------------------------------------------
+
+    snapshotBtn.addEventListener("click", () => {
+      snapshotBtn.disabled = true;
+      setSnapshotRow("", "Saving snapshot…", "", "");
+      parent.postMessage({ pluginMessage: { type: "save-snapshot" } }, "*");
+    });
+
+    function handleSnapshotStatus(msg) {
+      if (msg.state === "unavailable") {
+        snapshotBtn.disabled = true;
+        setSnapshotRow("", "Snapshot unavailable", msg.message, "");
+      } else if (msg.state === "ready") {
+        snapshotBtn.disabled = false;
+        setSnapshotRow("", "No snapshot yet", "", "");
+      } else if (msg.state === "saved") {
+        snapshotBtn.disabled = false;
+        const t = new Date(msg.at).toLocaleTimeString();
+        setSnapshotRow("purple", "Snapshot saved", msg.title, t);
+      } else if (msg.state === "error") {
+        snapshotBtn.disabled = false;
+        setSnapshotRow("red", "Snapshot failed", msg.message, "");
+      }
+    }
+
+    // --- sync-status / export-progress / export-result --------------------
+
+    function handleSyncStatus(msg) {
+      if (msg.state === "loading") {
+        syncBtn.disabled = true;
+        setSyncRow("", "Loading…", msg.message || "loading all pages…", "");
+      } else if (msg.state === "on") {
+        syncOn = true;
+        syncBtn.disabled = false;
+        syncBtn.textContent = "Stop";
+        syncBtn.classList.add("on");
+        setSyncRow("", "Syncing…", "exporting now…", "");
+      } else if (msg.state === "off") {
+        syncOn = false;
+        syncBtn.disabled = false;
+        syncBtn.textContent = "Sync";
+        syncBtn.classList.remove("on");
+        setSyncRow("", "Sync off", "click Sync to start", "");
+      } else if (msg.state === "synced") {
+        const t = new Date(msg.lastSyncAt).toLocaleTimeString();
+        let detail = msg.lastSyncCount + " item(s) sent to listener";
+        // msg.summary mirrors the listener's changes.jsonl cross-bucket
+        // summary (scripts/capture-listener.mjs) — absent on the very
+        // first sync of a file (nothing to diff against yet) and on an
+        // unchanged/no-op sync.
+        if (msg.summary) {
+          const s = msg.summary;
+          const parts = [];
+          if (s.added) parts.push(s.added + " added");
+          if (s.modified) parts.push(s.modified + " modified");
+          if (s.removed) parts.push(s.removed + " removed");
+          if (s.renamed) parts.push(s.renamed + " renamed");
+          if (s.repointed) parts.push(s.repointed + " repointed");
+          if (s.layerBindings) parts.push(s.layerBindings + " layer binding(s)");
+          if (parts.length) detail = parts.join(", ");
+        }
+        let dot = "green";
+        if (msg.warningCount > 0) {
+          detail += " — " + msg.warningCount + " warning(s)";
+          dot = "amber";
+        }
+        setSyncRow(dot, "Synced to listener", detail, t);
+      } else if (msg.state === "restored") {
+        // From clientStorage, loaded once at panel-open — a prior session's
+        // last successful sync, shown before this session has synced
+        // anything itself. Overwritten by the next real "synced" (or any
+        // other) status the moment this session produces one.
+        const t = new Date(msg.lastSyncAt).toLocaleTimeString();
+        const d = new Date(msg.lastSyncAt).toLocaleDateString();
+        setSyncRow("green", "Synced to listener", msg.lastSyncCount + " item(s) — previous session, " + d, t);
+      } else if (msg.state === "unreachable") {
+        setSyncRow("amber", "Listener unreachable", msg.message + " — will retry on next change", "");
+      } else if (msg.state === "listener-error") {
+        setSyncRow("amber", "Listener error", msg.message, "");
+      } else if (msg.state === "error") {
+        setSyncRow("red", "Sync error", msg.message, "");
+      }
+    }
 
     window.onmessage = (event) => {
       const msg = event.data.pluginMessage;
@@ -198,18 +564,13 @@
         // aware) rather than payload.length (UTF-16 code units) since the
         // listener measures actual bytes received.
         const payloadBytes = new Blob([payload]).size;
-        const LISTENER_MAX_BYTES = 50 * 1024 * 1024;
-        const WARN_THRESHOLD_BYTES = LISTENER_MAX_BYTES * 0.9;
         if (payloadBytes > LISTENER_MAX_BYTES) {
-          // REFUSE to POST at all — the listener rejects bodies over 50MB
-          // outright (scripts/capture-listener.mjs's MAX_BODY_BYTES), so
-          // sending anyway just burns a round trip to get the same 413 back.
-          // This is the ONE POST code path shared by every trigger (the
-          // immediate export on "Start sync" and every debounced
-          // document-change resync), so the refusal covers both.
-          syncStatus.classList.add("error");
+          // REFUSE to POST at all — sending anyway just burns a round trip
+          // to get the same 413 back. This is the ONE POST code path shared
+          // by every trigger (the immediate export on "Sync" and every
+          // debounced document-change resync), so the refusal covers both.
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
-          syncStatus.textContent = "Payload is " + mb + "MB — over the listener's 50MB limit, refusing to POST.";
+          setSyncRow("red", "Payload too large", mb + "MB — over the listener's 50MB limit, refusing to POST", "");
           parent.postMessage(
             { pluginMessage: { type: "sync-post-result", ok: false, error: "payload " + mb + "MB exceeds the listener's 50MB limit" } },
             "*"
@@ -221,9 +582,8 @@
           // payload and the fetch both live in this iframe already); the
           // "synced"/"unreachable"/etc. status from code.js overwrites this
           // once the POST resolves, same as any other sync-status update.
-          syncStatus.classList.add("warn");
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
-          syncStatus.textContent = "Payload is " + mb + "MB — approaching the listener's 50MB limit.";
+          setSyncRow("amber", "Payload large", mb + "MB — approaching the listener's 50MB limit", "");
         }
 
         fetch(CAPTURE_LISTENER_URL, {
@@ -235,8 +595,8 @@
             if (res.ok) {
               // Parse the listener's response body for warningCount/summary
               // (scripts/capture-listener.mjs's POST /capture contract) so
-              // code.js's "synced" status can show them without a separate
-              // GET /changes round trip. A body that fails to parse still
+              // the "synced" status can show them without a separate GET
+              // /changes round trip. A body that fails to parse still
               // reports the successful POST — just without those extras.
               res
                 .json()
@@ -306,132 +666,32 @@
       if (msg.type === "export-progress") {
         // One-way phase status during buildExport() (collecting variables/
         // styles/components, resolving templates, scanning capabilities,
-        // linting) — shown on whichever status line is currently active so
-        // it's visible for both a manual export and a sync run. Falls
-        // through without touching exportBtn/copyBtn/downloadLink state —
-        // this is mid-export, not a completion.
-        status.classList.remove("error");
-        status.textContent = msg.text;
-        if (syncOn) {
-          syncStatus.classList.remove("warn", "error");
-          syncStatus.textContent = msg.text;
-        }
+        // linting) — shown in the sync row's detail text so it's visible
+        // for every export (toggling Sync on, or a debounced resync).
+        setSyncRow("", "Exporting…", msg.text, "");
         return;
       }
 
-      exportBtn.disabled = false;
-
       if (msg.type === "export-result") {
-        const json = JSON.stringify(msg.data, null, 2);
-        output.value = json;
-        copyBtn.disabled = false;
+        renderCounts(msg.data);
+        populateRawJson(msg.data);
+        enableCopyDownload(msg.data);
+        return;
+      }
 
-        const blob = new Blob([json], { type: "application/json" });
-        if (currentDownloadUrl) {
-          URL.revokeObjectURL(currentDownloadUrl);
-        }
-        const url = URL.createObjectURL(blob);
-        currentDownloadUrl = url;
-        downloadLink.href = url;
-        downloadLink.classList.add("enabled");
+      if (msg.type === "export-error") {
+        setSyncRow("red", "Export failed", msg.message, "");
+        return;
+      }
 
-        const counts = msg.data.header && msg.data.header.counts ? msg.data.header.counts : {};
-        const variableCountEntries = Object.entries(counts).filter(
-          ([key]) => key.indexOf("styles/") !== 0
-        );
-        const collectionCount = variableCountEntries.length;
-        const variableCount = variableCountEntries.reduce((sum, [, n]) => sum + n, 0);
+      if (msg.type === "sync-status") {
+        handleSyncStatus(msg);
+        return;
+      }
 
-        const styleCounts =
-          msg.data.header && msg.data.header.styleCounts ? msg.data.header.styleCounts : null;
-        const styleCount = styleCounts ? styleCounts.total : 0;
-
-        const componentCounts =
-          msg.data.header && msg.data.header.componentCounts ? msg.data.header.componentCounts : null;
-        const warningCount =
-          msg.data.header && typeof msg.data.header.warningCount === "number" ? msg.data.header.warningCount : 0;
-
-        status.textContent =
-          "Exported " +
-          variableCount +
-          " variables across " +
-          collectionCount +
-          " collection(s), " +
-          styleCount +
-          " styles (text " +
-          (styleCounts ? styleCounts.text : 0) +
-          ", paint " +
-          (styleCounts ? styleCounts.paint : 0) +
-          ", effect " +
-          (styleCounts ? styleCounts.effect : 0) +
-          ", grid " +
-          (styleCounts ? styleCounts.grid : 0) +
-          "), " +
-          (componentCounts ? componentCounts.standalone + componentCounts.sets : 0) +
-          " components" +
-          (warningCount > 0 ? ", " + warningCount + " warning(s)" : "") +
-          ".";
-      } else if (msg.type === "export-error") {
-        status.classList.add("error");
-        status.textContent = "Export failed: " + msg.message;
-      } else if (msg.type === "sync-status") {
-        syncStatus.classList.remove("warn", "error");
-
-        if (msg.state === "loading") {
-          syncStatus.textContent = msg.message || "loading all pages…";
-        } else if (msg.state === "on") {
-          syncOn = true;
-          syncBtn.textContent = "Stop sync";
-          syncBtn.classList.add("on");
-          syncStatus.textContent = "Sync on — exporting now...";
-        } else if (msg.state === "off") {
-          syncOn = false;
-          syncBtn.textContent = "Start sync";
-          syncBtn.classList.remove("on");
-          syncStatus.textContent = "Sync is off. One-shot export above still works with no listener running.";
-        } else if (msg.state === "synced") {
-          const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-          let text =
-            "Last sync: " + t + " — " + msg.lastSyncCount + " item(s) sent to listener.";
-          // msg.summary mirrors the listener's changes.jsonl cross-bucket
-          // summary (scripts/capture-listener.mjs) — absent on the very
-          // first sync of a file (nothing to diff against yet) and on an
-          // unchanged/no-op sync.
-          if (msg.summary) {
-            const s = msg.summary;
-            const parts = [];
-            if (s.added) parts.push(s.added + " added");
-            if (s.modified) parts.push(s.modified + " modified");
-            if (s.removed) parts.push(s.removed + " removed");
-            if (s.renamed) parts.push(s.renamed + " renamed");
-            if (s.repointed) parts.push(s.repointed + " repointed");
-            if (s.layerBindings) parts.push(s.layerBindings + " layer binding(s)");
-            if (parts.length) text += " (" + parts.join(", ") + ")";
-          }
-          if (msg.warningCount > 0) {
-            syncStatus.classList.add("warn");
-            text += " — " + msg.warningCount + " warning(s).";
-          }
-          syncStatus.textContent = text;
-        } else if (msg.state === "restored") {
-          // From clientStorage, loaded once at panel-open — a prior
-          // session's last successful sync, shown before this session has
-          // synced anything itself. Overwritten by the next real "synced"
-          // (or any other) status the moment this session produces one.
-          const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-          const d = new Date(msg.lastSyncAt).toLocaleDateString();
-          syncStatus.textContent =
-            "Last sync: " + t + " on " + d + " — " + msg.lastSyncCount + " item(s) (previous session).";
-        } else if (msg.state === "unreachable") {
-          syncStatus.classList.add("warn");
-          syncStatus.textContent = msg.message + " (will retry on next change).";
-        } else if (msg.state === "listener-error") {
-          syncStatus.classList.add("warn");
-          syncStatus.textContent = msg.message;
-        } else if (msg.state === "error") {
-          syncStatus.classList.add("error");
-          syncStatus.textContent = msg.message;
-        }
+      if (msg.type === "snapshot-status") {
+        handleSnapshotStatus(msg);
+        return;
       }
     };
   </script>
