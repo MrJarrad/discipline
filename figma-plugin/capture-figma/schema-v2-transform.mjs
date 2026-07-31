@@ -373,6 +373,19 @@ function buildComponents(snapshot) {
   return { standalone, sets };
 }
 
+// header.propskitAvailable: whether Figma's fig-* web components (see
+// ~/JHD/design-tools/shared/figma-props-kit/'s README — availability inside
+// a plugin iframe is documented there as UNVERIFIED) turned out to be
+// registered in THIS session's UI iframe. Only ui.html can answer this — the
+// main-thread sandbox this file runs in has no DOM/customElements at all —
+// so the boolean arrives over the same postMessage round-trip as every other
+// UI-owned fact this file consumes. Coerced to a real boolean and defaulted
+// false (never omitted) so a payload built before the UI's probe message
+// arrives still reports a definite, non-optimistic answer.
+function buildHeaderPropskitField(propskitAvailable) {
+  return { propskitAvailable: !!propskitAvailable };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -385,6 +398,54 @@ function buildWarnings(input) {
     ...buildDuplicateSiblingNameWarnings(snapshot.nodeSnapshots),
     ...buildAxisOwnershipViolationWarnings(snapshot.templateFrames),
   ];
+}
+
+// warningsByType: warnings[] (see buildWarnings above) grouped into a
+// {type: count} map — the compact shape clientStorage persists (see
+// code.js's LAST_SYNC_STORAGE_KEY comment) and ui.html's renderCounts()
+// consumes for the restored-on-reload WARNINGS section, since the raw
+// warnings[] array itself is deliberately not persisted.
+function computeWarningsByType(warnings) {
+  const byType = {};
+  for (const w of warnings || []) {
+    const key = w && w.type ? w.type : "unknown";
+    byType[key] = (byType[key] || 0) + 1;
+  }
+  return byType;
+}
+
+// The clientStorage payload shape written by code.js's saveLastSyncToStorage
+// and read back by loadLastSyncFromStorage — see LAST_SYNC_STORAGE_KEY's
+// comment for the persisted-shape contract and what's deliberately excluded.
+function buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings) {
+  return {
+    lastSyncAt: atMs,
+    lastSyncCount: count,
+    summary: summary || null,
+    warningCount: warningCount || 0,
+    header: header
+      ? { counts: header.counts, styleCounts: header.styleCounts, componentCounts: header.componentCounts }
+      : null,
+    warningsByType: computeWarningsByType(warnings),
+  };
+}
+
+// The "sync-status"/"restored" postMessage code.js sends ui.html at boot
+// when a prior session's sync was found in clientStorage — coerces every
+// field defensively since `stored` is whatever a past version of this
+// plugin wrote (a reload might be reading a payload from before a field
+// existed).
+function buildRestoredSyncMessage(stored) {
+  return {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: stored.lastSyncAt,
+    lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
+    summary: stored.summary || null,
+    warningCount: typeof stored.warningCount === "number" ? stored.warningCount : 0,
+    header: stored.header || null,
+    warningsByType: stored.warningsByType || {},
+  };
 }
 
 // === END SCHEMA V2 TRANSFORM ===
@@ -402,4 +463,8 @@ export {
   buildComponentProperties,
   buildComponents,
   serializeColor,
+  buildHeaderPropskitField,
+  computeWarningsByType,
+  buildSyncStoragePayload,
+  buildRestoredSyncMessage,
 };

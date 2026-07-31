@@ -288,6 +288,33 @@
     const rawJsonSummary = document.getElementById("raw-json-summary");
     const rawJsonOutput = document.getElementById("raw-json-output");
 
+    // --- PropsKit feature-detect probe --------------------------------------
+    //
+    // Whether Figma's fig-* web components (~/JHD/design-tools/shared/
+    // figma-props-kit/) are actually registered in THIS plugin iframe is
+    // documented there as UNVERIFIED — only a live probe from inside the
+    // iframe can answer it; code.js's main-thread sandbox has no DOM at all.
+    // Detection: customElements.get("fig-button") returning a real
+    // constructor that extends HTMLElement. fig-button is the exact tag the
+    // props-kit README itself names for a lookup, and requiring both "get
+    // returned something" AND "that something extends HTMLElement" rules out
+    // the only realistic false-positive (some unrelated script registering
+    // an unrelated, non-element value under the same tag name) — a bare
+    // `!!customElements.get(...)` alone would still pass a same-named
+    // non-custom-element registration, which this doesn't accept.
+    function detectPropskitAvailable() {
+      if (typeof customElements === "undefined" || typeof customElements.get !== "function") {
+        return false;
+      }
+      const ctor = customElements.get("fig-button");
+      return typeof ctor === "function" && ctor.prototype instanceof HTMLElement;
+    }
+
+    parent.postMessage(
+      { pluginMessage: { type: "propskit-availability", available: detectPropskitAvailable() } },
+      "*"
+    );
+
     let syncOn = false;
     let lastExportJson = null;
     // Tracks the blob URL currently on downloadBtn.href, so it can be
@@ -435,19 +462,30 @@
         ])
       );
 
-      // Warnings: grouped by warnings[].type, descending by count — the
-      // count section this UI adds beyond what the plugin already tracked
-      // in header.warningCount.
-      const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-      const byType = new Map();
-      for (const w of warnings) {
-        const key = w && w.type ? w.type : "unknown";
-        byType.set(key, (byType.get(key) || 0) + 1);
+      // Warnings: grouped by type, descending by count — the count section
+      // this UI adds beyond what the plugin already tracked in
+      // header.warningCount. Two shapes feed this: a live export-result's
+      // raw warnings[] array (grouped here), or a restored-from-clientStorage
+      // payload's already-grouped warningsByType map — the raw array isn't
+      // persisted (see code.js's LAST_SYNC_STORAGE_KEY comment), so a
+      // restore has no warnings[] to regroup, only the counts.
+      let byType;
+      let warningsTotal;
+      if (Array.isArray(data.warnings)) {
+        byType = new Map();
+        for (const w of data.warnings) {
+          const key = w && w.type ? w.type : "unknown";
+          byType.set(key, (byType.get(key) || 0) + 1);
+        }
+        warningsTotal = data.warnings.length;
+      } else {
+        byType = new Map(Object.entries(data.warningsByType || {}));
+        warningsTotal = typeof data.warningCount === "number" ? data.warningCount : 0;
       }
       const warningEntries = Array.from(byType.entries()).sort((a, b) => b[1] - a[1]);
       countsEl.appendChild(
         countSection(
-          warnings.length,
+          warningsTotal,
           "WARNINGS",
           warningEntries.map(([type, n]) => [type.replace(/_/g, "-"), n])
         )
@@ -489,6 +527,34 @@
 
     // --- sync-status / export-progress / export-result --------------------
 
+    // Shared by the live "synced" state and the boot-time "restored" state
+    // (a prior session's last sync, read back from clientStorage) — both
+    // show the same diff-summary sentence, so the string only lives once.
+    // `summary` mirrors the listener's changes.jsonl cross-bucket summary
+    // (scripts/capture-listener.mjs) — absent on the very first sync of a
+    // file (nothing to diff against yet) and on an unchanged/no-op sync.
+    // `warningCount` is informational text only, never a status color: a
+    // full export routinely carries hundreds of structural-lint warnings
+    // (malformed-spacer-name, etc.) that are pre-existing document state,
+    // not a sign this sync itself failed or degraded — the dot stays green.
+    function buildSyncedDetail(lastSyncCount, summary, warningCount) {
+      let detail = lastSyncCount + " item(s) sent to listener";
+      if (summary) {
+        const parts = [];
+        if (summary.added) parts.push(summary.added + " added");
+        if (summary.modified) parts.push(summary.modified + " modified");
+        if (summary.removed) parts.push(summary.removed + " removed");
+        if (summary.renamed) parts.push(summary.renamed + " renamed");
+        if (summary.repointed) parts.push(summary.repointed + " repointed");
+        if (summary.layerBindings) parts.push(summary.layerBindings + " layer binding(s)");
+        if (parts.length) detail = parts.join(", ");
+      }
+      if (warningCount > 0) {
+        detail += " — " + warningCount + " warning(s)";
+      }
+      return detail;
+    }
+
     function handleSyncStatus(msg) {
       if (msg.state === "loading") {
         syncBtn.disabled = true;
@@ -507,28 +573,7 @@
         setSyncRow("", "Sync off", "click Sync to start", "");
       } else if (msg.state === "synced") {
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-        let detail = msg.lastSyncCount + " item(s) sent to listener";
-        // msg.summary mirrors the listener's changes.jsonl cross-bucket
-        // summary (scripts/capture-listener.mjs) — absent on the very
-        // first sync of a file (nothing to diff against yet) and on an
-        // unchanged/no-op sync.
-        if (msg.summary) {
-          const s = msg.summary;
-          const parts = [];
-          if (s.added) parts.push(s.added + " added");
-          if (s.modified) parts.push(s.modified + " modified");
-          if (s.removed) parts.push(s.removed + " removed");
-          if (s.renamed) parts.push(s.renamed + " renamed");
-          if (s.repointed) parts.push(s.repointed + " repointed");
-          if (s.layerBindings) parts.push(s.layerBindings + " layer binding(s)");
-          if (parts.length) detail = parts.join(", ");
-        }
-        let dot = "green";
-        if (msg.warningCount > 0) {
-          detail += " — " + msg.warningCount + " warning(s)";
-          dot = "amber";
-        }
-        setSyncRow(dot, "Synced to listener", detail, t);
+        setSyncRow("green", "Synced to listener", buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount), t);
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
         // last successful sync, shown before this session has synced
@@ -537,6 +582,12 @@
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
         const d = new Date(msg.lastSyncAt).toLocaleDateString();
         setSyncRow("green", "Synced to listener", msg.lastSyncCount + " item(s) — previous session, " + d, t);
+        // Repaint the count sections too (Variables/Styles/Components/
+        // Warnings) — not just the sync row — so a reload shows the full
+        // last-sync state, matching state-05-synced.png. Raw JSON/Copy/
+        // Download stay empty: the full export payload isn't persisted (see
+        // code.js's LAST_SYNC_STORAGE_KEY comment), only this summary.
+        renderCounts({ header: msg.header, warningsByType: msg.warningsByType, warningCount: msg.warningCount });
       } else if (msg.state === "unreachable") {
         setSyncRow("amber", "Listener unreachable", msg.message + " — will retry on next change", "");
       } else if (msg.state === "listener-error") {

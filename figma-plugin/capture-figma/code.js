@@ -115,6 +115,15 @@ const PLUGIN_VERSION = "1.16.0";
 // reporting the result back over the same postMessage channel.
 const SYNC_DEBOUNCE_MS = 5000;
 
+// header.propskitAvailable's live value — see buildHeaderPropskitField's
+// comment above for why this is reported by ui.html rather than detected
+// here. Defaults false until the UI's boot-time probe message arrives
+// (posted right after ui.html's script starts, ahead of any user action, so
+// in practice this resolves before the earliest possible export — but a
+// buildExport() run that somehow races ahead of it still reports the
+// non-optimistic default rather than an assumed true).
+let propskitAvailable = false;
+
 figma.showUI(__html__, { width: 480, height: 640 });
 loadLastSyncFromStorage();
 postSnapshotAvailability();
@@ -838,6 +847,19 @@ function buildComponents(snapshot) {
   return { standalone, sets };
 }
 
+// header.propskitAvailable: whether Figma's fig-* web components (see
+// ~/JHD/design-tools/shared/figma-props-kit/'s README — availability inside
+// a plugin iframe is documented there as UNVERIFIED) turned out to be
+// registered in THIS session's UI iframe. Only ui.html can answer this — the
+// main-thread sandbox this file runs in has no DOM/customElements at all —
+// so the boolean arrives over the same postMessage round-trip as every other
+// UI-owned fact this file consumes. Coerced to a real boolean and defaulted
+// false (never omitted) so a payload built before the UI's probe message
+// arrives still reports a definite, non-optimistic answer.
+function buildHeaderPropskitField(propskitAvailable) {
+  return { propskitAvailable: !!propskitAvailable };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -850,6 +872,54 @@ function buildWarnings(input) {
     ...buildDuplicateSiblingNameWarnings(snapshot.nodeSnapshots),
     ...buildAxisOwnershipViolationWarnings(snapshot.templateFrames),
   ];
+}
+
+// warningsByType: warnings[] (see buildWarnings above) grouped into a
+// {type: count} map — the compact shape clientStorage persists (see
+// code.js's LAST_SYNC_STORAGE_KEY comment) and ui.html's renderCounts()
+// consumes for the restored-on-reload WARNINGS section, since the raw
+// warnings[] array itself is deliberately not persisted.
+function computeWarningsByType(warnings) {
+  const byType = {};
+  for (const w of warnings || []) {
+    const key = w && w.type ? w.type : "unknown";
+    byType[key] = (byType[key] || 0) + 1;
+  }
+  return byType;
+}
+
+// The clientStorage payload shape written by code.js's saveLastSyncToStorage
+// and read back by loadLastSyncFromStorage — see LAST_SYNC_STORAGE_KEY's
+// comment for the persisted-shape contract and what's deliberately excluded.
+function buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings) {
+  return {
+    lastSyncAt: atMs,
+    lastSyncCount: count,
+    summary: summary || null,
+    warningCount: warningCount || 0,
+    header: header
+      ? { counts: header.counts, styleCounts: header.styleCounts, componentCounts: header.componentCounts }
+      : null,
+    warningsByType: computeWarningsByType(warnings),
+  };
+}
+
+// The "sync-status"/"restored" postMessage code.js sends ui.html at boot
+// when a prior session's sync was found in clientStorage — coerces every
+// field defensively since `stored` is whatever a past version of this
+// plugin wrote (a reload might be reading a payload from before a field
+// existed).
+function buildRestoredSyncMessage(stored) {
+  return {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: stored.lastSyncAt,
+    lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
+    summary: stored.summary || null,
+    warningCount: typeof stored.warningCount === "number" ? stored.warningCount : 0,
+    header: stored.header || null,
+    warningsByType: stored.warningsByType || {},
+  };
 }
 
 // === END SCHEMA V2 TRANSFORM ===
@@ -1447,6 +1517,7 @@ async function buildExport() {
     }),
     componentCounts: { standalone: components.standalone.length, sets: components.sets.length },
     warningCount: warnings.length,
+    ...buildHeaderPropskitField(propskitAvailable),
   };
   // figma.fileKey: undefined in some contexts (e.g. a file that has never
   // been saved to the cloud, or certain plugin-execution contexts per
@@ -1500,18 +1571,27 @@ let lastSyncCount = 0;
 // source of truth while sync is actively running; clientStorage is only
 // read once at startup (to show a value before the first sync of this
 // session) and written after every successful sync.
+//
+// PERSISTED SHAPE (operator-reported defect fix — a reload used to always
+// show the pre-sync idle state, discarding the whole panel's context):
+// { lastSyncAt, lastSyncCount, summary, warningCount, header: {counts,
+// styleCounts, componentCounts}, warningsByType: {type: count} }.
+// Deliberately NOT persisted: the full export payload (collections/styles/
+// components/raw JSON) or the diff-count breakdown's source warnings array —
+// clientStorage has a real per-plugin quota, and a full export can run into
+// tens of MB (see ui.html's LISTENER_MAX_BYTES), so only the compact,
+// already-derived summary a reload needs to redraw the status rows + count
+// sections travels through this key. A reload therefore restores the counts/
+// timestamp/warnings summary but NOT Raw JSON/Copy/Download — those stay
+// empty until the next real export, which is the honest scope of "restore
+// the last sync's summary" this fix delivers.
 const LAST_SYNC_STORAGE_KEY = "capture-figma:last-sync";
 
 async function loadLastSyncFromStorage() {
   try {
     const stored = await figma.clientStorage.getAsync(LAST_SYNC_STORAGE_KEY);
     if (stored && typeof stored.lastSyncAt === "number") {
-      figma.ui.postMessage({
-        type: "sync-status",
-        state: "restored",
-        lastSyncAt: stored.lastSyncAt,
-        lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
-      });
+      figma.ui.postMessage(buildRestoredSyncMessage(stored));
     }
   } catch (err) {
     // clientStorage can throw in some plugin execution contexts (e.g.
@@ -1520,12 +1600,12 @@ async function loadLastSyncFromStorage() {
   }
 }
 
-async function saveLastSyncToStorage(atMs, count) {
+async function saveLastSyncToStorage(atMs, count, summary, warningCount, header, warnings) {
   try {
-    await figma.clientStorage.setAsync(LAST_SYNC_STORAGE_KEY, {
-      lastSyncAt: atMs,
-      lastSyncCount: count,
-    });
+    await figma.clientStorage.setAsync(
+      LAST_SYNC_STORAGE_KEY,
+      buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings)
+    );
   } catch (err) {
     // Best-effort — a failed write only costs the cross-session persistence,
     // not the current session's in-memory status.
@@ -1619,7 +1699,14 @@ async function runSyncExport() {
     warningCount: typeof result.warningCount === "number" ? result.warningCount : 0,
     summary: result.summary || null,
   });
-  await saveLastSyncToStorage(lastSyncAt, lastSyncCount);
+  await saveLastSyncToStorage(
+    lastSyncAt,
+    lastSyncCount,
+    result.summary || null,
+    typeof result.warningCount === "number" ? result.warningCount : 0,
+    data.header,
+    data.warnings
+  );
 }
 
 function scheduleSyncExport() {
@@ -1737,6 +1824,14 @@ async function saveSnapshot() {
 
 figma.ui.onmessage = async (msg) => {
   if (!msg) return;
+
+  if (msg.type === "propskit-availability") {
+    // One-shot report from ui.html's boot-time feature-detect probe (see
+    // buildHeaderPropskitField's comment) — never sent again this session,
+    // so every buildExport() from here on carries the real answer.
+    propskitAvailable = !!msg.available;
+    return;
+  }
 
   if (msg.type === "sync-post-result") {
     // Reply to the postSyncExportToUI() request currently in flight, if any.

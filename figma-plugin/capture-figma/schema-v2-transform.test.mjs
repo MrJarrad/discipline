@@ -19,6 +19,10 @@ import {
   buildComponentProperties,
   buildComponents,
   serializeColor,
+  buildHeaderPropskitField,
+  computeWarningsByType,
+  buildSyncStoragePayload,
+  buildRestoredSyncMessage,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -470,6 +474,119 @@ test("serializeColor: an RGBA color with alpha 1 still serializes to hex (opaque
 
 test("serializeColor: an RGBA color with alpha < 1 serializes to rgba() with alpha rounded to 4 decimals", () => {
   assert.equal(serializeColor({ r: 0, g: 0, b: 0, a: 0.3333333333 }), "rgba(0, 0, 0, 0.3333)");
+});
+
+test("buildHeaderPropskitField: reports propskitAvailable true when the probe found fig-button registered", () => {
+  assert.deepEqual(buildHeaderPropskitField(true), { propskitAvailable: true });
+});
+
+test("buildHeaderPropskitField: reports propskitAvailable false when the probe found it unregistered", () => {
+  assert.deepEqual(buildHeaderPropskitField(false), { propskitAvailable: false });
+});
+
+test("buildHeaderPropskitField: an undetermined probe (undefined — ui.html hasn't reported in yet) coerces to false, never omitted", () => {
+  assert.deepEqual(buildHeaderPropskitField(undefined), { propskitAvailable: false });
+});
+
+test("computeWarningsByType: groups warnings[] into a {type: count} map", () => {
+  const warnings = [
+    { type: "malformed-spacer-name" },
+    { type: "malformed-spacer-name" },
+    { type: "duplicate-sibling-name" },
+  ];
+  assert.deepEqual(computeWarningsByType(warnings), {
+    "malformed-spacer-name": 2,
+    "duplicate-sibling-name": 1,
+  });
+});
+
+test("computeWarningsByType: a warning with no type falls into 'unknown'", () => {
+  assert.deepEqual(computeWarningsByType([{ message: "no type field" }]), { unknown: 1 });
+});
+
+test("computeWarningsByType: no warnings maps to an empty object", () => {
+  assert.deepEqual(computeWarningsByType(undefined), {});
+  assert.deepEqual(computeWarningsByType([]), {});
+});
+
+test("buildSyncStoragePayload: shapes a sync result into the clientStorage round-trip contract", () => {
+  const header = {
+    counts: { "Color/Brand": 12 },
+    styleCounts: { text: 3, paint: 5, effect: 0, grid: 1 },
+    componentCounts: { standalone: 4, sets: 2 },
+    fileName: "Design System",
+  };
+  const warnings = [{ type: "malformed-spacer-name" }, { type: "malformed-spacer-name" }];
+
+  const payload = buildSyncStoragePayload(1234, 6, { added: 3 }, 2, header, warnings);
+
+  assert.deepEqual(payload, {
+    lastSyncAt: 1234,
+    lastSyncCount: 6,
+    summary: { added: 3 },
+    warningCount: 2,
+    header: {
+      counts: { "Color/Brand": 12 },
+      styleCounts: { text: 3, paint: 5, effect: 0, grid: 1 },
+      componentCounts: { standalone: 4, sets: 2 },
+    },
+    warningsByType: { "malformed-spacer-name": 2 },
+  });
+});
+
+test("buildSyncStoragePayload: strips header down to counts/styleCounts/componentCounts only, dropping fields like fileName", () => {
+  const header = { counts: {}, styleCounts: {}, componentCounts: {}, fileName: "Design System", pluginVersion: "1.16.0" };
+  const payload = buildSyncStoragePayload(1, 0, null, 0, header, []);
+  assert.deepEqual(Object.keys(payload.header).sort(), ["componentCounts", "counts", "styleCounts"]);
+});
+
+test("buildSyncStoragePayload: a null header and no summary/warningCount default to null/0, never omitted", () => {
+  const payload = buildSyncStoragePayload(1, 0, null, undefined, null, []);
+  assert.deepEqual(payload, {
+    lastSyncAt: 1,
+    lastSyncCount: 0,
+    summary: null,
+    warningCount: 0,
+    header: null,
+    warningsByType: {},
+  });
+});
+
+test("buildRestoredSyncMessage: shapes a clientStorage record into the 'sync-status'/'restored' postMessage ui.html expects", () => {
+  const stored = {
+    lastSyncAt: 1234,
+    lastSyncCount: 6,
+    summary: { added: 3 },
+    warningCount: 2,
+    header: { counts: { "Color/Brand": 12 } },
+    warningsByType: { "malformed-spacer-name": 2 },
+  };
+
+  assert.deepEqual(buildRestoredSyncMessage(stored), {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: 1234,
+    lastSyncCount: 6,
+    summary: { added: 3 },
+    warningCount: 2,
+    header: { counts: { "Color/Brand": 12 } },
+    warningsByType: { "malformed-spacer-name": 2 },
+  });
+});
+
+test("buildRestoredSyncMessage: a pre-persistence-fix stored record (no summary/header/warningsByType) still coerces safe defaults, never throws", () => {
+  const legacyStored = { lastSyncAt: 999, lastSyncCount: 4 };
+
+  assert.deepEqual(buildRestoredSyncMessage(legacyStored), {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: 999,
+    lastSyncCount: 4,
+    summary: null,
+    warningCount: 0,
+    header: null,
+    warningsByType: {},
+  });
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {
