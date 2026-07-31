@@ -154,11 +154,6 @@
       color: var(--color-sync-text);
       border-color: var(--color-sync-border);
     }
-    .btn.sync.on {
-      background: var(--color-dot-green);
-      color: #ffffff;
-      border-color: var(--color-dot-green);
-    }
     .btn.snapshot {
       background: var(--color-snapshot-bg);
       color: var(--color-snapshot-text);
@@ -244,7 +239,7 @@
         type="button"
         class="btn sync"
         id="sync-btn"
-        title="Live sync POSTs to a local listener on localhost only (never the internet) and only runs while this plugin panel stays open — Figma has no background execution, so closing this panel stops sync."
+        title="Sync runs one export and POSTs it to a local listener on localhost only (never the internet) — a manual, one-shot action, never a background/continuous mode."
       >Sync</button>
       <button type="button" class="btn" id="copy-btn" disabled>Copy</button>
       <a class="btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
@@ -329,12 +324,11 @@
       "*"
     );
 
-    let syncOn = false;
     let lastExportJson = null;
     // Tracks the blob URL currently on downloadBtn.href, so it can be
     // revoked before the next one replaces it — createObjectURL()'s
-    // reference otherwise stays alive for the panel's whole lifetime, and a
-    // sync session runs one export per document change.
+    // reference otherwise stays alive for the panel's whole lifetime, and
+    // each Sync click can produce a new export.
     let currentDownloadUrl = null;
 
     function setSyncRow(dotClass, state, detail, time) {
@@ -354,11 +348,7 @@
     // --- sync row --------------------------------------------------------
 
     syncBtn.addEventListener("click", () => {
-      if (syncOn) {
-        parent.postMessage({ pluginMessage: { type: "stop-sync" } }, "*");
-      } else {
-        parent.postMessage({ pluginMessage: { type: "start-sync" } }, "*");
-      }
+      parent.postMessage({ pluginMessage: { type: "sync" } }, "*");
     });
 
     function fallbackCopy(text) {
@@ -583,23 +573,18 @@
       return detail;
     }
 
+    // Manual-only sync (vault ruling, token-rulings.md "Sync is MANUAL-ONLY
+    // — auto sync removed"): the button always reads "Sync" and always sends
+    // the same one-shot message — no toggle state, no "Stop". The row walks
+    // Ready -> Syncing -> a terminal state (Synced, or an error/unreachable
+    // status) every click; the button is disabled only for that in-flight
+    // window so a second click can't overlap the export/POST in progress.
     function handleSyncStatus(msg) {
-      if (msg.state === "loading") {
+      if (msg.state === "syncing") {
         syncBtn.disabled = true;
-        setSyncRow("", "Loading…", msg.message || "loading all pages…", "");
-      } else if (msg.state === "on") {
-        syncOn = true;
-        syncBtn.disabled = false;
-        syncBtn.textContent = "Stop";
-        syncBtn.classList.add("on");
         setSyncRow("", "Syncing…", "exporting now…", "");
-      } else if (msg.state === "off") {
-        syncOn = false;
-        syncBtn.disabled = false;
-        syncBtn.textContent = "Sync";
-        syncBtn.classList.remove("on");
-        setSyncRow("", "Sync off", "click Sync to start", "");
       } else if (msg.state === "synced") {
+        syncBtn.disabled = false;
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
         // State word is just "Synced" (bold) — the mockup's regular-weight
         // "to listener" is a static mockup label; the real, richer sync
@@ -622,10 +607,13 @@
         // code.js's LAST_SYNC_STORAGE_KEY comment), only this summary.
         renderCounts({ header: msg.header, warningsByType: msg.warningsByType, warningCount: msg.warningCount });
       } else if (msg.state === "unreachable") {
-        setSyncRow("amber", "Listener unreachable", msg.message + " — will retry on next change", "");
+        syncBtn.disabled = false;
+        setSyncRow("amber", "Listener unreachable", msg.message + " — click Sync to retry", "");
       } else if (msg.state === "listener-error") {
+        syncBtn.disabled = false;
         setSyncRow("amber", "Listener error", msg.message, "");
       } else if (msg.state === "error") {
+        syncBtn.disabled = false;
         setSyncRow("red", "Sync error", msg.message, "");
       }
     }
@@ -650,9 +638,8 @@
         const payloadBytes = new Blob([payload]).size;
         if (payloadBytes > LISTENER_MAX_BYTES) {
           // REFUSE to POST at all — sending anyway just burns a round trip
-          // to get the same 413 back. This is the ONE POST code path shared
-          // by every trigger (the immediate export on "Sync" and every
-          // debounced document-change resync), so the refusal covers both.
+          // to get the same 413 back. This is the ONE POST code path every
+          // Sync click runs through, so the refusal covers it every time.
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
           setSyncRow("red", "Payload too large", mb + "MB — over the listener's 50MB limit, refusing to POST", "");
           parent.postMessage(
@@ -750,8 +737,8 @@
       if (msg.type === "export-progress") {
         // One-way phase status during buildExport() (collecting variables/
         // styles/components, resolving templates, scanning capabilities,
-        // linting) — shown in the sync row's detail text so it's visible
-        // for every export (toggling Sync on, or a debounced resync).
+        // linting) — shown in the sync row's detail text for every Sync
+        // click's export.
         setSyncRow("", "Exporting…", msg.text, "");
         return;
       }
