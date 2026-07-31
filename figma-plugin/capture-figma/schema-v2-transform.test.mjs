@@ -19,6 +19,7 @@ import {
   buildComponentProperties,
   buildComponents,
   serializeColor,
+  buildHeaderPropskitField,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -470,6 +471,18 @@ test("serializeColor: an RGBA color with alpha 1 still serializes to hex (opaque
 
 test("serializeColor: an RGBA color with alpha < 1 serializes to rgba() with alpha rounded to 4 decimals", () => {
   assert.equal(serializeColor({ r: 0, g: 0, b: 0, a: 0.3333333333 }), "rgba(0, 0, 0, 0.3333)");
+});
+
+test("buildHeaderPropskitField: reports propskitAvailable true when the probe found fig-button registered", () => {
+  assert.deepEqual(buildHeaderPropskitField(true), { propskitAvailable: true });
+});
+
+test("buildHeaderPropskitField: reports propskitAvailable false when the probe found it unregistered", () => {
+  assert.deepEqual(buildHeaderPropskitField(false), { propskitAvailable: false });
+});
+
+test("buildHeaderPropskitField: an undetermined probe (undefined — ui.html hasn't reported in yet) coerces to false, never omitted", () => {
+  assert.deepEqual(buildHeaderPropskitField(undefined), { propskitAvailable: false });
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {

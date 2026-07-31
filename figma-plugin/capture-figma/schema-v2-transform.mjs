@@ -373,6 +373,19 @@ function buildComponents(snapshot) {
   return { standalone, sets };
 }
 
+// header.propskitAvailable: whether Figma's fig-* web components (see
+// ~/JHD/design-tools/shared/figma-props-kit/'s README — availability inside
+// a plugin iframe is documented there as UNVERIFIED) turned out to be
+// registered in THIS session's UI iframe. Only ui.html can answer this — the
+// main-thread sandbox this file runs in has no DOM/customElements at all —
+// so the boolean arrives over the same postMessage round-trip as every other
+// UI-owned fact this file consumes. Coerced to a real boolean and defaulted
+// false (never omitted) so a payload built before the UI's probe message
+// arrives still reports a definite, non-optimistic answer.
+function buildHeaderPropskitField(propskitAvailable) {
+  return { propskitAvailable: !!propskitAvailable };
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -402,4 +415,5 @@ export {
   buildComponentProperties,
   buildComponents,
   serializeColor,
+  buildHeaderPropskitField,
 };
