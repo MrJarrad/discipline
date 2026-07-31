@@ -117,6 +117,7 @@ const SYNC_DEBOUNCE_MS = 5000;
 
 figma.showUI(__html__, { width: 480, height: 640 });
 loadLastSyncFromStorage();
+postSnapshotAvailability();
 
 // Lets a user right-click the page/canvas → Plugins → Relaunch buttons →
 // jump straight back into this plugin without the full Plugins menu each
@@ -1282,10 +1283,11 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
 // Per-phase progress reporting during buildExport() — a full export on a
 // large file can take several seconds with no other feedback; this is a
 // one-way status line, never gated on a UI acknowledgement (matches every
-// other figma.ui.postMessage call in this file — buildExport() has no
-// caller-specific knowledge of whether it's running for a manual export or
-// a sync POST, so it just reports; both ui.html paths render the same
-// "export-progress" message the same way).
+// other figma.ui.postMessage call in this file). Every buildExport() call
+// runs through runSyncExport() (toggling Sync on always exports once
+// immediately, then again on every debounced document change) — ui.html
+// renders "export-progress" in the sync status row's detail text while it
+// runs.
 function reportPhase(text) {
   figma.ui.postMessage({ type: "export-progress", text: text });
 }
@@ -1474,15 +1476,16 @@ async function buildExport() {
 
 // --- live sync mode ---------------------------------------------------------
 //
-// "Start sync" is additive to the existing one-shot export above, which
-// stays as the offline fallback (works with no listener running, no
-// networkAccess granted beyond localhost). While sync is on: an export runs
-// immediately, then again on every figma.on('documentchange'), debounced
-// SYNC_DEBOUNCE_MS trailing so a burst of edits produces one POST, not one
-// per keystroke. Sandbox rule (also stated in ui.html): sync only runs while
-// this plugin's UI is open in the file — Figma plugins have no background
-// execution, so closing the plugin stops sync until it's reopened and
-// restarted.
+// The Sync chip toggles this on/off; there is no separate one-shot export
+// trigger (v1.16.0 UI rebuild — see ui.html). Toggling on runs a full export
+// immediately (this is the "works with no listener running" fallback: the
+// export-result posted from runSyncExport() populates the UI's counts/Raw
+// JSON/Copy/Download whether or not the POST below reaches a listener), then
+// again on every figma.on('documentchange'), debounced SYNC_DEBOUNCE_MS
+// trailing so a burst of edits produces one POST, not one per keystroke.
+// Sandbox rule (also stated in ui.html): sync only runs while this plugin's
+// UI is open in the file — Figma plugins have no background execution, so
+// closing the plugin stops sync until it's reopened and restarted.
 
 let syncEnabled = false;
 let syncDebounceTimer = null;
@@ -1560,12 +1563,24 @@ async function runSyncExport() {
     data = await buildExport();
   } catch (err) {
     figma.ui.postMessage({
+      type: "export-error",
+      message: err && err.message ? err.message : String(err),
+    });
+    figma.ui.postMessage({
       type: "sync-status",
       state: "error",
       message: "export failed: " + (err && err.message ? err.message : String(err)),
     });
     return;
   }
+
+  // Posted unconditionally on every successful build — the export itself
+  // succeeded whether or not the listener is reachable, so the UI's counts/
+  // Raw JSON/Copy/Download should reflect it regardless of what the POST
+  // below does. This is the "one-shot export still works with no listener
+  // running" fallback: toggling Sync on always produces local data even if
+  // every sync-status branch below reports "unreachable".
+  figma.ui.postMessage({ type: "export-result", data: data });
 
   const result = await postSyncExportToUI(data);
 
@@ -1656,6 +1671,70 @@ function stopSync() {
   figma.ui.postMessage({ type: "sync-status", state: "off" });
 }
 
+// --- manual version snapshot (adopt-list #11) -------------------------------
+//
+// RULING (operator, 2026-07-31): Save snapshot is MANUAL ONLY — a UI button
+// click is the sole trigger. NEVER call saveSnapshot() from
+// runSyncExport()/startSync()/scheduleSyncExport(). The reference
+// implementation this feature was ported from
+// (~/Downloads/capture-figma/code.ts's onmessage handler for
+// 'post-success': `saveSnapshot('Snapshot on sync.')`) auto-stamps a
+// version on every successful sync POST — that pattern was explicitly
+// rejected here: a debounced sync can fire on every document change, and a
+// version stamp per change would flood the file's version history.
+//
+// DOCUMENTACCESS HONESTY: this manifest sets documentAccess: "dynamic-page".
+// The current @figma/plugin-typings surface documents
+// figma.saveVersionHistoryAsync() with no dynamic-page-specific restriction
+// or guard — it reads as available regardless of documentAccess. That said,
+// this has never been confirmed with a live run inside an actual
+// dynamic-page file (no WebFetch/live-Figma verification lane was available
+// when this was written — same caveat as this file's styles-export note
+// above). So: feature-detect via typeof (this file's established pattern
+// for every other figma.* accessor) rather than assuming presence, and let
+// ANY thrown error surface to the UI verbatim rather than swallowing or
+// reinterpreting it — if dynamic-page does reject this call in some Figma
+// version, the real error message reaches the user instead of a guess.
+
+function postSnapshotAvailability() {
+  const available = typeof figma.saveVersionHistoryAsync === "function";
+  figma.ui.postMessage({
+    type: "snapshot-status",
+    state: available ? "ready" : "unavailable",
+    message: available
+      ? null
+      : "figma.saveVersionHistoryAsync is not available in this Figma version/editor.",
+  });
+}
+
+async function saveSnapshot() {
+  if (typeof figma.saveVersionHistoryAsync !== "function") {
+    figma.ui.postMessage({
+      type: "snapshot-status",
+      state: "unavailable",
+      message: "figma.saveVersionHistoryAsync is not available in this Figma version/editor.",
+    });
+    return;
+  }
+  const title = "capture " + new Date().toISOString();
+  try {
+    const result = await figma.saveVersionHistoryAsync(title);
+    figma.ui.postMessage({
+      type: "snapshot-status",
+      state: "saved",
+      title: title,
+      versionId: result ? result.id : null,
+      at: Date.now(),
+    });
+  } catch (err) {
+    figma.ui.postMessage({
+      type: "snapshot-status",
+      state: "error",
+      message: err && err.message ? err.message : String(err),
+    });
+  }
+}
+
 figma.ui.onmessage = async (msg) => {
   if (!msg) return;
 
@@ -1669,19 +1748,6 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
 
-  if (msg.type === "export") {
-    try {
-      const data = await buildExport();
-      figma.ui.postMessage({ type: "export-result", data: data });
-    } catch (err) {
-      figma.ui.postMessage({
-        type: "export-error",
-        message: err && err.message ? err.message : String(err),
-      });
-    }
-    return;
-  }
-
   if (msg.type === "start-sync") {
     await startSync();
     return;
@@ -1689,6 +1755,11 @@ figma.ui.onmessage = async (msg) => {
 
   if (msg.type === "stop-sync") {
     stopSync();
+    return;
+  }
+
+  if (msg.type === "save-snapshot") {
+    await saveSnapshot();
     return;
   }
 };
