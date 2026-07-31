@@ -7,8 +7,15 @@
     /* --- tokens: this file has no host design system to inherit from (a
        self-contained Figma plugin iframe, no bundler/DS import), so this is
        its own small token set — every color/spacing/radius below is a var
-       reference, never a bare literal in a rule. Values are measured off
-       the operator's Figma-authored mockup (figma-capture-figma*.png). --- */
+       reference, never a bare literal in a rule. Spacing/type values are
+       scaled to the plugin's native CSS-px panel (figma.showUI is 480x640,
+       no devicePixelRatio scaling) — the design mockup PNGs
+       (figma-capture-figma*.png) are 2x-effective renders, so raw pixel
+       measurements off them read ~1.4x too large; sizes here were corrected
+       against the operator's original native-scale ui.html (body 12px,
+       panel padding 16px, 6-8px radii, 8px dots) and verified by rendering
+       this file standalone and comparing element proportions at matched
+       widths. --- */
     :root {
       --color-bg: #ffffff;
       --color-text: #1e1e1e;
@@ -37,9 +44,9 @@
       --radius-md: 8px;
       --space-1: 4px;
       --space-2: 8px;
-      --space-3: 20px;
-      --space-4: 26px;
-      --space-5: 24px;
+      --space-3: 10px;
+      --space-4: 14px;
+      --space-5: 16px;
       --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
       --font-mono: "SFMono-Regular", Consolas, Menlo, monospace;
     }
@@ -50,7 +57,7 @@
       margin: 0;
       padding: 0;
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 12px;
       color: var(--color-text);
       background: var(--color-bg);
       display: flex;
@@ -124,9 +131,9 @@
     }
     .btn {
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: var(--radius-md);
       border: 1px solid var(--color-secondary-border);
       background: var(--color-secondary-bg);
@@ -164,7 +171,7 @@
       gap: var(--space-2);
     }
     .count-number {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 800;
       line-height: 1;
       color: var(--color-text);
@@ -179,12 +186,12 @@
     .chip-row {
       display: flex;
       flex-wrap: wrap;
-      column-gap: 14px;
-      row-gap: 12px;
+      column-gap: 10px;
+      row-gap: var(--space-2);
     }
     .stat-chip {
-      font-size: 13px;
-      padding: 8px 14px;
+      font-size: 12px;
+      padding: 6px 10px;
       border-radius: var(--radius-sm);
       background: var(--color-chip-bg);
       border: 1px solid var(--color-chip-border);
