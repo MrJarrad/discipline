@@ -685,9 +685,18 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
 // opinion rendered through each block's device axis (vault ruling — "M/D
 // divergence the device axis can't explain = machine-detectable
 // inconsistency"). Frames pair by name (M-<base> / D-<base>); instances
-// within a pair correlate by name (same convention as everything else in
-// this bucket). Any non-device-axis value that differs between the paired
-// instances is flagged — the device axis itself is exempt by definition.
+// within a pair correlate POSITIONALLY (same index in each frame's
+// instances[] array — the Example frame's own authoring order), NOT by
+// instance name: real Example frames routinely repeat one component under
+// one duplicated, un-renamed instance name (e.g. 9 "SplitContent"
+// instances), so a name-keyed Map collapses every repeat onto whichever
+// instance it saw last, misattributing that one instance's value to every
+// same-named instance on the other side (found live against the
+// 2026-07-31 capture: D-Project's 9 SplitContent instances vs M-Project's
+// 8 produced 8 warnings all quoting D's LAST instance's value, even though
+// the 8 shared positions actually agreed M<->D). A position present on only
+// one side (the count-mismatch case) is a distinct unpaired_template_instance
+// warning, never a value-divergence false positive.
 // The separator is matched loosely (`\s*-\s*`) because the real Example
 // frame naming convention is "M - Home" / "D - Home" (spaced en-dash-style
 // hyphen), not the bare "M-Home" the original regex required — the bare
@@ -705,10 +714,13 @@ function buildAxisOwnershipViolationWarnings(templateFrames) {
   const warnings = [];
   for (const [base, pair] of pairsByBase) {
     if (!pair.M || !pair.D) continue;
-    const dByName = new Map((pair.D.instances || []).map((inst) => [inst.name, inst]));
-    for (const mInst of pair.M.instances || []) {
-      const dInst = dByName.get(mInst.name);
-      if (!dInst) continue;
+    const mInstances = pair.M.instances || [];
+    const dInstances = pair.D.instances || [];
+    const sharedCount = Math.min(mInstances.length, dInstances.length);
+
+    for (let i = 0; i < sharedCount; i++) {
+      const mInst = mInstances[i];
+      const dInst = dInstances[i];
       const mVariant = mInst.variantProps || {};
       const dVariant = dInst.variantProps || {};
       const axes = new Set([...Object.keys(mVariant), ...Object.keys(dVariant)]);
@@ -723,6 +735,22 @@ function buildAxisOwnershipViolationWarnings(templateFrames) {
           message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`,
         });
       }
+    }
+
+    const mCount = mInstances.length;
+    const dCount = dInstances.length;
+    const extraSide = mCount > dCount ? "M" : "D";
+    const extraInstances = extraSide === "M" ? mInstances : dInstances;
+    for (let i = sharedCount; i < extraInstances.length; i++) {
+      const inst = extraInstances[i];
+      const otherSide = extraSide === "M" ? "D" : "M";
+      warnings.push({
+        type: "unpaired_template_instance",
+        nodeId: inst.id || null,
+        nodeName: inst.name,
+        context: `${base}/${extraSide}`,
+        message: `${base}: ${extraSide}-${base} instance "${inst.name}" at position ${i} has no ${otherSide}-${base} counterpart (M has ${mCount}, D has ${dCount} instance(s)).`,
+      });
     }
   }
   return warnings;

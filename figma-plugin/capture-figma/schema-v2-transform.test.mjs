@@ -325,6 +325,91 @@ test("buildWarnings: flags an axis-ownership violation when M-/D- frame names ca
   assert.equal(result[0].nodeName, "Hero");
 });
 
+test("buildWarnings: an M/D pair with unequal SplitContent instance counts (8 vs 9, all sharing the same instance name) compares the shared prefix positionally instead of collapsing every M instance onto the last D instance", () => {
+  const sharedVariant = (v) => ({ split: v, device: "shared" });
+  const positions = ["full", "split-media", "half-reversed", "half", "full", "split-media", "half-reversed", "half"];
+  const mInstances = positions.map((v, i) => ({
+    id: `m-${i}`,
+    name: "SplitContent",
+    component: "SplitContent",
+    variantProps: sharedVariant(v),
+    properties: {},
+    overrides: [],
+  }));
+  const dInstances = [
+    ...positions.map((v, i) => ({
+      id: `d-${i}`,
+      name: "SplitContent",
+      component: "SplitContent",
+      variantProps: sharedVariant(v),
+      properties: {},
+      overrides: [],
+    })),
+    {
+      id: "d-8",
+      name: "SplitContent",
+      component: "SplitContent",
+      variantProps: sharedVariant("split-media-text-reversed"),
+      properties: {},
+      overrides: [],
+    },
+  ];
+
+  const result = buildWarnings({
+    templateFrames: [
+      { id: "tf-m", name: "M - Project", instances: mInstances },
+      { id: "tf-d", name: "D - Project", instances: dInstances },
+    ],
+  });
+
+  assert.deepEqual(
+    result.filter((w) => w.type === "axis_ownership_violation"),
+    [],
+    "the 8 shared positions agree M<->D — no false value-divergence warnings"
+  );
+  const unpaired = result.filter((w) => w.type === "unpaired_template_instance");
+  assert.equal(unpaired.length, 1, "exactly one warning for D's 9th, uncounterparted instance");
+  assert.equal(unpaired[0].nodeId, "d-8");
+});
+
+test("buildWarnings: an M/D pair with equal instance counts still compares positionally and flags a genuine divergence", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Project",
+        instances: [
+          { id: "m-0", name: "SplitContent", component: "SplitContent", variantProps: { split: "full" }, properties: {}, overrides: [] },
+          { id: "m-1", name: "SplitContent", component: "SplitContent", variantProps: { split: "half" }, properties: {}, overrides: [] },
+        ],
+      },
+      {
+        id: "tf-d",
+        name: "D - Project",
+        instances: [
+          { id: "d-0", name: "SplitContent", component: "SplitContent", variantProps: { split: "full" }, properties: {}, overrides: [] },
+          { id: "d-1", name: "SplitContent", component: "SplitContent", variantProps: { split: "half-reversed" }, properties: {}, overrides: [] },
+        ],
+      },
+    ],
+  });
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].type, "axis_ownership_violation");
+  assert.equal(result[0].nodeId, "m-1");
+});
+
+test("buildWarnings: an M/D pair where both sides have zero instances produces no warnings", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      { id: "tf-m", name: "M - Empty", instances: [] },
+      { id: "tf-d", name: "D - Empty", instances: [] },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
 test("resolveComponentSetName: a variant component resolves to its COMPONENT_SET's name, not its own per-variant property string", () => {
   const variant = { name: "size=8", parent: { type: "COMPONENT_SET", name: "SpaceVertical" } };
   assert.equal(resolveComponentSetName(variant), "SpaceVertical");
