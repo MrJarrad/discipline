@@ -400,6 +400,54 @@ function buildWarnings(input) {
   ];
 }
 
+// warningsByType: warnings[] (see buildWarnings above) grouped into a
+// {type: count} map — the compact shape clientStorage persists (see
+// code.js's LAST_SYNC_STORAGE_KEY comment) and ui.html's renderCounts()
+// consumes for the restored-on-reload WARNINGS section, since the raw
+// warnings[] array itself is deliberately not persisted.
+function computeWarningsByType(warnings) {
+  const byType = {};
+  for (const w of warnings || []) {
+    const key = w && w.type ? w.type : "unknown";
+    byType[key] = (byType[key] || 0) + 1;
+  }
+  return byType;
+}
+
+// The clientStorage payload shape written by code.js's saveLastSyncToStorage
+// and read back by loadLastSyncFromStorage — see LAST_SYNC_STORAGE_KEY's
+// comment for the persisted-shape contract and what's deliberately excluded.
+function buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings) {
+  return {
+    lastSyncAt: atMs,
+    lastSyncCount: count,
+    summary: summary || null,
+    warningCount: warningCount || 0,
+    header: header
+      ? { counts: header.counts, styleCounts: header.styleCounts, componentCounts: header.componentCounts }
+      : null,
+    warningsByType: computeWarningsByType(warnings),
+  };
+}
+
+// The "sync-status"/"restored" postMessage code.js sends ui.html at boot
+// when a prior session's sync was found in clientStorage — coerces every
+// field defensively since `stored` is whatever a past version of this
+// plugin wrote (a reload might be reading a payload from before a field
+// existed).
+function buildRestoredSyncMessage(stored) {
+  return {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: stored.lastSyncAt,
+    lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
+    summary: stored.summary || null,
+    warningCount: typeof stored.warningCount === "number" ? stored.warningCount : 0,
+    header: stored.header || null,
+    warningsByType: stored.warningsByType || {},
+  };
+}
+
 // === END SCHEMA V2 TRANSFORM ===
 
 export {
@@ -416,4 +464,7 @@ export {
   buildComponents,
   serializeColor,
   buildHeaderPropskitField,
+  computeWarningsByType,
+  buildSyncStoragePayload,
+  buildRestoredSyncMessage,
 };

@@ -874,6 +874,54 @@ function buildWarnings(input) {
   ];
 }
 
+// warningsByType: warnings[] (see buildWarnings above) grouped into a
+// {type: count} map — the compact shape clientStorage persists (see
+// code.js's LAST_SYNC_STORAGE_KEY comment) and ui.html's renderCounts()
+// consumes for the restored-on-reload WARNINGS section, since the raw
+// warnings[] array itself is deliberately not persisted.
+function computeWarningsByType(warnings) {
+  const byType = {};
+  for (const w of warnings || []) {
+    const key = w && w.type ? w.type : "unknown";
+    byType[key] = (byType[key] || 0) + 1;
+  }
+  return byType;
+}
+
+// The clientStorage payload shape written by code.js's saveLastSyncToStorage
+// and read back by loadLastSyncFromStorage — see LAST_SYNC_STORAGE_KEY's
+// comment for the persisted-shape contract and what's deliberately excluded.
+function buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings) {
+  return {
+    lastSyncAt: atMs,
+    lastSyncCount: count,
+    summary: summary || null,
+    warningCount: warningCount || 0,
+    header: header
+      ? { counts: header.counts, styleCounts: header.styleCounts, componentCounts: header.componentCounts }
+      : null,
+    warningsByType: computeWarningsByType(warnings),
+  };
+}
+
+// The "sync-status"/"restored" postMessage code.js sends ui.html at boot
+// when a prior session's sync was found in clientStorage — coerces every
+// field defensively since `stored` is whatever a past version of this
+// plugin wrote (a reload might be reading a payload from before a field
+// existed).
+function buildRestoredSyncMessage(stored) {
+  return {
+    type: "sync-status",
+    state: "restored",
+    lastSyncAt: stored.lastSyncAt,
+    lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
+    summary: stored.summary || null,
+    warningCount: typeof stored.warningCount === "number" ? stored.warningCount : 0,
+    header: stored.header || null,
+    warningsByType: stored.warningsByType || {},
+  };
+}
+
 // === END SCHEMA V2 TRANSFORM ===
 
 // --- schema v2: live document traversal -------------------------------------
@@ -1539,35 +1587,11 @@ let lastSyncCount = 0;
 // the last sync's summary" this fix delivers.
 const LAST_SYNC_STORAGE_KEY = "capture-figma:last-sync";
 
-// Last-saved-snapshot persistence key, same clientStorage/quota reasoning as
-// above. Snapshot saves are rare, deliberate, manual actions (never auto-
-// triggered — see the "manual version snapshot" ruling below), so this is a
-// tiny, fixed-shape object: { title, at, versionId }.
-const LAST_SNAPSHOT_STORAGE_KEY = "capture-figma:last-snapshot";
-
-function computeWarningsByType(warnings) {
-  const byType = {};
-  for (const w of warnings || []) {
-    const key = w && w.type ? w.type : "unknown";
-    byType[key] = (byType[key] || 0) + 1;
-  }
-  return byType;
-}
-
 async function loadLastSyncFromStorage() {
   try {
     const stored = await figma.clientStorage.getAsync(LAST_SYNC_STORAGE_KEY);
     if (stored && typeof stored.lastSyncAt === "number") {
-      figma.ui.postMessage({
-        type: "sync-status",
-        state: "restored",
-        lastSyncAt: stored.lastSyncAt,
-        lastSyncCount: typeof stored.lastSyncCount === "number" ? stored.lastSyncCount : 0,
-        summary: stored.summary || null,
-        warningCount: typeof stored.warningCount === "number" ? stored.warningCount : 0,
-        header: stored.header || null,
-        warningsByType: stored.warningsByType || {},
-      });
+      figma.ui.postMessage(buildRestoredSyncMessage(stored));
     }
   } catch (err) {
     // clientStorage can throw in some plugin execution contexts (e.g.
@@ -1578,33 +1602,13 @@ async function loadLastSyncFromStorage() {
 
 async function saveLastSyncToStorage(atMs, count, summary, warningCount, header, warnings) {
   try {
-    await figma.clientStorage.setAsync(LAST_SYNC_STORAGE_KEY, {
-      lastSyncAt: atMs,
-      lastSyncCount: count,
-      summary: summary || null,
-      warningCount: warningCount || 0,
-      header: header ? { counts: header.counts, styleCounts: header.styleCounts, componentCounts: header.componentCounts } : null,
-      warningsByType: computeWarningsByType(warnings),
-    });
+    await figma.clientStorage.setAsync(
+      LAST_SYNC_STORAGE_KEY,
+      buildSyncStoragePayload(atMs, count, summary, warningCount, header, warnings)
+    );
   } catch (err) {
     // Best-effort — a failed write only costs the cross-session persistence,
     // not the current session's in-memory status.
-  }
-}
-
-async function saveLastSnapshotToStorage(title, atMs, versionId) {
-  try {
-    await figma.clientStorage.setAsync(LAST_SNAPSHOT_STORAGE_KEY, { title: title, at: atMs, versionId: versionId || null });
-  } catch (err) {
-    // Best-effort, same as saveLastSyncToStorage.
-  }
-}
-
-async function loadLastSnapshotFromStorage() {
-  try {
-    return await figma.clientStorage.getAsync(LAST_SNAPSHOT_STORAGE_KEY);
-  } catch (err) {
-    return null;
   }
 }
 
