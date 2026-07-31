@@ -7,14 +7,18 @@
     /* --- tokens: this file has no host design system to inherit from (a
        self-contained Figma plugin iframe, no bundler/DS import), so this is
        its own small token set — every color/spacing/radius below is a var
-       reference, never a bare literal in a rule. --- */
+       reference, never a bare literal in a rule. Values are measured off
+       the operator's Figma-authored mockup (figma-capture-figma*.png). --- */
     :root {
       --color-bg: #ffffff;
       --color-text: #1e1e1e;
-      --color-text-muted: #6b7280;
-      --color-border: #e5e7eb;
-      --color-chip-bg: #f3f4f6;
-      --color-chip-text: #374151;
+      --color-text-secondary: #55565c;
+      --color-text-muted: #9a9a9a;
+      --color-border: #ececed;
+      --color-chip-bg: #f0f0f0;
+      --color-chip-border: rgba(0, 0, 0, 0.06);
+      --color-chip-count-text: #27272a;
+      --color-chip-label-text: #6b7280;
       --color-dot-idle: #9ca3af;
       --color-dot-green: #22c55e;
       --color-dot-purple: #a78bfa;
@@ -23,17 +27,19 @@
       --color-sync-bg: #ecfdf5;
       --color-sync-border: #bbf7d0;
       --color-sync-text: #15803d;
-      --color-secondary-bg: #f9fafb;
-      --color-secondary-text: #374151;
+      --color-secondary-bg: #f3f4f6;
+      --color-secondary-text: #27272a;
+      --color-secondary-border: #e5e7eb;
       --color-snapshot-bg: #f5f3ff;
       --color-snapshot-border: #ddd6fe;
       --color-snapshot-text: #6d28d9;
       --radius-sm: 6px;
       --radius-md: 8px;
-      --radius-pill: 999px;
       --space-1: 4px;
       --space-2: 8px;
-      --space-3: 12px;
+      --space-3: 20px;
+      --space-4: 26px;
+      --space-5: 24px;
       --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
       --font-mono: "SFMono-Regular", Consolas, Menlo, monospace;
     }
@@ -42,43 +48,30 @@
     }
     body {
       margin: 0;
-      padding: var(--space-3);
+      padding: 0;
       font-family: var(--font-sans);
-      font-size: 12px;
+      font-size: 13px;
       color: var(--color-text);
       background: var(--color-bg);
       display: flex;
       flex-direction: column;
-      gap: var(--space-3);
     }
 
-    .panel-header {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin: 0;
-    }
-    .panel-header h1 {
-      font-size: 13px;
-      font-weight: 600;
-      margin: 0;
-    }
-    .panel-header .icon {
-      flex-shrink: 0;
-      color: var(--color-text-muted);
-    }
-
-    .status-row {
+    /* Flat, full-bleed rows: the border-bottom sits on the row's outer box
+       (outside the padding box), so it spans the panel's full width even
+       though the row's own content is inset by --space-5 — no separate
+       divider element needed. No card/box border treatment anywhere. */
+    .row {
       display: flex;
       flex-direction: column;
-      gap: var(--space-2);
-      padding: var(--space-3);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--color-border);
     }
+
     .status-row-top {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: var(--space-2);
     }
     .status-dot {
@@ -89,15 +82,31 @@
       background: var(--color-dot-idle);
     }
     .status-dot.green { background: var(--color-dot-green); }
-    .status-dot.purple { background: var(--color-dot-purple); }
+    .status-dot.purple,
+    .status-dot.purple-idle { background: var(--color-dot-purple); }
     .status-dot.amber { background: var(--color-dot-amber); }
     .status-dot.red { background: var(--color-dot-red); }
+
+    /* Quiet by default (idle rows read as one plain muted sentence — see
+       "Ready — click POST to sync" / "No snapshot yet" in the mockup).
+       A colored, meaningful dot promotes the state word to bold/primary —
+       matches "Synced" / "Snapshot saved" in the mockup. "purple-idle" is
+       deliberately excluded so the snapshot row's at-rest purple dot (its
+       brand color even when nothing has happened yet) doesn't trigger it. */
     .status-state {
-      font-weight: 600;
+      font-weight: 400;
+      color: var(--color-text-secondary);
       white-space: nowrap;
     }
+    .status-dot.green ~ .status-state,
+    .status-dot.amber ~ .status-state,
+    .status-dot.red ~ .status-state,
+    .status-dot.purple ~ .status-state {
+      font-weight: 700;
+      color: var(--color-text);
+    }
     .status-detail {
-      color: var(--color-text-muted);
+      color: var(--color-text-secondary);
       flex: 1;
       min-width: 0;
       overflow-wrap: break-word;
@@ -108,18 +117,18 @@
       white-space: nowrap;
     }
 
-    .chip-btn-row {
+    .btn-row {
       display: flex;
       gap: var(--space-2);
       flex-wrap: wrap;
     }
-    .chip-btn {
+    .btn {
       font-family: inherit;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 500;
-      padding: 6px 10px;
-      border-radius: var(--radius-pill);
-      border: 1px solid var(--color-border);
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-secondary-border);
       background: var(--color-secondary-bg);
       color: var(--color-secondary-text);
       cursor: pointer;
@@ -127,70 +136,71 @@
       display: inline-flex;
       align-items: center;
     }
-    .chip-btn:disabled,
-    .chip-btn[aria-disabled="true"] {
+    .btn:disabled,
+    .btn[aria-disabled="true"] {
       opacity: 0.45;
       cursor: default;
       pointer-events: none;
     }
-    .chip-btn.sync {
+    .btn.sync {
       background: var(--color-sync-bg);
       color: var(--color-sync-text);
       border-color: var(--color-sync-border);
     }
-    .chip-btn.sync.on {
+    .btn.sync.on {
       background: var(--color-dot-green);
       color: #ffffff;
       border-color: var(--color-dot-green);
     }
-    .chip-btn.snapshot {
+    .btn.snapshot {
       background: var(--color-snapshot-bg);
       color: var(--color-snapshot-text);
       border-color: var(--color-snapshot-border);
     }
 
-    .count-section {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-2);
-    }
     .count-heading {
       display: flex;
       align-items: baseline;
       gap: var(--space-2);
     }
     .count-number {
-      font-size: 20px;
-      font-weight: 700;
+      font-size: 26px;
+      font-weight: 800;
       line-height: 1;
+      color: var(--color-text);
     }
     .count-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
       text-transform: uppercase;
-      color: var(--color-text-muted);
+      color: var(--color-text-secondary);
     }
     .chip-row {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--space-1);
+      column-gap: 14px;
+      row-gap: 12px;
     }
     .stat-chip {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: var(--radius-pill);
+      font-size: 13px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
       background: var(--color-chip-bg);
-      color: var(--color-chip-text);
+      border: 1px solid var(--color-chip-border);
+      color: var(--color-chip-label-text);
+    }
+    .stat-chip .chip-count {
+      font-weight: 600;
+      color: var(--color-chip-count-text);
     }
 
-    details.raw-json {
-      border-top: 1px solid var(--color-border);
-      padding-top: var(--space-2);
+    .raw-json-row {
+      padding: var(--space-4) var(--space-5);
     }
     details.raw-json summary {
       cursor: pointer;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--color-text-muted);
       list-style: none;
@@ -212,51 +222,48 @@
   </style>
 </head>
 <body>
-  <header class="panel-header">
-    <svg class="icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="1.5" y="1.5" width="13" height="13" rx="3" stroke="currentColor" stroke-width="1.3" />
-      <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3" />
-    </svg>
-    <h1>Capture Figma</h1>
-  </header>
-
-  <section class="status-row" id="sync-row" aria-label="Sync status">
+  <!-- No in-body title row: in the Figma mockup, the title/puzzle-icon/
+       sparkle/close chrome is Figma's native plugin window bar, not iframe
+       content — this document begins at the first status row. -->
+  <section class="row" id="sync-row" aria-label="Sync status">
     <div class="status-row-top" role="status" aria-live="polite">
       <span class="status-dot" id="sync-dot"></span>
       <span class="status-state" id="sync-state">Ready</span>
       <span class="status-detail" id="sync-detail">— click POST to sync</span>
       <span class="status-time" id="sync-time"></span>
     </div>
-    <div class="chip-btn-row">
+    <div class="btn-row">
       <button
         type="button"
-        class="chip-btn sync"
+        class="btn sync"
         id="sync-btn"
         title="Live sync POSTs to a local listener on localhost only (never the internet) and only runs while this plugin panel stays open — Figma has no background execution, so closing this panel stops sync."
       >Sync</button>
-      <button type="button" class="chip-btn" id="copy-btn" disabled>Copy</button>
-      <a class="chip-btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
+      <button type="button" class="btn" id="copy-btn" disabled>Copy</button>
+      <a class="btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
     </div>
   </section>
 
-  <section class="status-row" id="snapshot-row" aria-label="Snapshot status">
+  <section class="row" id="snapshot-row" aria-label="Snapshot status">
     <div class="status-row-top" role="status" aria-live="polite">
-      <span class="status-dot" id="snapshot-dot"></span>
+      <span class="status-dot purple-idle" id="snapshot-dot"></span>
       <span class="status-state" id="snapshot-state">No snapshot yet</span>
       <span class="status-detail" id="snapshot-detail"></span>
       <span class="status-time" id="snapshot-time"></span>
     </div>
-    <div class="chip-btn-row">
-      <button type="button" class="chip-btn snapshot" id="snapshot-btn">Save snapshot</button>
+    <div class="btn-row">
+      <button type="button" class="btn snapshot" id="snapshot-btn">Save snapshot</button>
     </div>
   </section>
 
   <div id="counts"></div>
 
-  <details class="raw-json" id="raw-json">
-    <summary id="raw-json-summary">▶ Raw JSON</summary>
-    <pre id="raw-json-output"></pre>
-  </details>
+  <section class="raw-json-row">
+    <details class="raw-json" id="raw-json">
+      <summary id="raw-json-summary">▶ Raw JSON</summary>
+      <pre id="raw-json-output"></pre>
+    </details>
+  </section>
 
   <script>
     // The only context in this plugin with a real fetch() — see code.js's
@@ -389,7 +396,11 @@
     function statChip(label, count) {
       const el = document.createElement("span");
       el.className = "stat-chip";
-      el.textContent = count.toLocaleString() + " " + label;
+      const countEl = document.createElement("span");
+      countEl.className = "chip-count";
+      countEl.textContent = count.toLocaleString();
+      el.appendChild(countEl);
+      el.appendChild(document.createTextNode(" " + label));
       return el;
     }
 
@@ -399,7 +410,7 @@
 
     function countSection(total, label, entries) {
       const section = document.createElement("div");
-      section.className = "count-section";
+      section.className = "row count-section";
 
       const heading = document.createElement("div");
       heading.className = "count-heading";
@@ -469,6 +480,11 @@
       // payload's already-grouped warningsByType map — the raw array isn't
       // persisted (see code.js's LAST_SYNC_STORAGE_KEY comment), so a
       // restore has no warnings[] to regroup, only the counts.
+      //
+      // The operator's Figma mockup predates this lane (it has no warnings
+      // section at all) — kept here, in the same VARIABLES/STYLES/COMPONENTS
+      // visual language, as a stated assumption rather than a silent
+      // invention; flagged for the operator to veto.
       let byType;
       let warningsTotal;
       if (Array.isArray(data.warnings)) {
@@ -504,7 +520,7 @@
 
     snapshotBtn.addEventListener("click", () => {
       snapshotBtn.disabled = true;
-      setSnapshotRow("", "Saving snapshot…", "", "");
+      setSnapshotRow("purple-idle", "Saving snapshot…", "", "");
       parent.postMessage({ pluginMessage: { type: "save-snapshot" } }, "*");
     });
 
@@ -514,7 +530,12 @@
         setSnapshotRow("", "Snapshot unavailable", msg.message, "");
       } else if (msg.state === "ready") {
         snapshotBtn.disabled = false;
-        setSnapshotRow("", "No snapshot yet", "", "");
+        // "purple-idle" (not the plain "purple" that promotes the state word
+        // to bold): the snapshot dot stays purple even at rest — its brand
+        // color, not a "something happened" signal — matching "No snapshot
+        // yet" rendering as a single quiet line in the mockup, the same
+        // typographic weight as the sync row's idle "Ready" line.
+        setSnapshotRow("purple-idle", "No snapshot yet", "", "");
       } else if (msg.state === "saved") {
         snapshotBtn.disabled = false;
         const t = new Date(msg.at).toLocaleTimeString();
@@ -573,7 +594,12 @@
         setSyncRow("", "Sync off", "click Sync to start", "");
       } else if (msg.state === "synced") {
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
-        setSyncRow("green", "Synced to listener", buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount), t);
+        // State word is just "Synced" (bold) — the mockup's regular-weight
+        // "to listener" is a static mockup label; the real, richer sync
+        // detail (item counts / added-modified-removed) takes that same
+        // regular-weight slot instead of being dropped, per BEHAVIOR IS
+        // FROZEN (this data must keep showing somewhere).
+        setSyncRow("green", "Synced", buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount), t);
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
         // last successful sync, shown before this session has synced
@@ -581,7 +607,7 @@
         // other) status the moment this session produces one.
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
         const d = new Date(msg.lastSyncAt).toLocaleDateString();
-        setSyncRow("green", "Synced to listener", msg.lastSyncCount + " item(s) — previous session, " + d, t);
+        setSyncRow("green", "Synced", msg.lastSyncCount + " item(s) — previous session, " + d, t);
         // Repaint the count sections too (Variables/Styles/Components/
         // Warnings) — not just the sync row — so a reload shows the full
         // last-sync state, matching state-05-synced.png. Raw JSON/Copy/
