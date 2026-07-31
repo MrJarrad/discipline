@@ -15,7 +15,7 @@
 // preserved verbatim (not omitted) because a description gap is itself
 // countable capture signal (ruling 7).
 //
-// Output shape (v1.14.0, schema v2 — see the "SCHEMA V2 TRANSFORM" and
+// Output shape (v1.16.0, schema v2 — see the "SCHEMA V2 TRANSFORM" and
 // "schema v2: live document traversal" sections below for the five
 // additive buckets' derivation):
 //   {
@@ -83,10 +83,18 @@
 // version marker — not an independently-incrementing counter of its own.
 // header.pluginVersion previously drifted from that marker (this constant
 // carried its own private history, e.g. "1.3.0" while the repo was already
-// at 1.13.0), which made a capture's pluginVersion useless for correlating
-// it back to the commit/release that produced it. Bump this alongside every
-// plugin.json version bump.
-const PLUGIN_VERSION = "1.14.0";
+// at 1.13.0, then again "1.14.0" while the repo had moved to 1.15.0), which
+// made a capture's pluginVersion useless for correlating it back to the
+// commit/release that produced it.
+//
+// MECHANISM: there is no build/bundle step for this plugin (manifest.json's
+// "main" points straight at this file — no compiler reads plugin.json at
+// build time), so this stays a hand-maintained constant. Bump it in the
+// SAME commit as every plugin.json version bump, and never separately.
+// version-sync.test.mjs is the mechanical guard: it fails `node --test` the
+// moment this constant and plugin.json's "version" disagree, so drift is
+// caught before it ships instead of being rediscovered in a stale export.
+const PLUGIN_VERSION = "1.16.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
