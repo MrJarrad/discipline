@@ -1472,21 +1472,28 @@ const walkV2Subtree = createSubtreeWalk({
 // appended into the shared collector as it went (proven differentially in
 // buildexport-perf.test.mjs against a walk that deliberately completes in
 // reverse call order).
+function newWarningsCollector() {
+  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+}
+
+// Appends `bucket` onto `target` wholesale. Every merge in this file goes
+// through here, so "collected in a bucket, folded back in a deterministic
+// order" is one rule with one implementation.
+function mergeWarningsCollector(target, bucket) {
+  for (const entry of bucket.nodeSnapshots) target.nodeSnapshots.push(entry);
+  for (const entry of bucket.spacerInstances) target.spacerInstances.push(entry);
+  for (const entry of bucket.latentCapabilities) target.latentCapabilities.push(entry);
+  for (const entry of bucket.variantBindings) target.variantBindings.set(entry[0], entry[1]);
+}
+
 async function collectInParallel(items, out, walk) {
-  const buckets = items.map(function () {
-    return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
-  });
+  const buckets = items.map(newWarningsCollector);
   const results = await Promise.all(
     items.map(function (item, i) {
       return walk(item, buckets[i]);
     })
   );
-  for (const bucket of buckets) {
-    for (const entry of bucket.nodeSnapshots) out.nodeSnapshots.push(entry);
-    for (const entry of bucket.spacerInstances) out.spacerInstances.push(entry);
-    for (const entry of bucket.latentCapabilities) out.latentCapabilities.push(entry);
-    for (const entry of bucket.variantBindings) out.variantBindings.set(entry[0], entry[1]);
-  }
+  for (const bucket of buckets) mergeWarningsCollector(out, bucket);
   return results;
 }
 // === END PARALLEL COLLECT ===
@@ -1700,43 +1707,86 @@ async function processExampleFrame(frame, parentId, parentPath, variableById, wa
 // section name is genuinely absent here, kept verbatim rather than
 // synthesized or dropped, same convention as an empty description
 // elsewhere in this file's SCHEMA V2 TRANSFORM block.
-async function buildExampleData(examplePage, variableById, warningsCollector) {
-  if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
+// === EXAMPLE SECTIONS (frame processing and collector plumbing injected —
+// tested via buildexport-perf.test.mjs, which extracts this block by its
+// markers and diffs it against the previous sequential implementation) ===
+// OPTIMIZATION (round 2, operator sync of v1.23.0: templatesExample 3.1s of
+// an 11.6s export). Round 1 overlapped the frames inside one section and the
+// instances inside one frame, but the SECTIONS were still walked strictly
+// depth-first, one at a time: a section's whole frame set had to land before
+// the next sibling section started, and a nested section waited on its
+// parent's frames. Nothing in one section depends on another, so the entire
+// section tree — and the bare page-level frames — now go out together.
+//
+// Output is provably unchanged: each section collects into its OWN bucket and
+// returns its own snapshots, and the tree is folded afterwards in exactly the
+// DFS order the sequential version visited it in (a section's frames, then
+// the section entry, then its nested sections; all top sections before the
+// bare frames). Proven differentially in buildexport-perf.test.mjs against a
+// frame processor that completes in reverse call order.
+function createExampleSectionWalk(deps) {
+  return async function buildExampleData(examplePage, warningsCollector) {
+    if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
 
-  const sectionSnapshots = [];
-  const frameSnapshots = [];
+    const childrenOfType = function (node, type) {
+      return node.children.filter(function (n) { return n.type === type; });
+    };
+    const frameDescs = function (frames) {
+      return frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
+    };
 
-  async function walkSection(section) {
-    const frames = section.children.filter(function (n) { return n.type === "FRAME"; });
-    const snapshots = await collectInParallel(frames, warningsCollector, function (frame, out) {
-      return processExampleFrame(frame, section.id, section.name, variableById, out);
-    });
-    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
-    const frameDescs = frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
-    sectionSnapshots.push({ name: section.name, frames: frameDescs });
-
-    const nestedSections = section.children.filter(function (n) { return n.type === "SECTION"; });
-    for (const nested of nestedSections) {
-      await walkSection(nested);
+    async function walkSection(section) {
+      const frames = childrenOfType(section, "FRAME");
+      const bucket = deps.newWarningsCollector();
+      const both = await Promise.all([
+        deps.collectInParallel(frames, bucket, function (frame, out) {
+          return deps.processFrame(frame, section.id, section.name, out);
+        }),
+        Promise.all(childrenOfType(section, "SECTION").map(walkSection)),
+      ]);
+      return { bucket: bucket, name: section.name, frames: frames, snapshots: both[0], nested: both[1] };
     }
-  }
 
-  const topSections = examplePage.children.filter(function (n) { return n.type === "SECTION"; });
-  for (const section of topSections) {
-    await walkSection(section);
-  }
+    const bareFrames = childrenOfType(examplePage, "FRAME");
+    const bareBucket = deps.newWarningsCollector();
+    const settled = await Promise.all([
+      Promise.all(childrenOfType(examplePage, "SECTION").map(walkSection)),
+      deps.collectInParallel(bareFrames, bareBucket, function (frame, out) {
+        return deps.processFrame(frame, examplePage.id, "", out);
+      }),
+    ]);
 
-  const bareFrames = examplePage.children.filter(function (n) { return n.type === "FRAME"; });
-  if (bareFrames.length > 0) {
-    const snapshots = await collectInParallel(bareFrames, warningsCollector, function (frame, out) {
-      return processExampleFrame(frame, examplePage.id, "", variableById, out);
-    });
-    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
-    const frameDescs = bareFrames.map(function (frame) { return { id: frame.id, name: frame.name }; });
-    sectionSnapshots.push({ name: "", frames: frameDescs });
-  }
+    const sectionSnapshots = [];
+    const frameSnapshots = [];
 
-  return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
+    function fold(result) {
+      deps.mergeWarningsCollector(warningsCollector, result.bucket);
+      for (const snapshot of result.snapshots) frameSnapshots.push(snapshot);
+      sectionSnapshots.push({ name: result.name, frames: frameDescs(result.frames) });
+      for (const nested of result.nested) fold(nested);
+    }
+    for (const result of settled[0]) fold(result);
+
+    if (bareFrames.length > 0) {
+      deps.mergeWarningsCollector(warningsCollector, bareBucket);
+      for (const snapshot of settled[1]) frameSnapshots.push(snapshot);
+      sectionSnapshots.push({ name: "", frames: frameDescs(bareFrames) });
+    }
+
+    return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
+  };
+}
+// === END EXAMPLE SECTIONS ===
+
+function buildExampleData(examplePage, variableById, warningsCollector) {
+  return createExampleSectionWalk({
+    collectInParallel: collectInParallel,
+    newWarningsCollector: newWarningsCollector,
+    mergeWarningsCollector: mergeWarningsCollector,
+    processFrame: function (frame, parentId, parentPath, out) {
+      return processExampleFrame(frame, parentId, parentPath, variableById, out);
+    },
+  })(examplePage, warningsCollector);
 }
 
 // Per-phase progress reporting during buildExport() — a full export on a

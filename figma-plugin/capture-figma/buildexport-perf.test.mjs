@@ -704,3 +704,156 @@ test("subtree walk: a walk with no binding collection matches the sequential ver
   assert.equal(collectorAsJson(shipped), collectorAsJson(baseline));
   assert.equal(shipped.variantBindings.size, 0);
 });
+
+// --- example-page section walk --------------------------------------------
+//
+// templatesExample was 3.1s of the 11.6s v1.23.0 export. Round 1 parallelized
+// the frames INSIDE a section and the instances inside a frame, but the
+// SECTIONS themselves were still walked one at a time — a top-level section's
+// entire frame set had to finish before the next section's began, and a
+// nested section waited on its parent's frames. Nothing in a section depends
+// on another section, so the whole section tree now goes out at once and the
+// results are folded in DFS order afterwards.
+//
+// Proven against a verbatim copy of the sequential walk, with a frame
+// processor that completes in the REVERSE of call order.
+
+const { collectInParallel: collectForSections, newWarningsCollector, mergeWarningsCollector } = extract(
+  "PARALLEL COLLECT",
+  "{ collectInParallel, newWarningsCollector, mergeWarningsCollector }"
+);
+const { createExampleSectionWalk } = extract("EXAMPLE SECTIONS", "{ createExampleSectionWalk }");
+
+function exampleNode(type, name, children) {
+  return { id: type[0] + ":" + name, name: name, type: type, children: children || [] };
+}
+
+function examplePageFixture() {
+  return exampleNode("PAGE", "Example", [
+    exampleNode("SECTION", "Marketing", [
+      exampleNode("FRAME", "D - Home"),
+      exampleNode("SECTION", "Marketing/Nested", [
+        exampleNode("FRAME", "D - Pricing"),
+        exampleNode("SECTION", "Marketing/Nested/Deep", [exampleNode("FRAME", "D - Deep")]),
+      ]),
+      exampleNode("FRAME", "D - About"),
+    ]),
+    exampleNode("SECTION", "App", [exampleNode("FRAME", "D - Dashboard"), exampleNode("FRAME", "D - Settings")]),
+    exampleNode("FRAME", "D - Loose"),
+    exampleNode("FRAME", "D - Loose Two"),
+  ]);
+}
+
+// A frame processor shaped like processExampleFrame: it writes into the
+// collector it is handed and returns the frame snapshot — and it finishes in
+// the REVERSE of the order it was called in.
+function reverseCompletionFrameProcessor() {
+  let call = 0;
+  return function (frame, parentId, parentPath, out) {
+    const delay = Math.max(0, 24 - call++ * 2);
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        out.nodeSnapshots.push({ id: frame.id, name: frame.name, parentId: parentId, parentPath: parentPath });
+        out.spacerInstances.push({ id: frame.id + "/gap" });
+        out.latentCapabilities.push({ node: frame.name });
+        out.variantBindings.set(frame.id, [{ layer: frame.name, property: "fill", value: "brand/bg" }]);
+        resolve({ id: frame.id, name: frame.name, instances: [] });
+      }, delay);
+    });
+  };
+}
+
+// The shipped-before-this-change implementation, verbatim from code.js at
+// b2b85a1: sections one at a time, depth-first.
+async function sequentialExampleDataBaseline(examplePage, out, processFrame) {
+  if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
+  const sectionSnapshots = [];
+  const frameSnapshots = [];
+
+  async function walkSection(section) {
+    const frames = section.children.filter(function (n) { return n.type === "FRAME"; });
+    const snapshots = await collectForSections(frames, out, function (frame, bucket) {
+      return processFrame(frame, section.id, section.name, bucket);
+    });
+    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
+    const frameDescs = frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
+    sectionSnapshots.push({ name: section.name, frames: frameDescs });
+
+    const nestedSections = section.children.filter(function (n) { return n.type === "SECTION"; });
+    for (const nested of nestedSections) await walkSection(nested);
+  }
+
+  const topSections = examplePage.children.filter(function (n) { return n.type === "SECTION"; });
+  for (const section of topSections) await walkSection(section);
+
+  const bareFrames = examplePage.children.filter(function (n) { return n.type === "FRAME"; });
+  if (bareFrames.length > 0) {
+    const snapshots = await collectForSections(bareFrames, out, function (frame, bucket) {
+      return processFrame(frame, examplePage.id, "", bucket);
+    });
+    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
+    const frameDescs = bareFrames.map(function (frame) { return { id: frame.id, name: frame.name }; });
+    sectionSnapshots.push({ name: "", frames: frameDescs });
+  }
+
+  return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
+}
+
+function shippedExampleWalk(processFrame) {
+  return createExampleSectionWalk({
+    collectInParallel: collectForSections,
+    newWarningsCollector: newWarningsCollector,
+    mergeWarningsCollector: mergeWarningsCollector,
+    processFrame: processFrame,
+  });
+}
+
+async function runBothExampleWalks(page) {
+  const baselineOut = walkCollector();
+  const baseline = await sequentialExampleDataBaseline(page, baselineOut, reverseCompletionFrameProcessor());
+  const shippedOut = walkCollector();
+  const shipped = await shippedExampleWalk(reverseCompletionFrameProcessor())(page, shippedOut);
+  return { baseline, baselineOut, shipped, shippedOut };
+}
+
+test("example sections: parallel sections produce byte-identical structure and frame snapshots", async () => {
+  const { baseline, shipped } = await runBothExampleWalks(examplePageFixture());
+  assert.equal(JSON.stringify(shipped), JSON.stringify(baseline));
+});
+
+test("example sections: the warnings collector is filled in the same DFS order as before", async () => {
+  const { baselineOut, shippedOut } = await runBothExampleWalks(examplePageFixture());
+  assert.equal(collectorAsJson(shippedOut), collectorAsJson(baselineOut));
+  assert.deepEqual(
+    shippedOut.nodeSnapshots.map((n) => n.name),
+    ["D - Home", "D - About", "D - Pricing", "D - Deep", "D - Dashboard", "D - Settings", "D - Loose", "D - Loose Two"]
+  );
+});
+
+test("example sections: every frame on the page really is in flight at once", async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const processFrame = () =>
+    new Promise((resolve) => {
+      peak = Math.max(peak, ++inFlight);
+      setTimeout(() => {
+        inFlight--;
+        resolve({ id: "x", name: "x", instances: [] });
+      }, 6);
+    });
+  await shippedExampleWalk(processFrame)(examplePageFixture(), walkCollector());
+  assert.equal(peak, 8, "all eight frames, across four sections and the bare page, should overlap");
+});
+
+test("example sections: no Example page is still an empty result, not a crash", async () => {
+  const { baseline, shipped } = await runBothExampleWalks(null);
+  assert.equal(JSON.stringify(shipped), JSON.stringify(baseline));
+  assert.deepEqual(shipped, { sectionSnapshots: [], frameSnapshots: [] });
+});
+
+test("example sections: a page with no bare frames records no empty-named section", async () => {
+  const page = exampleNode("PAGE", "Example", [exampleNode("SECTION", "Only", [exampleNode("FRAME", "D - One")])]);
+  const { baseline, shipped } = await runBothExampleWalks(page);
+  assert.equal(JSON.stringify(shipped), JSON.stringify(baseline));
+  assert.deepEqual(shipped.sectionSnapshots.map((s) => s.name), ["Only"]);
+});
