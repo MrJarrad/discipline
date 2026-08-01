@@ -169,7 +169,7 @@ test("mode values: a variable with no valuesByMode at all matches the sequential
 
 // --- component-set walk ---------------------------------------------------
 
-const { walkComponentSets } = extract("COMPONENT SET WALK", "{ walkComponentSets }");
+const { collectInParallel } = extract("PARALLEL COLLECT", "{ collectInParallel }");
 
 function emptyCollector() {
   return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
@@ -211,15 +211,15 @@ function collectorAsJson(out) {
   });
 }
 
-test("component-set walk: parallel walks collect byte-identically to the sequential version, entry order included", async () => {
+test("parallel collect: parallel walks collect byte-identically to the sequential version, entry order included", async () => {
   const before = emptyCollector();
   await sequentialWalkBaseline(SETS, before, outOfOrderWalk(SETS.length));
   const after = emptyCollector();
-  await walkComponentSets(SETS, after, outOfOrderWalk(SETS.length));
+  await collectInParallel(SETS, after, outOfOrderWalk(SETS.length));
   assert.equal(collectorAsJson(after), collectorAsJson(before));
 });
 
-test("component-set walk: the walks really do overlap rather than queue", async () => {
+test("parallel collect: the walks really do overlap rather than queue", async () => {
   let inFlight = 0;
   let peak = 0;
   const walk = () =>
@@ -230,14 +230,74 @@ test("component-set walk: the walks really do overlap rather than queue", async 
         resolve();
       }, 5);
     });
-  await walkComponentSets(SETS, emptyCollector(), walk);
+  await collectInParallel(SETS, emptyCollector(), walk);
   assert.equal(peak, SETS.length, "every set's walk should be in flight at once");
 });
 
-test("component-set walk: no sets is not an error and collects nothing", async () => {
+test("parallel collect: each walk's own return value comes back in item order", async () => {
+  let call = 0;
+  const walk = (item) => {
+    const delay = (SETS.length - call++) * 2;
+    return new Promise((resolve) => setTimeout(() => resolve({ frame: item.name }), delay));
+  };
+  const results = await collectInParallel(SETS, emptyCollector(), walk);
+  assert.deepEqual(results.map((r) => r.frame), SETS.map((s) => s.name));
+});
+
+test("parallel collect: no sets is not an error and collects nothing", async () => {
   const out = emptyCollector();
-  await walkComponentSets([], out, outOfOrderWalk(0));
+  await collectInParallel([], out, outOfOrderWalk(0));
   assert.equal(collectorAsJson(out), collectorAsJson(emptyCollector()));
+});
+
+// --- template instance overrides ------------------------------------------
+
+const { resolveOverrideNodes } = extract("TEMPLATE OVERRIDES", "{ resolveOverrideNodes }");
+
+// A node lookup that answers in the REVERSE of call order.
+function outOfOrderNodeLookup(count) {
+  let call = 0;
+  return (id) => {
+    const delay = (count - call++) * 2;
+    return new Promise((resolve) => setTimeout(() => resolve(id === "gone" ? null : { id }), delay));
+  };
+}
+
+// The shipped-before-this-change implementation: one getNodeById at a time
+// inside the override loop (code.js at ab40efa).
+async function sequentialOverrideNodes(inst, getNode) {
+  const nodes = [];
+  for (const ov of inst.overrides || []) {
+    nodes.push(ov.id === inst.id ? inst : await getNode(ov.id));
+  }
+  return nodes;
+}
+
+const INSTANCE = {
+  id: "I:1",
+  overrides: [{ id: "n1" }, { id: "I:1" }, { id: "gone" }, { id: "n2" }],
+};
+
+const nodeIds = (nodes) => nodes.map((n) => (n ? n.id : null));
+
+test("template overrides: parallel node resolution lands in override order, not completion order", async () => {
+  const before = await sequentialOverrideNodes(INSTANCE, outOfOrderNodeLookup(4));
+  const after = await resolveOverrideNodes(INSTANCE, outOfOrderNodeLookup(4));
+  assert.deepEqual(nodeIds(after), nodeIds(before));
+  assert.deepEqual(nodeIds(after), ["n1", "I:1", null, "n2"]);
+});
+
+test("template overrides: the instance's own id is never looked up", async () => {
+  const asked = [];
+  await resolveOverrideNodes(INSTANCE, (id) => {
+    asked.push(id);
+    return Promise.resolve({ id });
+  });
+  assert.deepEqual(asked, ["n1", "gone", "n2"]);
+});
+
+test("template overrides: an instance with no overrides resolves to nothing", async () => {
+  assert.deepEqual(await resolveOverrideNodes({ id: "I:2" }, outOfOrderNodeLookup(0)), []);
 });
 
 // --- style lookup cache ---------------------------------------------------

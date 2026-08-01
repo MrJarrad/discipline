@@ -1335,32 +1335,34 @@ async function walkV2Subtree(root, variableById, out, collectBindings) {
   await visit(root, null, false, null);
 }
 
-// === COMPONENT SET WALK (walk injected — tested via buildexport-perf.test.mjs,
+// === PARALLEL COLLECT (walk injected — tested via buildexport-perf.test.mjs,
 // which extracts this block by its markers and diffs it against the previous
 // sequential implementation) ===
-// Runs `walk(set, out)` for every component set and merges what each walk
-// collected into the shared `out` collector.
+// Runs `walk(item, out)` for every item at once, merges what each walk
+// collected into the shared warnings collector `out`, and returns each walk's
+// own return value in ITEM order.
 //
-// OPTIMIZATION (lag verdict 2026-08-01, Addendum 6 — the components phase is
-// 10.5s of a 15.3s export): the sets used to be walked strictly one at a time,
-// each walk itself a chain of awaited plugin-API calls (getStyleByIdAsync,
-// getMainComponentAsync, getVariableByIdAsync — one round trip per layer, per
-// bound field). Nothing about set N's walk depends on set N-1's, so the walks
-// now go out together and their round trips overlap.
+// OPTIMIZATION (lag verdict 2026-08-01, Addendum 6 — components 10.5s and
+// templates 4.3s of a 15.3s export): component sets, and the Example page's
+// frames, used to be walked strictly one at a time, each walk itself a chain
+// of awaited plugin-API calls (getStyleByIdAsync, getMainComponentAsync,
+// getVariableByIdAsync, getNodeByIdAsync — one round trip per layer, per
+// bound field). Nothing about item N's walk depends on item N-1's, so the
+// walks now go out together and their round trips overlap.
 //
 // Output is provably unchanged: each walk collects into its OWN bucket, and
-// the buckets are merged in SET order once all have settled — so completion
+// the buckets are merged in ITEM order once all have settled — so completion
 // order cannot leak into the collected arrays the way it would if every walk
 // appended into the shared collector as it went (proven differentially in
 // buildexport-perf.test.mjs against a walk that deliberately completes in
 // reverse call order).
-async function walkComponentSets(componentSetNodes, out, walk) {
-  const buckets = componentSetNodes.map(function () {
+async function collectInParallel(items, out, walk) {
+  const buckets = items.map(function () {
     return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
   });
-  await Promise.all(
-    componentSetNodes.map(function (set, i) {
-      return walk(set, buckets[i]);
+  const results = await Promise.all(
+    items.map(function (item, i) {
+      return walk(item, buckets[i]);
     })
   );
   for (const bucket of buckets) {
@@ -1369,8 +1371,9 @@ async function walkComponentSets(componentSetNodes, out, walk) {
     for (const entry of bucket.latentCapabilities) out.latentCapabilities.push(entry);
     for (const entry of bucket.variantBindings) out.variantBindings.set(entry[0], entry[1]);
   }
+  return results;
 }
-// === END COMPONENT SET WALK ===
+// === END PARALLEL COLLECT ===
 
 // Reads one overridden field's current value off the live node. Common
 // scalar fields resolve directly; anything else falls back to a JSON-safe
@@ -1484,13 +1487,39 @@ function buildComponentSnapshots(componentSetNodes, standaloneComponentNodes, va
 // (buildTemplateFrames splits it into variantProps/properties) plus every
 // overridden field on the instance's own subtree, resolved to a value and
 // keyed "{instance-id}/{node-name-path}".
+// === TEMPLATE OVERRIDES (node lookup injected — tested via
+// buildexport-perf.test.mjs, which extracts this block by its markers and
+// diffs it against the previous sequential implementation) ===
+// Every node an instance's overrides point at, in override order.
+//
+// OPTIMIZATION (lag verdict 2026-08-01, Addendum 6 — templates 4.3s): these
+// lookups used to happen one at a time inside the override loop, each a real
+// plugin-API round trip, and a template instance can carry hundreds of
+// overrides. They're independent, so they go out together.
+//
+// Output is provably unchanged: results are collected by INDEX, so completion
+// order can't reorder the overrides (proven differentially in
+// buildexport-perf.test.mjs against a lookup that completes in reverse call
+// order). The instance's own node is still never looked up.
+async function resolveOverrideNodes(inst, getNode) {
+  return Promise.all(
+    (inst.overrides || []).map(function (ov) {
+      return ov.id === inst.id ? inst : getNode(ov.id);
+    })
+  );
+}
+// === END TEMPLATE OVERRIDES ===
+
 async function buildTemplateInstanceSnapshot(inst, variableById) {
   const mainComponent = await getInstanceMainComponent(inst);
   const component = resolveComponentSetName(mainComponent) || inst.name;
 
+  const overriddenNodes = await resolveOverrideNodes(inst, getNodeById);
   const overrides = [];
-  for (const ov of inst.overrides || []) {
-    const overriddenNode = ov.id === inst.id ? inst : await getNodeById(ov.id);
+  const rawOverrides = inst.overrides || [];
+  for (let i = 0; i < rawOverrides.length; i++) {
+    const ov = rawOverrides[i];
+    const overriddenNode = overriddenNodes[i];
     if (!overriddenNode) continue;
     for (const field of ov.overriddenFields || []) {
       const value = readOverrideValue(overriddenNode, field);
@@ -1523,11 +1552,14 @@ async function processExampleFrame(frame, parentId, parentPath, variableById, wa
   });
   await walkV2Subtree(frame, variableById, warningsCollector);
 
+  // One snapshot per instance, resolved together rather than one at a time —
+  // each snapshot is an independent chain of plugin-API round trips and
+  // writes nothing shared, and Promise.all preserves index order, so the
+  // instances array is the same array in the same order as before.
   const instances = frame.children.filter(function (n) { return n.type === "INSTANCE"; });
-  const instanceSnapshots = [];
-  for (const inst of instances) {
-    instanceSnapshots.push(await buildTemplateInstanceSnapshot(inst, variableById));
-  }
+  const instanceSnapshots = await Promise.all(
+    instances.map(function (inst) { return buildTemplateInstanceSnapshot(inst, variableById); })
+  );
   return { id: frame.id, name: frame.name, instances: instanceSnapshots };
 }
 
@@ -1557,11 +1589,11 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
 
   async function walkSection(section) {
     const frames = section.children.filter(function (n) { return n.type === "FRAME"; });
-    const frameDescs = [];
-    for (const frame of frames) {
-      frameSnapshots.push(await processExampleFrame(frame, section.id, section.name, variableById, warningsCollector));
-      frameDescs.push({ id: frame.id, name: frame.name });
-    }
+    const snapshots = await collectInParallel(frames, warningsCollector, function (frame, out) {
+      return processExampleFrame(frame, section.id, section.name, variableById, out);
+    });
+    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
+    const frameDescs = frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
     sectionSnapshots.push({ name: section.name, frames: frameDescs });
 
     const nestedSections = section.children.filter(function (n) { return n.type === "SECTION"; });
@@ -1577,11 +1609,11 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
 
   const bareFrames = examplePage.children.filter(function (n) { return n.type === "FRAME"; });
   if (bareFrames.length > 0) {
-    const frameDescs = [];
-    for (const frame of bareFrames) {
-      frameSnapshots.push(await processExampleFrame(frame, examplePage.id, "", variableById, warningsCollector));
-      frameDescs.push({ id: frame.id, name: frame.name });
-    }
+    const snapshots = await collectInParallel(bareFrames, warningsCollector, function (frame, out) {
+      return processExampleFrame(frame, examplePage.id, "", variableById, out);
+    });
+    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
+    const frameDescs = bareFrames.map(function (frame) { return { id: frame.id, name: frame.name }; });
     sectionSnapshots.push({ name: "", frames: frameDescs });
   }
 
@@ -1772,7 +1804,7 @@ async function buildExport() {
   const componentNodes = await findAllComponentNodes(figma.root.children);
   const componentSetNodes = componentNodes.sets;
   phase("componentsScan");
-  await walkComponentSets(componentSetNodes, warningsCollector, function (set, out) {
+  await collectInParallel(componentSetNodes, warningsCollector, function (set, out) {
     return walkV2Subtree(set, variableById, out, true);
   });
   const standaloneComponentNodes = componentNodes.standalone;
