@@ -238,8 +238,27 @@ test("classifyOutcome: capped is never folded into failed even on nonzero exit",
 });
 
 // ---- runWorkflow: summary/exit-code shape --------------------------------
+//
+// runWorkflow() makes several synchronous console.log calls per dispatch
+// (scripts/workflow.mjs:325,333-339,345,353,394,406). Under node:test's
+// process-isolated reporter (Node v26.5.1), those console writes are
+// captured and relayed to the parent over the same structured IPC channel
+// the reporter uses for test diagnostics. Two or more of these tests in a
+// row intermittently corrupted that channel — reproduced 27/30 and 24/30
+// runs (two-consecutive-runWorkflow-test fixtures) vs. 0/30 for any single
+// such test in isolation, and 0/30 once console.log was muted for the
+// duration of the test — as `Unable to deserialize cloned data due to
+// invalid or unsupported version` in the *parent* reporter process
+// (node:internal/test_runner/runner:485, #processRawBuffer), i.e. an IPC
+// framing race in Node's test-runner internals, not a bug in runWorkflow
+// or in these assertions. Muting console.log for the duration of each test
+// (auto-restored by t.mock) avoids triggering the race without weakening
+// any assertion. runClaude() itself (used directly, not via runWorkflow,
+// in the tests above and below) does not console.log, so those tests were
+// never implicated and are left untouched.
 
-test("runWorkflow: an all-success spec produces exitCode 0 and totals with zero failed/capped", async () => {
+test("runWorkflow: an all-success spec produces exitCode 0 and totals with zero failed/capped", async (t) => {
+  t.mock.method(console, "log", () => {});
   const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"ok","num_turns":3}' });
   const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
   const logs = [];
@@ -250,7 +269,8 @@ test("runWorkflow: an all-success spec produces exitCode 0 and totals with zero 
   assert.equal(totals.survived, 1);
 });
 
-test("runWorkflow: a failed agent yields exitCode 1", async () => {
+test("runWorkflow: a failed agent yields exitCode 1", async (t) => {
+  t.mock.method(console, "log", () => {});
   const spawnImpl = fakeSpawn({ stdout: '{"is_error":true,"result":"nope"}' });
   const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
   const { exitCode, totals } = await runWorkflow(spec, () => {}, { spawnImpl });
@@ -258,7 +278,8 @@ test("runWorkflow: a failed agent yields exitCode 1", async () => {
   assert.equal(totals.failed, 1);
 });
 
-test("runWorkflow: a capped-only run (no failures) yields exitCode 2", async () => {
+test("runWorkflow: a capped-only run (no failures) yields exitCode 2", async (t) => {
+  t.mock.method(console, "log", () => {});
   const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"partial","num_turns":10}' });
   const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
   const { exitCode, totals } = await runWorkflow(spec, () => {}, { spawnImpl });
