@@ -39,11 +39,22 @@ test("panel growth: the max height leaves real room for expanded content, not th
   );
 });
 
-test("panel growth: the max stays inside a small laptop viewport so Figma never clamps it away", () => {
+test("panel growth: the max stays inside a realistic laptop viewport so Figma never clamps it away", () => {
   // Figma clamps the plugin iframe to the user's viewport; a max taller than
-  // a 800px-tall laptop screen (minus Figma's own chrome) would be silently
-  // truncated by the host, which is exactly the cut-off symptom being fixed.
-  assert.ok(PANEL_HEIGHT_MAX <= 700, `PANEL_HEIGHT_MAX is ${PANEL_HEIGHT_MAX}; too tall for a 800px-tall viewport`);
+  // the shortest realistic laptop viewport (minus Figma's own toolbar/tab
+  // chrome) would be silently truncated by the host, which is exactly the
+  // cut-off symptom being fixed. 950 leaves margin below a 13" MacBook's
+  // ~900px logical viewport height and well below a 1080p external
+  // display's ~1000px+ working area (operator verdict 2026-08-01 Addendum 6
+  // item 2: raise the cap to what Figma practically allows).
+  assert.ok(PANEL_HEIGHT_MAX <= 950, `PANEL_HEIGHT_MAX is ${PANEL_HEIGHT_MAX}; too tall for a realistic laptop viewport`);
+});
+
+test("panel growth: the max was actually raised past the prior 640 cap, not left in place", () => {
+  // The 640 cap (raised from 394) was itself reported insufficient for real
+  // content (873 warnings in 3 groups + drift + Raw JSON) — this pins that
+  // the fix moved the number, not just the comment above it.
+  assert.ok(PANEL_HEIGHT_MAX > 640, `PANEL_HEIGHT_MAX is ${PANEL_HEIGHT_MAX}; still at or below the cap the operator reported as insufficient`);
 });
 
 test("panel growth: a tall expanded-warnings measurement grows the window instead of being cut to the old cap", () => {

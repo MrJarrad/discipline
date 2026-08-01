@@ -133,24 +133,29 @@ let propskitAvailable = false;
 // anything — ui.html corrects it within a frame via the boot-time "resize"
 // message (see ui.html's scheduleResize()).
 //
-// PANEL_HEIGHT_MAX (raised from 394 to 640, operator verdict 2026-08-01
-// Addendum 2 item 3: "window must GROW with content instead of internal
-// scrolling — warnings get cut off today"). The old 394 was the synced-state
-// mockup's own height (876 / 2 = 438 -> ~90%); that mockup has no warnings
-// section at all, so every expanded warning group was clamped away and had
-// to be scrolled for. The API itself imposes no maximum — @figma/plugin-
-// typings 1.128.0 documents only a minimum ("The minimum size is 70x0",
-// plugin-api.d.ts:2668 on UIAPI.resize; showUI's options note the same 70/0
-// floors, :353-354) — the real ceiling is the host: Figma clamps the plugin
-// iframe to the user's viewport, so a value taller than the shortest realistic
-// viewport is silently truncated by Figma and reproduces the same cut-off
-// symptom. 640 is the sane cap: it fits inside a 800px-tall laptop screen with
-// room for Figma's own toolbar/chrome, and is ~46% more room than the old cap
-// for expanded warning detail. Content beyond it scrolls inside the iframe
-// rather than growing the window further.
+// PANEL_HEIGHT_MAX (raised from 394 to 640 in the first pass, operator
+// verdict 2026-08-01 Addendum 2 item 3: "window must GROW with content
+// instead of internal scrolling — warnings get cut off today"; raised again
+// from 640 to 900, Addendum 6 item 2: 640 was still insufficient for real
+// content — 873 warnings across 3 groups, plus the drift section and Raw
+// JSON, all expandable at once). The API itself imposes no maximum —
+// @figma/plugin-typings 1.128.0 documents only a minimum ("The minimum size
+// is 70x0", plugin-api.d.ts:2668 on UIAPI.resize; showUI's options note the
+// same 70/0 floors, :353-354) — the real ceiling is the host: Figma clamps
+// the plugin iframe to the user's viewport, so a value taller than the
+// shortest realistic viewport is silently truncated by Figma and reproduces
+// the same cut-off symptom. 900 is the practical ceiling: a 13" MacBook's
+// default logical viewport is ~900px tall and a 1080p external display's
+// working area (minus OS chrome) is comfortably taller than that, so 900
+// clears the common case with only the smallest 1366x768-class laptop
+// screens (a minority for design work) still needing the internal scroll
+// this cap exists to fall back to. Content beyond it scrolls inside the
+// iframe rather than growing the window further; expanding/collapsing a
+// warning or drift group re-measures and re-grows toward this cap via each
+// <details>'s "toggle" listener (see ui.html's scheduleResize() callers).
 const PANEL_WIDTH = 342;
 const PANEL_HEIGHT_IDLE = 210;
-const PANEL_HEIGHT_MAX = 640;
+const PANEL_HEIGHT_MAX = 900;
 
 // === RESIZE DEDUP (pure — tested via resize-dedup.test.mjs, which extracts
 // this block by its markers) ===
