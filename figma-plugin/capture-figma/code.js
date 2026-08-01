@@ -1448,6 +1448,10 @@ function createSubtreeWalk(api) {
           type: node.type,
           mainComponentId: instanceMainComponent ? instanceMainComponent.id : null,
           componentSetId: instanceComponentSetId,
+          // siblingsAreInterchangeable's fallback signal (schema-v2-
+          // transform.mjs) — same lookup as mainComponentId/componentSetId,
+          // no extra round trip.
+          mainComponentSetName: instanceMainComponent ? api.resolveComponentSetName(instanceMainComponent) : null,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
         });

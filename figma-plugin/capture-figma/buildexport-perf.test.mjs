@@ -518,6 +518,7 @@ function createParallelSubtreeWalkBaseline(api) {
           type: node.type,
           mainComponentId: instanceMainComponent ? instanceMainComponent.id : null,
           componentSetId: instanceComponentSetId,
+          mainComponentSetName: instanceMainComponent ? api.resolveComponentSetName(instanceMainComponent) : null,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
         };
