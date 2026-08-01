@@ -10,6 +10,7 @@ import {
   loadCases, lintCaseFixtures, assertSkillsGuard, compileSpec, slugifyCwd,
   transcriptPath, normalizeSkillName, extractFiredSkills, readTranscript,
   sampleOutcome, scoreCase, VERDICT, discriminate, DISCRIMINATION, runArms,
+  parseRouteResult,
 } from "./skill-eval.mjs";
 
 // ---- compileSpec / S1 guard ----------------------------------------------
@@ -83,6 +84,33 @@ test("readTranscript uses an injected readFileImpl, never touching real disk", (
   assert.ok(firedSkills.has("define-terms"));
 });
 
+// ---- runNonce -> sessionSalt threading ------------------------------------
+
+test("compileSpec threads runNonce into every generated agent's sessionSalt", () => {
+  const cases = [{ id: "c1", type: "trigger", prompt: "do a thing", cwd: "~/JHD/vault", samples: 2 }];
+  const spec = compileSpec(cases, { armName: "candidate", runNonce: "nonce-1" });
+  assert.ok(spec.phases[0].agents.every((a) => a.sessionSalt === "nonce-1"));
+});
+
+test("compileSpec omits sessionSalt entirely when no runNonce is given", () => {
+  const cases = [{ id: "c1", type: "trigger", prompt: "do a thing", cwd: "~/JHD/vault", samples: 1 }];
+  const spec = compileSpec(cases, { armName: "candidate" });
+  assert.equal("sessionSalt" in spec.phases[0].agents[0], false);
+});
+
+// ---- structured route-result parsing ---------------------------------------
+
+test("parseRouteResult reads persona and skills from a valid --json-schema result string", () => {
+  const result = JSON.stringify({ persona: "researcher", skills: ["perplexity-research"] });
+  assert.deepEqual(parseRouteResult(result), { persona: "researcher", skills: ["perplexity-research"] });
+});
+
+test("parseRouteResult returns null for malformed or missing results, never throws", () => {
+  assert.equal(parseRouteResult("not json"), null);
+  assert.equal(parseRouteResult(undefined), null);
+  assert.equal(parseRouteResult(JSON.stringify({ skills: ["x"] })), null);
+});
+
 // ---- scoring ----------------------------------------------------------------
 
 test("sampleOutcome passes a trigger case when every expectSkills member fired and none forbidden", () => {
@@ -148,6 +176,21 @@ test("meta/skill-eval/cases.json loads and every case passes the fixture lint", 
 });
 
 // ---- runArms — end-to-end with an injected runWorkflowImpl (no spawn) ------
+
+test("runArms scores a route case off the structured --json-schema result, not Skill tool_use blocks", async () => {
+  const cases = [{ id: "r1", type: "route", prompt: "route me", cwd: "~/JHD/vault", expectPersona: "researcher", expectSkills: [], samples: 1 }];
+  // Fake run: the agent's transcript never fires a Skill tool_use (route
+  // agents carry no persona/skills mandate — see the S1 guard), but its
+  // JSON-schema result correctly names the expected persona.
+  const fakeRunWorkflow = async (spec, log) => {
+    for (const agent of spec.phases[0].agents) {
+      log({ type: "agent", label: agent.label, sessionId: `sess-${agent.label}`, result: JSON.stringify({ persona: "researcher", skills: [] }) });
+    }
+    return { summary: [], totals: {}, exitCode: 0 };
+  };
+  const results = await runArms({ cases, baselinePluginDir: undefined, runWorkflowImpl: fakeRunWorkflow });
+  assert.equal(results[0].candidate.verdict, VERDICT.GREEN);
+});
 
 test("runArms scores a candidate-only run (no baselinePluginDir) as BASELINE UNAVAILABLE", async () => {
   const cases = [{ id: "c1", type: "trigger", prompt: "do a thing", cwd: "~/JHD/vault", expectSkills: ["define-terms"], samples: 1 }];

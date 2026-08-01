@@ -94,9 +94,10 @@ function expandHome(p) {
 // maxTurns with the required maxTurnsOverride (workflow-lint's turn floors
 // are sized for real work, not a 2-4 turn eval probe). `route` cases carry
 // a jsonSchema so the routing decision is a typed field, not prose to regex.
-export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 4 } = {}) {
+export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 4, runNonce } = {}) {
   const agents = cases.flatMap((c) => {
     const samples = c.samples ?? 3;
+    const agentMaxTurns = c.maxTurns ?? maxTurns;
     return Array.from({ length: samples }, (_, i) => {
       const agent = {
         label: `${c.id}--${armName}--s${i}`,
@@ -105,11 +106,15 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
         effort: "low",
         cwd: expandHome(c.cwd) ?? process.cwd(),
         skills: [],
-        maxTurns,
+        maxTurns: agentMaxTurns,
         maxTurnsOverride: true,
       };
       if (c.type === "route") agent.jsonSchema = ROUTE_JSON_SCHEMA;
       if (pluginDir) agent.pluginDir = pluginDir;
+      // sessionSalt (workflow.mjs's collision fix): a per-invocation nonce
+      // so re-running skill-eval --live doesn't collide on the same
+      // deterministic session id as a prior run of the same case set.
+      if (runNonce) agent.sessionSalt = runNonce;
       return agent;
     });
   });
@@ -169,6 +174,19 @@ export function readTranscript(sessionId, cwd, { readFileImpl = (p) => readFileS
   const path = transcriptPath(sessionId, cwd, { projectsRoot });
   const text = readFileImpl(path);
   return { firedSkills: extractFiredSkills(text), path };
+}
+
+// parseRouteResult(resultText) -> { persona, skills } | null. `resultText` is
+// a route agent's raw `result` field (a JSON string conforming to
+// ROUTE_JSON_SCHEMA, since the agent ran with --json-schema). Returns null
+// on anything that doesn't parse or doesn't carry a persona field, so a
+// malformed/missing result reads as "no persona observed", never a throw.
+export function parseRouteResult(resultText) {
+  if (!resultText) return null;
+  let parsed;
+  try { parsed = JSON.parse(resultText); } catch { return null; }
+  if (!parsed || typeof parsed.persona !== "string") return null;
+  return { persona: parsed.persona, skills: Array.isArray(parsed.skills) ? parsed.skills : [] };
 }
 
 // ---- scoring ---------------------------------------------------------------
@@ -267,7 +285,10 @@ async function main() {
     return;
   }
 
-  const results = await runArms({ cases, baselinePluginDir, candidatePluginDir });
+  // Per-invocation nonce so this run's session ids never collide with a
+  // prior --live run of the same case set (workflow.mjs sessionSalt fix).
+  const runNonce = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const results = await runArms({ cases, baselinePluginDir, candidatePluginDir, runNonce });
   console.log(JSON.stringify({ results }, null, 2));
   const anyRed = results.some((r) => r.candidate.verdict === VERDICT.RED);
   process.exit(anyRed ? 1 : 0);
@@ -279,12 +300,16 @@ async function main() {
 // Each agent's real sessionId is captured off runWorkflow's `log` callback
 // (workflow.mjs computes it internally and never returns it in its final
 // value), then used to locate and read that agent's transcript.
-export async function runArms({ cases, baselinePluginDir, candidatePluginDir, runWorkflowImpl = runWorkflow }) {
+export async function runArms({ cases, baselinePluginDir, candidatePluginDir, runWorkflowImpl = runWorkflow, runNonce } = {}) {
   const runArm = async (armName, pluginDir) => {
-    const spec = compileSpec(cases, { armName, pluginDir });
+    const spec = compileSpec(cases, { armName, pluginDir, runNonce });
     const sessionsByLabel = new Map();
+    const resultsByLabel = new Map();
     await runWorkflowImpl(spec, (entry) => {
-      if (entry.type === "agent") sessionsByLabel.set(entry.label, entry.sessionId);
+      if (entry.type === "agent") {
+        sessionsByLabel.set(entry.label, entry.sessionId);
+        resultsByLabel.set(entry.label, entry.result);
+      }
     });
     const observedByCase = new Map();
     for (const phase of spec.phases) {
@@ -294,6 +319,15 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
         let observed = { firedSkills: new Set() };
         if (sessionId) {
           try { observed = readTranscript(sessionId, agent.cwd); } catch { /* transcript missing -> treat as no fire */ }
+        }
+        // route cases: read the structured --json-schema result the run
+        // actually produced (which persona the agent chose), not the
+        // transcript's Skill tool_use blocks — route agents never load a
+        // persona, so scoring them off tool_use alone always reads RED
+        // regardless of the routing decision's quality.
+        if (agent.jsonSchema) {
+          const routeResult = parseRouteResult(resultsByLabel.get(agent.label));
+          if (routeResult) observed.persona = routeResult.persona;
         }
         if (!observedByCase.has(caseId)) observedByCase.set(caseId, []);
         observedByCase.get(caseId).push(observed);
