@@ -204,17 +204,40 @@ test("warning guide: the primary/secondary pair is suggested only when the name 
 // sounds like a layer.
 test("warning guide: an axis divergence names the axis and the template, not a possessive layer", () => {
   const g = group({
-    type: "ratified_axis_exception",
+    type: "axis_ownership_violation",
     componentName: "Home - Landing",
     container: "layout",
     layerName: "NavigationHeader",
     count: 2,
     variants: [],
   });
-  const headline = warningGuideFor("ratified_axis_exception").headline(g);
+  const headline = warningGuideFor("axis_ownership_violation").headline(g);
   assert.match(headline, /layout axis/);
   assert.match(headline, /Home - Landing/);
   assert.equal(/Home - Landing's layout/.test(headline), false);
+});
+
+// RATIFIED AXIS COLLAPSE (operator-approved presentation change, 2026-08-01):
+// groupWarningsByRootCause now collapses a ratified exception to ONE row per
+// (component, axis) — componentName IS the component (e.g. NavigationHeader,
+// the axisPlace/template shape ratified_axis_exception used to share with
+// axis_ownership_violation no longer applies), and `templates` carries the
+// distinct template names the finding was seen on.
+test("warning guide: a collapsed ratified-axis-exception row states the component, the axis, and both counts (templates and places)", () => {
+  const g = group({
+    type: "ratified_axis_exception",
+    componentName: "NavigationHeader",
+    container: "layout",
+    layerName: "NavigationHeader",
+    count: 12,
+    variants: [],
+    templates: ["Home", "Projects", "Projects - Landing", "About", "Contact", "Blog"],
+  });
+  const headline = warningGuideFor("ratified_axis_exception").headline(g);
+  assert.match(headline, /NavigationHeader/);
+  assert.match(headline, /layout axis/);
+  assert.match(headline, /6 templates/);
+  assert.match(headline, /12 places/);
 });
 
 test("warning guide: an unresolvable component says which variant it saw, not a bare axis string", () => {

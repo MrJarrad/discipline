@@ -805,20 +805,37 @@
       for (const warning of warnings || []) {
         const type = (warning && warning.type) || "unknown";
         const layerName = (warning && warning.nodeName) || "";
-        const segments = String((warning && warning.context) || "").split("/").filter(Boolean);
+        let segments = String((warning && warning.context) || "").split("/").filter(Boolean);
 
         let variant = null;
         let componentName = null;
-        if (segments.length && segments[0].indexOf("=") >= 0) {
-          variant = segments.shift();
-          componentName = resolveVariantOwner ? resolveVariantOwner(variant) : null;
-        }
-        // Some warnings (malformed spacer names) address the offending node
-        // itself rather than its parent; drop that trailing self-reference so
-        // `container` always means the same thing.
-        if (segments.length && segments[segments.length - 1] === layerName) segments.pop();
-        for (const segment of segments) {
-          if (looksLikeComponentName(segment)) componentName = segment;
+        // RATIFIED AXIS COLLAPSE (operator-approved presentation change,
+        // 2026-08-01): compareInstancePair's context for a ratified
+        // exception is always "<template>/<axis>" — one row per M-/D-
+        // template pair under the normal path-segment grouping below, even
+        // though the ratified (component, axis) pair is the SAME finding
+        // restated per template. Collapse across templates by grouping on
+        // the axis alone (the layer/component IS the finding's identity;
+        // which template it happened to be seen on isn't) — the template
+        // name is kept per occurrence instead, so the expandable "where it
+        // shows up" list still names every place, just under one row.
+        let templateName = null;
+        if (type === "ratified_axis_exception" && segments.length >= 2) {
+          templateName = segments.slice(0, -1).join("/");
+          componentName = layerName;
+          segments = [segments[segments.length - 1]];
+        } else {
+          if (segments.length && segments[0].indexOf("=") >= 0) {
+            variant = segments.shift();
+            componentName = resolveVariantOwner ? resolveVariantOwner(variant) : null;
+          }
+          // Some warnings (malformed spacer names) address the offending
+          // node itself rather than its parent; drop that trailing self-
+          // reference so `container` always means the same thing.
+          if (segments.length && segments[segments.length - 1] === layerName) segments.pop();
+          for (const segment of segments) {
+            if (looksLikeComponentName(segment)) componentName = segment;
+          }
         }
         // With an empty path the parent IS the owning component's own root.
         const container = segments.length ? segments[segments.length - 1] : componentName;
@@ -833,12 +850,14 @@
             layerName: layerName,
             count: 0,
             variants: [],
+            templates: [],
             occurrences: [],
           };
           groups.set(key, group);
         }
         group.count++;
         if (variant && group.variants.indexOf(variant) < 0) group.variants.push(variant);
+        if (templateName && group.templates.indexOf(templateName) < 0) group.templates.push(templateName);
         group.occurrences.push({
           variant: variant,
           path: (warning && warning.context) || "",
@@ -968,12 +987,27 @@
       },
       // code.js findRatifiedAxisException()/RATIFIED_AXIS_EXCEPTIONS: the same
       // condition as above, downgraded (not dropped) for a cited exception.
+      // groupWarningsByRootCause collapses this type to ONE row per
+      // (component, axis) across every template pair it fires on
+      // (operator-approved presentation change, 2026-08-01) — the headline
+      // states both counts the collapse folds together: how many templates
+      // carried the exception, and how many individual places that adds up
+      // to (`group.templates`/`group.count` — never the generic
+      // axisPlace/rootCauseEcho pair the still-per-template
+      // axis_ownership_violation uses above).
       ratified_axis_exception: {
         headline: (group) =>
-          quoted(group.layerName) + " holds a ratified mobile/desktop difference on the " + axisPlace(group) + rootCauseEcho(group),
+          quoted(group.componentName || group.layerName) +
+          " holds a ratified mobile/desktop difference on the " +
+          (group.container || "a variant") +
+          " axis — " +
+          (group.templates ? group.templates.length : 1) +
+          " templates, " +
+          group.count +
+          " places",
         fix: () =>
           "Nothing to fix — the operator has already ratified this divergence. It is listed rather than hidden so the suppression stays auditable, and it disappears only if the ruling changes.",
-        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has ratified as intended (currently NavigationHeader's layout axis).",
+        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has ratified as intended (currently NavigationHeader's layout axis). One row covers every template pair it fires on — expand it for the per-template list.",
       },
       // code.js buildAxisOwnershipViolationWarnings(): within one instance-
       // name group where BOTH sides repeat the name, an instance at a position

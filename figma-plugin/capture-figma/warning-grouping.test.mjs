@@ -177,3 +177,59 @@ test("root causes: a warning with no context at all still gets a row", () => {
   assert.equal(groups.length, 1);
   assert.equal(groups[0].componentName, null);
 });
+
+// RATIFIED AXIS COLLAPSE (operator-approved presentation change, 2026-08-01):
+// NavigationHeader's ratified layout-axis exception fires once per M-/D-
+// template pair (compareInstancePair's context is "<template>/<axis>"), so
+// six template pairs produce six rows of the SAME finding under the old
+// per-path grouping. They must collapse to ONE row per (component, axis),
+// independent of which template it was seen on.
+function ratified(templateBase, axis, nodeName) {
+  return {
+    type: "ratified_axis_exception",
+    nodeId: "N:" + templateBase + "/" + axis,
+    nodeName: nodeName,
+    context: templateBase + "/" + axis,
+    message: `${templateBase}: instance "${nodeName}" has divergent ${axis} — ratified exception.`,
+  };
+}
+
+test("root causes: ratified_axis_exception rows for the SAME component+axis collapse to ONE row across templates", () => {
+  const warnings = [
+    ratified("Home", "layout", "NavigationHeader"),
+    ratified("Home", "layout", "NavigationHeader"),
+    ratified("Projects", "layout", "NavigationHeader"),
+    ratified("Projects", "layout", "NavigationHeader"),
+    ratified("Projects - Landing", "layout", "NavigationHeader"),
+    ratified("Projects - Landing", "layout", "NavigationHeader"),
+    ratified("About", "layout", "NavigationHeader"),
+    ratified("About", "layout", "NavigationHeader"),
+    ratified("Contact", "layout", "NavigationHeader"),
+    ratified("Contact", "layout", "NavigationHeader"),
+    ratified("Blog", "layout", "NavigationHeader"),
+    ratified("Blog", "layout", "NavigationHeader"),
+  ];
+
+  const groups = groupWarningsByRootCause(warnings, resolver());
+
+  assert.equal(groups.length, 1, "six templates x 2 occurrences must collapse to one row, not six");
+  assert.equal(groups[0].type, "ratified_axis_exception");
+  assert.equal(groups[0].componentName, "NavigationHeader");
+  assert.equal(groups[0].container, "layout");
+  assert.equal(groups[0].count, 12, "every occurrence is kept — 12 places");
+  assert.equal(groups[0].templates.length, 6, "6 distinct templates");
+  assert.deepEqual(groups[0].templates, ["Home", "Projects", "Projects - Landing", "About", "Contact", "Blog"]);
+  assert.equal(groups[0].occurrences.length, 12, "the per-template list stays available underneath, expandable");
+});
+
+test("root causes: a ratified exception on a DIFFERENT axis of the same component stays a separate row", () => {
+  const warnings = [ratified("Home", "layout", "NavigationHeader"), ratified("Home", "density", "NavigationHeader")];
+  const groups = groupWarningsByRootCause(warnings, resolver());
+  assert.equal(groups.length, 2);
+});
+
+test("root causes: a ratified exception on a DIFFERENT component stays a separate row from NavigationHeader's", () => {
+  const warnings = [ratified("Home", "layout", "NavigationHeader"), ratified("Home", "layout", "LayoutGrid")];
+  const groups = groupWarningsByRootCause(warnings, resolver());
+  assert.equal(groups.length, 2);
+});
