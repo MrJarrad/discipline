@@ -907,15 +907,12 @@ test("example sections: a page with no bare frames records no empty-named sectio
 
 // --- layer binding entries ------------------------------------------------
 //
-// With siblings now overlapping, what is left of the walk's serial depth is
-// INSIDE a node: collectLayerBindingEntries awaited every bound variable and
-// then all four style fields one at a time, so a single layer cost up to
-// half a dozen round trips end to end, multiplied by tree depth. They are
-// independent lookups; only the PUSH order matters, because that order is
-// what the chain-wide first-occurrence-wins dedupe consumes.
-//
-// Proven against a verbatim copy of the sequential collector, with resolvers
-// that answer in the REVERSE of call order.
+// REVERTED (perf round 2 revert, operator verdict 2026-08-01: net loss in the
+// plugin sandbox — see the SUBTREE WALK comment above for the full finding).
+// collectLayerBindingEntries is back to awaiting and pushing each lookup in
+// place, one at a time. Proven against the round-2 batched implementation it
+// replaces (reimplemented verbatim from 8ccb4f7), with resolvers that answer
+// in the REVERSE of call order.
 
 const { createLayerBindingCollector } = extract("LAYER BINDINGS", "{ createLayerBindingCollector }");
 
@@ -928,24 +925,23 @@ function reverseCompletionBindingApi() {
   };
 }
 
-// The shipped-before-this-change implementation, verbatim from code.js at
-// 5d64bf2: every lookup awaited in place, inside the enumeration loops.
-function createSequentialLayerBindingBaseline(api) {
+// perf round 2's batched implementation, verbatim from code.js at 8ccb4f7 —
+// now REVERTED. Kept here only so the round-1 sequential shape shipped in
+// code.js can be proven output-identical to what it replaced.
+function createBatchedLayerBindingBaseline(api) {
   return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
-    function push(property, value) {
-      if (value === null || value === undefined) return;
-      const key = property + "\u0000" + value;
-      if (seen.has(key)) return;
-      seen.add(key);
-      bindingsOut.push({ layer: layer, property: property, value: value });
+    const pending = [];
+    function expect(property, value) {
+      pending.push({ property: property, value: value });
     }
+
     if (node.boundVariables) {
       for (const prop of Object.keys(node.boundVariables)) {
         const alias = node.boundVariables[prop];
         if (!alias) continue;
         const aliases = Array.isArray(alias) ? alias : [alias];
         for (const a of aliases) {
-          if (a && typeof a.id === "string") push(prop, await api.resolveVariableName(a.id, variableById));
+          if (a && typeof a.id === "string") expect(prop, api.resolveVariableName(a.id, variableById));
         }
       }
     }
@@ -959,7 +955,7 @@ function createSequentialLayerBindingBaseline(api) {
         for (const field of Object.keys(paint.boundVariables)) {
           const alias = paint.boundVariables[field];
           if (alias && typeof alias.id === "string") {
-            push(bucket.prefix + "." + field, await api.resolveVariableName(alias.id, variableById));
+            expect(bucket.prefix + "." + field, api.resolveVariableName(alias.id, variableById));
           }
         }
       }
@@ -967,8 +963,26 @@ function createSequentialLayerBindingBaseline(api) {
     for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
       const styleId = node[field];
       if (typeof styleId !== "string" || !styleId) continue;
-      const style = await api.getStyleById(styleId);
-      push(field.replace(/Id$/, ""), style ? style.name : styleId);
+      expect(
+        field.replace(/Id$/, ""),
+        Promise.resolve(api.getStyleById(styleId)).then(function (style) {
+          return style ? style.name : styleId;
+        })
+      );
+    }
+
+    const values = await Promise.all(
+      pending.map(function (entry) {
+        return entry.value;
+      })
+    );
+    for (let i = 0; i < pending.length; i++) {
+      const value = values[i];
+      if (value === null || value === undefined) continue;
+      const key = pending[i].property + "\u0000" + value;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      bindingsOut.push({ layer: layer, property: pending[i].property, value: value });
     }
   };
 }
@@ -993,7 +1007,7 @@ const BINDING_NODE = {
 
 async function collectBoth(node, layer) {
   const beforeOut = [];
-  await createSequentialLayerBindingBaseline(reverseCompletionBindingApi())(
+  await createBatchedLayerBindingBaseline(reverseCompletionBindingApi())(
     node, layer, new Map(), beforeOut, new Set()
   );
   const afterOut = [];
@@ -1001,7 +1015,7 @@ async function collectBoth(node, layer) {
   return { before: beforeOut, after: afterOut };
 }
 
-test("layer bindings: parallel lookups push byte-identically to the sequential collector", async () => {
+test("layer bindings: the restored sequential collector pushes byte-identically to the reverted batched one", async () => {
   const { before, after } = await collectBoth(BINDING_NODE, "card/label");
   assert.equal(JSON.stringify(after), JSON.stringify(before));
   assert.equal(after.length > 0, true, "the fixture must actually produce entries");
@@ -1057,7 +1071,11 @@ test("layer bindings: a layer with nothing bound collects nothing", async () => 
   assert.deepEqual(after, []);
 });
 
-test("layer bindings: the lookups really do overlap rather than queue", async () => {
+// REPOINTED (perf round 2 revert): the shipped collector no longer batches
+// its lookups — that batching was exactly the round-2 behavior measured as a
+// net loss. Each lookup is awaited in place now, so at most one is ever in
+// flight.
+test("layer bindings: the restored collector queues its lookups sequentially, not in a batch", async () => {
   let inFlight = 0;
   let peak = 0;
   const hold = (value) =>
@@ -1072,7 +1090,7 @@ test("layer bindings: the lookups really do overlap rather than queue", async ()
     resolveVariableName: (id) => hold("tokens/" + id),
     getStyleById: (id) => hold({ name: "style/" + id }),
   })(BINDING_NODE, "card/label", new Map(), [], new Set());
-  assert.equal(peak, 8, "five bound-variable aliases and three style ids, all in flight together");
+  assert.equal(peak, 1, "lookups must queue one at a time, exactly like the round-1/v1.23.0 collector");
 });
 
 // --- concurrency cap ------------------------------------------------------

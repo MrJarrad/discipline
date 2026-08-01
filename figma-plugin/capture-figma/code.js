@@ -1289,25 +1289,24 @@ async function resolveCapabilityBinding(paint, variableById) {
 // (layer_binding_changed, e.g. a nested instance's variant swap or a text
 // style rename resolving to a different name).
 // === LAYER BINDINGS (lookups injected — tested via buildexport-perf.test.mjs,
-// which extracts this block by its markers and diffs it against the previous
-// sequential implementation) ===
-// OPTIMIZATION (round 2): once siblings overlap, what remains of the walk's
-// serial depth is inside a single node — every bound variable and then all
-// four style fields used to be awaited one at a time, so one layer cost up to
-// half a dozen sequential round trips, multiplied by tree depth. The lookups
-// are independent; only the PUSH order matters, because that order is what
-// the chain-wide first-occurrence-wins dedupe consumes.
-//
-// So: enumerate every (property, pending lookup) pair in exactly the order
-// the sequential version would have pushed them, let them all run, then push
-// in that enumeration order. Proven differentially in
-// buildexport-perf.test.mjs against resolvers that answer in reverse call
-// order.
+// which extracts this block by its markers and diffs it against the round-2
+// batched implementation it replaced) ===
+// REVERTED (perf round 2 revert, operator verdict 2026-08-01: net loss in
+// the plugin sandbox — see the SUBTREE WALK comment above for the full
+// finding). Restored to the round-1 shape: each lookup is awaited and
+// pushed in place, one at a time, in exactly the order the sequential
+// version pushed them. The id cache (93f8924, getStyleById/
+// getVariableByIdCached) and the call gate on the underlying leaf accessors
+// are untouched — this is purely the batching/enumeration shape, not the
+// cached round trips underneath it.
 function createLayerBindingCollector(api) {
   return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
-    const pending = [];
-    function expect(property, value) {
-      pending.push({ property: property, value: value });
+    function push(property, value) {
+      if (value === null || value === undefined) return;
+      const key = property + "\u0000" + value;
+      if (seen.has(key)) return;
+      seen.add(key);
+      bindingsOut.push({ layer: layer, property: property, value: value });
     }
 
     if (node.boundVariables) {
@@ -1316,7 +1315,7 @@ function createLayerBindingCollector(api) {
         if (!alias) continue;
         const aliases = Array.isArray(alias) ? alias : [alias];
         for (const a of aliases) {
-          if (a && typeof a.id === "string") expect(prop, api.resolveVariableName(a.id, variableById));
+          if (a && typeof a.id === "string") push(prop, await api.resolveVariableName(a.id, variableById));
         }
       }
     }
@@ -1330,7 +1329,7 @@ function createLayerBindingCollector(api) {
         for (const field of Object.keys(paint.boundVariables)) {
           const alias = paint.boundVariables[field];
           if (alias && typeof alias.id === "string") {
-            expect(bucket.prefix + "." + field, api.resolveVariableName(alias.id, variableById));
+            push(bucket.prefix + "." + field, await api.resolveVariableName(alias.id, variableById));
           }
         }
       }
@@ -1338,26 +1337,8 @@ function createLayerBindingCollector(api) {
     for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
       const styleId = node[field];
       if (typeof styleId !== "string" || !styleId) continue;
-      expect(
-        field.replace(/Id$/, ""),
-        Promise.resolve(api.getStyleById(styleId)).then(function (style) {
-          return style ? style.name : styleId;
-        })
-      );
-    }
-
-    const values = await Promise.all(
-      pending.map(function (entry) {
-        return entry.value;
-      })
-    );
-    for (let i = 0; i < pending.length; i++) {
-      const value = values[i];
-      if (value === null || value === undefined) continue;
-      const key = pending[i].property + "\u0000" + value;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      bindingsOut.push({ layer: layer, property: pending[i].property, value: value });
+      const style = await api.getStyleById(styleId);
+      push(field.replace(/Id$/, ""), style ? style.name : styleId);
     }
   };
 }
