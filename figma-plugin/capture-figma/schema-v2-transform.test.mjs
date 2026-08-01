@@ -125,6 +125,8 @@ test("buildTemplateFrames: splits an instance's componentProperties into variant
     {
       id: "tf-1",
       name: "Homepage",
+      width: 1440,
+      height: 3120,
       instances: [
         {
           id: "inst-1",
@@ -147,6 +149,8 @@ test("buildTemplateFrames: splits an instance's componentProperties into variant
     {
       id: "tf-1",
       name: "Homepage",
+      width: 1440,
+      height: 3120,
       instances: [
         {
           id: "inst-1",
@@ -183,6 +187,17 @@ test("buildTemplateFrames: passes overrides through verbatim (id/property/value 
   const result = buildTemplateFrames(frames);
 
   assert.deepEqual(result[0].instances[0].overrides, [{ id: "inst-1/Hero/SpacerTop", property: "visible", value: true }]);
+});
+
+test("buildTemplateFrames: carries the frame's width/height through (Math.round'd by the caller), answering frame-geometry questions from the artifact", () => {
+  const frames = [
+    { id: "tf-1", name: "Homepage", width: 1440, height: 3120, instances: [] },
+  ];
+
+  const result = buildTemplateFrames(frames);
+
+  assert.equal(result[0].width, 1440);
+  assert.equal(result[0].height, 3120);
 });
 
 test("buildLatentCapabilities: maps a capability-node snapshot to id/name/visible/binding, dropping unrelated fields", () => {

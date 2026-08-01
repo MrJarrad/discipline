@@ -50,19 +50,26 @@ function buildExampleStructure(sectionSnapshots) {
 const AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS = "device";
 
 // templateFrames[]: the resolved instance state of the layout's Example
-// frames — {id, name, instances:[{id,name,component,variantProps,
-// properties,overrides}]}. Each instance's raw componentProperties (Figma's
-// merged variant+non-variant property map, {name:{value,type}}) is split by
-// type: VARIANT entries become variantProps (the instance's resolved
-// variant selection per axis), everything else becomes properties
-// (text/boolean/instance-swap values). overrides are passed through
-// verbatim — resolving a live node's overridden value and building its
-// {instance-id}/{node-name-path} id requires walking the actual instance
-// tree, which only code.js's traversal (not this pure function) can do.
+// frames — {id, name, width, height, instances:[{id,name,component,
+// variantProps,properties,overrides}]}. width/height are the frame's own
+// sync properties at snapshot time (Math.round'd by the caller) — additive
+// field (operator-approved, vault decisions/capture-ui-feel-verdict-
+// 2026-08-01.md Addendum 9), so frame-geometry questions (content-hug vs
+// device-height template pairs) are answerable from the artifact without
+// reopening Figma. Each instance's raw componentProperties (Figma's merged
+// variant+non-variant property map, {name:{value,type}}) is split by type:
+// VARIANT entries become variantProps (the instance's resolved variant
+// selection per axis), everything else becomes properties (text/boolean/
+// instance-swap values). overrides are passed through verbatim — resolving
+// a live node's overridden value and building its {instance-id}/
+// {node-name-path} id requires walking the actual instance tree, which only
+// code.js's traversal (not this pure function) can do.
 function buildTemplateFrames(frameSnapshots) {
   return (frameSnapshots || []).map((frame) => ({
     id: frame.id,
     name: frame.name,
+    width: frame.width,
+    height: frame.height,
     instances: (frame.instances || []).map((inst) => {
       const variantProps = {};
       const properties = {};
