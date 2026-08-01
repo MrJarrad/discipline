@@ -409,3 +409,298 @@ test("timings: the synced status carries them to the UI so no DevTools trace is 
   assert.match(ui, /formatTimings/);
   assert.match(ui, /id="sync-timing"/);
 });
+
+// --- subtree walk: sibling parallelization --------------------------------
+//
+// Round 2's headline lever (componentsWalk = 7.5s of an 11.6s export). The
+// hazard is the binding chain: siblings share one bindings array and one
+// `seen` set, with first-occurrence-wins dedupe IN DOCUMENT ORDER. Anything
+// that lets completion order reach that dedupe silently reorders — or drops
+// the wrong one of — a variant's bindings. So the walk is proven here against
+// a verbatim copy of the sequential implementation it replaces, on a fixture
+// whose every async dependency completes in the REVERSE of call order.
+
+const { createSubtreeWalk } = extract("SUBTREE WALK", "{ createSubtreeWalk }");
+
+function walkNode(spec) {
+  const n = Object.assign({ children: [] }, spec);
+  for (const child of n.children) child.parent = n;
+  return n;
+}
+
+function testNodeNamePath(node, root) {
+  if (node === root) return node.name;
+  const names = [];
+  let cur = node;
+  while (cur && cur !== root) {
+    names.unshift(cur.name);
+    cur = cur.parent;
+  }
+  return names.join("/");
+}
+
+function testNextRecordState(node, nodeWasRecorded) {
+  if (node.type === "COMPONENT" || node.type === "FRAME") return true;
+  return !!nodeWasRecorded && typeof node.name === "string" && node.name.startsWith(".");
+}
+
+// Every async dependency answers later the EARLIER it was called, so a walk
+// that let completion order leak would produce visibly different output.
+function reverseCompletionApi() {
+  let call = 0;
+  const later = (value) => new Promise((r) => setTimeout(() => r(value), Math.max(0, 30 - call++)));
+  return {
+    getInstanceMainComponent: (inst) => later(inst.main || null),
+    resolveComponentSetName: (c) => (c && c.setName) || null,
+    isSpacerSetName: (name) => name === "SpaceVertical",
+    nodeNamePath: testNodeNamePath,
+    nextRecordState: testNextRecordState,
+    resolveCapabilityBinding: (paint) => later(paint.binding || null),
+    collectNodeLatentCapabilities: (node, resolvedPaints) =>
+      resolvedPaints.filter((p) => p.paint.hidden).map((p) => ({ node: node.name, binding: p.binding })),
+    collectLayerBindingEntries: async (node, layer, variableById, bindingsOut, seen) => {
+      for (const pair of node.binds || []) {
+        await later(null);
+        const key = pair[0] + "\u0000" + pair[1];
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bindingsOut.push({ layer: layer, property: pair[0], value: pair[1] });
+      }
+    },
+  };
+}
+
+// The shipped-before-this-change implementation, verbatim from code.js at
+// c0ce06c: one sibling at a time, every visit mutating the shared collector
+// and the shared bindings/seen context as it goes.
+function createSequentialSubtreeWalkBaseline(api) {
+  return async function walkV2Subtree(root, variableById, out, collectBindings) {
+    async function visit(node, parent, recordHere, bindingCtx) {
+      const instanceMainComponent = node.type === "INSTANCE" ? await api.getInstanceMainComponent(node) : null;
+      const instanceComponentSetId =
+        instanceMainComponent && instanceMainComponent.parent && instanceMainComponent.parent.type === "COMPONENT_SET"
+          ? instanceMainComponent.parent.id
+          : null;
+
+      if (recordHere) {
+        out.nodeSnapshots.push({
+          id: node.id,
+          name: node.name,
+          type: node.type,
+          mainComponentId: instanceMainComponent ? instanceMainComponent.id : null,
+          componentSetId: instanceComponentSetId,
+          parentId: parent ? parent.id : null,
+          parentPath: parent ? api.nodeNamePath(parent, root) : null,
+        });
+      }
+
+      if (node.type === "INSTANCE") {
+        const mainComponent = instanceMainComponent;
+        const mainComponentSetName = api.resolveComponentSetName(mainComponent);
+        if (mainComponentSetName && api.isSpacerSetName(mainComponentSetName)) {
+          out.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
+        }
+        if (bindingCtx) {
+          const boundName = mainComponent ? api.resolveComponentSetName(mainComponent) || mainComponent.name : null;
+          if (boundName) {
+            const key = "instance\u0000" + boundName;
+            if (!bindingCtx.seen.has(key)) {
+              bindingCtx.seen.add(key);
+              bindingCtx.bindings.push({ layer: bindingCtx.layer, property: "instance", value: boundName });
+            }
+          }
+        }
+      }
+
+      if (Array.isArray(node.fills) || Array.isArray(node.strokes)) {
+        const resolvedPaints = [];
+        for (const paint of node.fills || []) {
+          resolvedPaints.push({ paint: paint, binding: await api.resolveCapabilityBinding(paint, variableById) });
+        }
+        for (const paint of node.strokes || []) {
+          resolvedPaints.push({ paint: paint, binding: await api.resolveCapabilityBinding(paint, variableById) });
+        }
+        out.latentCapabilities.push.apply(
+          out.latentCapabilities,
+          api.collectNodeLatentCapabilities(node, resolvedPaints)
+        );
+      }
+
+      if (bindingCtx && node.type !== "INSTANCE" && bindingCtx.layer !== "") {
+        await api.collectLayerBindingEntries(node, bindingCtx.layer, variableById, bindingCtx.bindings, bindingCtx.seen);
+      }
+
+      if (Array.isArray(node.children)) {
+        const childRecordHere = api.nextRecordState(node, recordHere);
+        for (const child of node.children) {
+          let childBindingCtx = null;
+          if (collectBindings && node === root && child.type === "COMPONENT") {
+            const arr = [];
+            out.variantBindings.set(child.id, arr);
+            childBindingCtx = { layer: "", bindings: arr, seen: new Set() };
+          } else if (bindingCtx && node.type !== "INSTANCE") {
+            childBindingCtx = {
+              layer: bindingCtx.layer ? bindingCtx.layer + "/" + child.name : child.name,
+              bindings: bindingCtx.bindings,
+              seen: bindingCtx.seen,
+            };
+          }
+          await visit(child, node, childRecordHere, childBindingCtx);
+        }
+      }
+    }
+    await visit(root, null, false, null);
+  };
+}
+
+// A component set shaped like a real one: two variants, each with sibling
+// layers that collide on (property, value) so the first-in-document-order
+// entry must win with ITS layer; a nested instance (binding chain stops at
+// it); a spacer instance; hidden bound paints; a dot-prefixed sub-component
+// (the extra recorded level).
+function variantSetFixture() {
+  const spacerMain = { id: "C:spacer", name: "SpaceVertical", setName: "SpaceVertical" };
+  const iconMain = {
+    id: "C:icon",
+    name: "Icon/base",
+    setName: "Icon",
+    parent: { type: "COMPONENT_SET", id: "CS:icon" },
+  };
+  return walkNode({
+    id: "CS:1",
+    name: "Button",
+    type: "COMPONENT_SET",
+    children: [
+      walkNode({
+        id: "C:sm",
+        name: "size=sm",
+        type: "COMPONENT",
+        binds: [["fill", "brand/primary"]],
+        children: [
+          walkNode({
+            id: "N:label",
+            name: "label",
+            type: "TEXT",
+            binds: [
+              ["textStyle", "type/body"],
+              ["fill", "brand/ink"],
+            ],
+            fills: [{ hidden: true, binding: "brand/ink" }],
+          }),
+          walkNode({
+            id: "N:label2",
+            name: "shadowLabel",
+            type: "TEXT",
+            // collides with N:label on both entries — must lose both, so the
+            // recorded layer stays "label", never "shadowLabel".
+            binds: [
+              ["textStyle", "type/body"],
+              ["fill", "brand/ink"],
+            ],
+          }),
+          walkNode({
+            id: "N:icon",
+            name: "icon",
+            type: "INSTANCE",
+            main: iconMain,
+            fills: [{ hidden: false, binding: null }],
+            strokes: [{ hidden: true, binding: "brand/line" }],
+            children: [
+              walkNode({ id: "N:inner", name: "inner", type: "VECTOR", binds: [["fill", "never/collected"]] }),
+            ],
+          }),
+          walkNode({ id: "N:gap", name: "gap", type: "INSTANCE", main: spacerMain }),
+          walkNode({
+            id: "N:priv",
+            name: ".private",
+            type: "FRAME",
+            binds: [["fill", "brand/primary"]],
+            children: [walkNode({ id: "N:deep", name: "deep", type: "RECTANGLE", binds: [["fill", "brand/deep"]] })],
+          }),
+        ],
+      }),
+      walkNode({
+        id: "C:lg",
+        name: "size=lg",
+        type: "COMPONENT",
+        children: [
+          // same keys as the other variant's — proves the chains are per
+          // variant, not shared.
+          walkNode({ id: "N:label3", name: "label", type: "TEXT", binds: [["textStyle", "type/body"]] }),
+          walkNode({ id: "N:icon2", name: "icon", type: "INSTANCE", main: iconMain }),
+        ],
+      }),
+    ],
+  });
+}
+
+function walkCollector() {
+  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+}
+
+async function runBothWalks(rootFactory, collectBindings) {
+  const baseline = walkCollector();
+  await createSequentialSubtreeWalkBaseline(reverseCompletionApi())(rootFactory(), new Map(), baseline, collectBindings);
+  const shipped = walkCollector();
+  await createSubtreeWalk(reverseCompletionApi())(rootFactory(), new Map(), shipped, collectBindings);
+  return { baseline, shipped };
+}
+
+test("subtree walk: parallel siblings collect byte-identically to the sequential walk, bindings order included", async () => {
+  const { baseline, shipped } = await runBothWalks(variantSetFixture, true);
+  assert.equal(collectorAsJson(shipped), collectorAsJson(baseline));
+});
+
+test("subtree walk: first-occurrence-wins dedupe still resolves in DOCUMENT order, not completion order", async () => {
+  const { baseline, shipped } = await runBothWalks(variantSetFixture, true);
+  const smBindings = shipped.variantBindings.get("C:sm");
+  assert.deepEqual(smBindings, baseline.variantBindings.get("C:sm"));
+  // the colliding sibling ("shadowLabel") must contribute nothing: the
+  // earlier-in-document "label" owns both keys.
+  assert.equal(smBindings.some((b) => b.layer === "shadowLabel"), false);
+  assert.deepEqual(
+    smBindings.filter((b) => b.property === "textStyle"),
+    [{ layer: "label", property: "textStyle", value: "type/body" }]
+  );
+});
+
+test("subtree walk: the binding chain still stops at an INSTANCE boundary", async () => {
+  const { shipped } = await runBothWalks(variantSetFixture, true);
+  const all = [...shipped.variantBindings.values()].flat();
+  assert.equal(all.some((b) => b.value === "never/collected"), false);
+  assert.deepEqual(
+    all.filter((b) => b.property === "instance").map((b) => b.layer + "=" + b.value),
+    ["icon=Icon", "gap=SpaceVertical", "icon=Icon"]
+  );
+});
+
+test("subtree walk: siblings really do overlap rather than queue", async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const api = Object.assign(reverseCompletionApi(), {
+    getInstanceMainComponent: (inst) =>
+      new Promise((resolve) => {
+        peak = Math.max(peak, ++inFlight);
+        setTimeout(() => {
+          inFlight--;
+          resolve(inst.main || null);
+        }, 8);
+      }),
+  });
+  const root = walkNode({
+    id: "F:1",
+    name: "frame",
+    type: "FRAME",
+    children: [1, 2, 3, 4, 5].map((i) =>
+      walkNode({ id: "N:" + i, name: "i" + i, type: "INSTANCE", main: { id: "C:x", name: "X" } })
+    ),
+  });
+  await createSubtreeWalk(api)(root, new Map(), walkCollector(), false);
+  assert.equal(peak, 5, "every sibling's visit should be in flight at once");
+});
+
+test("subtree walk: a walk with no binding collection matches the sequential version too", async () => {
+  const { baseline, shipped } = await runBothWalks(variantSetFixture, false);
+  assert.equal(collectorAsJson(shipped), collectorAsJson(baseline));
+  assert.equal(shipped.variantBindings.size, 0);
+});
