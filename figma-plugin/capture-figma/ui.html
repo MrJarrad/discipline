@@ -235,6 +235,23 @@
     .sync-timing:empty {
       display: none;
     }
+    /* The pre-sync version-history save line ("capture-figma pre-sync
+       <ts>") — operator verdict 2026-08-01, Addendum 6 item 1: give it the
+       SAME treatment as .sync-timing above (position below its section's
+       controls, small-gray monospace-ish styling) instead of crammed into
+       the snapshot row's status-detail slot next to "Snapshot saved". Rule
+       body is declaration-for-declaration identical to .sync-timing on
+       purpose (see version-save-line.test.mjs), not just visually similar. */
+    .snapshot-version {
+      margin: var(--space-1) 0 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-text-muted);
+      overflow-wrap: anywhere;
+    }
+    .snapshot-version:empty {
+      display: none;
+    }
 
     .count-heading {
       display: flex;
@@ -408,6 +425,7 @@
     <div class="btn-row">
       <button type="button" class="btn snapshot" id="snapshot-btn">Save snapshot</button>
     </div>
+    <p class="snapshot-version" id="snapshot-version"></p>
   </section>
 
   <div id="counts"></div>
@@ -458,6 +476,7 @@
     const snapshotDetailEl = document.getElementById("snapshot-detail");
     const snapshotTimeEl = document.getElementById("snapshot-time");
     const snapshotBtn = document.getElementById("snapshot-btn");
+    const snapshotVersionEl = document.getElementById("snapshot-version");
 
     const countsEl = document.getElementById("counts");
     const driftRow = document.getElementById("drift-row");
@@ -575,6 +594,14 @@
       snapshotStateEl.textContent = state;
       snapshotDetailEl.textContent = detail || "";
       snapshotTimeEl.textContent = time || "";
+      scheduleResize();
+    }
+
+    // The below-the-button version-save line (see .snapshot-version's CSS
+    // comment) — separate from setSnapshotRow's `detail` slot, which stays
+    // short-states-only ("Snapshot unavailable", the error message, etc).
+    function setSnapshotVersion(text) {
+      snapshotVersionEl.textContent = text || "";
       scheduleResize();
     }
 
@@ -996,6 +1023,7 @@
       if (msg.state === "unavailable") {
         snapshotBtn.disabled = true;
         setSnapshotRow("", "Snapshot unavailable", msg.message, "");
+        setSnapshotVersion("");
       } else if (msg.state === "ready") {
         snapshotBtn.disabled = false;
         // "purple-idle" (not the plain "purple" that promotes the state word
@@ -1004,13 +1032,20 @@
         // yet" rendering as a single quiet line in the mockup, the same
         // typographic weight as the sync row's idle "Ready" line.
         setSnapshotRow("purple-idle", "No snapshot yet", "", "");
+        setSnapshotVersion("");
       } else if (msg.state === "saved") {
         snapshotBtn.disabled = false;
         const t = new Date(msg.at).toLocaleTimeString();
-        setSnapshotRow("purple", "Snapshot saved", msg.title, t);
+        // Short state only in the status-detail slot (operator verdict
+        // 2026-08-01, Addendum 6 item 1) — the version title itself moves to
+        // its own full-width line below the button row, same treatment as
+        // the sync section's timing line.
+        setSnapshotRow("purple", "Snapshot saved", "", t);
+        setSnapshotVersion(msg.title);
       } else if (msg.state === "error") {
         snapshotBtn.disabled = false;
         setSnapshotRow("red", "Snapshot failed", msg.message, "");
+        setSnapshotVersion("");
       }
     }
 
