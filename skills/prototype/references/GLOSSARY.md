@@ -1,6 +1,6 @@
 # Glossary — prototype
 
-The domain model for **throwaway spikes** — runnable code that answers one design question before shaped work begins. Complements `stress-plan` (conversation) and `test-first` (production tests).
+The domain model for **throwaway spikes** — runnable code that answers one design question before shaped work begins. Complements `shape-stress`'s interview mode (conversation) and `test-first` (production tests).
 
 **Bold terms** in any definition are themselves defined here — find them by heading.
 
@@ -76,7 +76,7 @@ _Avoid:_ pasting the entire throwaway file into the shaped artifact
 
 | Skill | When |
 | ----- | ---- |
-| `stress-plan` | Plan stress — not runnable |
+| `shape-stress` (interview mode) | Plan stress — not runnable |
 | `shape-stress` | After the verdict — shape the project |
 | `prompt-craft` | Slice with the embedded snippet |
 | `test-first` | Production red-green after the decision |

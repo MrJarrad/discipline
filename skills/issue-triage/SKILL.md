@@ -1,6 +1,6 @@
 ---
 name: issue-triage
-description: Move a raw task/brief to ready-for-agent — verify the claim, write a testable brief, or capture the rejection in the out-of-scope knowledge base. Use when a task is vague, unverified, or you're deciding whether it's safe to hand to a doer subagent. Not for classifying a raw unstructured capture into a bucket — that's the Intake classification section below, applied one step earlier.
+description: Move a raw issue to ready-for-agent — verify the claim, write a testable brief, or capture the rejection. Trigger on "there are discrepancies", "I noticed some issues", "a couple of things are off", any list of defects from the operator or an audit, or before handing any vague/unverified issue to a specialist. Not the fix itself — that's the assigned agent's job.
 ---
 
 # Issue Triage

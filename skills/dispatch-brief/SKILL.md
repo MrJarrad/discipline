@@ -45,7 +45,7 @@ brief must name the exact skills the receiving agent is required to invoke
 | Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` if UI is touched) |
 | Research | `research-synthesis` + `perplexity-research` |
 | Capture | `capture-figma` or `capture-website` |
-| Motion | `motion-craft` |
+| Motion | `motion` |
 
 ## Workflow-spec visibility
 

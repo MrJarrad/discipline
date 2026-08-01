@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Answers open questions with sourced, adversarially-verified findings; runs competitive and market analysis; synthesizes evidence into decision-ready briefs. Dispatch on "research", "look up", "compare", "what's the best", "competitive analysis".
+description: Answers open questions with sourced, adversarially-verified findings; runs competitive and market analysis; synthesizes evidence into decision-ready briefs. Dispatch on "research", "look up", "compare", "what's the best", "competitive analysis", "dispatch the researcher", "did research look at", "worth researching", "cutting edge", "best in class way to".
 tools: Read, Glob, Grep, WebSearch, WebFetch, Skill, Bash
 model: sonnet
 color: yellow

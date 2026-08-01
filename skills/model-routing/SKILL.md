@@ -1,6 +1,6 @@
 ---
 name: model-routing
-description: Decide which model tier every dispatch runs on — sonnet is the default, opus is rare and must be justified in the brief, top-tier is never dispatched. Load alongside dispatch-brief before authoring ANY Agent call or workflow spec.
+description: Decide model tier, effort, and turn caps for every dispatch — sonnet default, opus rare and justified, top-tier never dispatched; every spec sets maxTurns. Trigger before ANY Agent call or workflow spec, chain-loaded by routing as load-order step 2. Not WHO handles the work — that's routing; not brief structure — that's dispatch-brief.
 ---
 
 # Model Routing

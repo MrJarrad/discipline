@@ -1,6 +1,6 @@
 ---
 name: doc-formats
-description: Canonical templates and naming for vault markdown documents — SCOPE and DOCUMENTATION — plus the registry that says which template to use and where sibling skills already own a doc's structure. Use when writing a typed markdown artifact, or when another skill needs the correct document shape before writing.
+description: Registry + canonical templates for keyed markdown documents (SCOPE, DOCUMENTATION). Trigger before writing ANY typed markdown artifact — a scope or documentation file — or when another skill needs the correct document shape. If a sibling skill owns the doc's structure, this registry says so; check here first, then write.
 ---
 
 # Doc Formats

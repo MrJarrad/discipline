@@ -1,11 +1,11 @@
 ---
 name: design-system
-description: The house web design system — the concrete WHAT (token contract + shadcn/Radix component set on Tailwind v4) that design-craft's HOW applies. Use when starting a new web UI project, wiring tokens/theme, adding or extending a component, choosing a colour/spacing/radius value, or reviewing UI for system conformance. Ships a portable shadcn starter (copy-paste index.css + config) plus the portfolio site as the reference instance. Not for iOS/macOS UI, and not the composition rules themselves — that's design-craft.
+description: The house web design system — the concrete WHAT (token contract + shadcn/Radix components on Tailwind v4) that design-craft's HOW applies. Trigger when starting a new web UI project, wiring tokens or theme, reaching for a colour/spacing/radius/shadow value, adding or extending a component, or reviewing UI for system conformance. Not for iOS/macOS UI, and not the composition rules themselves — that's design-craft.
 ---
 
 # Design System
 
-A design system has two halves: **what exists** (the tokens, the components) and **how you wield it** (the composition ladder, the visual bar). This skill is the **what** for house web UI. [`design-craft`](../design-craft/SKILL.md) is the **how**, [`motion-craft`](../motion-craft/SKILL.md) is motion/feel, and all three sit under [`quality`](../quality/SKILL.md) (the bar). Don't re-derive the composition ladder here; don't ignore the token contract there.
+A design system has two halves: **what exists** (the tokens, the components) and **how you wield it** (the composition ladder, the visual bar). This skill is the **what** for house web UI. [`design-craft`](../design-craft/SKILL.md) is the **how**, [`motion`](../motion/SKILL.md) is motion/feel, and all three sit under [`quality`](../quality/SKILL.md) (the bar). Don't re-derive the composition ladder here; don't ignore the token contract there.
 
 **The stack — one house standard for web UI:**
 

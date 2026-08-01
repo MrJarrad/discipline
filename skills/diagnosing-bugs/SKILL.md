@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Use when a bug is explicitly flagged as hard to pin down, when a first fix attempt failed, or when a reproducible failure needs a real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work.
+description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Trigger on "still broken", "not picking up", a bug explicitly flagged as hard to pin down, a first fix attempt that failed, or any reproducible failure needing real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work.
 ---
 
 # Diagnosing Bugs

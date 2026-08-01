@@ -20,28 +20,24 @@ routes to `ux-designer`. No agent names, no menus.
 
 ## What's inside
 
-**40 skills** — craft and delivery discipline that any agent can draw on:
+**39 skills** — craft and delivery discipline that any agent can draw on.
 
-- `animation-vocabulary`
-- `define-terms`
-- `design-craft`
-- `design-eng`
-- `design-modules`
-- `design-system`
-- `diagnosing-bugs`
-- `discover-scope`
-- `doc-formats`
-- `quality`
-- `issue-triage`
-- `perplexity-research`
-- `prototype`
-- `qa-acceptance`
-- `research-synthesis`
-- `review-animations`
-- `shape-stress`
-- `stress-plan`
-- `test-first`
-- `verify-finding`
+**Dispatch** — who does the work, on what model, in what brief:
+
+- `routing` — decide WHO handles the work; chain-loads the three below
+- `model-routing` · `dispatch-brief` · `prompt-craft`
+
+**Discovery & shaping** — `discover-scope` · `shape-stress` · `define-terms` · `doc-formats` · `issue-triage` · `prototype`
+
+**Design & build** — `design-craft` · `design-system` · `design-taste-frontend` · `motion` · `markup-standard` · `design-modules` · `architect-systems` · `code-minimalism` · `impeccable` · `nextjs`
+
+**Capture & audit** — `capture-figma` · `capture-website` · `audit-build`
+
+**Verify & ship** — `quality` · `qa-acceptance` · `verify-finding` · `test-first` · `webapp-testing` · `diagnosing-bugs` · `release-deploy`
+
+**Research & knowledge** — `perplexity-research` · `research-synthesis` · `vault-recall` · `vault-write`
+
+**Ops & meta** — `ops-inbox` · `summarise-meeting` · `brand-voice` · `agent-ops` · `wrap`
 
 **6 agents** — doer personas you can dispatch as Claude Code subagents (the orchestrator
 is the main session itself, not an agent):
@@ -77,4 +73,4 @@ Once installed, the skills auto-trigger by description, and the agents are avail
 This plugin is the canonical home of the discipline library (`skills/` + `agents/`).
 Each skill shipped GREEN through an eval harness before inclusion.
 
-MIT licensed. Motion skills preserve their Emil Kowalski / MIT attribution — see `LICENSE`.
+MIT licensed. The `motion` skill preserves its Emil Kowalski / MIT attribution — see `LICENSE`.

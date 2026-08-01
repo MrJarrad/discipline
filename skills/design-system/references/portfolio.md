@@ -53,7 +53,7 @@ these states when you build the happy path, not after.
 - **Responsive collapse** — labels collapse to icons when narrow rather than
   wrapping or truncating arbitrarily.
 
-## Motion conventions (see also motion-craft)
+## Motion conventions (see also the `motion` skill)
 
 No Framer Motion — Tailwind `tw-animate-css` + CSS transitions only.
 
@@ -61,12 +61,12 @@ No Framer Motion — Tailwind `tw-animate-css` + CSS transitions only.
   `data-closed:animate-out fade-out-0 zoom-out-95` (~100ms).
 - **Nav:** slide + custom easing `cubic-bezier(0.22, 1, 0.36, 1)`, ~300ms.
 
-Match motion-craft's decision framework when adding motion — most repeated
+Match the `motion` skill's decision framework when adding motion — most repeated
 actions (keyboard toggles) get **no** animation.
 
 *Seam note:* durations/easings are often inlined per component (Tailwind
 `duration-100`, one-off cubic-beziers), not yet promoted to `--ease-*` /
-`--duration-*` tokens. motion-craft prescribes named easing curves — promote
+`--duration-*` tokens. The `motion` skill prescribes named easing curves — promote
 them into the token contract when motion grows beyond a handful of one-offs.
 
 ## House additions this instance proves out

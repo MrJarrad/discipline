@@ -1,6 +1,6 @@
 ---
 name: perplexity-research
-description: Run all research through Perplexity's answer engine. For any lookup, comparison, market/competitor analysis, or sourced question, call Perplexity /v1/responses and return its cited answer. Never answer research from memory.
+description: Run every external lookup, comparison, or sourced question through Perplexity's answer engine — never answer research from memory. Trigger on "research this", "did research look at…", "worth researching", "cutting edge", "best in class way to", or any market/competitor comparison about the live world — standing operator rule since 2026-07-20, all external research runs through Perplexity, never memory. Pairs with research-synthesis for the method. Not for questions answerable by reading code already open in this repo — that's normal work.
 ---
 
 # Perplexity Research

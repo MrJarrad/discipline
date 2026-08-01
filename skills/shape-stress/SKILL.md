@@ -1,6 +1,6 @@
 ---
 name: shape-stress
-description: Shape a project or plan into six sections — Context, Exploration & References, Outcomes, Acceptance Criteria, Constraints & Known Risks, Out of Scope — then stress it until the finished checklist is green. Use when shaping work before it's built, turning conversation context into a project-level shape, or deciding whether a draft plan is actually finished.
+description: "Shape work into six sections — Context, Exploration & References, Outcomes, Acceptance Criteria, Constraints & Known Risks, Out of Scope — then stress it until the checklist is green. Trigger on \"is there anything else that needs to go into the plan\", \"anything else technical or best in class we should have\", \"is the plan ready\", turning conversation context into a project shape, or stress-testing/grilling any existing plan or proposal (the absorbed stress-plan mode: one question per turn, each with a recommended answer). Not raw discovery — that's discover-scope."
 ---
 
 # Shape Stress
@@ -17,24 +17,61 @@ examples.
 
 ## Where this sits
 
-`shape-stress` owns the **shaping structure and finish-bar**: the sections a shape
-needs, the synthesis rules that keep them aligned, and the checklist that says a
-draft is done. It does not own the interview mechanic — that's `stress-plan`, a
-sibling skill: one question per turn, each with a recommended answer, walking the
-design tree branch by branch. Each stress cycle in this skill's loop *runs*
-`stress-plan` as its question-asking mechanism; this skill doesn't restate that
-discipline.
+`shape-stress` owns two things: the **shaping structure and finish-bar** — the
+sections a shape needs, the synthesis rules that keep them aligned, and the
+checklist that says a draft is done — and the **interview mechanic** — one question
+per turn, each with a recommended answer, walking the design tree branch by branch.
+The interview mechanic is documented once, as its own mode (see "Stress an existing
+plan (interview mode)" below), and every stress cycle in the six-section loop *runs*
+that mode as its question-asking mechanism.
 
 It also doesn't restate `quality` — the best-in-class bar this skill's output
 feeds into at the Shape phase of the craft loop. `shape-stress` is what "shaped"
 means; `quality` is what "good enough to build from" means for every phase,
 Shape included.
 
-Concretely: `stress-plan` decides *how* to ask the next question (one branch, one
-recommendation, wait for the answer). `shape-stress` decides *what* the draft needs
-to contain before that question count can hit zero, and *when* to stop asking.
-Don't re-litigate interview mechanics here; don't invent shaping sections over
-there.
+Concretely: the interview mode decides *how* to ask the next question (one branch,
+one recommendation, wait for the answer). The six-section workflow decides *what*
+the draft needs to contain before that question count can hit zero, and *when* to
+stop asking. The interview mode works standalone too — someone who arrives with an
+existing plan or proposal and no six-section shape in hand ("grill this proposal",
+"stress-test the plan") can run it directly, without the shaping workflow around it.
+
+## Stress an existing plan (interview mode)
+
+Sits under `quality` (the bar for verification, evidence, and honesty) — this mode
+doesn't restate that bar, it adds the one discipline plan review needs on top of it:
+**grill one branch at a time, never a batch.**
+
+This mode is standalone: it fires on its own when someone arrives with an existing
+plan, design, or proposal and no six-section shape in hand ("grill this proposal",
+"stress-test the plan"), and it's also what each cycle of the stress loop below runs
+as its question-asking mechanism.
+
+**Not for:** bugfixes, "just implement this," or any request that already has a
+clear, narrow path — that's normal work, not a plan to stress.
+
+### The interview
+
+Interview the plan relentlessly until you and the user reach shared
+understanding. Walk down each branch of the design tree, resolving dependencies
+between decisions one at a time. For every question, give your recommended
+answer — never a bare question.
+
+Ask exactly one question per turn, and wait for the answer before asking the
+next. Multiple questions at once let the user cherry-pick the easy ones while
+the hard dependency stays unresolved.
+
+If a question is answerable by reading the codebase or linked docs, do that
+instead of asking — don't make the user restate what the code already shows.
+
+If "grill this" arrives with no plan attached, ask what to stress-test first —
+that's still one question, not a design-tree walk.
+
+Stop when the major branches are resolved (shared understanding), or — when
+this mode is running inside the six-section stress loop below — when that
+loop's finished checklist says the plan is finished. Remaining micro-decisions
+can wait for implementation.
 
 ## The six sections
 
@@ -73,8 +110,9 @@ Shaping isn't done at v0. Run this loop until the finished checklist is green:
 1. **Draft v0** — fill all six sections from context (placeholders OK if marked
    Assumption).
 2. **Review the checklist** below against the current draft.
-3. **Run one `stress-plan` cycle** — one question, one recommended answer, on the
-   biggest open gap or contradiction. Wait for the answer.
+3. **Run one interview-mode cycle** (see "Stress an existing plan (interview
+   mode)" above) — one question, one recommended answer, on the biggest open
+   gap or contradiction. Wait for the answer.
 4. **Patch the draft** from the answer — tag new facts Confirmed vs Assumption.
 5. **On contradiction** — surface immediately: *"Earlier this said X, now Y — which
    wins?"* Never silently overwrite a Confirmed fact with a new claim.
@@ -106,15 +144,23 @@ doesn't exist; work from what's in front of you.
 
 - **Publishing before the stress loop converges** — treating v0 as done because it
   "looks complete" rather than running it through the checklist.
-- **Blank-slate requirements interview instead of stressing a draft** — this skill
-  stresses an *existing* shape one gap at a time; it doesn't restart discovery from
-  zero. That's a different job.
+- **Blank-slate requirements interview instead of stressing a draft** — the
+  six-section loop stresses an *existing* shape one gap at a time; it doesn't
+  restart discovery from zero. That's a different job.
 - **Acceptance Criteria that smuggle in implementation seams** — file paths, module
   names, or slice-template sections (Feasibility, Testing, Analytics) belong one
   layer down, never in a project-level AC.
-- **Multiple stress questions in one turn** — breaks the `stress-plan` mechanism
+- **Multiple stress questions in one turn** — breaks the interview-mode mechanism
   this loop depends on.
 - **Silently overwriting a Confirmed fact** when new context contradicts it —
   surface the contradiction instead.
 - **Treating "Out of Scope" as filler** — vague exclusions ("other stuff later")
   don't prevent scope creep; they just look like they do.
+- **Running the full interview on a bugfix or clear implementation request** —
+  out of scope for interview mode too; that's normal work, not a plan to grill.
+- **Assuming a detailed plan exists when the user gave none** — clarify what to
+  stress-test before opening a design-tree walk.
+- **Asking the user something the codebase already answers** — wastes their
+  time and skips legwork the interview mode should do itself.
+- **Starting to build or edit code during the interview** — the job is
+  stress-testing the plan, not implementing it.

@@ -85,7 +85,7 @@ release's work product. An unticked checklist is not a release — it's a plan.
 
 ## Where this sits
 
-- **Owner:** this skill owns the procedure standing; the **engineer** persona runs
+- **Owner:** this skill owns the procedure standing; **releaseops** runs
   it to ship a flag-gated deploy. When routing a deploy for review, hand the reviewer the
   ticked checklist plus the smoke/observability evidence.
 - **Bar:** held to `quality` like any output — verified with evidence, never fabricated. A
