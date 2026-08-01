@@ -1210,58 +1210,98 @@ async function resolveCapabilityBinding(paint, variableById) {
 // distinction, so a value changing IS the changelog-worthy event
 // (layer_binding_changed, e.g. a nested instance's variant swap or a text
 // style rename resolving to a different name).
-async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
-  function push(property, value) {
-    if (value === null || value === undefined) return;
-    const key = property + "\u0000" + value;
-    if (seen.has(key)) return;
-    seen.add(key);
-    bindingsOut.push({ layer: layer, property: property, value: value });
-  }
-
-  async function resolveVariableName(id) {
-    let target = variableById.get(id);
-    if (!target) {
-      target = await getVariableById(id);
-      if (target) variableById.set(id, target);
+// === LAYER BINDINGS (lookups injected — tested via buildexport-perf.test.mjs,
+// which extracts this block by its markers and diffs it against the previous
+// sequential implementation) ===
+// OPTIMIZATION (round 2): once siblings overlap, what remains of the walk's
+// serial depth is inside a single node — every bound variable and then all
+// four style fields used to be awaited one at a time, so one layer cost up to
+// half a dozen sequential round trips, multiplied by tree depth. The lookups
+// are independent; only the PUSH order matters, because that order is what
+// the chain-wide first-occurrence-wins dedupe consumes.
+//
+// So: enumerate every (property, pending lookup) pair in exactly the order
+// the sequential version would have pushed them, let them all run, then push
+// in that enumeration order. Proven differentially in
+// buildexport-perf.test.mjs against resolvers that answer in reverse call
+// order.
+function createLayerBindingCollector(api) {
+  return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
+    const pending = [];
+    function expect(property, value) {
+      pending.push({ property: property, value: value });
     }
-    if (!target) return "[unresolved alias: " + id + "]";
-    const collectionName = collectionNameById.get(target.variableCollectionId) || "[unknown collection]";
-    return collectionName + "/" + target.name;
-  }
 
-  if (node.boundVariables) {
-    for (const prop of Object.keys(node.boundVariables)) {
-      const alias = node.boundVariables[prop];
-      if (!alias) continue;
-      const aliases = Array.isArray(alias) ? alias : [alias];
-      for (const a of aliases) {
-        if (a && typeof a.id === "string") push(prop, await resolveVariableName(a.id));
-      }
-    }
-  }
-  for (const bucket of [
-    { paints: node.fills, prefix: "fill" },
-    { paints: node.strokes, prefix: "stroke" },
-  ]) {
-    if (!Array.isArray(bucket.paints)) continue;
-    for (const paint of bucket.paints) {
-      if (!paint || !paint.boundVariables) continue;
-      for (const field of Object.keys(paint.boundVariables)) {
-        const alias = paint.boundVariables[field];
-        if (alias && typeof alias.id === "string") {
-          push(bucket.prefix + "." + field, await resolveVariableName(alias.id));
+    if (node.boundVariables) {
+      for (const prop of Object.keys(node.boundVariables)) {
+        const alias = node.boundVariables[prop];
+        if (!alias) continue;
+        const aliases = Array.isArray(alias) ? alias : [alias];
+        for (const a of aliases) {
+          if (a && typeof a.id === "string") expect(prop, api.resolveVariableName(a.id, variableById));
         }
       }
     }
-  }
-  for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
-    const styleId = node[field];
-    if (typeof styleId !== "string" || !styleId) continue;
-    const style = await getStyleById(styleId);
-    push(field.replace(/Id$/, ""), style ? style.name : styleId);
-  }
+    for (const bucket of [
+      { paints: node.fills, prefix: "fill" },
+      { paints: node.strokes, prefix: "stroke" },
+    ]) {
+      if (!Array.isArray(bucket.paints)) continue;
+      for (const paint of bucket.paints) {
+        if (!paint || !paint.boundVariables) continue;
+        for (const field of Object.keys(paint.boundVariables)) {
+          const alias = paint.boundVariables[field];
+          if (alias && typeof alias.id === "string") {
+            expect(bucket.prefix + "." + field, api.resolveVariableName(alias.id, variableById));
+          }
+        }
+      }
+    }
+    for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
+      const styleId = node[field];
+      if (typeof styleId !== "string" || !styleId) continue;
+      expect(
+        field.replace(/Id$/, ""),
+        Promise.resolve(api.getStyleById(styleId)).then(function (style) {
+          return style ? style.name : styleId;
+        })
+      );
+    }
+
+    const values = await Promise.all(
+      pending.map(function (entry) {
+        return entry.value;
+      })
+    );
+    for (let i = 0; i < pending.length; i++) {
+      const value = values[i];
+      if (value === null || value === undefined) continue;
+      const key = pending[i].property + "\u0000" + value;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      bindingsOut.push({ layer: layer, property: pending[i].property, value: value });
+    }
+  };
 }
+// === END LAYER BINDINGS ===
+
+async function resolveBoundVariableName(id, variableById) {
+  let target = variableById.get(id);
+  if (!target) {
+    target = await getVariableById(id);
+    if (target) variableById.set(id, target);
+  }
+  if (!target) return "[unresolved alias: " + id + "]";
+  const collectionName = collectionNameById.get(target.variableCollectionId) || "[unknown collection]";
+  return collectionName + "/" + target.name;
+}
+
+const collectLayerBindingEntries = createLayerBindingCollector({
+  resolveVariableName: function (id, variableById) { return resolveBoundVariableName(id, variableById); },
+  // Read through a wrapper: buildExport rebinds getStyleById to a fresh
+  // per-export cache each run.
+  getStyleById: function (id) { return getStyleById(id); },
+});
 
 // Walks `root`'s full subtree (including invisible nodes and instance
 // children — see the skipInvisibleInstanceChildren note above), collecting

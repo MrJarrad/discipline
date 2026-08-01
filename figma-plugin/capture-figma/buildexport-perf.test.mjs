@@ -857,3 +857,173 @@ test("example sections: a page with no bare frames records no empty-named sectio
   assert.equal(JSON.stringify(shipped), JSON.stringify(baseline));
   assert.deepEqual(shipped.sectionSnapshots.map((s) => s.name), ["Only"]);
 });
+
+// --- layer binding entries ------------------------------------------------
+//
+// With siblings now overlapping, what is left of the walk's serial depth is
+// INSIDE a node: collectLayerBindingEntries awaited every bound variable and
+// then all four style fields one at a time, so a single layer cost up to
+// half a dozen round trips end to end, multiplied by tree depth. They are
+// independent lookups; only the PUSH order matters, because that order is
+// what the chain-wide first-occurrence-wins dedupe consumes.
+//
+// Proven against a verbatim copy of the sequential collector, with resolvers
+// that answer in the REVERSE of call order.
+
+const { createLayerBindingCollector } = extract("LAYER BINDINGS", "{ createLayerBindingCollector }");
+
+function reverseCompletionBindingApi() {
+  let call = 0;
+  const later = (value) => new Promise((r) => setTimeout(() => r(value), Math.max(0, 24 - call++ * 2)));
+  return {
+    resolveVariableName: (id) => later("tokens/" + id),
+    getStyleById: (id) => later(id === "S:gone" ? null : { name: "style/" + id }),
+  };
+}
+
+// The shipped-before-this-change implementation, verbatim from code.js at
+// 5d64bf2: every lookup awaited in place, inside the enumeration loops.
+function createSequentialLayerBindingBaseline(api) {
+  return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
+    function push(property, value) {
+      if (value === null || value === undefined) return;
+      const key = property + " " + value;
+      if (seen.has(key)) return;
+      seen.add(key);
+      bindingsOut.push({ layer: layer, property: property, value: value });
+    }
+    if (node.boundVariables) {
+      for (const prop of Object.keys(node.boundVariables)) {
+        const alias = node.boundVariables[prop];
+        if (!alias) continue;
+        const aliases = Array.isArray(alias) ? alias : [alias];
+        for (const a of aliases) {
+          if (a && typeof a.id === "string") push(prop, await api.resolveVariableName(a.id, variableById));
+        }
+      }
+    }
+    for (const bucket of [
+      { paints: node.fills, prefix: "fill" },
+      { paints: node.strokes, prefix: "stroke" },
+    ]) {
+      if (!Array.isArray(bucket.paints)) continue;
+      for (const paint of bucket.paints) {
+        if (!paint || !paint.boundVariables) continue;
+        for (const field of Object.keys(paint.boundVariables)) {
+          const alias = paint.boundVariables[field];
+          if (alias && typeof alias.id === "string") {
+            push(bucket.prefix + "." + field, await api.resolveVariableName(alias.id, variableById));
+          }
+        }
+      }
+    }
+    for (const field of ["textStyleId", "fillStyleId", "strokeStyleId", "effectStyleId"]) {
+      const styleId = node[field];
+      if (typeof styleId !== "string" || !styleId) continue;
+      const style = await api.getStyleById(styleId);
+      push(field.replace(/Id$/, ""), style ? style.name : styleId);
+    }
+  };
+}
+
+// A layer using every lane at once: a multi-alias bound property, a bound
+// property that is empty, bound fills AND strokes, all four style fields
+// (one of them missing, so it falls back to the raw id), and a repeat that
+// must be deduped.
+const BINDING_NODE = {
+  boundVariables: {
+    itemSpacing: { id: "V:gap" },
+    paddingLeft: [{ id: "V:pad" }, { id: "V:gap" }],
+    visible: null,
+  },
+  fills: [{ boundVariables: { color: { id: "V:ink" } } }, null, { boundVariables: {} }],
+  strokes: [{ boundVariables: { color: { id: "V:ink" } } }],
+  textStyleId: "S:body",
+  fillStyleId: "",
+  strokeStyleId: "S:gone",
+  effectStyleId: "S:shadow",
+};
+
+async function collectBoth(node, layer) {
+  const beforeOut = [];
+  await createSequentialLayerBindingBaseline(reverseCompletionBindingApi())(
+    node, layer, new Map(), beforeOut, new Set()
+  );
+  const afterOut = [];
+  await createLayerBindingCollector(reverseCompletionBindingApi())(node, layer, new Map(), afterOut, new Set());
+  return { before: beforeOut, after: afterOut };
+}
+
+test("layer bindings: parallel lookups push byte-identically to the sequential collector", async () => {
+  const { before, after } = await collectBoth(BINDING_NODE, "card/label");
+  assert.equal(JSON.stringify(after), JSON.stringify(before));
+  assert.equal(after.length > 0, true, "the fixture must actually produce entries");
+});
+
+test("layer bindings: enumeration order — bound variables, then fills, then strokes, then styles", async () => {
+  const { after } = await collectBoth(BINDING_NODE, "card/label");
+  assert.deepEqual(
+    after.map((e) => e.property),
+    [
+      "itemSpacing",
+      "paddingLeft",
+      "paddingLeft",
+      "fill.color",
+      "stroke.color",
+      "textStyle",
+      "strokeStyle",
+      "effectStyle",
+    ]
+  );
+  // The dedupe key is property+value, not either alone: "stroke.color"
+  // resolves to the same tokens/V:ink as "fill.color" and survives on a
+  // different property, and paddingLeft appears twice on different values.
+  assert.deepEqual(
+    after.filter((e) => e.value === "tokens/V:ink").map((e) => e.property),
+    ["fill.color", "stroke.color"]
+  );
+  assert.deepEqual(
+    after.filter((e) => e.property === "paddingLeft").map((e) => e.value),
+    ["tokens/V:pad", "tokens/V:gap"]
+  );
+});
+
+test("layer bindings: a missing style still falls back to the raw style id", async () => {
+  const { after } = await collectBoth(BINDING_NODE, "card/label");
+  assert.deepEqual(after.find((e) => e.property === "strokeStyle"), {
+    layer: "card/label",
+    property: "strokeStyle",
+    value: "S:gone",
+  });
+});
+
+test("layer bindings: an entry already in `seen` is still skipped by the caller's chain", async () => {
+  const out = [];
+  const seen = new Set(["textStyle style/S:body"]);
+  await createLayerBindingCollector(reverseCompletionBindingApi())(BINDING_NODE, "later", new Map(), out, seen);
+  assert.equal(out.some((e) => e.property === "textStyle"), false);
+});
+
+test("layer bindings: a layer with nothing bound collects nothing", async () => {
+  const { before, after } = await collectBoth({ fills: [{}], strokes: "not-an-array" }, "plain");
+  assert.deepEqual(after, before);
+  assert.deepEqual(after, []);
+});
+
+test("layer bindings: the lookups really do overlap rather than queue", async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const hold = (value) =>
+    new Promise((resolve) => {
+      peak = Math.max(peak, ++inFlight);
+      setTimeout(() => {
+        inFlight--;
+        resolve(value);
+      }, 6);
+    });
+  await createLayerBindingCollector({
+    resolveVariableName: (id) => hold("tokens/" + id),
+    getStyleById: (id) => hold({ name: "style/" + id }),
+  })(BINDING_NODE, "card/label", new Map(), [], new Set());
+  assert.equal(peak, 8, "five bound-variable aliases and three style ids, all in flight together");
+});
