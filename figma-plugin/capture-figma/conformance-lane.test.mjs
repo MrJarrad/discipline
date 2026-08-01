@@ -85,3 +85,27 @@ test("drift UI: the drift row stays hidden until a sync reports on it (.row's di
   const css = /<style>([\s\S]*)<\/style>/.exec(readUi())[1];
   assert.match(css, /\.row\[hidden\]\s*\{[^}]*display:\s*none/);
 });
+
+test("drift UI: section is hidden when conformance field is absent (older listener)", () => {
+  // Operator ruling (vault decisions/capture-ui-feel-verdict-2026-08-01.md
+  // Addendum 7): the section hides entirely when listener doesn't report
+  // conformance (null/undefined), no title, no row — never shows "Not reported".
+  const ui = readUi();
+  const match = /function renderDrift\(conformance\) \{([\s\S]*?)\n {4}\}\n/.exec(ui);
+  assert.ok(match, "renderDrift function not found");
+  const body = match[1];
+  // Must check and early-return when conformance is falsy
+  assert.match(body, /if\s*\(!conformance\)/);
+  assert.match(body, /driftRow\.hidden\s*=\s*true/);
+});
+
+test("drift UI: section is visible for any present conformance state", () => {
+  // All states where conformance object exists should show the section:
+  // real counts, check-failed, unconfigured, unchanged.
+  const ui = readUi();
+  const match = /function renderDrift\(conformance\) \{([\s\S]*?)\n {4}\}\n/.exec(ui);
+  assert.ok(match, "renderDrift function not found");
+  const body = match[1];
+  // After the early return for absent conformance, must set hidden to false
+  assert.match(body, /driftRow\.hidden\s*=\s*false/);
+});
