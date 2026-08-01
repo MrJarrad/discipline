@@ -16,9 +16,18 @@
    marker. Rule: parse a leading `cd <path>` off the front of the command (only
    the first, chained with && or ;) and resolve the marker there; fall back to
    input.cwd when the command has no leading `cd`.                          */
+/* Second, independent gate on the same hook: FRONTMATTER GATE. Any commit
+   whose staged changes touch skills/ gets every skills/<dir>/SKILL.md in
+   the target repo re-parsed by scripts/frontmatter-check.mjs. An invalid
+   frontmatter block (most notably an unquoted ": " inside a plain scalar —
+   the class of bug that left shape-stress and stress-plan untriggerable
+   for their whole lives, proposals/INTEGRATION-REPORT.md:87-95) denies the
+   commit with the file and defect named, before it ever lands. */
 import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
 
 function readHookInput() {
   try { return JSON.parse(readFileSync(0, "utf8") || "{}"); }
@@ -61,6 +70,21 @@ if (!/\bgit\s+commit\b/.test(command)) allow();
 
 const sessionCwd = input.cwd || process.cwd();
 const cwd = leadingCdTarget(command, sessionCwd) ?? sessionCwd;
+
+// Frontmatter gate — only when this commit's staged changes actually touch
+// skills/, and only against the target repo's own skills/ tree (never
+// input.cwd, for the same reason the typecheck marker isn't).
+const stagedFiles = spawnSync("git", ["-C", cwd, "diff", "--cached", "--name-only"], { encoding: "utf8" });
+const touchesSkills = stagedFiles.status === 0 &&
+  stagedFiles.stdout.split("\n").some((f) => f.startsWith("skills/"));
+
+if (touchesSkills) {
+  const frontmatterResult = checkSkillsDir(join(cwd, "skills"));
+  if (!frontmatterResult.ok) {
+    deny(`Frontmatter gate: invalid skill frontmatter — commit blocked.\n${frontmatterResult.summary}`);
+  }
+}
+
 const markerPath = join(cwd, ".claude", ".typecheck-status.json");
 
 if (!existsSync(markerPath)) {
