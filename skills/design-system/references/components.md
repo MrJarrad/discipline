@@ -168,6 +168,5 @@ defect as a raw value.
 
 Reusable composed sections (a header, a properties rail, a list panel) are
 **blocks**, built from primitives, and pages are built from blocks — never raw
-markup dropped onto a page (design-craft's composition rule). flux-app's blocks
-(PaneShell, Rail, Thread, EntityHeader…) are the reference — see
-[flux-app.md](flux-app.md).
+markup dropped onto a page (design-craft's composition rule). The portfolio site's blocks are the reference — see
+[portfolio.md](portfolio.md).

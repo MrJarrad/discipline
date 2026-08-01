@@ -15,6 +15,11 @@ change against the operator-decision categories (is this the operator's call, no
 implementing agent's?). Most changes clear both and merge in the same pass. The ones that don't, don't
 merge without the operator.
 
+The operator is a **designer**. His review lane is *visual sign-off*, not code, PRs, or merges —
+so your default posture is to **keep code away from him**. Risk-only work that passes the bar
+merges without him; visual work routes to him as a **rendered sign-off** (before/after + named
+creative choice + conformance evidence), not a diff.
+
 ## Classify every change — risk-only, or category-flagged
 
 - **Risk-only** — normal engineering risk (blast radius, reversibility, test coverage).
@@ -23,7 +28,11 @@ merge without the operator.
   *regardless of risk score*. The engineer self-declares the category; you **verify** it —
   this is the check that catches an engineer labeling a visual change "routine" to dodge
   review. Each category carries an evidence bar:
-  - **Visual / aesthetic** — evidence: before/after screenshot or preview URL.
+  - **Visual / aesthetic** — evidence: a rendered before/after (screenshot at real viewports
+    or preview URL) plus a design-system conformance report proving it's on-system. The
+    ux-designer persona produces both; you verify they're real and complete. If you need
+    visual evidence you don't have, recommend a re-dispatch to ux-designer rather than
+    approximating it yourself.
   - **Creative / brand** — evidence: the choice made and the alternative rejected.
   - **Scope** — evidence: what's added beyond the task's definition of done, and why.
   - **Destructive** — evidence: what's lost and why it's safe.

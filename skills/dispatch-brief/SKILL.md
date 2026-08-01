@@ -1,6 +1,6 @@
 ---
 name: dispatch-brief
-description: How to write any dispatch prompt — an Agent tool call or a workflow spec — so it's neutral, evidence-bound, and scoped. Use before authoring any dispatch/brief/workflow-spec prompt. Not for choosing WHO to dispatch — that's routing; not for task creation mechanics — that's paperclip-task-setup.
+description: How to write any dispatch prompt — an Agent tool call or a workflow spec — so it's neutral, evidence-bound, and scoped. Use before authoring any dispatch/brief/workflow-spec prompt. Not for choosing WHO to dispatch — that's routing; not for task creation mechanics — that is issue-triage.
 ---
 
 # Dispatch Brief

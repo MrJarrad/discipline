@@ -1,13 +1,12 @@
 ---
 name: doc-formats
-description: Canonical templates and naming for Paperclip's keyed markdown documents — SCOPE and DOCUMENTATION — plus the registry that says which template to use and where sibling skills already own a doc's structure. Use when writing a typed markdown artifact, or when another skill needs the correct document shape before writing.
+description: Canonical templates and naming for vault markdown documents — SCOPE and DOCUMENTATION — plus the registry that says which template to use and where sibling skills already own a doc's structure. Use when writing a typed markdown artifact, or when another skill needs the correct document shape before writing.
 ---
 
 # Doc Formats
 
-**Single source of truth for document shapes** in `paperclip-lab` — every skill that produces a typed
-markdown artifact uses a template from here, not ad-hoc headings. Paperclip issues are native objects,
-not markdown files — this skill never templates those (see [references/REGISTRY.md](references/REGISTRY.md)).
+**Single source of truth for document shapes** in the repo — every skill that produces a typed
+markdown artifact uses a template from here, not ad-hoc headings (see [references/REGISTRY.md](references/REGISTRY.md)).
 
 Read [references/GLOSSARY.md](references/GLOSSARY.md), [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md),
 [references/REGISTRY.md](references/REGISTRY.md), and [references/NAMING.md](references/NAMING.md) before writing.
@@ -25,8 +24,7 @@ Templates live in `templates/` next to this file.
 
 **Not templated here — owned elsewhere, see [references/REGISTRY.md](references/REGISTRY.md):** the shaped
 project doc (`shape-stress`, six sections), CONTEXT.md (`define-terms`, glossary only), ADRs
-(`define-terms`, `docs/adr/NNNN-slug.md`), prototype NOTES.md (`prototype`), and Paperclip issues
-(native objects via `paperclip-task-setup` — never a markdown file).
+(`define-terms`, `docs/adr/NNNN-slug.md`), and prototype NOTES.md (`prototype`).
 
 ---
 
@@ -67,4 +65,3 @@ a dated or kebab-case filename.
 | `shape-stress` | Owns the shaped project doc's six sections — don't template that here |
 | `define-terms` | Owns CONTEXT.md and `docs/adr/` — don't template those here |
 | `prototype` | Owns the prototype NOTES.md verdict capture |
-| `paperclip-task-setup` | Issues are native Paperclip objects, never a markdown template |

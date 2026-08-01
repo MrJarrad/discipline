@@ -67,9 +67,9 @@ every dispatch, not just the model.
 
 ## What today cost, and why
 
-On 2026-07-26 the fleet ran 21 workflows / 42 agents in 6h30m wall time (39 sonnet, 1
+On 2026-07-26 one run dispatched 21 workflows / 42 agents in 6h30m wall time (39 sonnet, 1
 haiku, 2 unlabeled), burning an estimated $150–400 for the day
-(`~/JHD/vault/artifacts/2026-07-26-fleet-burn-report.md`). None of that spend came from
+(`~/JHD/vault/artifacts/2026-07-26-burn-report.md`). None of that spend came from
 opus or top-tier — the routing table already held. The waste was structural: **no agent
 in any spec that day carried a `maxTurns` cap**, six near-identical "engineer + reviewer"
 lanes ran serially instead of in 2–3 parallel lanes (~54 min lost), a duplicated
@@ -79,3 +79,40 @@ further ~7 min on instant failures. The lesson grounding the defaults above: mod
 was never the leak — uncapped turns per agent and un-parallelized, un-batched dispatch
 were. Caps and effort tiering close the first; the routing table and this skill's
 panel-size guidance address the second.
+
+## Per-task token budgets (absorbed from model-efficiency)
+
+A budget is a **soft ceiling → checkpoint**, not a hard kill. When a run crosses it, stop and
+reassess: right model? right approach? or genuinely a bigger task than its class? Numbers are
+output-token-first with a dollar gloss, grounded in measured eval runs.
+
+| Task class | Typical (measured) | Budget checkpoint | If exceeded |
+|---|---|---|---|
+| Bulk / mechanical | ~3–8k out · $0.07–0.15 (haiku) | **~10k out / ~$0.20** | it's not mechanical — reclassify, don't just spend |
+| Standard coding | ~3–4k out · ~$0.08 (haiku) | **~8k out / ~$0.15 haiku** | escalate to sonnet (budget resets to ~$0.45) |
+| Complex / craft | ~2–9k out · $0.44–0.95 (opus) | **~$1.50 / one full attempt** | check the loop is productive before a 2nd opus pass |
+| UI / design | ~6k out · ~$0.66 (sonnet) | **~$0.90** | you're probably iterating on taste — get a signoff, don't burn tokens |
+| Research | 1 Perplexity call · ~2s | **1 call default** | escalate to Sonar Pro/Deep only if the single call was insufficient |
+| Orchestration / brain | task-shaped | **name it up front** for the run | decompose into child tasks rather than one giant context |
+
+Batch API halves the coding rates for offline bulk — use it when a mechanical job isn't
+latency-bound.
+
+## Effort before tier
+
+Extended thinking / reasoning effort is a per-request toggle with no separate tier price —
+prefer *raising effort on the current tier* before *jumping a tier* when the gap is reasoning
+depth, not raw capability.
+
+**Decomposition lever:** split tasks so mechanical bulk runs cheap and only the verify/judge
+step runs expensive. A bulk edit at haiku plus a final review dispatch at sonnet is cheaper
+than one sonnet pass over the whole run.
+
+## Anti-triggers
+
+- A trivial one-liner doesn't need a routing analysis — just do it on whatever's already
+  loaded. Don't manufacture a budget ceremony for a two-minute task.
+- Research questions never go to a coding tier "because it's cheaper" — cited retrieval is
+  the bar for facts; a bare LLM guessing from memory fails it regardless of price.
+- Cost is not the *only* axis: if latency is the constraint, a higher tier that finishes
+  faster can be the legitimate choice — a real reason to pay up.

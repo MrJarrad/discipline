@@ -78,5 +78,5 @@ _Avoid:_ pasting the entire throwaway file into the shaped artifact
 | ----- | ---- |
 | `stress-plan` | Plan stress — not runnable |
 | `shape-stress` | After the verdict — shape the project |
-| `paperclip-task-setup` | Slice with the embedded snippet |
+| `prompt-craft` | Slice with the embedded snippet |
 | `test-first` | Production red-green after the decision |

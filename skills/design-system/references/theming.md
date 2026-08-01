@@ -156,7 +156,7 @@ Boilerplate now, not novel work:
   (scrollbars, form widgets) theme too (partial mitigation, not a content fix). — [css-tricks FART](https://css-tricks.com/flash-of-inaccurate-color-theme-fart/)
 - **Persist** in `localStorage`; default first-time visitors to `prefers-color-scheme`.
 
-flux-app's [`theme-provider.tsx`](../../../../flux-app/src/components/theme-provider.tsx)
+The portfolio site's `theme-provider.tsx` (`~/JHD/portfolio`)
 already does the light/dark/system + class-on-`<html>` half; a brand axis adds a
 second `data-brand` attribute alongside.
 

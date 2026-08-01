@@ -1,6 +1,6 @@
 # Markdown naming — doc-formats
 
-Canonical rules for **delivery artifacts** and **templates** in `paperclip-lab`. `doc-formats` owns
+Canonical rules for **delivery artifacts** and **templates** in the repo. `doc-formats` owns
 structure and naming; each artifact's owning skill (see `REGISTRY.md`) owns content and process.
 
 ---
@@ -27,7 +27,7 @@ Dated or kebab-case + `.md`:
 | ADR | `{nnnn}-{slug}.md` | `docs/adr/0001-idempotency.md` | `define-terms` |
 | Prototype notes | `NOTES.md` inside `docs/prototypes/{slug}/` | `docs/prototypes/refund-state-machine/NOTES.md` | `prototype` |
 
-Not templated as markdown at all: **issues** are native Paperclip objects (see `REGISTRY.md`).
+Not templated as markdown at all: **issues/tasks** — see `REGISTRY.md`.
 
 ### Collection folders
 

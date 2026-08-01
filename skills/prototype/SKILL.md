@@ -37,9 +37,9 @@ Getting the branch wrong wastes the whole prototype. If ambiguous and the reques
 
 ## When done
 
-Capture the **answer** durably: a commit message, an ADR, a Paperclip issue, or a `NOTES.md` next to the prototype with the question it answered. If the requester is around, a quick conversation suffices; if not, leave the placeholder before deleting.
+Capture the **answer** durably: a commit message, an ADR, the dispatch brief or a vault note, or a `NOTES.md` next to the prototype with the question it answered. If the requester is around, a quick conversation suffices; if not, leave the placeholder before deleting.
 
-Suggest the next step: shape the validated decision with `shape-stress`, or if it's already clear enough, hand it straight to `paperclip-task-setup` as a vertical slice.
+Suggest the next step: shape the validated decision with `shape-stress`, or if it's already clear enough, hand it straight to dispatch as a vertical slice.
 
 ---
 
@@ -48,7 +48,7 @@ Suggest the next step: shape the validated decision with `shape-stress`, or if i
 Optional during **`discover-scope`** or **`shape-stress`** — before committing to a shaped plan.
 
 ```
-discover-scope → [prototype?] → shape-stress → paperclip-task-setup
+discover-scope → [prototype?] → shape-stress → dispatch
 ```
 
 ---
@@ -58,7 +58,7 @@ discover-scope → [prototype?] → shape-stress → paperclip-task-setup
 | Skill | When |
 | ----- | ---- |
 | `shape-stress` | Prototype validated — shape into a project |
-| `paperclip-task-setup` | Embed the prototype's decision in a vertical-slice task |
+| dispatch | Embed the prototype's decision in a vertical-slice brief |
 | `stress-plan` | Question is plan risk, not something runnable — conversation, not code |
 | `design-modules` | Prototype validated an interface shape |
 | `test-first` | Production red-green work after the decision lands |

@@ -47,7 +47,7 @@ before you write any UI. Don't hand-assemble tokens; drop in the starter.
 
 5. **Wire the theme toggle.** A `ThemeProvider` that stores `light`/`dark`/
    `system` in `localStorage` and sets the resolved class on `<html>`. See
-   flux-app's [`theme-provider.tsx`](../../../../flux-app/src/components/theme-provider.tsx)
+   the portfolio site's `theme-provider.tsx` (`~/JHD/portfolio`)
    for a complete, keyboard-toggleable implementation to copy.
 
 ## Verify it took
@@ -63,5 +63,5 @@ before you write any UI. Don't hand-assemble tokens; drop in the starter.
 
 Semantic tokens · foreground pairing · OKLCH light/dark · one radius root ·
 `success`/`warning` status tokens · the 8-hue categorical palette · `cn()` ·
-CVA-ready components · Geist. Everything the reference instance (flux-app) is
+CVA-ready components · Geist. Everything the reference instance (the portfolio site) is
 built on.

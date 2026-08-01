@@ -23,7 +23,7 @@ Read [REGISTRY.md](REGISTRY.md), [GLOSSARY.md](GLOSSARY.md), and [NAMING.md](NAM
 |-------|-----|
 | Invent new section names | Breaks cross-session diffing and AI memory |
 | Template an artifact **`shape-stress`, `define-terms`, or `prototype` already owns** | Creates two sources of truth for the same content |
-| Create a markdown file for a **Paperclip issue** | Issues are native objects; a markdown stand-in drifts out of sync |
+| Create a markdown template for a **task/issue** | Tasks live in dispatch briefs (`issue-triage`); a markdown stand-in drifts out of sync |
 | Put file paths in the body **outside a dedicated pointers section** | Goes stale fast |
 | Edit templates from **calling skills** | Single source of truth lives here |
 
@@ -42,14 +42,14 @@ to `docs/discovery/{slug}/SCOPE.md`.
 
 ### When asked to write a shape, an ADR, CONTEXT.md, prototype notes, or an issue
 
-**Do:** Redirect to the owning skill (`shape-stress`, `define-terms`, `prototype`, `paperclip-task-setup`
+**Do:** Redirect to the owning skill (`shape-stress`, `define-terms`, `prototype`, `issue-triage`
 respectively) — this skill only supplies structure for SCOPE and DOCUMENTATION.
 
 **Don't:** Draft a competing template for an artifact that already has an owner.
 
 ### When asked to file an "issue markdown doc"
 
-**Do:** Explain that Paperclip issues are native objects created via `paperclip-task-setup`, not a
+**Do:** Explain that tasks are dispatch briefs shaped via `issue-triage`, not a standalone
 markdown file, and point there instead.
 
 **Don't:** Create a `docs/issues/*.md` file as a workaround.

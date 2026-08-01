@@ -18,7 +18,7 @@ and must not be re-templated here.
 
 **Template:** `DOCUMENTATION.template.md`
 **Purpose:** Explain how a shipped feature, flow, or subsystem works — for onboarding and AI context.
-**Owning skill (content/process):** whichever skill or agent ships the feature; no dedicated Paperclip
+**Owning skill (content/process):** whichever skill or agent ships the feature; no dedicated
 skill owns this content today — this is the genuine gap `doc-formats` fills.
 **Storage:** `docs/{topic-kebab}.md`
 **Update when:** the feature ships or its behaviour changes materially.
@@ -48,8 +48,8 @@ DOCUMENTATION shape onto a prototype verdict.
 
 ### Issues
 
-**Owning skill:** `paperclip-task-setup` — a Paperclip **issue is a native object** (title, description,
-acceptance criteria, goalId, assignee, execution policy), created via the Paperclip API/UI, never a
+**Owning skill:** `issue-triage` — a task is a **dispatch brief** (title, goal, acceptance
+criteria, persona, dependencies), shaped via `issue-triage`/`dispatch-brief`, never a standalone
 markdown file in this repo. There is no `ISSUE.template.md` — templating an issue as markdown would just
 be duplicate, driftable state next to the real one.
 

@@ -1,6 +1,6 @@
 # Glossary — doc-formats
 
-Canonical **document shapes** for `paperclip-lab` — structure lives here; each artifact's owning skill
+Canonical **document shapes** for the repo — structure lives here; each artifact's owning skill
 owns process and content.
 
 ## Contents
@@ -59,8 +59,8 @@ _Avoid:_ `doc-formats` re-templating an artifact `shape-stress`, `define-terms`,
 
 ### Issues are not markdown
 
-A Paperclip issue is a native object, not a file. Never create an `ISSUE.template.md` or a markdown
-stand-in for issue state.
+A task's state lives in its dispatch brief and the tracking system in use, not a file here. Never
+create an `ISSUE.template.md` or a markdown stand-in for issue state.
 
 _Avoid:_ a `docs/issues/*.md` file drifting out of sync with the real issue
 
@@ -74,4 +74,4 @@ _Avoid:_ a `docs/issues/*.md` file drifting out of sync with the real issue
 | `shape-stress` | Shaped project doc content |
 | `define-terms` | CONTEXT.md / ADR content |
 | `prototype` | Prototype NOTES.md content |
-| `paperclip-task-setup` | Issue creation (native, not markdown) |
+| `issue-triage` | Task/brief creation (not markdown templates) |

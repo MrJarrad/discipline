@@ -106,4 +106,4 @@ not for their shape — the product vocabulary, not the layout vocabulary.
 ## Source
 
 Token-naming framework: [Nathan Curtis, "Naming Tokens in Design Systems" (EightShapes)](https://medium.com/eightshapes-llc/naming-tokens-in-design-systems-9e86c7444676).
-Code conventions transcribed from the flux-app reference instance.
+Code conventions transcribed from the portfolio reference instance.

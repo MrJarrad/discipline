@@ -23,8 +23,7 @@ than an honest gap does. Rewrite it to cover:
 
 - **Current state** — what's true right now, not a history of how it got there.
 - **Merged/unpushed commits per repo** — for every repo touched this session
-  (`~/JHD/portfolio-v2`, `~/JHD/paperclip-lab`, `~/JHD/flux`, the vault itself, the
-  discipline plugin repo), state what's merged, what's pushed, and what's sitting
+  (`~/JHD/portfolio`, the vault itself, the discipline plugin repo), state what's merged, what's pushed, and what's sitting
   local-only. A commit that exists only on a dispatched agent's local branch is not
   "done" — name it as unpushed.
 - **In-flight dispatches** — every Agent/workflow dispatch from this session is either
@@ -106,3 +105,22 @@ State, section by section, what changed and what was verified — not just "wrap
 A wrap report that only says "done" gives the next session nothing to check against; one
 that names the specific commits, the listener's running/restart state, and which rulings
 landed where lets the next session trust it without re-deriving it.
+
+## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
+
+Every piece of handover prose — the HANDOVER document, a wrap summary, a blocked/parked note — follows four moves:
+
+1. **Compact state** — one or two sentences of what changed and where things stand, not a replay of how you got there.
+2. **Redact** — no API keys, tokens, credentials, or PII, even if they appeared in your working context. If unsure, redact.
+3. **Reference, don't repeat** — point at the artifact, commit, or file path; never paste the diff or document body. The handover records *where*, not *what*.
+4. **Name the next step** — whose move it is and what they do. Prose that ends without a next step is a dead end, not a handoff.
+
+All four, every time — compact-but-no-next-step is still a dead end; redacted-but-pasted-stack-trace still fails move 3.
+
+## Link health at wrap
+
+Run `python3 scripts/vault-lint.py` from the vault root before committing the wrap. BROKEN links must be fixed (or the target restored); ARCHIVED citations are fine (historical lineage); new ORPHANS mean the note was banked without being connected — link it from the right hub before closing.
+
+## Push at wrap
+
+After the checkpoint commit, `git push` (vault and any repo touched). Offsite remotes exist precisely so a dead machine loses nothing — a wrap that commits but doesn't push leaves the day's knowledge on one disk. If no remote is configured yet, run `scripts/setup-remotes.sh` from the vault root (one-time, needs gh CLI).

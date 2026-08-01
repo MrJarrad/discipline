@@ -1,6 +1,6 @@
 ---
 name: qa-acceptance
-description: The acceptance-criteria gate before shipping — walk every AC on a Paperclip issue, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, or asked to confirm a change is ready to ship.
+description: The acceptance-criteria gate before shipping — walk every AC on the task/brief, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, or asked to confirm a change is ready to ship. Not for the mechanics of driving a browser or test run — that's webapp-testing; not for scoring a single codebase claim's confidence — that's verify-finding.
 ---
 
 # QA Acceptance
@@ -31,7 +31,7 @@ about ACs verified — treat them as unverified, full stop.
 
 ### 1. Enumerate the ACs
 
-Pull the numbered acceptance criteria straight from the Paperclip issue. If
+Pull the numbered acceptance criteria straight from the task/brief. If
 the issue has no explicit ACs, do not invent lenient ones after the fact —
 either derive them from the issue description as it was written before you
 started, or flag the issue as under-specified and ask before closing it as

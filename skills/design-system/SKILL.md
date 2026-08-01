@@ -1,6 +1,6 @@
 ---
 name: design-system
-description: The house web design system — the concrete WHAT (token contract + shadcn/Radix component set on Tailwind v4) that design-craft's HOW applies. Use when starting a new web UI project, wiring tokens/theme, adding or extending a component, choosing a colour/spacing/radius value, or reviewing UI for system conformance. Ships a portable shadcn starter (copy-paste index.css + config) plus flux-app as the reference instance. Not for iOS/macOS UI, and not the composition rules themselves — that's design-craft.
+description: The house web design system — the concrete WHAT (token contract + shadcn/Radix component set on Tailwind v4) that design-craft's HOW applies. Use when starting a new web UI project, wiring tokens/theme, adding or extending a component, choosing a colour/spacing/radius value, or reviewing UI for system conformance. Ships a portable shadcn starter (copy-paste index.css + config) plus the portfolio site as the reference instance. Not for iOS/macOS UI, and not the composition rules themselves — that's design-craft.
 ---
 
 # Design System
@@ -119,9 +119,9 @@ slots, and the build recipe — read [references/building-components.md](referen
 
 Don't assemble this by hand. Follow [references/setup.md](references/setup.md): scaffold Vite+React+TS, add Tailwind v4 + the Vite plugin, drop in the three starter files ([index.css](references/starter/index.css), [components.json](references/starter/components.json), [utils.ts](references/starter/utils.ts)), `shadcn init`, then add primitives as needed. You get the full token contract and theming for free on line one.
 
-## The reference instance — flux-app
+## The reference instance — the portfolio site
 
-flux-app is the living, best-in-class instance of this system: the concrete token values, the app-specific blocks built on the primitives (PaneShell, Rail, Thread, EntityHeader…), the pane/workspace layout patterns, and the motion conventions. When you need a worked example of the system in production, read [references/flux-app.md](references/flux-app.md).
+The portfolio site (`~/JHD/portfolio`) is the living, best-in-class instance of this system: the concrete token values, the site-specific blocks built on the primitives, the layout patterns, and the motion conventions. When you need a worked example of the system in production, read [references/portfolio.md](references/portfolio.md).
 
 ## Extending the system
 

@@ -17,7 +17,7 @@ rendered before/after. The UXDesigner owns this; any agent shipping visual outpu
 
 ## Step 1 — gather the raw evidence
 
-Inspect the **rendered** element, not just the source — the same read the flux-app inspector does
+Inspect the **rendered** element, not just the source — the same read a devtools inspector gives you
 (`bg-card`, `rounded-xl`, computed `background-color`, etc.):
 
 1. **Classes + computed styles** of the changed element(s). The class list tells you the *intended*
@@ -88,9 +88,8 @@ sign-off; the conformance rows are the *correctness* half. Both ride on the card
 
 ## The report contract (data shape)
 
-flux-app renders this; the intelligence is here. This is the **exact shape** the sign-off panel
-parses (`flux-app/src/screens/tasks/signoffReport.ts`) — match it field-for-field or the panel drops
-what it can't read. Emit it as an issue **document** under the key `design-signoff` with this JSON
+The intelligence is here. This is the **exact shape** downstream tooling parses — match it
+field-for-field or a consumer drops what it can't read. Emit it as an issue **document** under the key `design-signoff` with this JSON
 body:
 
 ```json
