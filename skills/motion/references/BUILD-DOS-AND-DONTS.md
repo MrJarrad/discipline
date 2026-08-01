@@ -1,4 +1,4 @@
-# Do's and Don'ts — motion-craft
+# Do's and Don'ts — motion (Build)
 
 ---
 

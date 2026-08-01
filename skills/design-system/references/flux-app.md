@@ -61,7 +61,7 @@ these states when you build the happy path, not after.
 - **Sticky, responsive tab bar** — inactive tab labels collapse to icons when
   narrow.
 
-## Motion conventions (see also motion-craft)
+## Motion conventions (see also the `motion` skill)
 
 No Framer Motion — Tailwind `tw-animate-css` + CSS transitions only.
 
@@ -71,12 +71,12 @@ No Framer Motion — Tailwind `tw-animate-css` + CSS transitions only.
   `data-closed:animate-out fade-out-0 zoom-out-95` (~100ms).
 - **Nav menu:** slide + custom easing `cubic-bezier(0.22, 1, 0.36, 1)`, ~300ms.
 
-Match motion-craft's decision framework when adding motion — most repeated actions
+Match the `motion` skill's decision framework when adding motion — most repeated actions
 (keyboard toggles) get **no** animation.
 
 *Seam note:* durations/easings are currently inlined per component (Tailwind
 `duration-100`, a one-off nav-menu `cubic-bezier`), not yet promoted to `--ease-*`
-/ `--duration-*` tokens. motion-craft prescribes named easing curves — promote them
+/ `--duration-*` tokens. The `motion` skill prescribes named easing curves — promote them
 into the token contract when motion grows beyond a handful of one-offs.
 
 ## House additions this instance proves out

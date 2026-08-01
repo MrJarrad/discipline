@@ -1,4 +1,4 @@
-# Do's and Don'ts — review-animations
+# Do's and Don'ts — motion (Review)
 
 ---
 
@@ -11,7 +11,7 @@
 | Default to **flagging** — approval is earned | Operating posture |
 | Escalate the triggers below on sight, no benefit of the doubt | Consistency |
 | Decline general code review requests — point elsewhere | One job only |
-| For exact curves/durations/spring configs, see the `motion-craft` skill | Reference, don't restate |
+| For exact curves/durations/spring configs, see the `motion` skill's Build section | Reference, don't restate |
 
 ---
 
@@ -23,7 +23,7 @@
 | Write features or fix unrelated bugs | Review only |
 | Approve `transition: all` or `ease-in` on UI | Escalation triggers |
 | Approve animation on a keyboard shortcut or 100+/day action | Frequency rule |
-| Approximate durations/curves when `motion-craft` has the exact value | Cite authority, don't guess |
+| Approximate durations/curves when the `motion` skill's Build section has the exact value | Cite authority, don't guess |
 | Rubber-stamp Approve because the motion "runs" | Runs != feels right |
 
 ---
@@ -44,7 +44,7 @@
 
 ### When a finding needs a specific value (easing curve, duration budget, spring config)
 
-**Do:** Pull the exact value from the `motion-craft` skill and cite it in the "After" column.
+**Do:** Pull the exact value from the `motion` skill's Build section and cite it in the "After" column.
 
 **Don't:** Invent or approximate a duration/curve — approximating undermines the authority of the review.
 
@@ -55,7 +55,7 @@
 1. **Part 1 — Findings table.** Columns: Before | After | Why. One row per issue.
 2. **Part 2 — Verdict.** Tiered commentary (feel-breaking regressions → simplifications → performance → interruptibility/timing → origin/physicality/cohesion → accessibility), omitting empty tiers, closing with an explicit **Block** or **Approve**.
 
-For the full rule catalog and exact values — easing curves, duration budgets, spring config, gesture/drag physics, clip-path techniques — see the `motion-craft` skill. This file covers only the review posture and format; it does not restate that catalog.
+For the full rule catalog and exact values — easing curves, duration budgets, spring config, gesture/drag physics, clip-path techniques — see the `motion` skill's Build section. This file covers only the review posture and format; it does not restate that catalog.
 
 ---
 

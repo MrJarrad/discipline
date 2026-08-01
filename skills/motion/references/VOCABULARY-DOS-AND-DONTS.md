@@ -1,4 +1,4 @@
-# Do's and Don'ts — animation-vocabulary
+# Do's and Don'ts — motion (Vocabulary)
 
 ---
 
@@ -18,7 +18,7 @@
 
 | Don't | Why |
 |-------|-----|
-| Design or implement animations | Naming only — pair with a design/review skill for that |
+| Design or implement animations | Naming only — pair with this skill's Build/Review sections for that |
 | Paraphrase glossary definitions | Verbatim is authoritative |
 | Invent a term that isn't in the glossary | Erodes trust in the vocabulary |
 | Run a full UI or motion review on a naming question | Out of scope |
