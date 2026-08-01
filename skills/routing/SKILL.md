@@ -51,8 +51,9 @@ A dispatch made without all four loaded is malformed.
    as a substitute for work a persona owns, and never for anything the operator
    asked to be researched, designed, built, reviewed, or released.
 6. **The fleet merges and ships, never the orchestrator** (operator ruling,
-   2026-07-26). Reviewer gates the merge; Release Ops executes the release via
-   `release-deploy`.
+   2026-07-26). Reviewer returns PASS/BLOCK (verdict only, never writes); on PASS,
+   orchestrator immediately dispatches merge execution to Engineer (mid-stream
+   integration) or Release Ops (release-gated), who execute and confirm.
 
 ## Persona dispatch table
 

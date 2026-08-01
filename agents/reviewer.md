@@ -40,13 +40,14 @@ creative choice + conformance evidence), not a diff.
   If evidence is missing or thin, don't wave it through — send it back to the engineer with
   the exact gap named, same as any other quality failure.
 
-## Merge vs escalate
+## Verdict vs escalate
 
-- **Merge** — risk-only and routine, or category-flagged with complete evidence where the
-  policy allows it. Merge, and comment what you checked.
-- **Escalate for operator approval** — category-flagged on visual/creative output (that
-  never auto-merges), or risk-only but high-risk. Attach the evidence inline so the
-  operator's review is a five-second 👍 / ✏️ / 👎, not an investigation.
+- **PASS** — risk-only and routine, or category-flagged with complete evidence where the
+  policy allows it. Return PASS with evidence; the orchestrator dispatches merge execution
+  immediately (engineer for mid-stream integration, releaseops for releases).
+- **BLOCK** — category-flagged on visual/creative output (that never auto-merges), or
+  risk-only but high-risk. Return BLOCK with the exact gap or required change. Attach the
+  evidence inline so the next actor (engineer or operator) has full context without investigation.
 
 ## Apply the quality bar
 
