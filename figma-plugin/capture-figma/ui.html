@@ -216,6 +216,19 @@
     .sync-result:empty {
       display: none;
     }
+    /* Export timing breakdown — the quietest thing in the panel (muted,
+       monospaced figures so the phase numbers line up), a diagnostic that
+       should never compete with the result line above it. */
+    .sync-timing {
+      margin: var(--space-1) 0 0;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--color-text-muted);
+      overflow-wrap: anywhere;
+    }
+    .sync-timing:empty {
+      display: none;
+    }
 
     .count-heading {
       display: flex;
@@ -368,6 +381,7 @@
       <a class="btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
     </div>
     <p class="sync-result" id="sync-result" role="status" aria-live="polite"></p>
+    <p class="sync-timing" id="sync-timing"></p>
   </section>
 
   <section class="row" id="snapshot-row" aria-label="Snapshot status">
@@ -410,6 +424,7 @@
     const copyBtn = document.getElementById("copy-btn");
     const downloadBtn = document.getElementById("download-btn");
     const syncResultEl = document.getElementById("sync-result");
+    const syncTimingEl = document.getElementById("sync-timing");
 
     const snapshotDot = document.getElementById("snapshot-dot");
     const snapshotStateEl = document.getElementById("snapshot-state");
@@ -501,6 +516,26 @@
     // in-flight/erroring text that belongs beside the state word.
     function setSyncResult(text) {
       syncResultEl.textContent = text || "";
+      scheduleResize();
+    }
+
+    // "export 3.2s — variables 0.4 · styles 0.2 · components 1.9 · …"
+    // Seconds to one decimal: the numbers that matter here are hundreds of
+    // ms and up, and a row of raw ms integers is harder to scan. Phases are
+    // shown in the order buildExport ran them (header.timings is built in
+    // that order), with totalMs pulled out as the headline.
+    function formatTimings(timings) {
+      if (!timings) return "";
+      const secs = (ms) => (ms / 1000).toFixed(1) + "s";
+      const phases = Object.keys(timings)
+        .filter((k) => k !== "totalMs")
+        .map((k) => k + " " + secs(timings[k]));
+      const total = typeof timings.totalMs === "number" ? "export " + secs(timings.totalMs) : "export";
+      return phases.length ? total + " — " + phases.join(" · ") : total;
+    }
+
+    function setSyncTiming(timings) {
+      syncTimingEl.textContent = formatTimings(timings);
       scheduleResize();
     }
 
@@ -912,6 +947,7 @@
         syncBtn.disabled = true;
         // The previous run's outcome is stale the moment a new one starts.
         setSyncResult("");
+        setSyncTiming(null);
         setSyncRow("", "Syncing…", "exporting now…", "");
       } else if (msg.state === "synced") {
         syncBtn.disabled = false;
@@ -929,6 +965,7 @@
         // masquerading as a sync failure.
         setSyncRow("green", "Synced", msg.versionNote || "", t);
         setSyncResult(buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount));
+        setSyncTiming(msg.timings);
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
         // last successful sync, shown before this session has synced

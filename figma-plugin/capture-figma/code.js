@@ -1329,31 +1329,40 @@ function readOverrideValue(node, field) {
   }
 }
 
-async function findAllComponentSets() {
+// === COMPONENT SCAN (pages injected — tested via buildexport-perf.test.mjs,
+// which extracts this block by its markers and diffs it against the previous
+// two-pass implementation) ===
+// Component sets and standalone components, off every page except "Example"
+// (component pages only; the Example page's own instances are templateFrames'
+// concern). Standalone means a COMPONENT NOT inside a COMPONENT_SET — a set's
+// own variant members are collected separately, per-set, below.
+//
+// OPTIMIZATION (lag verdict 2026-08-01): this used to be two functions doing
+// two independent page.findAll() passes over the very same pages — and
+// findAll walks the entire page tree including every instance subtree, with
+// skipInvisibleInstanceChildren pinned false, so the second pass was a full
+// redundant traversal of the largest thing in the document. One pass now
+// collects both, partitioning by the two original predicates in traversal
+// order. Output is provably unchanged: findAll returns document order, and
+// both buckets are appended in that same order, per page, in the same page
+// order as before (proven differentially against the old implementation in
+// buildexport-perf.test.mjs, not asserted here).
+async function findAllComponentNodes(pages) {
   const sets = [];
-  for (const page of figma.root.children) {
+  const standalone = [];
+  for (const page of pages) {
     if (page.name === "Example") continue;
-    sets.push.apply(sets, page.findAll(function (n) { return n.type === "COMPONENT_SET"; }));
+    const found = page.findAll(function (n) {
+      return n.type === "COMPONENT_SET" || n.type === "COMPONENT";
+    });
+    for (const n of found) {
+      if (n.type === "COMPONENT_SET") sets.push(n);
+      else if (!n.parent || n.parent.type !== "COMPONENT_SET") standalone.push(n);
+    }
   }
-  return sets;
+  return { sets: sets, standalone: standalone };
 }
-
-// Standalone components: COMPONENT nodes NOT inside a COMPONENT_SET (a set's
-// own variant members are collected separately, per-set, below) — the other
-// half of the v1 components[] export the v2 rewrite dropped (adopt-list #1).
-// Same "Example" page exclusion as findAllComponentSets (component pages
-// only; the Example page's own instances are templateFrames' concern).
-async function findAllStandaloneComponents() {
-  const components = [];
-  for (const page of figma.root.children) {
-    if (page.name === "Example") continue;
-    components.push.apply(
-      components,
-      page.findAll(function (n) { return n.type === "COMPONENT" && (!n.parent || n.parent.type !== "COMPONENT_SET"); })
-    );
-  }
-  return components;
-}
+// === END COMPONENT SCAN ===
 
 function findExamplePage() {
   return figma.root.children.find(function (p) { return p.name === "Example"; }) || null;
@@ -1516,6 +1525,39 @@ function reportPhase(text) {
   figma.ui.postMessage({ type: "export-progress", text: text });
 }
 
+// === MODE VALUES (resolver injected — tested via buildexport-perf.test.mjs,
+// which extracts this block by its markers and diffs it against the previous
+// sequential implementation) ===
+// One variable's valuesByMode, keyed by mode NAME in the collection's own
+// mode order, with each raw value run through `resolve` (resolveAliasNotation
+// in production).
+//
+// OPTIMIZATION (lag verdict 2026-08-01): the modes used to be awaited one at
+// a time inside buildExport's per-variable loop — each await a real async
+// hop (resolveAliasNotation calls figma.variables.getVariableByIdAsync for an
+// alias), serialized across every mode of every variable in the file. They're
+// independent, so they now go out together and are collected back in mode
+// order. Output is provably unchanged: keys are written in `modes` order
+// after all values settle, so completion order can't leak into the object
+// (proven differentially in buildexport-perf.test.mjs against a resolver that
+// deliberately completes in reverse call order).
+async function resolveValuesByMode(variable, modes, resolve) {
+  const raws = modes.map(function (mode) {
+    return variable.valuesByMode ? variable.valuesByMode[mode.modeId] : undefined;
+  });
+  const resolved = await Promise.all(
+    raws.map(function (raw) {
+      return raw === undefined ? null : resolve(raw);
+    })
+  );
+  const valuesByMode = {};
+  for (let i = 0; i < modes.length; i++) {
+    valuesByMode[modes[i].name] = resolved[i];
+  }
+  return valuesByMode;
+}
+// === END MODE VALUES ===
+
 async function buildExport() {
   // v2's componentSets/exampleStructure/templateFrames/latentCapabilities/
   // warnings buckets traverse every page (component pages) plus the page
@@ -1527,6 +1569,23 @@ async function buildExport() {
   // latentCapabilities scan.
   await ensureAllPagesLoaded();
   figma.skipInvisibleInstanceChildren = false;
+
+  // PER-PHASE INSTRUMENTATION (operator verdict 2026-08-01, Addendum 2 item
+  // 1): the sync lag's remaining suspect is this traversal, and it had never
+  // been measured — only guessed at. Every phase below closes its own timing,
+  // and the breakdown ships in header.timings and in the synced status line,
+  // so a real sync on the real file produces numbers with no DevTools trace.
+  // Date.now() (not performance.now) — the main-thread plugin sandbox has no
+  // browser APIs (see this file's CAPTURE_LISTENER_URL comment); ms
+  // resolution is plenty for phases measured in hundreds of ms.
+  const timings = {};
+  let phaseStartedAt = Date.now();
+  const startedAt = phaseStartedAt;
+  function phase(name) {
+    const now = Date.now();
+    timings[name] = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
 
   reportPhase("Collecting variables…");
   const rawCollections = await getCollections();
@@ -1565,17 +1624,9 @@ async function buildExport() {
 
     const variablesOut = [];
     for (const variable of variables) {
-      const valuesByMode = {};
-      for (const mode of modes) {
-        const raw = variable.valuesByMode
-          ? variable.valuesByMode[mode.modeId]
-          : undefined;
-        if (raw === undefined) {
-          valuesByMode[mode.name] = null;
-          continue;
-        }
-        valuesByMode[mode.name] = await resolveAliasNotation(raw, variableById);
-      }
+      const valuesByMode = await resolveValuesByMode(variable, modes, function (raw) {
+        return resolveAliasNotation(raw, variableById);
+      });
 
       const variableOut = {
         name: variable.name,
@@ -1613,6 +1664,8 @@ async function buildExport() {
     });
   }
 
+  phase("variables");
+
   reportPhase("Collecting styles…");
   const stylesExport = await buildStylesExport(variableById);
   for (const key of ["text", "paint", "effect", "grid"]) {
@@ -1627,12 +1680,17 @@ async function buildExport() {
   // see walkV2Subtree's header comment.
   const warningsCollector = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
 
+  phase("styles");
+
   reportPhase("Collecting components…");
-  const componentSetNodes = await findAllComponentSets();
+  const componentNodes = await findAllComponentNodes(figma.root.children);
+  const componentSetNodes = componentNodes.sets;
   for (const set of componentSetNodes) {
     await walkV2Subtree(set, variableById, warningsCollector, true);
   }
-  const standaloneComponentNodes = await findAllStandaloneComponents();
+  const standaloneComponentNodes = componentNodes.standalone;
+
+  phase("components");
 
   reportPhase("Resolving templates…");
   const examplePage = findExamplePage();
@@ -1645,8 +1703,12 @@ async function buildExport() {
   const exampleStructure = buildExampleStructure(exampleData.sectionSnapshots);
   const templateFrames = buildTemplateFrames(exampleData.frameSnapshots);
 
+  phase("templates");
+
   reportPhase("Scanning capabilities…");
   const latentCapabilities = buildLatentCapabilities(warningsCollector.latentCapabilities);
+
+  phase("capabilities");
 
   reportPhase("Running lint checks…");
   const warnings = buildWarnings({
@@ -1654,6 +1716,9 @@ async function buildExport() {
     nodeSnapshots: warningsCollector.nodeSnapshots,
     templateFrames: templateFrames,
   });
+
+  phase("lint");
+  timings.totalMs = Date.now() - startedAt;
 
   const header = {
     fileName: figma.root.name,
@@ -1671,6 +1736,11 @@ async function buildExport() {
     }),
     componentCounts: { standalone: components.standalone.length, sets: components.sets.length },
     warningCount: warnings.length,
+    // Per-phase export cost in ms, plus totalMs. Informational only — the
+    // listener excludes it from its content hash exactly as it already
+    // excludes exportedAt (see capture-listener.mjs's exportHash), so a sync
+    // that differs ONLY in how long it took still counts as unchanged.
+    timings: timings,
     ...buildHeaderPropskitField(propskitAvailable),
   };
   // figma.fileKey: undefined in some contexts (e.g. a file that has never
@@ -1898,6 +1968,9 @@ async function runSyncExport(versionNote) {
     // version history, and the snapshot row reports it); a failed or
     // unavailable one has to be said out loud rather than silently dropped.
     versionNote: versionNote || null,
+    // Per-phase export cost, so the operator reads real numbers off a real
+    // sync instead of a DevTools trace (lag verdict item 1).
+    timings: data.header.timings || null,
   });
   await saveLastSyncToStorage(
     lastSyncAt,

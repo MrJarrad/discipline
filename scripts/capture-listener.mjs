@@ -297,11 +297,15 @@ export function stableStringify(value) {
   return JSON.stringify(value);
 }
 
-// Hash the full export excluding header.exportedAt, so two syncs of
-// identical file state hash identical regardless of when they were sent.
+// Hash the full export excluding the header fields that describe the SYNC
+// rather than the FILE, so two syncs of identical file state hash identical:
+// exportedAt (when it was sent) and timings (the plugin's per-phase export
+// cost, capture-figma's lag instrumentation — necessarily different every
+// run, so leaving it in would make every sync read as a change).
 function exportHash(fullExport) {
   const clone = JSON.parse(JSON.stringify(fullExport));
   if (clone.header) delete clone.header.exportedAt;
+  if (clone.header) delete clone.header.timings;
   return createHash("sha256").update(stableStringify(clone)).digest("hex");
 }
 

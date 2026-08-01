@@ -959,3 +959,31 @@ test("CONFORMANCE_MAP_PATH unset: behavior unchanged, no conformance.jsonl writt
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+test("POST /capture dedup: two syncs differing only in header.timings still count as unchanged", async () => {
+  // The plugin now ships per-phase export timings in header.timings (lag
+  // instrumentation, capture-figma v1.20.x) — a value that necessarily
+  // differs run to run. It must be excluded from the content hash for the
+  // same reason exportedAt is: it describes the sync, not the file.
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const post = (timings) =>
+      fetch(`${base}/capture`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(exportBody({ header: { ...exportBody().header, timings } })),
+      });
+
+    const first = await post({ variables: 120, styles: 30, totalMs: 150 });
+    assert.equal(first.status, 200);
+    assert.equal((await first.json()).unchanged, false);
+
+    const second = await post({ variables: 900, styles: 210, totalMs: 1110 });
+    const body = await second.json();
+    assert.equal(body.ok, true);
+    assert.equal(body.unchanged, true, "a slower run of an identical file must not read as a change");
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
