@@ -139,6 +139,31 @@ const PANEL_WIDTH = 342;
 const PANEL_HEIGHT_IDLE = 210;
 const PANEL_HEIGHT_MAX = 394;
 
+// === RESIZE DEDUP (pure — tested via resize-dedup.test.mjs, which extracts
+// this block by its markers) ===
+// Pure clamp: mirrors the previous inline expression in the "resize" message
+// handler below, unchanged — the fix here is not the clamp math, it's that
+// the handler now skips the actual figma.ui.resize() IPC call when the
+// clamped result equals the last height it applied.
+function clampResizeHeight(measured, idleHeight, maxHeight) {
+  const rounded = Math.round(measured);
+  const safe = Number.isFinite(rounded) ? rounded : idleHeight;
+  return Math.min(Math.max(safe, 1), maxHeight);
+}
+// === END RESIZE DEDUP ===
+
+// One Sync click drives ~8 "resize" postMessages from ui.html (boot +
+// per-state-transition scheduleResize() calls — see ui.html's comment on
+// scheduleResize) but most report the same clamped height as the previous
+// one (e.g. every "Exporting…" phase change re-measures the same row
+// height). figma.ui.resize() is a real cross-process IPC call even when the
+// size is unchanged, so this cache lives on the code.js side of the bridge
+// — the side that actually owns the figma.ui.resize() call and is the only
+// place that can dedupe every caller (ui.html-side deduping would only
+// cover ui.html's own postMessage calls, not guarantee the IPC call itself
+// never fires redundantly). null until the first resize message applies.
+let lastAppliedResizeHeight = null;
+
 figma.showUI(__html__, { width: PANEL_WIDTH, height: PANEL_HEIGHT_IDLE });
 loadLastSyncFromStorage();
 postSnapshotAvailability();
@@ -1918,8 +1943,14 @@ figma.ui.onmessage = async (msg) => {
     // state transition (never per-repaint — see its scheduleResize()); this
     // clamps to [1, PANEL_HEIGHT_MAX] and is the only place that actually
     // calls figma.ui.resize(), width held fixed at PANEL_WIDTH throughout.
-    const measured = Math.round(msg.height);
-    const height = Math.min(Math.max(Number.isFinite(measured) ? measured : PANEL_HEIGHT_IDLE, 1), PANEL_HEIGHT_MAX);
+    // Most of these reports land on the same clamped height as the last one
+    // applied (six export-progress phases plus the terminal state, per
+    // Sync click) — skip the IPC call entirely when nothing changed; real
+    // height changes (the ratified content-hugging behavior) still resize
+    // exactly as before, on the first report that differs.
+    const height = clampResizeHeight(msg.height, PANEL_HEIGHT_IDLE, PANEL_HEIGHT_MAX);
+    if (height === lastAppliedResizeHeight) return;
+    lastAppliedResizeHeight = height;
     figma.ui.resize(PANEL_WIDTH, height);
     return;
   }
