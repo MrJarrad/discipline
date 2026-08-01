@@ -62,7 +62,7 @@ A dispatch made without all four loaded is malformed.
 | "implement", "build", "fix", "refactor", "bring v2 in", "remove X and replace with Y" | **Engineer** | quality, verify-finding, test-first, qa-acceptance (+ design-craft, markup-standard when UI) |
 | "match the figma", "discrepancies", "feels too big", "the animation feels off", "make it look right", UI review | **UX Designer** | design-craft, capture-figma or audit-build (rule 2/3), motion |
 | "review this", "ready to merge", "check before shipping" | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard |
-| "release", "deploy", "push to production", "ship it", "get it live", "merge it" (post-review) | **Release Ops** | quality, qa-acceptance, release-deploy |
+| "release", "deploy", "push to production", "ship it", "get it live" (post-review) | **Release Ops** | quality, qa-acceptance, release-deploy |
 | plan approved → tasks; "sort the tasks", "tidy the board", "triage" | **Project Manager** (dispatch automatically when a plan is approved, not on request) | issue-triage |
 | "quick concept", "explore the X approach", "v2 of Y to explore", state-machine / data-shape question | Engineer or UX Designer | prototype |
 | hard/intermittent bug, "still broken", "not picking up", second failed fix | Engineer | diagnosing-bugs |

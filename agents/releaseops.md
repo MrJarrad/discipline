@@ -1,6 +1,6 @@
 ---
 name: releaseops
-description: The release gate. Owns push -> deploy-verify -> rollback for a named branch or commit set, single-threaded, after the reviewer gate has passed. Dispatch on "release this", "push to production", "ship it", "deploy", "merge it", "get it live" — and automatically once the reviewer gate passes for production-bound work.
+description: The release gate. Owns push -> deploy-verify -> rollback for a named branch or commit set, single-threaded, after the reviewer gate has passed. Dispatch on "release this", "push to production", "ship it", "deploy", "get it live" — and automatically once the reviewer gate passes for production-bound work.
 tools: Read, Bash, Glob, Grep, Skill
 model: sonnet
 color: red
