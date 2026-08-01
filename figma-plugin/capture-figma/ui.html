@@ -8,8 +8,9 @@
        self-contained Figma plugin iframe, no bundler/DS import), so this is
        its own small token set — every color/spacing/radius below is a var
        reference, never a bare literal in a rule. Spacing/type values are
-       scaled to the plugin's native CSS-px panel (figma.showUI is 480x640,
-       no devicePixelRatio scaling) — the design mockup PNGs
+       scaled to the plugin's native CSS-px panel (figma.showUI opens at
+       342 wide, content-hugging height — see code.js's PANEL_WIDTH/resize
+       handling — no devicePixelRatio scaling) — the design mockup PNGs
        (figma-capture-figma*.png) are 2x-effective renders, so raw pixel
        measurements off them read ~1.4x too large; sizes here were corrected
        against the operator's original native-scale ui.html (body 12px,
@@ -231,7 +232,7 @@
     <div class="status-row-top" role="status" aria-live="polite">
       <span class="status-dot" id="sync-dot"></span>
       <span class="status-state" id="sync-state">Ready</span>
-      <span class="status-detail" id="sync-detail">— click POST to sync</span>
+      <span class="status-detail" id="sync-detail"></span>
       <span class="status-time" id="sync-time"></span>
     </div>
     <div class="btn-row">
@@ -331,11 +332,39 @@
     // each Sync click can produce a new export.
     let currentDownloadUrl = null;
 
+    // The Figma-mockup window hugs its content (no reserved empty space) —
+    // code.js opens figma.showUI at an idle-height guess and relies on this
+    // to report the real measured height back for the corrective boot
+    // resize, then again on every later state transition (sync/snapshot row
+    // changes, count sections rendering, Raw JSON expand/collapse). rAF-
+    // batched so several synchronous DOM writes in one state transition
+    // (e.g. setSyncRow + renderCounts on "restored") collapse into a single
+    // postMessage instead of one per write — never on a per-repaint/polling
+    // basis. code.js clamps and applies the actual figma.ui.resize() call;
+    // this side only ever reports.
+    let resizeScheduled = false;
+    function scheduleResize() {
+      if (resizeScheduled) return;
+      resizeScheduled = true;
+      requestAnimationFrame(() => {
+        resizeScheduled = false;
+        parent.postMessage(
+          { pluginMessage: { type: "resize", height: document.body.scrollHeight } },
+          "*"
+        );
+      });
+    }
+    // Boot-time correction: code.js opens figma.showUI with an idle-height
+    // guess (it can't measure the DOM before the iframe exists) — this
+    // reports the real rendered idle height the moment the DOM is parsed.
+    scheduleResize();
+
     function setSyncRow(dotClass, state, detail, time) {
       syncDot.className = "status-dot" + (dotClass ? " " + dotClass : "");
       syncStateEl.textContent = state;
       syncDetailEl.textContent = detail || "";
       syncTimeEl.textContent = time || "";
+      scheduleResize();
     }
 
     function setSnapshotRow(dotClass, state, detail, time) {
@@ -343,6 +372,7 @@
       snapshotStateEl.textContent = state;
       snapshotDetailEl.textContent = detail || "";
       snapshotTimeEl.textContent = time || "";
+      scheduleResize();
     }
 
     // --- sync row --------------------------------------------------------
@@ -503,6 +533,7 @@
           warningEntries.map(([type, n]) => [type.replace(/_/g, "-"), n])
         )
       );
+      scheduleResize();
     }
 
     function populateRawJson(data) {
@@ -511,6 +542,7 @@
 
     rawJsonDetails.addEventListener("toggle", () => {
       rawJsonSummary.textContent = (rawJsonDetails.open ? "▼" : "▶") + " Raw JSON";
+      scheduleResize();
     });
 
     // --- snapshot row ------------------------------------------------------

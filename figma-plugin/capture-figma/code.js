@@ -123,7 +123,23 @@ const PLUGIN_VERSION = "1.16.0";
 // non-optimistic default rather than an assumed true).
 let propskitAvailable = false;
 
-figma.showUI(__html__, { width: 480, height: 640 });
+// Content-hugging panel (operator ruling, 2026-07-31): the Figma-authored
+// mockup's window ends right below the Raw JSON row, no reserved empty
+// space — unlike a fixed 480x640 shell. PANEL_WIDTH is the mockup's idle
+// render (figma-capture-figma.png, 684px) at its real 2x-screenshot scale
+// halved (684 / 2 = 342); the window never changes width, only height.
+// PANEL_HEIGHT_IDLE is a same-math starting guess (420 / 2 = 210) for the
+// one showUI() call that must happen before ui.html's DOM exists to measure
+// anything — ui.html corrects it within a frame via the boot-time "resize"
+// message (see ui.html's scheduleResize()). PANEL_HEIGHT_MAX caps growth at
+// ~90% of the synced-state mockup's height at the same halved scale
+// (figma-capture-figma-1.png, 876 / 2 = 438 -> 394); content beyond that
+// scrolls inside the iframe rather than growing the window further.
+const PANEL_WIDTH = 342;
+const PANEL_HEIGHT_IDLE = 210;
+const PANEL_HEIGHT_MAX = 394;
+
+figma.showUI(__html__, { width: PANEL_WIDTH, height: PANEL_HEIGHT_IDLE });
 loadLastSyncFromStorage();
 postSnapshotAvailability();
 
@@ -1894,6 +1910,17 @@ figma.ui.onmessage = async (msg) => {
     // buildHeaderPropskitField's comment) — never sent again this session,
     // so every buildExport() from here on carries the real answer.
     propskitAvailable = !!msg.available;
+    return;
+  }
+
+  if (msg.type === "resize") {
+    // ui.html reports its own measured document.body.scrollHeight on every
+    // state transition (never per-repaint — see its scheduleResize()); this
+    // clamps to [1, PANEL_HEIGHT_MAX] and is the only place that actually
+    // calls figma.ui.resize(), width held fixed at PANEL_WIDTH throughout.
+    const measured = Math.round(msg.height);
+    const height = Math.min(Math.max(Number.isFinite(measured) ? measured : PANEL_HEIGHT_IDLE, 1), PANEL_HEIGHT_MAX);
+    figma.ui.resize(PANEL_WIDTH, height);
     return;
   }
 
