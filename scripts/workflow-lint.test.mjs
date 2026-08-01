@@ -166,6 +166,31 @@ test("findNonVaultPaths: flags /tmp/ paths", () => {
   assert.ok(findNonVaultPaths("write to /tmp/scratch.txt").length > 0);
 });
 
+// ---- reviewer-block regression: path-prefix guard, not bare substring -----
+
+test("findNonVaultPaths: a vault subfolder literally named tmp/ is not flagged (prefix check, not bare substring)", () => {
+  assert.deepEqual(findNonVaultPaths("edit ~/JHD/vault/scripts/tmp/output.log"), []);
+});
+
+test("findNonVaultPaths: a session-scratchpad path under /private/tmp/claude-*/ is allowlisted", () => {
+  assert.deepEqual(
+    findNonVaultPaths("see /private/tmp/claude-502/x/scratchpad/plan.md for the plan"),
+    []
+  );
+});
+
+test("findNonVaultPaths: a session-scratchpad path under /tmp/claude-*/ is allowlisted", () => {
+  assert.deepEqual(findNonVaultPaths("see /tmp/claude-502/scratchpad/plan.md"), []);
+});
+
+test("findNonVaultPaths: a bare /tmp/ path outside any scratchpad convention is still flagged", () => {
+  assert.deepEqual(findNonVaultPaths("write to /tmp/foo.json"), ["/tmp/foo.json"]);
+});
+
+test("findNonVaultPaths: ~/Downloads is still flagged even after the prefix-check fix", () => {
+  assert.deepEqual(findNonVaultPaths("open ~/Downloads/x.png"), ["~/Downloads/x.png"]);
+});
+
 test("lintSpec: a prompt citing ~/Downloads is rejected", () => {
   const spec = baseSpec();
   spec.phases[0].agents[0].prompt = "read the file at ~/Downloads/report.pdf";

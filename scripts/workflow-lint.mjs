@@ -37,35 +37,63 @@ export function floorFor(agent) {
   return TURN_FLOORS.default;
 }
 
-const NON_VAULT_PATTERNS = [
-  /~\/Downloads/,
-  /~\/Desktop/,
-  /~\/Documents/,
-  /(?<!\/private)\/tmp\//,
-  /\/private\/tmp\//,
-  /\$HOME\/Downloads/,
-  /\$HOME\/Desktop/,
-  /\$HOME\/Documents/,
+// Substrings whose presence inside a path *token* (not the raw prompt) marks
+// it as worth flagging — checked against the whole token so a match deep
+// inside an allowlisted path (e.g. "tmp" inside "~/JHD/vault/scripts/tmp/")
+// doesn't fire in isolation; see isAllowlisted below for the actual guard.
+const NON_VAULT_MARKERS = [
+  "~/Downloads",
+  "~/Desktop",
+  "~/Documents",
+  "/tmp/",
+  "$HOME/Downloads",
+  "$HOME/Desktop",
+  "$HOME/Documents",
 ];
 
-// findNonVaultPaths(prompt, { cwd }) -> array of matched substrings citing
-// paths outside the vault/allowed cwd. Allowlists ~/JHD/ (the vault + all
-// dispatched-repo checkouts live under it) and anything under the agent's
-// own cwd, since a prompt legitimately referencing its own working tree
-// isn't a stray-path risk.
+// Session-scratchpad convention (operator decision, 2026-08-01): both the
+// legacy /tmp/claude-*/ form and the /private/tmp/claude-*/ form (macOS
+// resolves /tmp -> /private/tmp) are scratch workspace, not an unfiled
+// intake artifact — the lint rule's intent is catching ~/Downloads/
+// ~/Desktop stray files, not banning scratch-path references.
+const SCRATCHPAD_RE = /^(\/private)?\/tmp\/claude-/;
+
+// Extracts path-like tokens from a prompt: runs of non-whitespace containing
+// at least one "/", optionally preceded by ~ or $HOME. This is the unit
+// findNonVaultPaths reasons about — a token, not a bare substring — so a
+// prefix check can tell "/tmp/" starting a path from "/tmp/" merely
+// appearing partway through an allowlisted one.
+function extractPathTokens(prompt) {
+  const re = /(?:~|\$HOME)?\/?[\w.-]+(?:\/[\w.-]+)*\/?/g;
+  const candidates = prompt.match(re) || [];
+  return candidates.filter((t) => t.includes("/"));
+}
+
+function isAllowlisted(token, cwd) {
+  if (token.startsWith("~/JHD/")) return true;
+  if (SCRATCHPAD_RE.test(token)) return true;
+  if (cwd && (token.startsWith(cwd) || cwd.includes(token))) return true;
+  return false;
+}
+
+// findNonVaultPaths(prompt, { cwd }) -> array of full path tokens that cite
+// a location outside the vault/allowed cwd. Works on whole path tokens
+// (extractPathTokens), not bare substring matches, so a marker like "/tmp/"
+// only flags when it's genuinely the start of a non-allowlisted path —
+// never when it merely appears inside an allowlisted one (e.g.
+// "~/JHD/vault/scripts/tmp/output.log", a session scratchpad path under
+// /private/tmp/claude-*/, or a path under the agent's own cwd).
 export function findNonVaultPaths(prompt, { cwd } = {}) {
   if (!prompt) return [];
+  const tokens = extractPathTokens(prompt);
   const hits = [];
-  for (const re of NON_VAULT_PATTERNS) {
-    const m = prompt.match(re);
-    if (m) hits.push(m[0]);
+  for (const token of tokens) {
+    const flagged = NON_VAULT_MARKERS.some((marker) => token.includes(marker));
+    if (!flagged) continue;
+    if (isAllowlisted(token, cwd)) continue;
+    hits.push(token);
   }
-  // Filter out matches that are actually inside the allowed cwd (rare, but
-  // e.g. a cwd itself under /tmp/ for test isolation should not false-positive).
-  return hits.filter((h) => {
-    if (cwd && cwd.includes(h.replace(/^~\//, ""))) return false;
-    return true;
-  });
+  return hits;
 }
 
 function isNonEmptyString(x) {
