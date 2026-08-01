@@ -5,6 +5,29 @@ description: Read a Figma file into buildable truth — variables first, metadat
 
 # Figma Extraction
 
+## Rule zero — operator-supplied Figma renders are 2x retina, always ÷2
+
+Any PNG the operator hands you as a design contract (a screenshot exported from Figma,
+not read live through the MCP `get_screenshot`/`get_metadata` tools) is a **retina (2x)
+render by default** — its pixel dimensions and every element inside it are twice the
+CSS/native px value that belongs in code. **Divide every measurement taken off such a
+render by 2 before it becomes a px value.** Confirm the multiplier once, cheaply, before
+measuring anything: the image's own pixel width against the target's known native width
+(e.g. a Figma plugin panel's `figma.showUI` width) — a 684px-wide render for a 342px-wide
+panel is 2x, not a coincidence.
+
+**Why this is rule zero, not an appendix note:** the capture-figma plugin UI shipped
+**two consecutive oversized-UI rounds** (2026-07-31, then again 2026-08-01) because this
+rule was applied partially each time — body text and panel width got the ÷2 treatment,
+but row padding, button padding, inter-row gaps, and the count-number/count-label font
+sizes were left at their retina-derived values and shipped as if they were already
+native. Each round looked "corrected" by eye and still read oversized in the real plugin
+window, because eyeballing proportions on a rendered mockup can't catch a numeric 2x
+residual — only measuring pixels (not vibes) against the contract catches it. Treat
+retina-vs-native as a checklist to run over **every sized element** (font sizes,
+paddings, gaps, radii, icon/control dimensions, the container's own size) — never assume
+the correction from a prior pass covered a property it didn't touch.
+
 Figma reads misfire when they start from pixels. Screenshots invite guessing — a hero
 read as "5:4" that was actually screen-height stops, a tracking value eyeballed wrong, a
 subtitle size inferred a step too large. Each misread costs a full correction round in the
