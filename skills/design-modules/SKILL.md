@@ -1,6 +1,6 @@
 ---
 name: design-modules
-description: Software architecture discipline for designing deep modules — small interfaces, clean seams, testable through the interface. Use when designing a new module or interface, splitting a shallow pass-through, deciding where to place a test seam, or any non-trivial software design that needs the interface shaped before the code is written. Not for UI/visual design — that's design-craft.
+description: Design deep modules with small interfaces before writing code — clean seams, testable through the interface. Trigger on "how should we structure this", "where does this logic live", "split this component/service", designing any new module, or a shallow pass-through spotted in review. Not system-wide decomposition — that's architect-systems; not UI — that's design-craft.
 ---
 
 # Design Modules

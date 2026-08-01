@@ -1,6 +1,6 @@
 ---
 name: discover-scope
-description: Turn a raw ask into a validated scope through repeated gather, research, and validate cycles that grow a living SCOPE document — problem, outcomes, constraints, open questions, out-of-scope. Use when starting client or product discovery, exploring a problem before it's shaped, or when requirements are still forming.
+description: Turn a raw ask into a validated scope through gather → research → validate cycles growing a living SCOPE doc. Trigger on "new concept", "I'd like to explore", "there will likely be a large amount of updates", "I'm reconsidering a few things", starting any client or product discovery, or when requirements are clearly still forming mid-conversation. Not for shaping a settled idea into a plan — that's shape-stress.
 ---
 
 # Discover Scope

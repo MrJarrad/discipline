@@ -1,6 +1,6 @@
 ---
 name: define-terms
-description: Actively sharpen a project's domain vocabulary — challenge fuzzy or conflicting terms, keep a CONTEXT.md glossary current, and record lightweight ADRs when decisions crystallise. Use during discovery, shaping, triage, or implementation whenever terminology is changing, colliding, or being invented.
+description: Actively sharpen a project's domain vocabulary — challenge fuzzy or colliding terms, maintain the CONTEXT.md glossary, record lightweight ADRs when decisions crystallise. Trigger on "just to be clear", "need to be clear on this one", "what I mean by X is", "I've renamed X to Y", naming disputes (component/variable/block names), or whenever the operator corrects terminology mid-task. Not for document templates — that's doc-formats.
 ---
 
 # Define Terms

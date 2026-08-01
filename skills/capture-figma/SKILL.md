@@ -1,6 +1,6 @@
 ---
 name: capture-figma
-description: Read a Figma file into buildable truth — variables first, metadata second, screenshots last — without misreading sizes, aspects, or tracking. Use when extracting tokens, block anatomy, variant matrices, or copy from any Figma file, or when a Figma read needs to drive code. Not for capturing live websites — that's capture-website; not for auditing built pages against Figma — that's audit-build.
+description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels. Not for capturing live websites — that's capture-website; not for auditing a built page against Figma — that's audit-build.
 ---
 
 # Figma Extraction

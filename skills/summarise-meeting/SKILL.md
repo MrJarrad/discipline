@@ -1,6 +1,6 @@
 ---
 name: summarise-meeting
-description: Transforms a raw meeting transcript into a structured, Notion-ready summary — decisions, actions, and disagreements extracted with quoted evidence, never asserting anything the transcript doesn't support. Works with transcripts from any source — Google Meet, Zoom, Teams, Granola, Otter, or raw text — pasted or uploaded in any common format. Use whenever a transcript is provided and the ask is notes, a write-up, actions, or "what did we align on" — even if Notion isn't mentioned. Trigger phrases include "summarise this call", "turn this into notes", "write up the meeting", "pull out the actions", "what do I need to follow up". Not for sales-call CRM logging or follow-up emails — that's call-summary; not for synthesizing research interviews into themes — that's research-synthesis.
+description: Transform a raw meeting transcript into a structured, evidence-quoted summary — decisions, actions, disagreements. Trigger whenever a transcript is provided and the ask is notes, a write-up, actions, or "what did we align on" — even without Notion mentioned. Also invoked by ops-inbox's meeting-notes pipeline. Not research-interview synthesis — that's research-synthesis.
 ---
 
 # Summarise Meeting
