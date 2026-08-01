@@ -288,6 +288,16 @@
       text-transform: uppercase;
       color: var(--color-text-secondary);
     }
+    /* The raw occurrence count beside a section label: same 9px uppercase
+       rhythm as the label it follows, one step further back in the hierarchy,
+       because "6 problems" is the figure to act on and "62 occurrences" is
+       only the figure to compare syncs on. */
+    .count-secondary {
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: 0.07em;
+      color: var(--color-text-muted);
+    }
     .chip-row {
       display: flex;
       flex-wrap: wrap;
@@ -355,9 +365,42 @@
       margin: var(--space-1) 0 0;
       color: var(--color-text-secondary);
     }
+    /* The one sentence that says what to do. Full text colour, because after
+       the headline this is the most important line in the row — the operator
+       should never have to open "why this matters" to act. */
+    .warn-fix {
+      margin: var(--space-1) 0 0;
+      color: var(--color-text);
+    }
+    /* The diff-correlation rationale, folded away and muted: available for
+       anyone who wants it, never in the way of the remedy. */
+    .warn-why > summary {
+      cursor: pointer;
+      list-style: none;
+      color: var(--color-text-muted);
+      font-size: 10px;
+    }
+    .warn-why > summary::-webkit-details-marker {
+      display: none;
+    }
+    .warn-why {
+      margin-top: var(--space-1);
+    }
+    .warn-why .warn-line {
+      color: var(--color-text-muted);
+      font-size: 10px;
+    }
     .warn-line-label {
       font-weight: 700;
       color: var(--color-text);
+    }
+    /* Caption for the per-occurrence paths: same muted 10px voice as the
+       "why this matters" summary above it, with the extra top space that
+       tells the eye a new block has started. */
+    .warn-samples-caption {
+      margin: var(--space-2) 0 0;
+      color: var(--color-text-muted);
+      font-size: 10px;
     }
     .warn-samples {
       margin: var(--space-1) 0 0;
@@ -815,14 +858,78 @@
     // condition in code.js, not invented — the citation on each says which
     // code path it describes. If a type's remedy is a policy decision rather
     // than a file edit, the copy says so instead of inventing a fix.
+    //
+    // REVISED after the operator read the first version live: "the way you
+    // explained in the thread I understand, how it's presented in the plugin
+    // doesn't make any sense". The fault was ordering, not content — the copy
+    // opened on why the diff machinery cares and left the operator to infer
+    // which layer in which component to open. So each entry is now a pair of
+    // builders over its root-cause group: `headline` states the finding in
+    // the file's own nouns, `fix` says what to do about it in one sentence,
+    // and the machinery rationale survives as `why`, behind a fold.
+    //
+    // NAMING (vault memories/role-based-layer-naming.md): every rename this
+    // copy suggests uses ROLE vocabulary (primary/secondary) and the
+    // operator's " - " separator. Never positional ("left"), never
+    // content-typed ("media"), never a "/" path — position is a per-breakpoint
+    // projection, the role is the invariant.
+
+    function quoted(name) {
+      return '"' + (name || "this layer") + '"';
+    }
+
+    // Where a root cause lives, in the operator's own nouns: "SplitContent's
+    // content", ".ControlSlider" when the problem sits at that component's own
+    // top level, or the raw path when the axes matched more than one set and
+    // naming one would be a guess.
+    function rootCausePlace(group) {
+      const component = group.componentName;
+      const container = group.container;
+      if (component && container && container !== component) return component + "'s " + container;
+      if (component) return component;
+      if (container) return container;
+      // No component could be named without guessing (the variant's axes fit
+      // several sets). Say which variant was seen — that is a real thing the
+      // operator can select — rather than dropping a bare axis string in.
+      const variant = (group.variants && group.variants[0]) || (group.occurrences && group.occurrences[0] && group.occurrences[0].variant);
+      if (variant) return "the " + variant + " variant";
+      const first = group.occurrences && group.occurrences[0];
+      return (first && first.path) || "this file";
+    }
+
+    // Axis warnings carry "<template>/<axis>" as their context, so the group's
+    // container is an AXIS NAME, not a place inside the template. Reading it
+    // possessively ("Home's layout") makes an axis sound like a layer.
+    function axisPlace(group) {
+      const axis = group.container ? group.container + " axis" : "a variant axis";
+      const template = group.componentName || rootCausePlace(group);
+      return axis + ", in " + template;
+    }
+
+    // How far the one problem echoed. Variants are the honest unit when the
+    // echo came from a component set; otherwise it's places in the file. One
+    // occurrence gets no suffix at all rather than a limp "1 place affected".
+    function rootCauseEcho(group) {
+      if (group.variants && group.variants.length > 1) return " — " + group.variants.length + " variants affected";
+      if (group.count > 1) return " — " + group.count + " places affected";
+      return "";
+    }
+
+    // The role pairs this design system actually uses. A collision on one of
+    // these names has a known answer; a collision on anything else does not,
+    // and the copy must not pretend otherwise.
+    const ROLE_PAIR = { primary: "secondary", secondary: "primary" };
+
     const WARNING_GUIDE = {
       // code.js buildMalformedSpacerNameWarnings(): fires for an INSTANCE
       // whose main component SET is SpaceVertical/SpaceHorizontal (the only
       // instances collected into spacerInstances) when the instance's own
       // LAYER name isn't one of the four canonical names.
       malformed_spacer_name: {
+        headline: (group) => quoted(group.layerName) + " is not a spacer name, in " + rootCausePlace(group) + rootCauseEcho(group),
+        fix: () =>
+          "Rename the layer to whichever gap it actually holds: SpacerTop, SpacerBottom, SpacerHorizontal or SpacerVertical. The component stays as it is — only the instance's layer name is checked.",
         why: "A spacer instance (of the SpaceVertical/SpaceHorizontal components) has a layer name that isn't one of the four canonical spacer names — most often it was never renamed after being dropped in, so it still carries the component's own name.",
-        fix: "Rename the layer to whichever of SpacerTop, SpacerBottom, SpacerHorizontal or SpacerVertical describes the gap it holds. The component itself stays as-is; only the instance's layer name is checked.",
       },
       // code.js buildDuplicateSiblingNameWarnings(): two or more nodes sharing
       // a name under the same parent, scoped to the override interface
@@ -834,35 +941,60 @@
       // the SAME component set, are suppressed as interchangeable repeats
       // (operator ruling 2026-08-01, "a row, not specifically 6 rows").
       duplicate_sibling_name: {
-        why: "Two or more layers directly under the same component or frame share a name AND are different things — a different node type, or (for instances) a different main component belonging to a different component set. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared name over different things makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change. Same-named instances of the SAME main component, or of different variants of the SAME component set (e.g. six ActionButton instances each set to a different variant), never trigger this — they're intentional.",
-        fix: "Rename one of them so every sibling under that parent is unique (e.g. \"Row\" and \"Row 2\" become \"Row / label\" and \"Row / value\"). Only a block's own addressable layers are checked — deep icon internals are ignored.",
+        headline: (group) =>
+          "More than one layer is named " + quoted(group.layerName) + " in " + rootCausePlace(group) + rootCauseEcho(group),
+        // The primary/secondary pair is the answer only when the colliding
+        // name IS one of those roles — otherwise the advice is the rule, not a
+        // specific replacement, because only the operator knows what the
+        // second layer's role actually is.
+        fix: (group) =>
+          ROLE_PAIR[group.layerName]
+            ? "They are different things wearing one name. Give each the role it actually plays — if this one is " +
+              quoted(group.layerName) +
+              ", the other is most likely " +
+              quoted(ROLE_PAIR[group.layerName]) +
+              '. Names are roles, never positions, so a suffix (with the " - " separator) only helps if it names another role.'
+            : "They are different things wearing one name. Rename one for the role it actually plays — a role name, or the existing name plus a role suffix using the \" - \" separator. Never a position or a content type: position changes with the breakpoint, the role doesn't.",
+        why: "Diffing correlates nodes by id first and by name among siblings as a fallback, so two different things sharing one name make that fallback ambiguous and a later rename or reorder reads as an unrelated change. Same-named instances of the SAME main component, or of different variants of the SAME component set (six ActionButton instances each on a different variant, say), never trigger this — they are interchangeable repeats and are suppressed.",
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
       // differs between the M- and D- frame of one Example pair.
       axis_ownership_violation: {
-        why: "An instance appears in both the M- and D- frame of an Example pair with a different value on a non-device variant axis. A layout holds one opinion per axis; only the device axis is allowed to differ between mobile and desktop.",
-        fix: "Pick the intended value and set it on both frames' instances — or, if the divergence is genuinely correct, raise it with the operator for a ratified exception rather than leaving it flagged.",
+        headline: (group) =>
+          quoted(group.layerName) + " is set differently on mobile and desktop on the " + axisPlace(group) + rootCauseEcho(group),
+        fix: () =>
+          "Decide which value is intended and set it on the instance in BOTH the M- and D- frame. If the two really are meant to differ, raise it with the operator for a ratified exception rather than leaving it flagged.",
+        why: "A layout holds one opinion per axis; only the device axis is allowed to differ between the M- and D- frame of an Example pair. A divergence on any other axis is a machine-detectable inconsistency, not a design decision the capture can see.",
       },
       // code.js findRatifiedAxisException()/RATIFIED_AXIS_EXCEPTIONS: the same
       // condition as above, downgraded (not dropped) for a cited exception.
       ratified_axis_exception: {
-        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has already ratified as an intended exception (currently NavigationHeader's layout axis). It is reported rather than hidden so the suppression stays auditable.",
-        fix: "Nothing to fix — this is ratified operator policy, informational only. It only changes if the ruling changes.",
+        headline: (group) =>
+          quoted(group.layerName) + " holds a ratified mobile/desktop difference on the " + axisPlace(group) + rootCauseEcho(group),
+        fix: () =>
+          "Nothing to fix — the operator has already ratified this divergence. It is listed rather than hidden so the suppression stays auditable, and it disappears only if the ruling changes.",
+        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has ratified as intended (currently NavigationHeader's layout axis).",
       },
       // code.js buildAxisOwnershipViolationWarnings(): within one instance-
       // name group where BOTH sides repeat the name, an instance at a position
       // past the shorter side's count.
       unpaired_template_instance: {
-        why: "An Example pair's M- and D- frame hold a different number of instances of the same block, so instances past the shorter side's count have no counterpart to compare against.",
-        fix: "Add the missing instance on the shorter side, or delete the extra one — whichever matches the intended layout. Repeated content blocks correlate in authoring order, so also check the order matches.",
+        headline: (group) =>
+          quoted(group.layerName) + " has no counterpart in the paired frame, in " + rootCausePlace(group) + rootCauseEcho(group),
+        fix: () =>
+          "Add the missing instance on the shorter side, or delete the extra one — whichever matches the intended layout. Repeated blocks pair up in authoring order, so check the order matches too.",
+        why: "An Example pair's M- and D- frame hold a different number of instances of the same block, so instances past the shorter side's count have nothing to compare against.",
       },
     };
 
     function warningGuideFor(type) {
       return (
         WARNING_GUIDE[type] || {
-          why: "This warning type has no documented explanation yet — see the plugin's warning builders in code.js for the condition that emits it.",
-          fix: "Read the individual warning messages in the Raw JSON panel; each one names the offending node and what it expected.",
+          headline: (group) =>
+            quoted(group.layerName) + " in " + rootCausePlace(group) + rootCauseEcho(group),
+          fix: () =>
+            "This warning type has no remediation copy yet. Open the Raw JSON panel — each individual message names the offending node and what it expected.",
+          why: "No documented explanation yet — see the plugin's warning builders in code.js for the condition that emits it.",
         }
       );
     }
@@ -913,17 +1045,27 @@
       return section;
     }
 
-    // How many offending node names each warning group lists before it
-    // summarises the rest as "+K more" — enough to recognise the pattern
-    // (all in one frame? all the same layer name?) without turning an 839-
-    // strong group into an unscrollable wall.
+    // How many of a root cause's echoed paths a row lists before it summarises
+    // the rest as "+K more" — enough to see the shape of the echo (all in one
+    // component? one per variant?) without turning 39 occurrences into a wall.
     const WARNING_SAMPLE_LIMIT = 5;
 
-    // The WARNINGS section: same heading language as the other count
-    // sections, but each type is an expandable group carrying its why/fix
-    // copy and the first few offending nodes — a bare per-type chip count
-    // was what the operator called unactionable.
-    function warningSection(total, groups) {
+    // The FIGMA HYGIENE section: one expandable row per ROOT CAUSE, not per
+    // warning and not per type.
+    //
+    // Operator, 2026-08-01, reading the previous version: "the way you
+    // explained in the thread I understand, how it's presented in the plugin
+    // doesn't make any sense". Two things were wrong. The rows were per TYPE,
+    // so two real problems arrived as "62 duplicate-sibling-name" — a number,
+    // not a finding. And each row opened on why the diff machinery cares,
+    // which is the last thing an operator needs to act.
+    //
+    // So a row now reads top to bottom the way the operator asked in the
+    // thread: the finding first (which layer, in which component, how far it
+    // echoes), then one sentence saying what to do, then — folded away — the
+    // rationale, then the individual paths LAST for anyone who wants to go
+    // and look.
+    function warningSection(groups, occurrenceTotal) {
       const section = document.createElement("div");
       section.className = "row count-section";
 
@@ -931,47 +1073,72 @@
       heading.className = "count-heading";
       const num = document.createElement("span");
       num.className = "count-number";
-      num.textContent = total.toLocaleString();
+      num.textContent = groups.length.toLocaleString();
       const lab = document.createElement("span");
       lab.className = "count-label";
       lab.textContent = "FIGMA HYGIENE";
       heading.appendChild(num);
       heading.appendChild(lab);
+      // The raw number stays visible — it is what the export contains and what
+      // a previous sync was compared on — but it stops being the headline,
+      // because 62 occurrences of 6 problems is 6 pieces of work.
+      if (occurrenceTotal > groups.length) {
+        const secondary = document.createElement("span");
+        secondary.className = "count-secondary";
+        secondary.textContent = "· " + occurrenceTotal.toLocaleString() + " occurrences";
+        heading.appendChild(secondary);
+      }
       section.appendChild(heading);
 
       for (const group of groups) {
+        const guide = warningGuideFor(group.type);
         const details = document.createElement("details");
         details.className = "warn-group";
 
+        // A restored sync has only per-type counts (the raw warnings[] is
+        // deliberately not persisted — see code.js's LAST_SYNC_STORAGE_KEY
+        // comment), so there is no finding to state. Say the honest thing
+        // rather than a headline built from blanks.
         const summary = document.createElement("summary");
-        const count = document.createElement("span");
-        count.className = "warn-count";
-        count.textContent = group.count.toLocaleString();
-        summary.appendChild(count);
-        summary.appendChild(document.createTextNode(" " + group.type.replace(/_/g, "-")));
+        summary.textContent = group.layerName
+          ? guide.headline(group)
+          : group.count.toLocaleString() + " × " + group.type.replace(/_/g, "-");
         details.appendChild(summary);
 
-        const guide = warningGuideFor(group.type);
-        for (const [label, text] of [["Why", guide.why], ["Fix", guide.fix]]) {
-          const p = document.createElement("p");
-          p.className = "warn-line";
-          const strong = document.createElement("span");
-          strong.className = "warn-line-label";
-          strong.textContent = label + " ";
-          p.appendChild(strong);
-          p.appendChild(document.createTextNode(text));
-          details.appendChild(p);
-        }
+        const fix = document.createElement("p");
+        fix.className = "warn-fix";
+        fix.textContent = guide.fix(group);
+        details.appendChild(fix);
 
-        if (group.samples.length) {
+        const why = document.createElement("details");
+        why.className = "warn-why";
+        const whySummary = document.createElement("summary");
+        whySummary.textContent = "why this matters";
+        why.appendChild(whySummary);
+        const whyText = document.createElement("p");
+        whyText.className = "warn-line";
+        whyText.textContent = guide.why;
+        why.appendChild(whyText);
+        why.addEventListener("toggle", scheduleResize);
+        details.appendChild(why);
+
+        const paths = (group.occurrences || []).map((o) => o.path).filter(Boolean);
+        if (paths.length) {
+          // Captioned, because with "why this matters" collapsed the bare list
+          // sits right under that summary and reads as its contents.
+          const caption = document.createElement("p");
+          caption.className = "warn-samples-caption";
+          caption.textContent = "where it shows up";
+          details.appendChild(caption);
+
           const list = document.createElement("ul");
           list.className = "warn-samples";
-          for (const sample of group.samples) {
+          for (const path of paths.slice(0, WARNING_SAMPLE_LIMIT)) {
             const li = document.createElement("li");
-            li.textContent = sample;
+            li.textContent = path;
             list.appendChild(li);
           }
-          const remaining = group.count - group.samples.length;
+          const remaining = paths.length - Math.min(paths.length, WARNING_SAMPLE_LIMIT);
           if (remaining > 0) {
             const li = document.createElement("li");
             li.className = "warn-samples-more";
@@ -1025,50 +1192,42 @@
         ])
       );
 
-      // Warnings: grouped by type, descending by count — the count section
-      // this UI adds beyond what the plugin already tracked in
-      // header.warningCount. Two shapes feed this: a live export-result's
-      // raw warnings[] array (grouped here), or a restored-from-clientStorage
-      // payload's already-grouped warningsByType map — the raw array isn't
-      // persisted (see code.js's LAST_SYNC_STORAGE_KEY comment), so a
-      // restore has no warnings[] to regroup, only the counts.
+      // Warnings: one row per ROOT CAUSE, biggest echo first — the count
+      // section this UI adds beyond what the plugin already tracked in
+      // header.warningCount. Two shapes feed this: a live export-result's raw
+      // warnings[] array (folded onto root causes here, using the export's own
+      // componentSets to name the component behind a variant descriptor), or a
+      // restored-from-clientStorage payload's already-grouped warningsByType
+      // map — the raw array isn't persisted (see code.js's
+      // LAST_SYNC_STORAGE_KEY comment), so a restore can only show per-type
+      // counts and the row says so instead of inventing a finding.
       //
       // The operator's Figma mockup predates this lane (it has no warnings
       // section at all) — kept here, in the same VARIABLES/STYLES/COMPONENTS
       // visual language, as a stated assumption rather than a silent
       // invention; flagged for the operator to veto.
-      let byType;
-      let samplesByType;
+      let warningGroups;
       let warningsTotal;
       if (Array.isArray(data.warnings)) {
-        byType = new Map();
-        samplesByType = new Map();
-        for (const w of data.warnings) {
-          const key = w && w.type ? w.type : "unknown";
-          byType.set(key, (byType.get(key) || 0) + 1);
-          const samples = samplesByType.get(key) || [];
-          if (samples.length < WARNING_SAMPLE_LIMIT) {
-            samples.push((w && (w.context || w.nodeName)) || "(unnamed node)");
-            samplesByType.set(key, samples);
-          }
-        }
+        warningGroups = groupWarningsByRootCause(
+          data.warnings,
+          createVariantOwnerResolver(data.componentSets)
+        );
         warningsTotal = data.warnings.length;
       } else {
-        // Restored from clientStorage: only the per-type counts survive (the
-        // raw warnings[] array is deliberately not persisted, see code.js's
-        // LAST_SYNC_STORAGE_KEY comment) — the why/fix copy still applies,
-        // there are just no offending node names to list.
-        byType = new Map(Object.entries(data.warningsByType || {}));
-        samplesByType = new Map();
+        warningGroups = Object.entries(data.warningsByType || {}).map(([type, n]) => ({
+          type: type,
+          componentName: null,
+          container: null,
+          layerName: null,
+          count: n,
+          variants: [],
+          occurrences: [],
+        }));
         warningsTotal = typeof data.warningCount === "number" ? data.warningCount : 0;
       }
-      const warningEntries = Array.from(byType.entries()).sort((a, b) => b[1] - a[1]);
-      countsEl.appendChild(
-        warningSection(
-          warningsTotal,
-          warningEntries.map(([type, n]) => ({ type: type, count: n, samples: samplesByType.get(type) || [] }))
-        )
-      );
+      warningGroups.sort((a, b) => b.count - a.count);
+      countsEl.appendChild(warningSection(warningGroups, warningsTotal));
       scheduleResize();
     }
 
