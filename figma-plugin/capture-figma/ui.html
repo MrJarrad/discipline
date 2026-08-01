@@ -10,13 +10,17 @@
        reference, never a bare literal in a rule. Spacing/type values are
        scaled to the plugin's native CSS-px panel (figma.showUI opens at
        342 wide, content-hugging height — see code.js's PANEL_WIDTH/resize
-       handling — no devicePixelRatio scaling) — the design mockup PNGs
-       (figma-capture-figma*.png) are 2x-effective renders, so raw pixel
-       measurements off them read ~1.4x too large; sizes here were corrected
-       against the operator's original native-scale ui.html (body 12px,
-       panel padding 16px, 6-8px radii, 8px dots) and verified by rendering
-       this file standalone and comparing element proportions at matched
-       widths. --- */
+       handling — no devicePixelRatio scaling). The design contract renders
+       (~/JHD/vault/artifacts/capture-ui-figma-design/figma-capture-figma*.png,
+       684x420 / 682x876) are RETINA (2x) — every measurement taken off them is
+       divided by 2 before it becomes a px value here (2026-08-01 pixel audit,
+       measured via direct pixel/connected-component analysis of the contract
+       PNGs, not eyeballing). Two prior rescale passes (1c285e7, 330b3cc) only
+       corrected body text/panel width and left row padding, button padding,
+       inter-row gaps, and the count-number/count-label sizes at their
+       original retina-derived values — this pass corrects those against
+       measured contract pixels (see the capture-figma skill's front-loaded
+       retina rule for the failure story). --- */
     :root {
       --color-bg: #ffffff;
       --color-text: #1e1e1e;
@@ -72,8 +76,15 @@
     .row {
       display: flex;
       flex-direction: column;
-      gap: var(--space-3);
-      padding: var(--space-4) var(--space-5);
+      /* gap 4px (space-1), not the prior 10px (space-3) — measured contract
+         row height (sync/snapshot rows, 62.5px native each) only fits its
+         status-row-top + btn-row content at a ~4px inter-block gap. */
+      gap: var(--space-1);
+      /* padding 10px/14px (space-3/space-4), not the prior 14px/16px
+         (space-4/space-5) — measured from the button-box bottom edge to the
+         row's border (9.5px native) and the dot's left edge to the row's
+         left border (12px native) in the contract PNGs. */
+      padding: var(--space-3) var(--space-4);
       border-bottom: 1px solid var(--color-border);
     }
 
@@ -134,7 +145,14 @@
       font-family: inherit;
       font-size: 12px;
       font-weight: 500;
-      padding: 8px 14px;
+      line-height: 1;
+      /* 4px/10px (space-1/space-3), not the prior 8px/14px — measured
+         button-box height (~21.5px native, border included) and width
+         (~42-65px native across Sync/Copy/Download) against each button's
+         own text width in the contract PNGs; line-height:1 added since the
+         browser-default line-height alone (~14.4px at 12px) plus the old
+         padding overshot every measured button height by ~30-50%. */
+      padding: var(--space-1) var(--space-3);
       border-radius: var(--radius-md);
       border: 1px solid var(--color-secondary-border);
       background: var(--color-secondary-bg);
@@ -143,6 +161,7 @@
       text-decoration: none;
       display: inline-flex;
       align-items: center;
+      transition: background-color 120ms ease, opacity 120ms ease;
     }
     .btn:disabled,
     .btn[aria-disabled="true"] {
@@ -160,6 +179,24 @@
       color: var(--color-snapshot-text);
       border-color: var(--color-snapshot-border);
     }
+    /* Hover states: not shown in the design contract (the contract PNGs are
+       two static idle/synced-state renders with no hover variant captured) —
+       the contract is silent here (flagged in the PR report, not invented as
+       a creative treatment). Each variant's hover reuses that SAME button's
+       own existing border-color token as its hover background — a plain
+       "step one shade toward the border" idiom already present in the
+       token set, not a new color. Skipped for disabled/aria-disabled buttons
+       (the pointer-events:none rule above already keeps hover from firing on
+       them, but the guard is explicit here for clarity). */
+    .btn:not(:disabled):not([aria-disabled="true"]):hover {
+      background: var(--color-secondary-border);
+    }
+    .btn.sync:not(:disabled):not([aria-disabled="true"]):hover {
+      background: var(--color-sync-border);
+    }
+    .btn.snapshot:not(:disabled):not([aria-disabled="true"]):hover {
+      background: var(--color-snapshot-border);
+    }
 
     .count-heading {
       display: flex;
@@ -167,13 +204,21 @@
       gap: var(--space-2);
     }
     .count-number {
-      font-size: 24px;
+      /* 17px, not the prior 24px — the prior value was the retina-render
+         digit height read directly (a residual of the incomplete 1c285e7/
+         330b3cc rescale), never divided by 2. Measured digit glyph height
+         is 24px across all three contract counts (576/79/136) at 2x; ÷2 and
+         corrected for Inter's ~0.716 cap-height ratio gives ~17px native. */
+      font-size: 17px;
       font-weight: 800;
       line-height: 1;
       color: var(--color-text);
     }
     .count-label {
-      font-size: 11px;
+      /* 9px, not the prior 11px — measured uppercase label glyph height is
+         13px at 2x (consistent across VARIABLES/STYLES/COMPONENTS); ÷2 and
+         cap-height-corrected gives ~9px native. */
+      font-size: 9px;
       font-weight: 700;
       letter-spacing: 0.07em;
       text-transform: uppercase;
@@ -187,7 +232,10 @@
     }
     .stat-chip {
       font-size: 12px;
-      padding: 6px 10px;
+      /* 4px/10px (space-1/space-3), not the prior 6px/10px vertical —
+         measured chip-box height (~21px native, border included) against
+         12px text + default line-height overshot by the prior padding. */
+      padding: var(--space-1) var(--space-3);
       border-radius: var(--radius-sm);
       background: var(--color-chip-bg);
       border: 1px solid var(--color-chip-border);
