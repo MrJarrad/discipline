@@ -754,21 +754,16 @@ test("subtree walk: a walk with no binding collection matches the reverted-paral
 
 // --- example-page section walk --------------------------------------------
 //
-// templatesExample was 3.1s of the 11.6s v1.23.0 export. Round 1 parallelized
-// the frames INSIDE a section and the instances inside a frame, but the
-// SECTIONS themselves were still walked one at a time — a top-level section's
-// entire frame set had to finish before the next section's began, and a
-// nested section waited on its parent's frames. Nothing in a section depends
-// on another section, so the whole section tree now goes out at once and the
-// results are folded in DFS order afterwards.
+// REVERTED (perf round 2 revert, operator verdict 2026-08-01: net loss in
+// the plugin sandbox — see the SUBTREE WALK comment above for the full
+// finding). Sections are walked depth-first again, one at a time; only the
+// frames INSIDE one section (round 1's collectInParallel) still overlap.
 //
-// Proven against a verbatim copy of the sequential walk, with a frame
-// processor that completes in the REVERSE of call order.
+// Proven against the round-2 whole-tree implementation it replaces
+// (reimplemented verbatim from 5d64bf2), with a frame processor that
+// completes in the REVERSE of call order.
 
-const { collectInParallel: collectForSections, newWarningsCollector, mergeWarningsCollector } = extract(
-  "PARALLEL COLLECT",
-  "{ collectInParallel, newWarningsCollector, mergeWarningsCollector }"
-);
+const { collectInParallel: collectForSections } = extract("PARALLEL COLLECT", "{ collectInParallel }");
 const { createExampleSectionWalk } = extract("EXAMPLE SECTIONS", "{ createExampleSectionWalk }");
 
 function exampleNode(type, name, children) {
@@ -810,37 +805,64 @@ function reverseCompletionFrameProcessor() {
   };
 }
 
-// The shipped-before-this-change implementation, verbatim from code.js at
-// b2b85a1: sections one at a time, depth-first.
-async function sequentialExampleDataBaseline(examplePage, out, processFrame) {
+// perf round 2's whole-tree implementation, verbatim from code.js at
+// 5d64bf2 — now REVERTED. Kept here only so the round-1 depth-first shape
+// shipped in code.js can be proven output-identical to what it replaced.
+function newWarningsCollectorBaseline() {
+  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+}
+function mergeWarningsCollectorBaseline(target, bucket) {
+  for (const entry of bucket.nodeSnapshots) target.nodeSnapshots.push(entry);
+  for (const entry of bucket.spacerInstances) target.spacerInstances.push(entry);
+  for (const entry of bucket.latentCapabilities) target.latentCapabilities.push(entry);
+  for (const entry of bucket.variantBindings) target.variantBindings.set(entry[0], entry[1]);
+}
+async function parallelExampleDataBaseline(examplePage, warningsCollector, processFrame) {
   if (!examplePage) return { sectionSnapshots: [], frameSnapshots: [] };
+
+  const childrenOfType = function (node, type) {
+    return node.children.filter(function (n) { return n.type === type; });
+  };
+  const frameDescs = function (frames) {
+    return frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
+  };
+
+  async function walkSection(section) {
+    const frames = childrenOfType(section, "FRAME");
+    const bucket = newWarningsCollectorBaseline();
+    const both = await Promise.all([
+      collectForSections(frames, bucket, function (frame, out) {
+        return processFrame(frame, section.id, section.name, out);
+      }),
+      Promise.all(childrenOfType(section, "SECTION").map(walkSection)),
+    ]);
+    return { bucket: bucket, name: section.name, frames: frames, snapshots: both[0], nested: both[1] };
+  }
+
+  const bareFrames = childrenOfType(examplePage, "FRAME");
+  const bareBucket = newWarningsCollectorBaseline();
+  const settled = await Promise.all([
+    Promise.all(childrenOfType(examplePage, "SECTION").map(walkSection)),
+    collectForSections(bareFrames, bareBucket, function (frame, out) {
+      return processFrame(frame, examplePage.id, "", out);
+    }),
+  ]);
+
   const sectionSnapshots = [];
   const frameSnapshots = [];
 
-  async function walkSection(section) {
-    const frames = section.children.filter(function (n) { return n.type === "FRAME"; });
-    const snapshots = await collectForSections(frames, out, function (frame, bucket) {
-      return processFrame(frame, section.id, section.name, bucket);
-    });
-    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
-    const frameDescs = frames.map(function (frame) { return { id: frame.id, name: frame.name }; });
-    sectionSnapshots.push({ name: section.name, frames: frameDescs });
-
-    const nestedSections = section.children.filter(function (n) { return n.type === "SECTION"; });
-    for (const nested of nestedSections) await walkSection(nested);
+  function fold(result) {
+    mergeWarningsCollectorBaseline(warningsCollector, result.bucket);
+    for (const snapshot of result.snapshots) frameSnapshots.push(snapshot);
+    sectionSnapshots.push({ name: result.name, frames: frameDescs(result.frames) });
+    for (const nested of result.nested) fold(nested);
   }
+  for (const result of settled[0]) fold(result);
 
-  const topSections = examplePage.children.filter(function (n) { return n.type === "SECTION"; });
-  for (const section of topSections) await walkSection(section);
-
-  const bareFrames = examplePage.children.filter(function (n) { return n.type === "FRAME"; });
   if (bareFrames.length > 0) {
-    const snapshots = await collectForSections(bareFrames, out, function (frame, bucket) {
-      return processFrame(frame, examplePage.id, "", bucket);
-    });
-    for (const snapshot of snapshots) frameSnapshots.push(snapshot);
-    const frameDescs = bareFrames.map(function (frame) { return { id: frame.id, name: frame.name }; });
-    sectionSnapshots.push({ name: "", frames: frameDescs });
+    mergeWarningsCollectorBaseline(warningsCollector, bareBucket);
+    for (const snapshot of settled[1]) frameSnapshots.push(snapshot);
+    sectionSnapshots.push({ name: "", frames: frameDescs(bareFrames) });
   }
 
   return { sectionSnapshots: sectionSnapshots, frameSnapshots: frameSnapshots };
@@ -849,21 +871,23 @@ async function sequentialExampleDataBaseline(examplePage, out, processFrame) {
 function shippedExampleWalk(processFrame) {
   return createExampleSectionWalk({
     collectInParallel: collectForSections,
-    newWarningsCollector: newWarningsCollector,
-    mergeWarningsCollector: mergeWarningsCollector,
     processFrame: processFrame,
   });
 }
 
+// `baseline` here is the REVERTED round-2 whole-tree walk — flipped from
+// before this revert, where `shipped` (extracted from code.js) was the
+// whole-tree version. code.js now ships the round-1 depth-first shape; this
+// proves the revert is output-identical to what it replaced.
 async function runBothExampleWalks(page) {
   const baselineOut = walkCollector();
-  const baseline = await sequentialExampleDataBaseline(page, baselineOut, reverseCompletionFrameProcessor());
+  const baseline = await parallelExampleDataBaseline(page, baselineOut, reverseCompletionFrameProcessor());
   const shippedOut = walkCollector();
   const shipped = await shippedExampleWalk(reverseCompletionFrameProcessor())(page, shippedOut);
   return { baseline, baselineOut, shipped, shippedOut };
 }
 
-test("example sections: parallel sections produce byte-identical structure and frame snapshots", async () => {
+test("example sections: the restored depth-first walk produces byte-identical structure and frame snapshots", async () => {
   const { baseline, shipped } = await runBothExampleWalks(examplePageFixture());
   assert.equal(JSON.stringify(shipped), JSON.stringify(baseline));
 });
@@ -877,7 +901,12 @@ test("example sections: the warnings collector is filled in the same DFS order a
   );
 });
 
-test("example sections: every frame on the page really is in flight at once", async () => {
+// REPOINTED (perf round 2 revert): sections are walked one at a time again —
+// only the frames INSIDE a single section (or the bare page-level frames)
+// still overlap via collectInParallel. The fixture's widest section/bare-
+// frame batch is 2 frames (Marketing's Home+About, App's Dashboard+
+// Settings, and the two loose frames), never all 8 at once.
+test("example sections: only the frames inside one section overlap, not the whole tree", async () => {
   let inFlight = 0;
   let peak = 0;
   const processFrame = () =>
@@ -889,7 +918,7 @@ test("example sections: every frame on the page really is in flight at once", as
       }, 6);
     });
   await shippedExampleWalk(processFrame)(examplePageFixture(), walkCollector());
-  assert.equal(peak, 8, "all eight frames, across four sections and the bare page, should overlap");
+  assert.equal(peak, 2, "widest single section/bare-frame batch in the fixture is 2 frames");
 });
 
 test("example sections: no Example page is still an empty result, not a crash", async () => {
