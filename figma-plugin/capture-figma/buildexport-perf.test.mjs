@@ -1045,3 +1045,151 @@ test("layer bindings: the lookups really do overlap rather than queue", async ()
   })(BINDING_NODE, "card/label", new Map(), [], new Set());
   assert.equal(peak, 8, "five bound-variable aliases and three style ids, all in flight together");
 });
+
+// --- concurrency cap ------------------------------------------------------
+//
+// Round 2 shipped four fan-out points (sibling walk, section tree, batched
+// binding lookups, collectInParallel) with NO ceiling, and the operator's
+// v1.24.0 sync showed the failure mode round 2's own report pre-named: total
+// 16.9s against v1.23.0's 11.6s, with componentsScan — code this batch never
+// touched — tripling to 1956ms. Nothing got slower on its own; the plugin
+// main thread, which is the single server for every one of these round trips,
+// was being handed tens of thousands of them at once.
+//
+// The fix is a ceiling, not a rollback: one shared gate around the RAW plugin
+// calls, so the fan-out still overlaps but only N round trips are ever queued
+// against the main thread at a time.
+
+const { createCallGate } = extract("CALL GATE", "{ createCallGate }");
+
+// Counts how many gated calls are live at any instant, and answers in the
+// REVERSE of call order so completion order can never be mistaken for call
+// order.
+function inFlightProbe(count) {
+  let call = 0;
+  const state = { peak: 0, active: 0 };
+  state.fn = (value) => {
+    const delay = Math.max(1, count - call++);
+    state.peak = Math.max(state.peak, ++state.active);
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        state.active--;
+        resolve(value);
+      }, delay)
+    );
+  };
+  return state;
+}
+
+test("call gate: never lets more than the cap run at once", async () => {
+  const probe = inFlightProbe(40);
+  const gated = createCallGate(4)(probe.fn);
+  await Promise.all(Array.from({ length: 40 }, (_, i) => gated(i)));
+  assert.equal(probe.peak, 4, "the gate must hold the ceiling exactly, not approximately");
+});
+
+test("call gate: results still come back per call, in call order, under reverse completion", async () => {
+  const probe = inFlightProbe(12);
+  const ungated = await Promise.all(Array.from({ length: 12 }, (_, i) => probe.fn("v" + i)));
+  const gated = createCallGate(3)(inFlightProbe(12).fn);
+  const after = await Promise.all(Array.from({ length: 12 }, (_, i) => gated("v" + i)));
+  assert.deepEqual(after, ungated);
+});
+
+test("call gate: a rejected call rejects its own caller and frees its slot", async () => {
+  const gated = createCallGate(2)((i) => (i === 1 ? Promise.reject(new Error("boom")) : Promise.resolve(i)));
+  const settled = await Promise.allSettled([0, 1, 2, 3].map(gated));
+  assert.deepEqual(settled.map((s) => s.status), ["fulfilled", "rejected", "fulfilled", "fulfilled"]);
+  assert.deepEqual(settled.filter((s) => s.value !== undefined).map((s) => s.value), [0, 2, 3]);
+});
+
+test("call gate: every raw plugin round trip the walks make goes through the one shared gate", () => {
+  const source = readCode();
+  assert.match(source, /const gatePluginCall = createCallGate\(MAX_CONCURRENT_PLUGIN_CALLS\)/);
+  // The four leaf accessors the fan-out points bottom out in. Gating the LEAF
+  // rather than the fan-out is what keeps the ordering proofs above intact:
+  // the branches still all go out at once, so results stay positional.
+  for (const accessor of ["getVariableById", "fetchStyleById", "getNodeById", "getInstanceMainComponent"]) {
+    assert.match(
+      source,
+      new RegExp(`const ${accessor} = gatePluginCall\\(`),
+      `${accessor} issues a raw plugin call outside the concurrency cap`
+    );
+  }
+  // Deadlock guard: a gated function must never await another gated one, or a
+  // permit holder ends up waiting for a permit.
+  for (const composite of ["resolveBoundVariableName", "resolveCapabilityBinding", "collectLayerBindingEntries"]) {
+    assert.equal(
+      new RegExp(`${composite} = gatePluginCall\\(`).test(source),
+      false,
+      `${composite} awaits gated calls — gating it too would deadlock the export`
+    );
+  }
+});
+
+test("call gate: the cap is a single named constant in the pipelining band", () => {
+  const match = /const MAX_CONCURRENT_PLUGIN_CALLS = (\d+);/.exec(readCode());
+  assert.ok(match, "the cap must be one named constant, not a literal at each call site");
+  const cap = Number(match[1]);
+  assert.equal(cap >= 8 && cap <= 16, true, `main-thread-serviced calls want 8-16 in flight, got ${cap}`);
+});
+
+// The load-bearing proof: the cap changes WHEN a round trip is issued, never
+// which result lands where. The walk is run with every leaf round trip behind
+// a gate of 3 and compared, as JSON bytes, against the SEQUENTIAL baseline
+// above — the same bar the ungated parallel walk had to clear.
+function gatedReverseCompletionApi(limit, probe) {
+  const gate = createCallGate(limit);
+  let call = 0;
+  const later = gate((value) => {
+    probe.peak = Math.max(probe.peak, ++probe.active);
+    return new Promise((r) =>
+      setTimeout(() => {
+        probe.active--;
+        r(value);
+      }, Math.max(0, 30 - call++))
+    );
+  });
+  return {
+    getInstanceMainComponent: (inst) => later(inst.main || null),
+    resolveComponentSetName: (c) => (c && c.setName) || null,
+    isSpacerSetName: (name) => name === "SpaceVertical",
+    nodeNamePath: testNodeNamePath,
+    nextRecordState: testNextRecordState,
+    resolveCapabilityBinding: (paint) => later(paint.binding || null),
+    collectNodeLatentCapabilities: (node, resolvedPaints) =>
+      resolvedPaints.filter((p) => p.paint.hidden).map((p) => ({ node: node.name, binding: p.binding })),
+    // NOT gated itself — it awaits gated leaves, and a permit holder waiting on
+    // a permit is the one way this design could deadlock.
+    collectLayerBindingEntries: async (node, layer, variableById, bindingsOut, seen) => {
+      for (const pair of node.binds || []) {
+        await later(null);
+        const key = pair[0] + " " + pair[1];
+        if (seen.has(key)) continue;
+        seen.add(key);
+        bindingsOut.push({ layer: layer, property: pair[0], value: pair[1] });
+      }
+    },
+  };
+}
+
+test("call gate: the capped walk is byte-identical to the sequential walk, bindings order included", async () => {
+  const baseline = walkCollector();
+  await createSequentialSubtreeWalkBaseline(reverseCompletionApi())(variantSetFixture(), new Map(), baseline, true);
+
+  const probe = { peak: 0, active: 0 };
+  const capped = walkCollector();
+  await createSubtreeWalk(gatedReverseCompletionApi(3, probe))(variantSetFixture(), new Map(), capped, true);
+
+  assert.equal(collectorAsJson(capped), collectorAsJson(baseline));
+  assert.equal(probe.peak, 3, "the walk must saturate the cap - and never exceed it");
+});
+
+test("call gate: the capped walk still overlaps siblings rather than serializing them", async () => {
+  const serial = { peak: 0, active: 0 };
+  await createSubtreeWalk(gatedReverseCompletionApi(1, serial))(variantSetFixture(), new Map(), walkCollector(), true);
+  const wide = { peak: 0, active: 0 };
+  await createSubtreeWalk(gatedReverseCompletionApi(8, wide))(variantSetFixture(), new Map(), walkCollector(), true);
+  assert.equal(serial.peak, 1, "a cap of 1 must fully serialize the round trips");
+  assert.equal(wide.peak > 1, true, "a wider cap must actually let round trips overlap");
+});

@@ -192,6 +192,70 @@ postSnapshotAvailability();
 // entry exactly — Figma keys the two together by id.
 figma.root.setRelaunchData({ export: "Export variables + styles" });
 
+// === CALL GATE (tested via buildexport-perf.test.mjs) ===
+// A ceiling on how many plugin-API round trips are outstanding at once.
+//
+// REGRESSION FIXED (operator sync of v1.24.0, Addendum 9c): round 2's four
+// fan-out points — the sibling walk, the Example section tree, a layer's
+// batched binding lookups, and collectInParallel — each went out with no
+// ceiling, so on a real document tens of thousands of round trips were queued
+// against the plugin main thread simultaneously. Total went 11.6s → 16.9s and
+// componentsScan, which that batch never touched, TRIPLED to 1956ms: the tell
+// that the shared resource, not any one phase, was saturated.
+//
+// The cure is a ceiling, not a rollback. Every one of these calls is serviced
+// by the SAME single main thread, so concurrency here buys pipelining (never
+// leaving the thread idle between round trips), never parallel execution. A
+// handful of outstanding calls is enough to keep the thread's queue non-empty;
+// past that, extra in-flight calls add only queue depth — scheduler bookkeeping
+// and retained closures the thread must step over to reach useful work, which
+// is precisely what taxed the untouched scan phase. 12 sits deliberately above
+// the "queue never empties" point (single digits) and well below where that
+// bookkeeping dominates.
+const MAX_CONCURRENT_PLUGIN_CALLS = 12;
+
+// The gate wraps RAW plugin calls only — never a function that itself awaits a
+// gated one. That invariant is what makes it deadlock-free: no permit holder is
+// ever waiting on a permit. It is also why the fan-out points themselves are
+// left alone: they still hand out every branch at once (so the ordering proofs
+// they carry are untouched — order of results stays positional, decided by the
+// tree, never by completion), but the actual round trips those branches make
+// queue behind one shared ceiling.
+function createCallGate(limit) {
+  let active = 0;
+  const waiting = [];
+  function pump() {
+    while (active < limit && waiting.length > 0) {
+      const job = waiting.shift();
+      active++;
+      Promise.resolve()
+        .then(job.run)
+        .then(job.resolve, job.reject)
+        .then(function () {
+          active--;
+          pump();
+        });
+    }
+  }
+  return function gate(fn) {
+    return function () {
+      const self = this;
+      const args = arguments;
+      return new Promise(function (resolve, reject) {
+        waiting.push({
+          run: function () { return fn.apply(self, args); },
+          resolve: resolve,
+          reject: reject,
+        });
+        pump();
+      });
+    };
+  };
+}
+// === END CALL GATE ===
+
+const gatePluginCall = createCallGate(MAX_CONCURRENT_PLUGIN_CALLS);
+
 async function getCollections() {
   if (typeof figma.variables.getLocalVariableCollectionsAsync === "function") {
     return figma.variables.getLocalVariableCollectionsAsync();
@@ -212,7 +276,7 @@ async function getVariables() {
   throw new Error("No local variable accessor found on figma.variables");
 }
 
-async function getVariableById(id) {
+const getVariableById = gatePluginCall(async function getVariableById(id) {
   if (typeof figma.variables.getVariableByIdAsync === "function") {
     return figma.variables.getVariableByIdAsync(id);
   }
@@ -220,9 +284,9 @@ async function getVariableById(id) {
     return figma.variables.getVariableById(id);
   }
   return null;
-}
+});
 
-async function fetchStyleById(id) {
+const fetchStyleById = gatePluginCall(async function fetchStyleById(id) {
   if (typeof figma.getStyleByIdAsync === "function") {
     return figma.getStyleByIdAsync(id);
   }
@@ -230,7 +294,7 @@ async function fetchStyleById(id) {
     return figma.getStyleById(id);
   }
   return null;
-}
+});
 
 // === ID CACHE (fetch injected — tested via buildexport-perf.test.mjs,
 // which extracts this block by its markers and diffs it against the previous
@@ -1172,7 +1236,7 @@ function buildRestoredSyncMessage(stored) {
 // capability is latent precisely because it's hidden today), so this must
 // never be true during a v2 export.
 
-async function getNodeById(id) {
+const getNodeById = gatePluginCall(async function getNodeById(id) {
   if (typeof figma.getNodeByIdAsync === "function") {
     return figma.getNodeByIdAsync(id);
   }
@@ -1180,14 +1244,14 @@ async function getNodeById(id) {
     return figma.getNodeById(id);
   }
   return null;
-}
+});
 
-async function getInstanceMainComponent(instance) {
+const getInstanceMainComponent = gatePluginCall(async function getInstanceMainComponent(instance) {
   if (typeof instance.getMainComponentAsync === "function") {
     return instance.getMainComponentAsync();
   }
   return instance.mainComponent;
-}
+});
 
 // Relative "{node-name-path}" from `root` down to `node`, joined by "/" —
 // the human-legible half of the {instance-id}/{node-name-path} override id.
