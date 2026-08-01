@@ -257,6 +257,15 @@
       display: flex;
       align-items: baseline;
       gap: var(--space-2);
+      /* 2px margin-bottom, same idiom as .status-row-top (f4777c1): the
+         section's own row already has a --space-1 (4px) gap between its
+         children, so this adds the same "gap plus a touch" 2px to reach the
+         6px rhythm between a section title and the chip/group rows beneath
+         it — operator verdict 2026-08-01, Addendum 6 item 4. One shared
+         rule fixes every count-heading section (VARIABLES/STYLES/COMPONENTS,
+         FIGMA HYGIENE, and the drift section's heading, which reuses this
+         same class rather than a bespoke one). */
+      margin-bottom: 2px;
     }
     .count-number {
       /* 17px, not the prior 24px — the prior value was the retina-render
