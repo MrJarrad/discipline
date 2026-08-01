@@ -1791,7 +1791,48 @@ function postSyncExportToUI(data) {
 // listener-down network failure is reported to the UI as a status line, sync
 // stays on, and the next document change (or the next manual retry) tries
 // again. This is the "never crash" contract from the task.
-async function runSyncExport() {
+// === PRE-SYNC VERSION (pure apart from the injected API surface — tested via
+// pre-sync-version.test.mjs, which extracts this block by its markers) ===
+// Saves one Figma version-history entry for the document as it stands right
+// before an export runs (operator verdict 2026-08-01, Addendum 2 item 4).
+// `api` is the boundary — figma in production, a fake in tests. Never throws:
+// a version save that fails or isn't available must not stop the sync, so
+// every path returns a describable outcome instead.
+//
+// API: figma.saveVersionHistoryAsync(title, description?) => Promise<
+// VersionHistoryResult { id }> (@figma/plugin-typings 1.128.0,
+// plugin-api.d.ts:338; title "must be a non-empty string", :301). Its
+// documented caveat (:316) — changes made by the plugin immediately before
+// the call may not be captured — doesn't apply here: this plugin only ever
+// reads the document, so the version always reflects the authored state the
+// export is about to read.
+async function savePreSyncVersion(api, atIso) {
+  if (!api || typeof api.saveVersionHistoryAsync !== "function") {
+    return {
+      ok: false,
+      skipped: true,
+      title: null,
+      versionId: null,
+      note: "version history unavailable in this Figma version/editor",
+    };
+  }
+  const title = "capture-figma pre-sync " + atIso;
+  try {
+    const result = await api.saveVersionHistoryAsync(title);
+    return { ok: true, skipped: false, title: title, versionId: result && result.id ? result.id : null, note: null };
+  } catch (err) {
+    return {
+      ok: false,
+      skipped: false,
+      title: title,
+      versionId: null,
+      note: "version not saved: " + (err && err.message ? err.message : String(err)),
+    };
+  }
+}
+// === END PRE-SYNC VERSION ===
+
+async function runSyncExport(versionNote) {
   let data;
   try {
     data = await buildExport();
@@ -1852,6 +1893,11 @@ async function runSyncExport() {
     lastSyncCount: lastSyncCount,
     warningCount: typeof result.warningCount === "number" ? result.warningCount : 0,
     summary: result.summary || null,
+    // Only set when the pre-sync version save didn't succeed — a successful
+    // save needs no words here (the version is visible in Figma's own
+    // version history, and the snapshot row reports it); a failed or
+    // unavailable one has to be said out loud rather than silently dropped.
+    versionNote: versionNote || null,
   });
   await saveLastSyncToStorage(
     lastSyncAt,
@@ -1871,7 +1917,25 @@ async function runSyncExport() {
 // react the instant the click is handled, before the export even starts.
 async function runSync() {
   figma.ui.postMessage({ type: "sync-status", state: "syncing" });
-  await runSyncExport();
+  // Step one of the manual Sync action (operator verdict 2026-08-01,
+  // Addendum 2 item 4): stamp version history with the document as authored
+  // right now, BEFORE the export reads it — so every capture has a matching
+  // restorable version. Awaited (not fire-and-forget) so the version is
+  // written against the pre-export state, but never allowed to fail the
+  // sync: the outcome is reported and the export runs regardless.
+  const version = await savePreSyncVersion(figma, new Date().toISOString());
+  if (version.ok) {
+    figma.ui.postMessage({
+      type: "snapshot-status",
+      state: "saved",
+      title: version.title,
+      versionId: version.versionId,
+      at: Date.now(),
+    });
+  } else if (!version.skipped) {
+    figma.ui.postMessage({ type: "snapshot-status", state: "error", message: version.note });
+  }
+  await runSyncExport(version.ok ? null : version.note);
 }
 
 // --- manual version snapshot (adopt-list #11) -------------------------------
@@ -1887,6 +1951,18 @@ async function runSync() {
 // "manual sync" section above) — a version stamp tied to sync would tie one
 // manual action's history to another's, never something either button click
 // should do on the other's behalf.
+//
+// SUPERSEDED IN PART (operator verdict 2026-08-01, Addendum 2 item 4 —
+// vault decisions/capture-ui-feel-verdict-2026-08-01.md): the operator now
+// requires a version-history entry BEFORE each sync, so every capture has a
+// matching restorable version. What changed is narrow, and the 2026-07-31
+// ruling's substance still holds: sync is still manual-only (the version
+// save is a step inside that one manual action, not an automation of it),
+// this button is still the only *manual* snapshot trigger, and runSync()
+// deliberately does NOT call saveSnapshot() — it calls savePreSyncVersion()
+// (see the "manual sync" section), which differs in when it runs (before the
+// export, not after a successful POST — the reference implementation's
+// rejected shape), in its title, and in never being able to fail the sync.
 //
 // DOCUMENTACCESS HONESTY: this manifest sets documentAccess: "dynamic-page".
 // The current @figma/plugin-typings surface documents

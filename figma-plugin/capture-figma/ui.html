@@ -724,7 +724,12 @@
         // regular-weight slot instead of being dropped, per BEHAVIOR IS
         // FROZEN (this data must keep showing somewhere) — that slot is now
         // the below-the-buttons result line, per the operator's placement.
-        setSyncRow("green", "Synced", "", t);
+        // msg.versionNote is present only when the pre-sync version-history
+        // save failed or wasn't available (code.js's savePreSyncVersion) —
+        // the sync itself still succeeded, so the dot stays green and the
+        // note rides in the detail slot beside "Synced" rather than
+        // masquerading as a sync failure.
+        setSyncRow("green", "Synced", msg.versionNote || "", t);
         setSyncResult(buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount));
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
