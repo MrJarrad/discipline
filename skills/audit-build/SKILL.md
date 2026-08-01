@@ -17,6 +17,31 @@ logged): frame dimensions, element positions within the frame (title y-offset, m
 type sizes/leading/tracking, media aspect or height rule, alignment rules. If a design
 value is unknown, mark it **unmeasured** — don't audit against a guess.
 
+### Template frame pairs — canonical vs landing
+
+A design template can exist as a PAIR of frames sharing a base name. Don't treat the
+second frame as a duplicate to ignore — it carries facts the first frame structurally
+cannot:
+
+- **Content-hugging frame (canonical, clean name — e.g. "M - Home")**: the full-layout
+  spec, sized to its content. Audit document flow, full layout, and block geometry
+  against THIS frame.
+- **Device-height frame (suffixed — e.g. "M - Home / landing")**: cropped to a real
+  viewport height. It exists to show what the hugging frame can't render: elements
+  fixed/sticky to the viewport (a mobile nav pinned to the bottom of the screen) and
+  landing-fold composition (what's actually visible before scrolling).
+
+**Name the failure mode explicitly**: an audit that reads only the canonical frame will
+PASS a build whose fixed nav isn't pinned at all — the canonical frame has no viewport to
+pin against, so nothing there can catch the defect. Whenever a suffixed device-height
+frame exists for the template under audit, verify fixed/sticky positioning and fold
+composition against IT, in addition to flow/geometry against the canonical frame. Treat
+this as a required comparison, not an optional cross-check.
+
+Capture exports carry `width`/`height` on `templateFrames`, so hugging vs device-height
+frames are distinguishable straight from the artifact — the suffix is the intended
+signal, the dimensions confirm it.
+
 ### 2. Measure the live DOM at the design's canonical width
 Load the built page in the browser pane at the design width (e.g. 1440 desktop, 390
 mobile). Extract numbers, not impressions — `getBoundingClientRect` +
