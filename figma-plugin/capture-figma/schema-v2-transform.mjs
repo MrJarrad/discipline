@@ -196,11 +196,31 @@ function nextRecordState(node, nodeWasRecorded) {
 // the override interface surface (see isOverrideSurfaceBoundary/
 // nextRecordState above) by the caller's traversal — this function itself
 // has no opinion on scope, only on collision.
+//
+// NAME FALLBACK (nested-instance gap, vault decisions/capture-ui-feel-
+// verdict-2026-08-01.md + memories/token-rulings.md LayoutGrid entry's
+// sibling ruling): mainComponentId/componentSetId come from one
+// getMainComponentAsync() round trip per node (see code.js's walk) and can
+// legitimately resolve to null for a node reached only through nested-
+// instance internals — same-set repeats that far down (e.g. two
+// ActionButtonIcon slider-arrow variants inside a .ControlSlider instance
+// nested inside a HeaderSection instance) still need the interchangeability
+// check to fire even when the id chain came back empty. The resolved
+// component-SET NAME (mainComponentSetName — the same string
+// resolveComponentSetName already produces for every instance in the walk)
+// is a second, independent identity signal computed off the SAME lookup:
+// when the id-based check can't decide (both sides null), a matching name
+// is still proof the two nodes are variants of the one interchangeable set.
+// Ids remain the PRIMARY signal (checked first, never weakened) — the name
+// only ever fires as a fallback, and only fires when the two names actually
+// agree, so a genuine cross-set collision (different mainComponentSetName)
+// is untouched and still flags.
 function siblingsAreInterchangeable(a, b) {
   if (a.type !== b.type) return false;
   if (a.type !== "INSTANCE") return false;
   if (!!a.mainComponentId && a.mainComponentId === b.mainComponentId) return true;
-  return !!a.componentSetId && a.componentSetId === b.componentSetId;
+  if (!!a.componentSetId && a.componentSetId === b.componentSetId) return true;
+  return !!a.mainComponentSetName && a.mainComponentSetName === b.mainComponentSetName;
 }
 
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {

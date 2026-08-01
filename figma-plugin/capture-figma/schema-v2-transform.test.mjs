@@ -334,6 +334,36 @@ test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components a
   ]);
 });
 
+test("buildWarnings: same-named INSTANCE siblings deep inside nested-instance internals, whose componentSetId didn't resolve (null on both), are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-left", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-right", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: same-named INSTANCE siblings with unresolved componentSetId (null) but DIFFERENT resolved component-set names are genuine ambiguity — still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: null, mainComponentSetName: "ControlSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+      { id: "n2", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: "ToggleSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "ControlSlider",
+      context: "HeaderSection/actions",
+      message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
+});
+
 test("buildWarnings: a same-named INSTANCE + FRAME pair is a node-type mismatch — still flagged", () => {
   const result = buildWarnings({
     nodeSnapshots: [
