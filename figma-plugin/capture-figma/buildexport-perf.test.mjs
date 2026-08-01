@@ -240,6 +240,71 @@ test("component-set walk: no sets is not an error and collects nothing", async (
   assert.equal(collectorAsJson(out), collectorAsJson(emptyCollector()));
 });
 
+// --- style lookup cache ---------------------------------------------------
+
+const { createStyleCache } = extract("STYLE CACHE", "{ createStyleCache }");
+
+// A style API shaped like Figma's: every lookup is a real async round trip,
+// and it answers out of call order (later calls can land first).
+function fakeStyleApi() {
+  const calls = [];
+  const fetch = (id) => {
+    calls.push(id);
+    const delay = id === "S:slow" ? 8 : 1;
+    return new Promise((resolve) => setTimeout(() => resolve({ id, name: "style/" + id }), delay));
+  };
+  return { fetch, calls };
+}
+
+// The shipped-before-this-change implementation: no cache, one round trip per
+// lookup (code.js at 1884562, getStyleById).
+const uncachedBaseline = (fetch) => (id) => fetch(id);
+
+const LOOKUPS = ["S:a", "S:slow", "S:a", "S:b", "S:slow", "S:a"];
+
+test("style cache: cached lookups return exactly what the uncached ones returned, in the same order", async () => {
+  const plain = fakeStyleApi();
+  const before = await Promise.all(LOOKUPS.map(uncachedBaseline(plain.fetch)));
+  const cached = fakeStyleApi();
+  const after = await Promise.all(LOOKUPS.map(createStyleCache(cached.fetch)));
+  assert.equal(JSON.stringify(after), JSON.stringify(before));
+});
+
+test("style cache: a repeated style id costs one round trip, not one per layer", async () => {
+  const plain = fakeStyleApi();
+  await Promise.all(LOOKUPS.map(uncachedBaseline(plain.fetch)));
+  assert.equal(plain.calls.length, 6);
+
+  const cached = fakeStyleApi();
+  await Promise.all(LOOKUPS.map(createStyleCache(cached.fetch)));
+  assert.deepEqual(cached.calls, ["S:a", "S:slow", "S:b"], "in-flight duplicates must be shared, not re-issued");
+});
+
+test("style cache: a sequential repeat also reuses the resolved entry", async () => {
+  const cached = fakeStyleApi();
+  const getStyle = createStyleCache(cached.fetch);
+  const first = await getStyle("S:a");
+  const second = await getStyle("S:a");
+  assert.equal(JSON.stringify(second), JSON.stringify(first));
+  assert.deepEqual(cached.calls, ["S:a"]);
+});
+
+test("style cache: it is rebuilt per export, so a style renamed between syncs isn't served stale", () => {
+  const body = /async function buildExport\(\) \{([\s\S]*?)\n  return output;/.exec(readCode())[1];
+  assert.match(body, /getStyleById = createStyleCache\(fetchStyleById\)/);
+});
+
+test("style cache: a missing style stays null and isn't re-fetched", async () => {
+  let calls = 0;
+  const getStyle = createStyleCache(() => {
+    calls++;
+    return Promise.resolve(null);
+  });
+  assert.equal(await getStyle("S:gone"), null);
+  assert.equal(await getStyle("S:gone"), null);
+  assert.equal(calls, 1);
+});
+
 // --- instrumentation ------------------------------------------------------
 
 test("timings: buildExport records every phase plus a total into header.timings", () => {

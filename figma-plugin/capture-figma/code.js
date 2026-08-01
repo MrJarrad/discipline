@@ -222,7 +222,7 @@ async function getVariableById(id) {
   return null;
 }
 
-async function getStyleById(id) {
+async function fetchStyleById(id) {
   if (typeof figma.getStyleByIdAsync === "function") {
     return figma.getStyleByIdAsync(id);
   }
@@ -231,6 +231,38 @@ async function getStyleById(id) {
   }
   return null;
 }
+
+// === STYLE CACHE (fetch injected — tested via buildexport-perf.test.mjs,
+// which extracts this block by its markers and diffs it against the previous
+// uncached implementation) ===
+// Memoizes style-by-id lookups for the duration of one export.
+//
+// OPTIMIZATION (lag verdict 2026-08-01, Addendum 6): collectLayerBindingEntries
+// looks up textStyleId/fillStyleId/strokeStyleId/effectStyleId on EVERY layer of
+// EVERY variant of EVERY component set, and each lookup was its own plugin-API
+// round trip. In a design system the same handful of style ids recur across
+// thousands of layers, so the overwhelming majority of those round trips asked
+// the same question again. The PROMISE is cached, not just the resolved value,
+// so the now-overlapping set walks share one in-flight request per id instead
+// of each issuing its own.
+//
+// Output is provably unchanged: a style's name cannot change mid-export (the
+// plugin holds the main thread across buildExport), and the cache is recreated
+// per export, so a cached answer is the same answer (proven differentially in
+// buildexport-perf.test.mjs against the uncached implementation, with a fake
+// API that answers out of call order).
+function createStyleCache(fetchStyle) {
+  const cache = new Map();
+  return function getStyle(id) {
+    if (cache.has(id)) return cache.get(id);
+    const pending = Promise.resolve(fetchStyle(id));
+    cache.set(id, pending);
+    return pending;
+  };
+}
+// === END STYLE CACHE ===
+
+let getStyleById = createStyleCache(fetchStyleById);
 
 async function getLocalTextStyles() {
   if (typeof figma.getLocalTextStylesAsync === "function") {
@@ -1611,6 +1643,10 @@ async function buildExport() {
   // latentCapabilities scan.
   await ensureAllPagesLoaded();
   figma.skipInvisibleInstanceChildren = false;
+
+  // Style lookups are memoized per export, never across exports — a style
+  // renamed between two syncs must show up in the second one.
+  getStyleById = createStyleCache(fetchStyleById);
 
   // PER-PHASE INSTRUMENTATION (operator verdict 2026-08-01, Addendum 2 item
   // 1): the sync lag's remaining suspect is this traversal, and it had never
