@@ -334,15 +334,34 @@ test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components a
   ]);
 });
 
-test("buildWarnings: same-named INSTANCE siblings deep inside nested-instance internals, whose componentSetId didn't resolve (null on both), are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+test("buildWarnings: same-named INSTANCE siblings deep inside nested-instance internals, whose getMainComponentAsync lookup failed entirely (mainComponentId AND componentSetId both null on both sides), are still interchangeable when their resolved component-set NAME matches — no warning", () => {
   const result = buildWarnings({
     nodeSnapshots: [
-      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-left", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
-      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-right", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
     ],
   });
 
   assert.deepEqual(result, []);
+});
+
+test("buildWarnings: same-named INSTANCE siblings with non-null, DIFFERENT componentSetIds are genuine ambiguity — still flagged even if their resolved set names happen to be identical (the name fallback must never override a resolved-but-different id)", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: "set-1", mainComponentSetName: "ControlSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+      { id: "n2", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-b", componentSetId: "set-2", mainComponentSetName: "ControlSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "ControlSlider",
+      context: "HeaderSection/actions",
+      message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
 });
 
 test("buildWarnings: same-named INSTANCE siblings with unresolved componentSetId (null) but DIFFERENT resolved component-set names are genuine ambiguity — still flagged", () => {

@@ -200,9 +200,11 @@ function nextRecordState(node, nodeWasRecorded) {
 // NAME FALLBACK (nested-instance gap, vault decisions/capture-ui-feel-
 // verdict-2026-08-01.md + memories/token-rulings.md LayoutGrid entry's
 // sibling ruling): mainComponentId/componentSetId come from one
-// getMainComponentAsync() round trip per node (see code.js's walk) and can
-// legitimately resolve to null for a node reached only through nested-
-// instance internals — same-set repeats that far down (e.g. two
+// getMainComponentAsync() round trip per node (see code.js's
+// createSubtreeWalk visit(), the instanceMainComponent/
+// instanceComponentSetId block feeding the nodeSnapshot push at ~1451-1462)
+// and can legitimately resolve to null for a node reached only through
+// nested-instance internals — same-set repeats that far down (e.g. two
 // ActionButtonIcon slider-arrow variants inside a .ControlSlider instance
 // nested inside a HeaderSection instance) still need the interchangeability
 // check to fire even when the id chain came back empty. The resolved
@@ -211,15 +213,19 @@ function nextRecordState(node, nodeWasRecorded) {
 // is a second, independent identity signal computed off the SAME lookup:
 // when the id-based check can't decide (both sides null), a matching name
 // is still proof the two nodes are variants of the one interchangeable set.
-// Ids remain the PRIMARY signal (checked first, never weakened) — the name
-// only ever fires as a fallback, and only fires when the two names actually
-// agree, so a genuine cross-set collision (different mainComponentSetName)
-// is untouched and still flags.
+//
+// The fallback fires ONLY when BOTH ids are unavailable on BOTH sides —
+// mainComponentId AND componentSetId, on a AND b. A resolved id that
+// doesn't match (or has no counterpart to match against) is a decided "no",
+// never a "the name gets a turn": two successfully-resolved but DIFFERENT
+// component sets that happen to share an identical set-name string (real,
+// if unlikely) must still flag.
 function siblingsAreInterchangeable(a, b) {
   if (a.type !== b.type) return false;
   if (a.type !== "INSTANCE") return false;
   if (!!a.mainComponentId && a.mainComponentId === b.mainComponentId) return true;
   if (!!a.componentSetId && a.componentSetId === b.componentSetId) return true;
+  if (a.mainComponentId || b.mainComponentId || a.componentSetId || b.componentSetId) return false;
   return !!a.mainComponentSetName && a.mainComponentSetName === b.mainComponentSetName;
 }
 
