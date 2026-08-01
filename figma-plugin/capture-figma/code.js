@@ -1404,46 +1404,29 @@ const collectLayerBindingEntries = createLayerBindingCollector({
 // own internals — they belong to a different component, not this variant.
 // === SUBTREE WALK (plugin API injected — tested via
 // buildexport-perf.test.mjs, which extracts this block by its markers and
-// diffs it against the previous sequential implementation) ===
-// OPTIMIZATION (round 2, operator sync of v1.23.0: componentsWalk 7.5s of an
-// 11.6s export — the dominant cost after round 1 parallelized ACROSS sets).
-// Round 1 deliberately left the walk INSIDE a set strictly sequential because
-// siblings share one bindings array and one `seen` set, and the dedupe is
-// first-occurrence-wins IN DOCUMENT ORDER — letting completion order touch
-// that would silently swap which layer owns a binding.
+// diffs it against the round-2 parallel implementation it replaced) ===
+// REVERTED (perf round 2 revert, operator verdict 2026-08-01: three live
+// operator syncs on the same document showed round 2's intra-set sibling
+// fan-out was a NET LOSS in the plugin sandbox — every round trip is
+// serviced by ONE shared main thread, so the fan-out bought only extra
+// queue depth/scheduler bookkeeping, never real parallel execution; see the
+// CALL GATE comment for the same finding from the other direction).
+// Restored to the round-1 shape (1884562): strictly sequential within a
+// set/frame, walking `bindingCtx`'s shared `bindings` array and `seen` set
+// directly as the recursion descends, so first-occurrence-wins dedupe is
+// simply document order — no result tree, no merge pass. Round 1's
+// ACROSS-set parallelism (collectInParallel, below) is untouched; only
+// walking siblings INSIDE one set/frame is sequential again.
 //
-// The walk is now two phases, with no shared mutable state in the fast one:
-//   1. `visit` runs every sibling at once and returns a per-node result tree.
-//      Each node collects only its OWN snapshot / spacers / capabilities /
-//      binding entries, into its own arrays, deduped only against itself.
-//   2. `merge` then walks that result tree synchronously in document order
-//      and re-applies the ordered dedupe — so first-occurrence-wins is
-//      decided by tree position exactly as before, and completion order
-//      cannot reach it. (Global first-wins applied over locally-first-won
-//      entries yields the same entries in the same order: the dedupe is
-//      stable and idempotent, and no node emits both an "instance" entry and
-//      layer entries.)
-//
-// Proven differentially in buildexport-perf.test.mjs against a verbatim copy
-// of the sequential walk, on a fixture whose async dependencies all complete
-// in the REVERSE of call order and whose siblings deliberately collide on
-// (property, value).
+// Proven output-identical differentially in buildexport-perf.test.mjs
+// against the round-2 parallel implementation it replaces (reimplemented
+// verbatim from git history at b2b85a1), on a fixture whose async
+// dependencies all complete in the REVERSE of call order and whose siblings
+// deliberately collide on (property, value) — matching output there proves
+// the revert changes nothing observable.
 function createSubtreeWalk(api) {
   return async function walkV2Subtree(root, variableById, out, collectBindings) {
-    // `layer` doubles as the binding-chain flag: null means no chain is
-    // active here (what a null bindingCtx used to mean), "" marks a variant's
-    // own root.
-    async function visit(node, parent, recordHere, layer, startsChain) {
-      const result = {
-        node: node,
-        startsChain: startsChain,
-        snapshot: null,
-        spacerInstances: [],
-        latentCapabilities: [],
-        bindings: [],
-        children: [],
-      };
-
+    async function visit(node, parent, recordHere, bindingCtx) {
       // Resolved once, up front, so both the nodeSnapshot (duplicate-sibling
       // same-main-component/same-component-set check) and the spacer-instance
       // detection below share the same lookup — no second getMainComponentAsync
@@ -1458,7 +1441,7 @@ function createSubtreeWalk(api) {
           : null;
 
       if (recordHere) {
-        result.snapshot = {
+        out.nodeSnapshots.push({
           id: node.id,
           name: node.name,
           type: node.type,
@@ -1466,20 +1449,24 @@ function createSubtreeWalk(api) {
           componentSetId: instanceComponentSetId,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
-        };
+        });
       }
 
       if (node.type === "INSTANCE") {
         const mainComponent = instanceMainComponent;
         const mainComponentSetName = api.resolveComponentSetName(mainComponent);
         if (mainComponentSetName && api.isSpacerSetName(mainComponentSetName)) {
-          result.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
+          out.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
         }
-        if (layer !== null) {
+        if (bindingCtx) {
           const boundName = mainComponent ? api.resolveComponentSetName(mainComponent) || mainComponent.name : null;
-          // No local dedupe needed: a node emits at most one "instance"
-          // entry, and merge() dedupes it against the rest of the chain.
-          if (boundName) result.bindings.push({ layer: layer, property: "instance", value: boundName });
+          if (boundName) {
+            const key = "instance\u0000" + boundName;
+            if (!bindingCtx.seen.has(key)) {
+              bindingCtx.seen.add(key);
+              bindingCtx.bindings.push({ layer: bindingCtx.layer, property: "instance", value: boundName });
+            }
+          }
         }
       }
 
@@ -1491,65 +1478,43 @@ function createSubtreeWalk(api) {
         for (const paint of node.strokes || []) {
           resolvedPaints.push({ paint: paint, binding: await api.resolveCapabilityBinding(paint, variableById) });
         }
-        result.latentCapabilities = api.collectNodeLatentCapabilities(node, resolvedPaints);
+        out.latentCapabilities.push.apply(out.latentCapabilities, api.collectNodeLatentCapabilities(node, resolvedPaints));
       }
 
-      // layer === "" marks the variant's own root (see the COMPONENT-boundary
-      // branch below) — A's collectComponentBindings only ever walks a
-      // component's CHILDREN, never binding-checks the component root itself,
-      // so this call is skipped there and fires from the first real child
-      // onward. The `seen` set is per node now (merge() owns the chain-wide
-      // one), so an intra-node repeat still collapses exactly as before.
-      if (layer !== null && node.type !== "INSTANCE" && layer !== "") {
-        await api.collectLayerBindingEntries(node, layer, variableById, result.bindings, new Set());
+      // bindingCtx.layer === "" marks the variant's own root (see the
+      // COMPONENT-boundary branch below) — A's collectComponentBindings only
+      // ever walks a component's CHILDREN, never binding-checks the component
+      // root itself, so this call is skipped there and fires from the first
+      // real child onward.
+      if (bindingCtx && node.type !== "INSTANCE" && bindingCtx.layer !== "") {
+        await api.collectLayerBindingEntries(node, bindingCtx.layer, variableById, bindingCtx.bindings, bindingCtx.seen);
       }
 
       if (Array.isArray(node.children)) {
         const childRecordHere = api.nextRecordState(node, recordHere);
-        result.children = await Promise.all(
-          node.children.map(function (child) {
-            if (collectBindings && node === root && child.type === "COMPONENT") {
-              // `child` is a variant: a fresh binding chain starts at its own
-              // children (the variant node itself is never bound-checked here
-              // — matches reference implementation A's
-              // collectComponentBindings, which only walks a component's
-              // CHILDREN, never the component root itself).
-              return visit(child, node, childRecordHere, "", true);
-            }
-            if (layer !== null && node.type !== "INSTANCE") {
-              return visit(child, node, childRecordHere, layer ? layer + "/" + child.name : child.name, false);
-            }
-            return visit(child, node, childRecordHere, null, false);
-          })
-        );
-      }
-
-      return result;
-    }
-
-    // Document-order replay: the only place `out` and the chain-wide bindings
-    // are mutated, and it is fully synchronous — so ordering here is a
-    // property of the tree alone, never of when a round trip came back.
-    function merge(result, chain) {
-      if (result.startsChain) {
-        chain = { bindings: [], seen: new Set() };
-        out.variantBindings.set(result.node.id, chain.bindings);
-      }
-      if (result.snapshot) out.nodeSnapshots.push(result.snapshot);
-      for (const entry of result.spacerInstances) out.spacerInstances.push(entry);
-      for (const entry of result.latentCapabilities) out.latentCapabilities.push(entry);
-      if (chain) {
-        for (const entry of result.bindings) {
-          const key = entry.property + "\u0000" + entry.value;
-          if (chain.seen.has(key)) continue;
-          chain.seen.add(key);
-          chain.bindings.push(entry);
+        for (const child of node.children) {
+          let childBindingCtx = null;
+          if (collectBindings && node === root && child.type === "COMPONENT") {
+            // `child` is a variant: a fresh binding chain starts at its own
+            // children (the variant node itself is never bound-checked here —
+            // matches reference implementation A's collectComponentBindings,
+            // which only walks a component's CHILDREN, never the component
+            // root itself).
+            const arr = [];
+            out.variantBindings.set(child.id, arr);
+            childBindingCtx = { layer: "", bindings: arr, seen: new Set() };
+          } else if (bindingCtx && node.type !== "INSTANCE") {
+            childBindingCtx = {
+              layer: bindingCtx.layer ? bindingCtx.layer + "/" + child.name : child.name,
+              bindings: bindingCtx.bindings,
+              seen: bindingCtx.seen,
+            };
+          }
+          await visit(child, node, childRecordHere, childBindingCtx);
         }
       }
-      for (const child of result.children) merge(child, chain);
     }
-
-    merge(await visit(root, null, false, null, false), null);
+    await visit(root, null, false, null);
   };
 }
 // === END SUBTREE WALK ===

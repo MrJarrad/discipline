@@ -488,12 +488,23 @@ function reverseCompletionApi() {
   };
 }
 
-// The shipped-before-this-change implementation, verbatim from code.js at
-// c0ce06c: one sibling at a time, every visit mutating the shared collector
-// and the shared bindings/seen context as it goes.
-function createSequentialSubtreeWalkBaseline(api) {
+// perf round 2's parallel implementation, verbatim from code.js at b2b85a1 —
+// now REVERTED (operator verdict 2026-08-01: net loss in the plugin
+// sandbox). Kept here only so the round-1 shape shipped in code.js can be
+// proven output-identical to what it replaced.
+function createParallelSubtreeWalkBaseline(api) {
   return async function walkV2Subtree(root, variableById, out, collectBindings) {
-    async function visit(node, parent, recordHere, bindingCtx) {
+    async function visit(node, parent, recordHere, layer, startsChain) {
+      const result = {
+        node: node,
+        startsChain: startsChain,
+        snapshot: null,
+        spacerInstances: [],
+        latentCapabilities: [],
+        bindings: [],
+        children: [],
+      };
+
       const instanceMainComponent = node.type === "INSTANCE" ? await api.getInstanceMainComponent(node) : null;
       const instanceComponentSetId =
         instanceMainComponent && instanceMainComponent.parent && instanceMainComponent.parent.type === "COMPONENT_SET"
@@ -501,7 +512,7 @@ function createSequentialSubtreeWalkBaseline(api) {
           : null;
 
       if (recordHere) {
-        out.nodeSnapshots.push({
+        result.snapshot = {
           id: node.id,
           name: node.name,
           type: node.type,
@@ -509,24 +520,18 @@ function createSequentialSubtreeWalkBaseline(api) {
           componentSetId: instanceComponentSetId,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
-        });
+        };
       }
 
       if (node.type === "INSTANCE") {
         const mainComponent = instanceMainComponent;
         const mainComponentSetName = api.resolveComponentSetName(mainComponent);
         if (mainComponentSetName && api.isSpacerSetName(mainComponentSetName)) {
-          out.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
+          result.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
         }
-        if (bindingCtx) {
+        if (layer !== null) {
           const boundName = mainComponent ? api.resolveComponentSetName(mainComponent) || mainComponent.name : null;
-          if (boundName) {
-            const key = "instance\u0000" + boundName;
-            if (!bindingCtx.seen.has(key)) {
-              bindingCtx.seen.add(key);
-              bindingCtx.bindings.push({ layer: bindingCtx.layer, property: "instance", value: boundName });
-            }
-          }
+          if (boundName) result.bindings.push({ layer: layer, property: "instance", value: boundName });
         }
       }
 
@@ -538,36 +543,51 @@ function createSequentialSubtreeWalkBaseline(api) {
         for (const paint of node.strokes || []) {
           resolvedPaints.push({ paint: paint, binding: await api.resolveCapabilityBinding(paint, variableById) });
         }
-        out.latentCapabilities.push.apply(
-          out.latentCapabilities,
-          api.collectNodeLatentCapabilities(node, resolvedPaints)
-        );
+        result.latentCapabilities = api.collectNodeLatentCapabilities(node, resolvedPaints);
       }
 
-      if (bindingCtx && node.type !== "INSTANCE" && bindingCtx.layer !== "") {
-        await api.collectLayerBindingEntries(node, bindingCtx.layer, variableById, bindingCtx.bindings, bindingCtx.seen);
+      if (layer !== null && node.type !== "INSTANCE" && layer !== "") {
+        await api.collectLayerBindingEntries(node, layer, variableById, result.bindings, new Set());
       }
 
       if (Array.isArray(node.children)) {
         const childRecordHere = api.nextRecordState(node, recordHere);
-        for (const child of node.children) {
-          let childBindingCtx = null;
-          if (collectBindings && node === root && child.type === "COMPONENT") {
-            const arr = [];
-            out.variantBindings.set(child.id, arr);
-            childBindingCtx = { layer: "", bindings: arr, seen: new Set() };
-          } else if (bindingCtx && node.type !== "INSTANCE") {
-            childBindingCtx = {
-              layer: bindingCtx.layer ? bindingCtx.layer + "/" + child.name : child.name,
-              bindings: bindingCtx.bindings,
-              seen: bindingCtx.seen,
-            };
-          }
-          await visit(child, node, childRecordHere, childBindingCtx);
+        result.children = await Promise.all(
+          node.children.map(function (child) {
+            if (collectBindings && node === root && child.type === "COMPONENT") {
+              return visit(child, node, childRecordHere, "", true);
+            }
+            if (layer !== null && node.type !== "INSTANCE") {
+              return visit(child, node, childRecordHere, layer ? layer + "/" + child.name : child.name, false);
+            }
+            return visit(child, node, childRecordHere, null, false);
+          })
+        );
+      }
+
+      return result;
+    }
+
+    function merge(result, chain) {
+      if (result.startsChain) {
+        chain = { bindings: [], seen: new Set() };
+        out.variantBindings.set(result.node.id, chain.bindings);
+      }
+      if (result.snapshot) out.nodeSnapshots.push(result.snapshot);
+      for (const entry of result.spacerInstances) out.spacerInstances.push(entry);
+      for (const entry of result.latentCapabilities) out.latentCapabilities.push(entry);
+      if (chain) {
+        for (const entry of result.bindings) {
+          const key = entry.property + "\u0000" + entry.value;
+          if (chain.seen.has(key)) continue;
+          chain.seen.add(key);
+          chain.bindings.push(entry);
         }
       }
+      for (const child of result.children) merge(child, chain);
     }
-    await visit(root, null, false, null);
+
+    merge(await visit(root, null, false, null, false), null);
   };
 }
 
@@ -656,15 +676,20 @@ function walkCollector() {
   return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
 }
 
+// `baseline` here is the REVERTED round-2 parallel walk, not a sequential
+// predecessor — flipped from before this revert, where `shipped` (extracted
+// from code.js) was the parallel version. code.js now ships the round-1
+// sequential shape; this proves the revert is output-identical to what it
+// replaced.
 async function runBothWalks(rootFactory, collectBindings) {
   const baseline = walkCollector();
-  await createSequentialSubtreeWalkBaseline(reverseCompletionApi())(rootFactory(), new Map(), baseline, collectBindings);
+  await createParallelSubtreeWalkBaseline(reverseCompletionApi())(rootFactory(), new Map(), baseline, collectBindings);
   const shipped = walkCollector();
   await createSubtreeWalk(reverseCompletionApi())(rootFactory(), new Map(), shipped, collectBindings);
   return { baseline, shipped };
 }
 
-test("subtree walk: parallel siblings collect byte-identically to the sequential walk, bindings order included", async () => {
+test("subtree walk: the restored sequential walk collects byte-identically to the reverted parallel one, bindings order included", async () => {
   const { baseline, shipped } = await runBothWalks(variantSetFixture, true);
   assert.equal(collectorAsJson(shipped), collectorAsJson(baseline));
 });
@@ -692,7 +717,11 @@ test("subtree walk: the binding chain still stops at an INSTANCE boundary", asyn
   );
 });
 
-test("subtree walk: siblings really do overlap rather than queue", async () => {
+// REPOINTED (perf round 2 revert): siblings inside one set/frame no longer
+// overlap — that was exactly the round-2 behavior measured as a net loss.
+// The shipped walk is sequential again: at most one getInstanceMainComponent
+// call is in flight at a time.
+test("subtree walk: siblings are walked sequentially again, not fanned out", async () => {
   let inFlight = 0;
   let peak = 0;
   const api = Object.assign(reverseCompletionApi(), {
@@ -714,10 +743,10 @@ test("subtree walk: siblings really do overlap rather than queue", async () => {
     ),
   });
   await createSubtreeWalk(api)(root, new Map(), walkCollector(), false);
-  assert.equal(peak, 5, "every sibling's visit should be in flight at once");
+  assert.equal(peak, 1, "siblings must queue one at a time, exactly like the round-1/v1.23.0 walk");
 });
 
-test("subtree walk: a walk with no binding collection matches the sequential version too", async () => {
+test("subtree walk: a walk with no binding collection matches the reverted-parallel version too", async () => {
   const { baseline, shipped } = await runBothWalks(variantSetFixture, false);
   assert.equal(collectorAsJson(shipped), collectorAsJson(baseline));
   assert.equal(shipped.variantBindings.size, 0);
@@ -1173,23 +1202,31 @@ function gatedReverseCompletionApi(limit, probe) {
   };
 }
 
-test("call gate: the capped walk is byte-identical to the sequential walk, bindings order included", async () => {
-  const baseline = walkCollector();
-  await createSequentialSubtreeWalkBaseline(reverseCompletionApi())(variantSetFixture(), new Map(), baseline, true);
+// REPOINTED (perf round 2 revert): the walk no longer fans out siblings, so
+// the gate has nothing to cap at this level — at most one leaf round trip is
+// ever in flight regardless of the gate's limit. The gate still matters
+// (componentsScan's own findAll doesn't go through it, and the walk's OWN
+// leaf calls stack with whatever else buildExport has in flight at once via
+// collectInParallel's across-set fan-out), but "does this walk saturate a
+// cap of N" no longer applies — replaced with "output is identical and the
+// cap is never exceeded" under both a narrow and a generous limit.
+test("call gate: the walk is byte-identical whether the gate is narrow or generous, bindings order included", async () => {
+  const narrowProbe = { peak: 0, active: 0 };
+  const narrow = walkCollector();
+  await createSubtreeWalk(gatedReverseCompletionApi(1, narrowProbe))(variantSetFixture(), new Map(), narrow, true);
 
-  const probe = { peak: 0, active: 0 };
-  const capped = walkCollector();
-  await createSubtreeWalk(gatedReverseCompletionApi(3, probe))(variantSetFixture(), new Map(), capped, true);
+  const wideProbe = { peak: 0, active: 0 };
+  const wide = walkCollector();
+  await createSubtreeWalk(gatedReverseCompletionApi(8, wideProbe))(variantSetFixture(), new Map(), wide, true);
 
-  assert.equal(collectorAsJson(capped), collectorAsJson(baseline));
-  assert.equal(probe.peak, 3, "the walk must saturate the cap - and never exceed it");
+  assert.equal(collectorAsJson(wide), collectorAsJson(narrow));
 });
 
-test("call gate: the capped walk still overlaps siblings rather than serializing them", async () => {
+test("call gate: a sequential walk never exceeds one round trip in flight, no matter how wide the cap", async () => {
   const serial = { peak: 0, active: 0 };
   await createSubtreeWalk(gatedReverseCompletionApi(1, serial))(variantSetFixture(), new Map(), walkCollector(), true);
   const wide = { peak: 0, active: 0 };
   await createSubtreeWalk(gatedReverseCompletionApi(8, wide))(variantSetFixture(), new Map(), walkCollector(), true);
   assert.equal(serial.peak, 1, "a cap of 1 must fully serialize the round trips");
-  assert.equal(wide.peak > 1, true, "a wider cap must actually let round trips overlap");
+  assert.equal(wide.peak, 1, "the sequential walk itself never issues more than one round trip at once");
 });
