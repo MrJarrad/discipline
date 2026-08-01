@@ -334,7 +334,25 @@ test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components a
   ]);
 });
 
-test("buildWarnings: same-named INSTANCE siblings deep inside nested-instance internals, whose getMainComponentAsync lookup failed entirely (mainComponentId AND componentSetId both null on both sides), are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+// PRIMARY FIXTURE — the live case (operator's v1.26.0 sync, ActionButtonIcon
+// x36 + SpacerVertical x8 still flagging): different VARIANTS of one
+// component set are DIFFERENT COMPONENT NODES, so mainComponentId
+// legitimately (and normally) differs between them — that is not a signal
+// of anything wrong, it's what "two variants" IS. componentSetId is what
+// failed to resolve (nested-instance internals, see the mechanism comment
+// above); mainComponentId differing must never veto the name fallback.
+test("buildWarnings (LIVE CASE): same-named INSTANCE siblings that are DIFFERENT VARIANTS (different mainComponentId, each variant its own component node) with unresolved componentSetId (null on both) are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-left", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-right", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: same-named INSTANCE siblings whose getMainComponentAsync lookup failed entirely (mainComponentId AND componentSetId both null on both sides) are still interchangeable when their resolved component-set NAME matches — no warning", () => {
   const result = buildWarnings({
     nodeSnapshots: [
       { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
@@ -345,7 +363,7 @@ test("buildWarnings: same-named INSTANCE siblings deep inside nested-instance in
   assert.deepEqual(result, []);
 });
 
-test("buildWarnings: same-named INSTANCE siblings with non-null, DIFFERENT componentSetIds are genuine ambiguity — still flagged even if their resolved set names happen to be identical (the name fallback must never override a resolved-but-different id)", () => {
+test("buildWarnings: same-named INSTANCE siblings with non-null, DIFFERENT componentSetIds are genuine ambiguity — still flagged even if their resolved set names happen to be identical (the name fallback must never override a resolved-but-different componentSetId)", () => {
   const result = buildWarnings({
     nodeSnapshots: [
       { id: "n1", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: "set-1", mainComponentSetName: "ControlSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },

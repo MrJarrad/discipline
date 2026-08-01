@@ -77,3 +77,46 @@ test("nested-instance interchangeability: two same-set ActionButtonIcon variant 
   const warnings = buildWarnings({ nodeSnapshots: out.nodeSnapshots });
   assert.deepEqual(warnings, []);
 });
+
+// LIVE CASE (operator's v1.26.0 sync, screenshot evidence: ActionButtonIcon
+// x36 + SpacerVertical x8 still flagged after the 1b2a04e "both ids null"
+// gate). Distinct from the test above: here mainComponentId RESOLVES and
+// legitimately DIFFERS between the two arrows (each variant is its own real
+// component node, with its own real id) — only componentSetId (the
+// COMPONENT_SET's own id, one .parent hop further) fails to resolve. This
+// is the actual, normal shape of "two variants of one set" in a real
+// document, and is what falsified the prior gate: mainComponentId presence/
+// difference must never veto the name fallback.
+test("nested-instance interchangeability (LIVE CASE): two ActionButtonIcon variant arrows with RESOLVED, DIFFERENT mainComponentIds (each variant its own component node) and unresolved componentSetId — no duplicate_sibling_name warning", async () => {
+  const setActionButtonIcon = node(undefined, "COMPONENT_SET", "ActionButtonIcon", []);
+  // The variants themselves DO resolve to real, distinct ids — that's the
+  // normal, expected shape of "two variants". Only the SET's own id (one
+  // .parent hop further) is missing, reproducing the live componentSetId
+  // resolution gap without also erasing mainComponentId.
+  const compLeft = node("comp-left", "COMPONENT", "direction=left");
+  compLeft.parent = setActionButtonIcon;
+  const compRight = node("comp-right", "COMPONENT", "direction=right");
+  compRight.parent = setActionButtonIcon;
+
+  const arrowLeft = node("i-arrow-l", "INSTANCE", "ActionButtonIcon", [], { mainComponent: compLeft });
+  const arrowRight = node("i-arrow-r", "INSTANCE", "ActionButtonIcon", [], { mainComponent: compRight });
+  const controlSlider = node("i-slider", "INSTANCE", ".ControlSlider", [arrowLeft, arrowRight], {
+    mainComponent: node("comp-slider", "COMPONENT", "ControlSlider"),
+  });
+  const headerCompDef = node("comp-header", "COMPONENT", "HeaderSection", [controlSlider]);
+
+  const walk = createSubtreeWalk(mockApi());
+  const out = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  await walk(headerCompDef, new Map(), out, false);
+
+  const arrows = out.nodeSnapshots.filter((n) => n.name === "ActionButtonIcon");
+  assert.equal(arrows.length, 2, "both nested arrows must reach nodeSnapshots");
+  assert.equal(arrows[0].mainComponentId, "comp-left");
+  assert.equal(arrows[1].mainComponentId, "comp-right");
+  assert.notEqual(arrows[0].mainComponentId, arrows[1].mainComponentId, "mainComponentId legitimately differs between variants — this is the live case");
+  assert.equal(arrows[0].componentSetId, undefined, "componentSetId is the one that's unresolved");
+  assert.equal(arrows[0].mainComponentSetName, "ActionButtonIcon", "the fallback signal must be populated from the walk");
+
+  const warnings = buildWarnings({ nodeSnapshots: out.nodeSnapshots });
+  assert.deepEqual(warnings, [], "the live case must be suppressed — mainComponentId differing must never veto the name fallback");
+});

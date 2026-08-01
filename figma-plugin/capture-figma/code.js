@@ -845,18 +845,25 @@ function nextRecordState(node, nodeWasRecorded) {
 // when the id-based check can't decide (both sides null), a matching name
 // is still proof the two nodes are variants of the one interchangeable set.
 //
-// The fallback fires ONLY when BOTH ids are unavailable on BOTH sides —
-// mainComponentId AND componentSetId, on a AND b. A resolved id that
-// doesn't match (or has no counterpart to match against) is a decided "no",
-// never a "the name gets a turn": two successfully-resolved but DIFFERENT
-// component sets that happen to share an identical set-name string (real,
-// if unlikely) must still flag.
+// The fallback GATES ON componentSetId ALONE, ignoring mainComponentId
+// presence/difference entirely (live falsification, operator's v1.26.0
+// sync: ActionButtonIcon x36 + SpacerVertical x8 still flagged after an
+// earlier "both ids null" gate — DIFFERENT VARIANTS of one set are
+// DIFFERENT COMPONENT NODES, so mainComponentId legitimately, normally
+// differs between them; that's what "two variants" IS, never a signal of
+// anything wrong, and must never veto the name fallback). componentSetId is
+// the one that actually fails to resolve for a nested-instance-internal
+// node — so it alone decides: both null -> the name gets a turn; either
+// side resolved -> that id is authoritative (equal -> true, unequal -> a
+// decided "no", never falling through to the name — two successfully-
+// resolved but DIFFERENT component sets sharing an identical set-name
+// string, real if unlikely, must still flag).
 function siblingsAreInterchangeable(a, b) {
   if (a.type !== b.type) return false;
   if (a.type !== "INSTANCE") return false;
   if (!!a.mainComponentId && a.mainComponentId === b.mainComponentId) return true;
   if (!!a.componentSetId && a.componentSetId === b.componentSetId) return true;
-  if (a.mainComponentId || b.mainComponentId || a.componentSetId || b.componentSetId) return false;
+  if (a.componentSetId || b.componentSetId) return false;
   return !!a.mainComponentSetName && a.mainComponentSetName === b.mainComponentSetName;
 }
 
