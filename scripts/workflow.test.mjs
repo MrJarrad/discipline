@@ -2,14 +2,45 @@
 // Run: node --test scripts/workflow.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import {
   applyAgentDefaults,
   buildArgs,
   collectBurnWarnings,
+  classifyOutcome,
+  OUTCOME,
+  runClaude,
+  runWorkflow,
+  loadPersona,
+  buildSkillPreamble,
+  resolveOAuthToken,
   DEFAULT_MAX_TURNS,
   DEFAULT_HAIKU_EFFORT,
   HEAVY_AGENT_THRESHOLD,
 } from "./workflow.mjs";
+
+// ---- fake spawn helper --------------------------------------------------
+// A minimal EventEmitter-based stand-in for node:child_process's ChildProcess,
+// exercising the real event lifecycle (stdout/stderr data, close, error) so
+// runClaude's handlers run for real rather than being mocked out.
+function fakeSpawn({ stdout = "", stderr = "", code = 0, emitError = null } = {}) {
+  return () => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.kill = () => {};
+    setImmediate(() => {
+      if (emitError) {
+        child.emit("error", emitError);
+        return;
+      }
+      if (stdout) child.stdout.emit("data", Buffer.from(stdout));
+      if (stderr) child.stderr.emit("data", Buffer.from(stderr));
+      child.emit("close", code);
+    });
+    return child;
+  };
+}
 
 // ---- applyAgentDefaults ------------------------------------------------
 
@@ -154,4 +185,159 @@ test("regression: a pre-existing spec (explicit maxTurns/effort, verify stage, n
     ["-p", "build it", "--model", "sonnet", "--output-format", "json"]
   );
   assert.equal(args[args.indexOf("--max-turns") + 1], "50");
+});
+
+// ---- runClaude: latent bug fixes (spawn-error settle, stderr drain) -----
+
+test("runClaude: a spawn error (e.g. binary not found) settles as outcome spawn-error, never hangs", async () => {
+  const spawnImpl = fakeSpawn({ emitError: new Error("ENOENT") });
+  const r = await runClaude({ prompt: "hi", label: "x" }, "spec", { spawnImpl });
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, OUTCOME.SPAWN_ERROR);
+});
+
+test("runClaude: stderr is drained (never left to fill the pipe) and its tail is captured on failure", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":true,"result":"bad"}', stderr: "boom", code: 1 });
+  const r = await runClaude({ prompt: "hi", label: "x" }, "spec", { spawnImpl });
+  assert.equal(r.ok, false);
+  assert.equal(r.outcome, OUTCOME.FAILED);
+  assert.equal(r.errTail, "boom");
+});
+
+test("runClaude: a successful run resolves ok:true with outcome success", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"done","num_turns":5}' });
+  const r = await runClaude({ prompt: "hi", label: "x" }, "spec", { spawnImpl });
+  assert.equal(r.ok, true);
+  assert.equal(r.outcome, OUTCOME.SUCCESS);
+  assert.equal(r.result, "done");
+});
+
+// ---- classifyOutcome truth table ----------------------------------------
+
+test("classifyOutcome: truth table", () => {
+  const cases = [
+    { in: { code: 0, parsed: { is_error: false }, maxTurns: 60 }, out: OUTCOME.SUCCESS },
+    { in: { code: 0, parsed: { is_error: true }, maxTurns: 60 }, out: OUTCOME.FAILED },
+    { in: { code: 1, parsed: { is_error: false }, maxTurns: 60 }, out: OUTCOME.FAILED },
+    { in: { code: null, parsed: null, maxTurns: 60 }, out: OUTCOME.SPAWN_ERROR },
+    { in: { code: 0, parsed: { subtype: "error_max_turns" }, maxTurns: 60 }, out: OUTCOME.CAPPED },
+    { in: { code: 1, parsed: { subtype: "error_max_turns" }, maxTurns: 60 }, out: OUTCOME.CAPPED },
+    { in: { code: 0, parsed: { num_turns: 60 }, maxTurns: 60 }, out: OUTCOME.CAPPED },
+    { in: { code: 0, parsed: { num_turns: 59 }, maxTurns: 60 }, out: OUTCOME.SUCCESS },
+    { in: { code: 1, parsed: null, maxTurns: 60 }, out: OUTCOME.FAILED },
+    { in: { code: 0, parsed: { is_error: false, num_turns: 10 }, maxTurns: null }, out: OUTCOME.SUCCESS },
+  ];
+  for (const c of cases) {
+    assert.equal(classifyOutcome(c.in), c.out, `case ${JSON.stringify(c.in)}`);
+  }
+});
+
+test("classifyOutcome: capped is never folded into failed even on nonzero exit", () => {
+  const out = classifyOutcome({ code: 1, parsed: { num_turns: 60 }, maxTurns: 60 });
+  assert.equal(out, OUTCOME.CAPPED);
+});
+
+// ---- runWorkflow: summary/exit-code shape --------------------------------
+
+test("runWorkflow: an all-success spec produces exitCode 0 and totals with zero failed/capped", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"ok","num_turns":3}' });
+  const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
+  const logs = [];
+  const { exitCode, totals } = await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  assert.equal(exitCode, 0);
+  assert.equal(totals.failed, 0);
+  assert.equal(totals.capped, 0);
+  assert.equal(totals.survived, 1);
+});
+
+test("runWorkflow: a failed agent yields exitCode 1", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":true,"result":"nope"}' });
+  const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
+  const { exitCode, totals } = await runWorkflow(spec, () => {}, { spawnImpl });
+  assert.equal(exitCode, 1);
+  assert.equal(totals.failed, 1);
+});
+
+test("runWorkflow: a capped-only run (no failures) yields exitCode 2", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"partial","num_turns":10}' });
+  const spec = { name: "t", phases: [{ title: "p", agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }] }] };
+  const { exitCode, totals } = await runWorkflow(spec, () => {}, { spawnImpl });
+  assert.equal(exitCode, 2);
+  assert.equal(totals.capped, 1);
+  assert.equal(totals.failed, 0);
+});
+
+// ---- buildSkillPreamble / persona ordering -------------------------------
+
+test("buildSkillPreamble: empty/undefined skills produce an empty preamble", () => {
+  assert.equal(buildSkillPreamble(undefined), "");
+  assert.equal(buildSkillPreamble([]), "");
+});
+
+test("buildSkillPreamble: names each skill and mandates the Skill tool", () => {
+  const p = buildSkillPreamble(["quality", "test-first"]);
+  assert.match(p, /MANDATORY SKILLS/);
+  assert.match(p, /quality/);
+  assert.match(p, /test-first/);
+});
+
+test("runClaude: persona -> skill mandate -> task ordering in the final prompt", async () => {
+  let capturedArgs;
+  const spawnImpl = (cmd, args) => {
+    capturedArgs = args;
+    return fakeSpawn({ stdout: '{"is_error":false,"result":"ok"}' })();
+  };
+  await runClaude({ prompt: "do the thing", persona: "engineer", skills: ["quality"], label: "x" }, "spec", { spawnImpl });
+  const prompt = capturedArgs[capturedArgs.indexOf("-p") + 1];
+  const personaIdx = prompt.indexOf("engineer persona");
+  const skillIdx = prompt.indexOf("MANDATORY SKILLS");
+  const taskIdx = prompt.indexOf("TASK:");
+  assert.ok(personaIdx >= 0 && skillIdx > personaIdx && taskIdx > skillIdx, "expected persona -> skills -> task ordering");
+});
+
+test("loadPersona: throws on a missing persona file (spec-lint backstop)", () => {
+  assert.throws(() => loadPersona("does-not-exist-persona"));
+});
+
+test("loadPersona: loads and strips YAML front matter for a real persona", () => {
+  const body = loadPersona("engineer");
+  assert.equal(body.startsWith("---"), false);
+});
+
+// ---- resolveOAuthToken ---------------------------------------------------
+
+test("resolveOAuthToken: returns env var directly when present", () => {
+  const original = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  process.env.CLAUDE_CODE_OAUTH_TOKEN = "sk-env-token";
+  try {
+    const token = resolveOAuthToken();
+    assert.equal(token, "sk-env-token");
+  } finally {
+    if (original === undefined) delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    else process.env.CLAUDE_CODE_OAUTH_TOKEN = original;
+  }
+});
+
+test("resolveOAuthToken: falls back to zshrc-sourcing execFileImpl when env is absent", () => {
+  const original = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  try {
+    const execFileImpl = () => "sk-from-zshrc";
+    const token = resolveOAuthToken({ execFileImpl });
+    assert.equal(token, "sk-from-zshrc");
+  } finally {
+    if (original !== undefined) process.env.CLAUDE_CODE_OAUTH_TOKEN = original;
+  }
+});
+
+test("resolveOAuthToken: returns null when both env and zshrc fallback are empty", () => {
+  const original = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  try {
+    const execFileImpl = () => "";
+    const token = resolveOAuthToken({ execFileImpl });
+    assert.equal(token, null);
+  } finally {
+    if (original !== undefined) process.env.CLAUDE_CODE_OAUTH_TOKEN = original;
+  }
 });
