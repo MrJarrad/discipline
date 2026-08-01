@@ -25,7 +25,7 @@ Read [GLOSSARY.md](GLOSSARY.md) first.
 | Wire a **real database** unless persistence *is* the question | Noise |
 | **Generalise** for future features | One question only |
 | **Ship** the prototype UI bar to production | Gate on the environment, e.g. `NODE_ENV` |
-| Use a prototype when **`stress-plan`** (conversation) suffices | Conversation vs runnable — pick the cheaper tool |
+| Use a prototype when **`shape-stress`'s interview mode** (conversation) suffices | Conversation vs runnable — pick the cheaper tool |
 | Leave a prototype **rotting** without a verdict | Confuses the next reader |
 
 ---

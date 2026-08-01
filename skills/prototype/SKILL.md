@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: Build a throwaway prototype to answer a design question — a terminal app for logic/state, or UI variants on one route. Use when a state-machine, data-shape, or "what should this look like" question is better answered by running code than by talking it through.
+description: Build a throwaway prototype — a terminal app for logic/state, or UI variants on one route — to answer a design question by running code instead of talking it through. Trigger on "quick concept", "explore the X approach", "v2 of Y to explore", or any state-machine, data-shape, or "what should this look like" question. Not for production tests — that's test-first; not for stress-testing a conversation-level plan — that's shape-stress.
 ---
 
 # Prototype
@@ -59,7 +59,7 @@ discover-scope → [prototype?] → shape-stress → dispatch
 | ----- | ---- |
 | `shape-stress` | Prototype validated — shape into a project |
 | dispatch | Embed the prototype's decision in a vertical-slice brief |
-| `stress-plan` | Question is plan risk, not something runnable — conversation, not code |
+| `shape-stress` (interview mode) | Question is plan risk, not something runnable — conversation, not code |
 | `design-modules` | Prototype validated an interface shape |
 | `test-first` | Production red-green work after the decision lands |
 
