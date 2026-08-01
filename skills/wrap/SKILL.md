@@ -124,3 +124,30 @@ Run `python3 scripts/vault-lint.py` from the vault root before committing the wr
 ## Push at wrap
 
 After the checkpoint commit, `git push` (vault and any repo touched). Offsite remotes exist precisely so a dead machine loses nothing — a wrap that commits but doesn't push leaves the day's knowledge on one disk. If no remote is configured yet, run `scripts/setup-remotes.sh` from the vault root (one-time, needs gh CLI).
+
+## Section 0 — drain the runners first (absorbed from the 2026-08-01 wrap)
+
+Wrap does not start while any workflow-runner dispatch is mid-flight. Every run
+from this session is either: gate returned and merged; gate returned NO-MERGE and
+the branch is explicitly parked in HANDOVER with what's missing; or turn-capped
+with reviewer-verified work — in which case finish it (finisher dispatch, or the
+documented-exception path: orchestrator commits the reviewer-verified diff and
+runs the gate's own checks) before touching HANDOVER. A wrap written around a
+live run describes a state that's false by the time it's read.
+
+## Repo topology at wrap (same origin, multiple clones)
+
+When a repo exists as canonical + mirror clones (e.g. ~/JHD/discipline and the
+live install path), verify BOTH at wrap: same HEAD, both trees clean, both on
+main. An uncommitted tree in the clone this session didn't work in is still a
+wrap failure — checkpoint-commit it (credit the session that made it), merge
+through origin, and fast-forward the other clone. Also check for stale
+`.git/*.lock` files (compare mtime to running git processes before removing).
+
+## Version triple-sync
+
+A plugin version bump is one atomic change across FOUR places or it is drift:
+`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, the capture
+plugin's `PLUGIN_VERSION` const in `figma-plugin/capture-figma/code.js` (the
+version-sync drift-guard test encodes this — run it), and a fresh
+`~/.claude/plugins/cache/discipline/discipline/<version>/` mirror.
