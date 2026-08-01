@@ -131,13 +131,26 @@ let propskitAvailable = false;
 // PANEL_HEIGHT_IDLE is a same-math starting guess (420 / 2 = 210) for the
 // one showUI() call that must happen before ui.html's DOM exists to measure
 // anything — ui.html corrects it within a frame via the boot-time "resize"
-// message (see ui.html's scheduleResize()). PANEL_HEIGHT_MAX caps growth at
-// ~90% of the synced-state mockup's height at the same halved scale
-// (figma-capture-figma-1.png, 876 / 2 = 438 -> 394); content beyond that
-// scrolls inside the iframe rather than growing the window further.
+// message (see ui.html's scheduleResize()).
+//
+// PANEL_HEIGHT_MAX (raised from 394 to 640, operator verdict 2026-08-01
+// Addendum 2 item 3: "window must GROW with content instead of internal
+// scrolling — warnings get cut off today"). The old 394 was the synced-state
+// mockup's own height (876 / 2 = 438 -> ~90%); that mockup has no warnings
+// section at all, so every expanded warning group was clamped away and had
+// to be scrolled for. The API itself imposes no maximum — @figma/plugin-
+// typings 1.128.0 documents only a minimum ("The minimum size is 70x0",
+// plugin-api.d.ts:2668 on UIAPI.resize; showUI's options note the same 70/0
+// floors, :353-354) — the real ceiling is the host: Figma clamps the plugin
+// iframe to the user's viewport, so a value taller than the shortest realistic
+// viewport is silently truncated by Figma and reproduces the same cut-off
+// symptom. 640 is the sane cap: it fits inside a 800px-tall laptop screen with
+// room for Figma's own toolbar/chrome, and is ~46% more room than the old cap
+// for expanded warning detail. Content beyond it scrolls inside the iframe
+// rather than growing the window further.
 const PANEL_WIDTH = 342;
 const PANEL_HEIGHT_IDLE = 210;
-const PANEL_HEIGHT_MAX = 394;
+const PANEL_HEIGHT_MAX = 640;
 
 // === RESIZE DEDUP (pure — tested via resize-dedup.test.mjs, which extracts
 // this block by its markers) ===
