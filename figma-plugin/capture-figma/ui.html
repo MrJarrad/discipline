@@ -692,6 +692,120 @@
     }
     // === END CONFORMANCE LANE ===
 
+    // === WARNING ROOT CAUSES (pure — tested via warning-grouping.test.mjs,
+    // which extracts this block by its markers and runs it against fixtures
+    // taken verbatim from the operator's 2026-08-01 sync) ===
+    //
+    // Operator, 2026-08-01 (Addendum 9c): "62 warnings" was really about two
+    // problems. Two layers share the name "primary" inside SplitContent, and
+    // .ControlSlider has duplicate internals — and each is restated once for
+    // every variant and every instance that inherits it. A list of 62 rows
+    // hides the two facts an operator can act on.
+    //
+    // A warning's own `context` already carries everything needed to find the
+    // ONE place a problem lives, so nothing is added to the export schema:
+    //
+    //   "device=lg, layout=split-media-text/content"
+    //    └─ variant descriptor ─────────────────────┘└ where in the variant ┘
+    //
+    // The variant descriptor is the echo — strip it, resolve which component
+    // set those axes belong to, and every variant of SplitContent folds onto
+    // one row. Deeper paths ("content/HeaderSection/.../.ControlSlider") echo
+    // the same way through instances: the problem belongs to the DEEPEST
+    // component-looking segment on the path, which is the component whose
+    // definition actually holds the duplicate.
+    //
+    // Nothing here is inferred when the data doesn't support it: a descriptor
+    // whose axes match more than one set (plenty of sets are just "device=sm")
+    // resolves to no name at all, and the row says where instead of who.
+
+    // Maps a variant descriptor ("device=lg, layout=split-media-text") to the
+    // component set that owns those axes. Only an unambiguous match counts —
+    // matching sets must use exactly these axis names and accept these values.
+    function createVariantOwnerResolver(componentSets) {
+      const byAxisKey = new Map();
+      for (const set of componentSets || []) {
+        const axes = [];
+        for (const [prop, spec] of Object.entries((set && set.properties) || {})) {
+          if (spec && spec.type === "VARIANT") axes.push([prop, spec.variantOptions || []]);
+        }
+        if (!axes.length) continue;
+        const key = axes.map(([prop]) => prop).sort().join(" ");
+        const entry = byAxisKey.get(key) || [];
+        entry.push({ name: set.name, axes: new Map(axes) });
+        byAxisKey.set(key, entry);
+      }
+      return function resolveVariantOwner(descriptor) {
+        const pairs = [];
+        for (const part of String(descriptor).split(",")) {
+          const eq = part.indexOf("=");
+          if (eq < 0) return null;
+          pairs.push([part.slice(0, eq).trim(), part.slice(eq + 1).trim()]);
+        }
+        if (!pairs.length) return null;
+        const candidates = byAxisKey.get(pairs.map(([prop]) => prop).sort().join(" ")) || [];
+        const hits = candidates.filter((c) => pairs.every(([prop, value]) => (c.axes.get(prop) || []).includes(value)));
+        return hits.length === 1 ? hits[0].name : null;
+      };
+    }
+
+    function looksLikeComponentName(segment) {
+      return /^[.A-Z]/.test(segment);
+    }
+
+    // Folds a warnings array into one row per root cause, in first-seen order
+    // (which is capture order — the operator reads it as document order).
+    // Each row keeps every occurrence, so the variant echoes stay available
+    // underneath rather than being thrown away.
+    function groupWarningsByRootCause(warnings, resolveVariantOwner) {
+      const groups = new Map();
+      for (const warning of warnings || []) {
+        const type = (warning && warning.type) || "unknown";
+        const layerName = (warning && warning.nodeName) || "";
+        const segments = String((warning && warning.context) || "").split("/").filter(Boolean);
+
+        let variant = null;
+        let componentName = null;
+        if (segments.length && segments[0].indexOf("=") >= 0) {
+          variant = segments.shift();
+          componentName = resolveVariantOwner ? resolveVariantOwner(variant) : null;
+        }
+        // Some warnings (malformed spacer names) address the offending node
+        // itself rather than its parent; drop that trailing self-reference so
+        // `container` always means the same thing.
+        if (segments.length && segments[segments.length - 1] === layerName) segments.pop();
+        for (const segment of segments) {
+          if (looksLikeComponentName(segment)) componentName = segment;
+        }
+        // With an empty path the parent IS the owning component's own root.
+        const container = segments.length ? segments[segments.length - 1] : componentName;
+
+        const key = [type, componentName, container, layerName].join(" ");
+        let group = groups.get(key);
+        if (!group) {
+          group = {
+            type: type,
+            componentName: componentName,
+            container: container,
+            layerName: layerName,
+            count: 0,
+            variants: [],
+            occurrences: [],
+          };
+          groups.set(key, group);
+        }
+        group.count++;
+        if (variant && group.variants.indexOf(variant) < 0) group.variants.push(variant);
+        group.occurrences.push({
+          variant: variant,
+          path: (warning && warning.context) || "",
+          nodeId: (warning && warning.nodeId) || null,
+        });
+      }
+      return Array.from(groups.values());
+    }
+    // === END WARNING ROOT CAUSES ===
+
     // === WARNING GUIDE (pure catalog — tested via warning-guide.test.mjs,
     // which extracts this block by its markers and asserts its keys equal the
     // types code.js actually emits) ===
