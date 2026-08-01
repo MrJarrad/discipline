@@ -1,0 +1,158 @@
+{
+  "cases": [
+    {
+      "id": "route-researcher-cutting-edge",
+      "type": "route",
+      "prompt": "Is it worth researching the cutting edge, best in class way to do rate limiting on our API before we build it?",
+      "provenance": "skills/routing/SKILL.md:62 (persona table, Researcher row)",
+      "cwd": "~/JHD/vault",
+      "expectPersona": "researcher",
+      "expectSkills": ["perplexity-research", "research-synthesis"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-ux-designer-figma-discrepancies",
+      "type": "route",
+      "prompt": "Can you check the header block — I think there are discrepancies with the figma and the animation feels off.",
+      "provenance": "skills/routing/SKILL.md:64 (persona table, UX Designer row)",
+      "cwd": "~/JHD/vault",
+      "expectPersona": "ux-designer",
+      "expectSkills": ["design-craft"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-reviewer-ready-to-merge",
+      "type": "route",
+      "prompt": "This branch is ready to merge — can you review this before I ship it?",
+      "provenance": "skills/routing/SKILL.md:65 (persona table, Reviewer row)",
+      "cwd": "~/JHD/vault",
+      "expectPersona": "reviewer",
+      "expectSkills": ["quality", "qa-acceptance", "verify-finding"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-engineer-implement-fix",
+      "type": "route",
+      "prompt": "The checkout button is broken, please fix it and implement the missing validation.",
+      "provenance": "skills/routing/SKILL.md:63 (persona table, Engineer row)",
+      "cwd": "~/JHD/vault",
+      "expectPersona": "engineer",
+      "expectSkills": ["quality", "verify-finding", "test-first", "qa-acceptance"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-define-terms",
+      "type": "trigger",
+      "prompt": "Just to be clear, when you say 'account' in the spec do you mean Customer or User? I need to be clear on this one before I write anything else.",
+      "provenance": "skills/define-terms/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["define-terms"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-design-modules",
+      "type": "trigger",
+      "prompt": "Where should this logic live — should we split this service into two modules, or does it belong in one?",
+      "provenance": "skills/design-modules/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["design-modules"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-discover-scope",
+      "type": "trigger",
+      "prompt": "I'd like to explore a new concept for the app. I'm reconsidering a few things and the requirements are clearly still forming.",
+      "provenance": "skills/discover-scope/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["discover-scope"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-issue-triage",
+      "type": "trigger",
+      "prompt": "I noticed some issues in the audit output — a couple of things are off, here's a list of defects to sort through.",
+      "provenance": "skills/issue-triage/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["issue-triage"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-capture-figma",
+      "type": "trigger",
+      "prompt": "Here's the figma.com URL for the new header — I need a fresh sync, pull the tokens and variants before anything gets built.",
+      "provenance": "skills/capture-figma/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["capture-figma"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-capture-website",
+      "type": "trigger",
+      "prompt": "Look at this site — https://example.com — like pentagram does it. I want it as a design reference.",
+      "provenance": "skills/capture-website/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["capture-website"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-diagnosing-bugs",
+      "type": "trigger",
+      "prompt": "This is still broken — the toggle is not picking up the state change, and the first fix attempt failed. It's hard to pin down.",
+      "provenance": "skills/diagnosing-bugs/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["diagnosing-bugs"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-perplexity-research",
+      "type": "trigger",
+      "prompt": "What's the best in class way to do rate limiting right now — worth researching the cutting edge options before we pick one?",
+      "provenance": "skills/perplexity-research/SKILL.md:3 (description trigger phrases)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["perplexity-research"],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "fence-qwen-edit-not-banana",
+      "type": "fence",
+      "prompt": "Edit this photo to change the jacket to blue, keep everything else the same.",
+      "provenance": "skills/routing/SKILL.md:81-82 (domain-library table, image editing vs generation)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["qwen-edit"],
+      "forbidSkills": ["banana"],
+      "samples": 3
+    },
+    {
+      "id": "fence-capture-website-not-capture-figma",
+      "type": "fence",
+      "prompt": "Look at this site — https://example.com — capture it as a design reference before we build against it.",
+      "provenance": "skills/capture-website/SKILL.md:3 (\"Not for Figma files\" fence line)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["capture-website"],
+      "forbidSkills": ["capture-figma"],
+      "samples": 3
+    },
+    {
+      "id": "fence-audit-build-not-capture-figma",
+      "type": "fence",
+      "prompt": "The blocks on the built page look off compared to the design — can you check where it diverges after porting?",
+      "provenance": "skills/audit-build/SKILL.md:3 (\"the blocks are off\" trigger; \"Not for reading the design source itself\" fence line)",
+      "cwd": "~/JHD/vault",
+      "expectSkills": ["audit-build"],
+      "forbidSkills": ["capture-figma"],
+      "samples": 3
+    }
+  ]
+}
