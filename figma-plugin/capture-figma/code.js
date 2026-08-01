@@ -232,7 +232,7 @@ async function fetchStyleById(id) {
   return null;
 }
 
-// === STYLE CACHE (fetch injected — tested via buildexport-perf.test.mjs,
+// === ID CACHE (fetch injected — tested via buildexport-perf.test.mjs,
 // which extracts this block by its markers and diffs it against the previous
 // uncached implementation) ===
 // Memoizes style-by-id lookups for the duration of one export.
@@ -251,18 +251,25 @@ async function fetchStyleById(id) {
 // per export, so a cached answer is the same answer (proven differentially in
 // buildexport-perf.test.mjs against the uncached implementation, with a fake
 // API that answers out of call order).
-function createStyleCache(fetchStyle) {
+function createIdCache(fetchById) {
   const cache = new Map();
-  return function getStyle(id) {
+  return function get(id) {
     if (cache.has(id)) return cache.get(id);
-    const pending = Promise.resolve(fetchStyle(id));
+    const pending = Promise.resolve(fetchById(id));
     cache.set(id, pending);
     return pending;
   };
 }
-// === END STYLE CACHE ===
+// === END ID CACHE ===
 
-let getStyleById = createStyleCache(fetchStyleById);
+let getStyleById = createIdCache(fetchStyleById);
+
+// Same primitive, same reason, one step further along: variableById is
+// prewarmed with every LOCAL variable in buildExport, so a miss means a
+// LIBRARY variable — and now that the whole component tree is walked at once,
+// every layer bound to that library variable misses simultaneously. Caching
+// the in-flight promise keeps that one round trip, not one per layer.
+let getVariableByIdCached = createIdCache(getVariableById);
 
 async function getLocalTextStyles() {
   if (typeof figma.getLocalTextStylesAsync === "function") {
@@ -339,7 +346,7 @@ async function resolveAliasNotation(value, variableById) {
   if (!isAlias(value)) return value;
   let target = variableById.get(value.id);
   if (!target) {
-    target = await getVariableById(value.id);
+    target = await getVariableByIdCached(value.id);
     if (target) variableById.set(value.id, target);
   }
   if (!target) {
@@ -1288,7 +1295,7 @@ function createLayerBindingCollector(api) {
 async function resolveBoundVariableName(id, variableById) {
   let target = variableById.get(id);
   if (!target) {
-    target = await getVariableById(id);
+    target = await getVariableByIdCached(id);
     if (target) variableById.set(id, target);
   }
   if (!target) return "[unresolved alias: " + id + "]";
@@ -1887,7 +1894,8 @@ async function buildExport() {
 
   // Style lookups are memoized per export, never across exports — a style
   // renamed between two syncs must show up in the second one.
-  getStyleById = createStyleCache(fetchStyleById);
+  getStyleById = createIdCache(fetchStyleById);
+  getVariableByIdCached = createIdCache(getVariableById);
 
   // PER-PHASE INSTRUMENTATION (operator verdict 2026-08-01, Addendum 2 item
   // 1): the sync lag's remaining suspect is this traversal, and it had never

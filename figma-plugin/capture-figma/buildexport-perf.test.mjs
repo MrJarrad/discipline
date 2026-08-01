@@ -302,7 +302,7 @@ test("template overrides: an instance with no overrides resolves to nothing", as
 
 // --- style lookup cache ---------------------------------------------------
 
-const { createStyleCache } = extract("STYLE CACHE", "{ createStyleCache }");
+const { createIdCache } = extract("ID CACHE", "{ createIdCache }");
 
 // A style API shaped like Figma's: every lookup is a real async round trip,
 // and it answers out of call order (later calls can land first).
@@ -326,7 +326,7 @@ test("style cache: cached lookups return exactly what the uncached ones returned
   const plain = fakeStyleApi();
   const before = await Promise.all(LOOKUPS.map(uncachedBaseline(plain.fetch)));
   const cached = fakeStyleApi();
-  const after = await Promise.all(LOOKUPS.map(createStyleCache(cached.fetch)));
+  const after = await Promise.all(LOOKUPS.map(createIdCache(cached.fetch)));
   assert.equal(JSON.stringify(after), JSON.stringify(before));
 });
 
@@ -336,13 +336,13 @@ test("style cache: a repeated style id costs one round trip, not one per layer",
   assert.equal(plain.calls.length, 6);
 
   const cached = fakeStyleApi();
-  await Promise.all(LOOKUPS.map(createStyleCache(cached.fetch)));
+  await Promise.all(LOOKUPS.map(createIdCache(cached.fetch)));
   assert.deepEqual(cached.calls, ["S:a", "S:slow", "S:b"], "in-flight duplicates must be shared, not re-issued");
 });
 
 test("style cache: a sequential repeat also reuses the resolved entry", async () => {
   const cached = fakeStyleApi();
-  const getStyle = createStyleCache(cached.fetch);
+  const getStyle = createIdCache(cached.fetch);
   const first = await getStyle("S:a");
   const second = await getStyle("S:a");
   assert.equal(JSON.stringify(second), JSON.stringify(first));
@@ -351,12 +351,30 @@ test("style cache: a sequential repeat also reuses the resolved entry", async ()
 
 test("style cache: it is rebuilt per export, so a style renamed between syncs isn't served stale", () => {
   const body = /async function buildExport\(\) \{([\s\S]*?)\n  return output;/.exec(readCode())[1];
-  assert.match(body, /getStyleById = createStyleCache\(fetchStyleById\)/);
+  assert.match(body, /getStyleById = createIdCache\(fetchStyleById\)/);
+});
+
+// Variables get the same treatment as styles, and for a reason the walk only
+// just created: variableById is prewarmed with every LOCAL variable, so a
+// miss means a library variable — and now that the whole tree is walked at
+// once, every layer bound to that library variable misses simultaneously and
+// used to issue its own getVariableByIdAsync. Without this the parallel walk
+// would trade round trips it saved for round trips it re-created.
+test("id cache: buildExport rebuilds the variable cache per export, exactly as it does the style cache", () => {
+  const body = /async function buildExport\(\) \{([\s\S]*?)\n  return output;/.exec(readCode())[1];
+  assert.match(body, /getVariableByIdCached = createIdCache\(getVariableById\)/);
+  const source = readCode();
+  assert.match(source, /let getVariableByIdCached = createIdCache\(getVariableById\)/);
+  assert.equal(
+    /await getVariableById\(/.test(source),
+    false,
+    "every alias-resolution path must go through the cache, not the raw plugin call"
+  );
 });
 
 test("style cache: a missing style stays null and isn't re-fetched", async () => {
   let calls = 0;
-  const getStyle = createStyleCache(() => {
+  const getStyle = createIdCache(() => {
     calls++;
     return Promise.resolve(null);
   });
@@ -887,7 +905,7 @@ function createSequentialLayerBindingBaseline(api) {
   return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
     function push(property, value) {
       if (value === null || value === undefined) return;
-      const key = property + " " + value;
+      const key = property + "\u0000" + value;
       if (seen.has(key)) return;
       seen.add(key);
       bindingsOut.push({ layer: layer, property: property, value: value });
@@ -999,7 +1017,7 @@ test("layer bindings: a missing style still falls back to the raw style id", asy
 
 test("layer bindings: an entry already in `seen` is still skipped by the caller's chain", async () => {
   const out = [];
-  const seen = new Set(["textStyle style/S:body"]);
+  const seen = new Set(["textStyle\u0000style/S:body"]);
   await createLayerBindingCollector(reverseCompletionBindingApi())(BINDING_NODE, "later", new Map(), out, seen);
   assert.equal(out.some((e) => e.property === "textStyle"), false);
 });
