@@ -19,8 +19,8 @@ change a lever, and how you prove the change helped before it's live.
 | Artifact | Canonical home | Is |
 | --- | --- | --- |
 | **Skills** | `skills/` | the reusable procedures the dispatch system loads |
-| **Prompts / charters** | `charters/` | each persona's operating contract (`AGENTS.md`) |
-| **Eval harnesses** | `meta/` | the gate that proves a change discriminates |
+| **Prompts / charters** | `agents/` | each persona's operating contract (an `agents/<persona>.md` file) |
+| **Eval harness** | `meta/skill-eval/` | the one gate (`scripts/skill-eval.mjs` + `meta/skill-eval/cases.json`) that scores trigger recall, false-positives, and persona routing against a baseline arm |
 
 If it changes *how an agent decides or acts across tasks*, it's Agent-Ops. If it changes
 *one product output*, it's a doer skill — not this.
@@ -63,29 +63,37 @@ Author and audit against the skill-authoring standard —
 tests (**does one thing**, **states its trigger** for *and* not for, **self-contained**, **one
 canonical home**, **best-in-class bar**) plus the triggering conventions (description is a
 *trigger* not a summary; lead with "Use when…"; keep the anti-trigger; match intensity to the
-failure). Delegate the mechanics: authoring + red-loop → `skill-trainer`; driving
-the loop to GREEN → `eval-loop`; with/without-skill numbers → `skill-compare`. A skill ships
-only when every scenario in its `evals/scenarios.json` is GREEN and the baseline shows it
-discriminates (non-discriminating checks mean the skill isn't earning its tokens — sharpen
-the signals or the skill).
+failure). Gate with `meta/skill-eval`: add or reuse a case in
+`meta/skill-eval/cases.json` (route / trigger / fence), run
+`node scripts/skill-eval.mjs meta/skill-eval/cases.json --tag <type> --live
+--baseline-plugin-dir <pre-change worktree>`, and read the printed verdict + discrimination —
+GREEN and DISCRIMINATES to ship; NON-DISCRIMINATING means the change isn't earning its
+tokens; BASELINE UNAVAILABLE means no comparison ran (never treat as GREEN).
 
-### Prompts / charters — `charters/`
+### Prompts / charters — `agents/`
 A charter is the persona's operating contract: role, definition-of-done, handoff, escalation.
-It **applies** skills; it never restates them (see `charters/engineer.md`: "it applies those
-skills; it does not restate them here"). Audit for: every behavior lives in *either* a loaded
-skill *or* the charter, with no overlap; escalation and handoff paths are first-class, not
-prose. Gate with `meta/agent-evals` (per-persona scenarios).
+It **applies** skills; it never restates them (see `agents/engineer.md`'s `skills:`
+frontmatter plus body — the charter applies those skills, it does not restate them). Audit
+for: every behavior lives in *either* a loaded skill *or* the charter, with no overlap;
+escalation and handoff paths are first-class, not prose. Persona-selection accuracy (does the
+right work route to the right charter) is a `route`-type case in `meta/skill-eval`; whether a
+charter, once loaded, produces good behaviour is out of scope for v1 (see
+`meta/skill-eval/README.md`).
 
-## The eval gate — which harness, what bar
+## The eval gate — one harness, three case types
 
-| Change to… | Harness | Pass bar |
+| Change to… | Case type in `meta/skill-eval/cases.json` | Pass bar |
 | --- | --- | --- |
-| a skill | `meta/skill-trainer` + `eval-loop` (+ `skill-compare`) | all scenarios GREEN; baseline discriminates |
-| a charter / prompt | `meta/agent-evals` | all persona scenarios GREEN |
-| model routing | `meta/model-routing-eval` | routing beats current on the task-set (see `gate-models.md`) |
+| a skill's trigger phrasing | `trigger` | GREEN (majority of n samples fire the skill); baseline arm DISCRIMINATES, not NON-DISCRIMINATING |
+| a skill's anti-trigger fence | `fence` | GREEN (forbidSkills never fire) |
+| `routing`'s persona table / a charter | `route` | GREEN (persona + skills match); baseline arm DISCRIMINATES |
 
-In every case the bar is **GREEN + discriminates against a no-change baseline.** A change
-that passes with *and* without itself changed nothing worth shipping.
+In every case the bar is **GREEN + discriminates against a no-change baseline** (run via
+`--baseline-plugin-dir`, a pre-change worktree of this repo — see
+`~/JHD/vault/documents/eval-t1-plugin-root-spike-2026-08-01.md` for the mechanism). A change
+that passes with *and* without itself changed nothing worth shipping; a run with no baseline
+arm reports BASELINE UNAVAILABLE, never GREEN. Model routing / tier changes are out of scope
+for v1 (`meta/skill-eval/README.md`).
 
 ## Audit cadence — corrections become scenarios
 
