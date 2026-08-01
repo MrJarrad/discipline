@@ -374,6 +374,11 @@
     );
 
     let lastExportJson = null;
+    // Whether rawJsonOutput.textContent currently reflects lastExportJson —
+    // false right after a new export lands, true once renderRawJsonIfNeeded() has
+    // actually filled it in (deferred until the <details> panel is opened;
+    // see renderRawJsonIfNeeded()).
+    let rawJsonRendered = false;
     // Tracks the blob URL currently on downloadBtn.href, so it can be
     // revoked before the next one replaces it — createObjectURL()'s
     // reference otherwise stays alive for the panel's whole lifetime, and
@@ -454,7 +459,16 @@
     });
 
     function enableCopyDownload(data) {
+      // The only place the full export payload gets stringified, anywhere in
+      // this file — renderRawJsonIfNeeded() below reuses lastExportJson
+      // instead of re-serializing the same data a second time (lag
+      // diagnosis finding 3: this used to run twice, synchronously, on
+      // every Sync even with the Raw JSON panel collapsed).
       lastExportJson = JSON.stringify(data, null, 2);
+      // A new export invalidates whatever the Raw JSON panel is currently
+      // showing (even collapsed) — it's re-rendered lazily, either right
+      // below if the panel is already open, or on the next time it's opened.
+      rawJsonRendered = false;
       copyBtn.disabled = false;
 
       const blob = new Blob([lastExportJson], { type: "application/json" });
@@ -584,12 +598,19 @@
       scheduleResize();
     }
 
-    function populateRawJson(data) {
-      rawJsonOutput.textContent = JSON.stringify(data, null, 2);
+    // Lazy: fills the Raw JSON <pre> from lastExportJson (already computed by
+    // enableCopyDownload — never re-stringifies) but only does the DOM write
+    // when the panel is actually open, and only once per export. Called both
+    // right after a Sync (if the panel is already open) and on toggle-open.
+    function renderRawJsonIfNeeded() {
+      if (rawJsonRendered || !lastExportJson) return;
+      rawJsonOutput.textContent = lastExportJson;
+      rawJsonRendered = true;
     }
 
     rawJsonDetails.addEventListener("toggle", () => {
       rawJsonSummary.textContent = (rawJsonDetails.open ? "▼" : "▶") + " Raw JSON";
+      if (rawJsonDetails.open) renderRawJsonIfNeeded();
       scheduleResize();
     });
 
@@ -825,8 +846,10 @@
 
       if (msg.type === "export-result") {
         renderCounts(msg.data);
-        populateRawJson(msg.data);
         enableCopyDownload(msg.data);
+        // If the Raw JSON panel is already open from a previous sync, refresh
+        // it now — otherwise leave it deferred until the operator opens it.
+        if (rawJsonDetails.open) renderRawJsonIfNeeded();
         return;
       }
 
