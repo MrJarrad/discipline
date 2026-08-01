@@ -94,7 +94,7 @@
 // version-sync.test.mjs is the mechanical guard: it fails `node --test` the
 // moment this constant and plugin.json's "version" disagree, so drift is
 // caught before it ships instead of being rediscovered in a stale export.
-const PLUGIN_VERSION = "1.24.0";
+const PLUGIN_VERSION = "1.25.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
