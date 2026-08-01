@@ -7,8 +7,16 @@
     /* --- tokens: this file has no host design system to inherit from (a
        self-contained Figma plugin iframe, no bundler/DS import), so this is
        its own small token set — every color/spacing/radius below is a var
-       reference, never a bare literal in a rule. Values are measured off
-       the operator's Figma-authored mockup (figma-capture-figma*.png). --- */
+       reference, never a bare literal in a rule. Spacing/type values are
+       scaled to the plugin's native CSS-px panel (figma.showUI opens at
+       342 wide, content-hugging height — see code.js's PANEL_WIDTH/resize
+       handling — no devicePixelRatio scaling) — the design mockup PNGs
+       (figma-capture-figma*.png) are 2x-effective renders, so raw pixel
+       measurements off them read ~1.4x too large; sizes here were corrected
+       against the operator's original native-scale ui.html (body 12px,
+       panel padding 16px, 6-8px radii, 8px dots) and verified by rendering
+       this file standalone and comparing element proportions at matched
+       widths. --- */
     :root {
       --color-bg: #ffffff;
       --color-text: #1e1e1e;
@@ -37,9 +45,9 @@
       --radius-md: 8px;
       --space-1: 4px;
       --space-2: 8px;
-      --space-3: 20px;
-      --space-4: 26px;
-      --space-5: 24px;
+      --space-3: 10px;
+      --space-4: 14px;
+      --space-5: 16px;
       --font-sans: Inter, "Helvetica Neue", Arial, sans-serif;
       --font-mono: "SFMono-Regular", Consolas, Menlo, monospace;
     }
@@ -50,7 +58,7 @@
       margin: 0;
       padding: 0;
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 12px;
       color: var(--color-text);
       background: var(--color-bg);
       display: flex;
@@ -124,9 +132,9 @@
     }
     .btn {
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: var(--radius-md);
       border: 1px solid var(--color-secondary-border);
       background: var(--color-secondary-bg);
@@ -147,11 +155,6 @@
       color: var(--color-sync-text);
       border-color: var(--color-sync-border);
     }
-    .btn.sync.on {
-      background: var(--color-dot-green);
-      color: #ffffff;
-      border-color: var(--color-dot-green);
-    }
     .btn.snapshot {
       background: var(--color-snapshot-bg);
       color: var(--color-snapshot-text);
@@ -164,7 +167,7 @@
       gap: var(--space-2);
     }
     .count-number {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 800;
       line-height: 1;
       color: var(--color-text);
@@ -179,12 +182,12 @@
     .chip-row {
       display: flex;
       flex-wrap: wrap;
-      column-gap: 14px;
-      row-gap: 12px;
+      column-gap: 10px;
+      row-gap: var(--space-2);
     }
     .stat-chip {
-      font-size: 13px;
-      padding: 8px 14px;
+      font-size: 12px;
+      padding: 6px 10px;
       border-radius: var(--radius-sm);
       background: var(--color-chip-bg);
       border: 1px solid var(--color-chip-border);
@@ -229,7 +232,7 @@
     <div class="status-row-top" role="status" aria-live="polite">
       <span class="status-dot" id="sync-dot"></span>
       <span class="status-state" id="sync-state">Ready</span>
-      <span class="status-detail" id="sync-detail">— click POST to sync</span>
+      <span class="status-detail" id="sync-detail"></span>
       <span class="status-time" id="sync-time"></span>
     </div>
     <div class="btn-row">
@@ -237,7 +240,7 @@
         type="button"
         class="btn sync"
         id="sync-btn"
-        title="Live sync POSTs to a local listener on localhost only (never the internet) and only runs while this plugin panel stays open — Figma has no background execution, so closing this panel stops sync."
+        title="Sync runs one export and POSTs it to a local listener on localhost only (never the internet) — a manual, one-shot action, never a background/continuous mode."
       >Sync</button>
       <button type="button" class="btn" id="copy-btn" disabled>Copy</button>
       <a class="btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
@@ -322,19 +325,46 @@
       "*"
     );
 
-    let syncOn = false;
     let lastExportJson = null;
     // Tracks the blob URL currently on downloadBtn.href, so it can be
     // revoked before the next one replaces it — createObjectURL()'s
-    // reference otherwise stays alive for the panel's whole lifetime, and a
-    // sync session runs one export per document change.
+    // reference otherwise stays alive for the panel's whole lifetime, and
+    // each Sync click can produce a new export.
     let currentDownloadUrl = null;
+
+    // The Figma-mockup window hugs its content (no reserved empty space) —
+    // code.js opens figma.showUI at an idle-height guess and relies on this
+    // to report the real measured height back for the corrective boot
+    // resize, then again on every later state transition (sync/snapshot row
+    // changes, count sections rendering, Raw JSON expand/collapse). rAF-
+    // batched so several synchronous DOM writes in one state transition
+    // (e.g. setSyncRow + renderCounts on "restored") collapse into a single
+    // postMessage instead of one per write — never on a per-repaint/polling
+    // basis. code.js clamps and applies the actual figma.ui.resize() call;
+    // this side only ever reports.
+    let resizeScheduled = false;
+    function scheduleResize() {
+      if (resizeScheduled) return;
+      resizeScheduled = true;
+      requestAnimationFrame(() => {
+        resizeScheduled = false;
+        parent.postMessage(
+          { pluginMessage: { type: "resize", height: document.body.scrollHeight } },
+          "*"
+        );
+      });
+    }
+    // Boot-time correction: code.js opens figma.showUI with an idle-height
+    // guess (it can't measure the DOM before the iframe exists) — this
+    // reports the real rendered idle height the moment the DOM is parsed.
+    scheduleResize();
 
     function setSyncRow(dotClass, state, detail, time) {
       syncDot.className = "status-dot" + (dotClass ? " " + dotClass : "");
       syncStateEl.textContent = state;
       syncDetailEl.textContent = detail || "";
       syncTimeEl.textContent = time || "";
+      scheduleResize();
     }
 
     function setSnapshotRow(dotClass, state, detail, time) {
@@ -342,16 +372,13 @@
       snapshotStateEl.textContent = state;
       snapshotDetailEl.textContent = detail || "";
       snapshotTimeEl.textContent = time || "";
+      scheduleResize();
     }
 
     // --- sync row --------------------------------------------------------
 
     syncBtn.addEventListener("click", () => {
-      if (syncOn) {
-        parent.postMessage({ pluginMessage: { type: "stop-sync" } }, "*");
-      } else {
-        parent.postMessage({ pluginMessage: { type: "start-sync" } }, "*");
-      }
+      parent.postMessage({ pluginMessage: { type: "sync" } }, "*");
     });
 
     function fallbackCopy(text) {
@@ -506,6 +533,7 @@
           warningEntries.map(([type, n]) => [type.replace(/_/g, "-"), n])
         )
       );
+      scheduleResize();
     }
 
     function populateRawJson(data) {
@@ -514,6 +542,7 @@
 
     rawJsonDetails.addEventListener("toggle", () => {
       rawJsonSummary.textContent = (rawJsonDetails.open ? "▼" : "▶") + " Raw JSON";
+      scheduleResize();
     });
 
     // --- snapshot row ------------------------------------------------------
@@ -576,23 +605,18 @@
       return detail;
     }
 
+    // Manual-only sync (vault ruling, token-rulings.md "Sync is MANUAL-ONLY
+    // — auto sync removed"): the button always reads "Sync" and always sends
+    // the same one-shot message — no toggle state, no "Stop". The row walks
+    // Ready -> Syncing -> a terminal state (Synced, or an error/unreachable
+    // status) every click; the button is disabled only for that in-flight
+    // window so a second click can't overlap the export/POST in progress.
     function handleSyncStatus(msg) {
-      if (msg.state === "loading") {
+      if (msg.state === "syncing") {
         syncBtn.disabled = true;
-        setSyncRow("", "Loading…", msg.message || "loading all pages…", "");
-      } else if (msg.state === "on") {
-        syncOn = true;
-        syncBtn.disabled = false;
-        syncBtn.textContent = "Stop";
-        syncBtn.classList.add("on");
         setSyncRow("", "Syncing…", "exporting now…", "");
-      } else if (msg.state === "off") {
-        syncOn = false;
-        syncBtn.disabled = false;
-        syncBtn.textContent = "Sync";
-        syncBtn.classList.remove("on");
-        setSyncRow("", "Sync off", "click Sync to start", "");
       } else if (msg.state === "synced") {
+        syncBtn.disabled = false;
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
         // State word is just "Synced" (bold) — the mockup's regular-weight
         // "to listener" is a static mockup label; the real, richer sync
@@ -615,10 +639,13 @@
         // code.js's LAST_SYNC_STORAGE_KEY comment), only this summary.
         renderCounts({ header: msg.header, warningsByType: msg.warningsByType, warningCount: msg.warningCount });
       } else if (msg.state === "unreachable") {
-        setSyncRow("amber", "Listener unreachable", msg.message + " — will retry on next change", "");
+        syncBtn.disabled = false;
+        setSyncRow("amber", "Listener unreachable", msg.message + " — click Sync to retry", "");
       } else if (msg.state === "listener-error") {
+        syncBtn.disabled = false;
         setSyncRow("amber", "Listener error", msg.message, "");
       } else if (msg.state === "error") {
+        syncBtn.disabled = false;
         setSyncRow("red", "Sync error", msg.message, "");
       }
     }
@@ -643,9 +670,8 @@
         const payloadBytes = new Blob([payload]).size;
         if (payloadBytes > LISTENER_MAX_BYTES) {
           // REFUSE to POST at all — sending anyway just burns a round trip
-          // to get the same 413 back. This is the ONE POST code path shared
-          // by every trigger (the immediate export on "Sync" and every
-          // debounced document-change resync), so the refusal covers both.
+          // to get the same 413 back. This is the ONE POST code path every
+          // Sync click runs through, so the refusal covers it every time.
           const mb = (payloadBytes / (1024 * 1024)).toFixed(1);
           setSyncRow("red", "Payload too large", mb + "MB — over the listener's 50MB limit, refusing to POST", "");
           parent.postMessage(
@@ -743,8 +769,8 @@
       if (msg.type === "export-progress") {
         // One-way phase status during buildExport() (collecting variables/
         // styles/components, resolving templates, scanning capabilities,
-        // linting) — shown in the sync row's detail text so it's visible
-        // for every export (toggling Sync on, or a debounced resync).
+        // linting) — shown in the sync row's detail text for every Sync
+        // click's export.
         setSyncRow("", "Exporting…", msg.text, "");
         return;
       }
