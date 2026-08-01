@@ -247,11 +247,18 @@ export const STDERR_TAIL_BYTES = 64 * 1024;
 export function runClaude({
   prompt, model = "sonnet", cwd = process.cwd(), allowedTools, disallowedTools, persona, skills,
   jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
-  sessionId, label, pluginDir,
+  sessionId, label, pluginDir, sessionSalt,
 }, specName, { spawnImpl = spawn, timeoutMs } = {}) {
   return new Promise((resolve) => {
     const finalPrompt = applyPersona(prompt, persona, skills);
-    const resolvedSessionId = sessionId ?? (label ? deterministicSessionId(`${specName}:${label}`) : undefined);
+    // sessionSalt (optional, additive-only) lets a caller that dispatches the
+    // same spec name + label across separate --live invocations (skill-eval's
+    // candidate/baseline arms, run repeatedly) avoid colliding on the same
+    // deterministic session id. Omitted entirely, the seed — and therefore
+    // buildArgs' output — is byte-identical to before this option existed,
+    // preserving legitimate resume/dedup semantics for every other spec.
+    const seed = `${specName}:${label}${sessionSalt ? `:${sessionSalt}` : ""}`;
+    const resolvedSessionId = sessionId ?? (label ? deterministicSessionId(seed) : undefined);
     const args = buildArgs({
       prompt: finalPrompt, model, allowedTools, disallowedTools, jsonSchema, effort,
       permissionMode, maxTurns, maxBudgetUsd, fallbackModel, sessionId: resolvedSessionId, pluginDir,

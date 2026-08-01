@@ -222,6 +222,22 @@ test("runClaude: a successful run resolves ok:true with outcome success", async 
   assert.equal(r.result, "done");
 });
 
+// ---- sessionSalt: additive-only fix for cross-invocation session-ID collisions ----
+
+test("runClaude: same spec name + label produce the same deterministic sessionId when sessionSalt is omitted (unchanged behavior)", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"done"}' });
+  const r1 = await runClaude({ prompt: "hi", label: "x" }, "spec", { spawnImpl });
+  const r2 = await runClaude({ prompt: "hi", label: "x" }, "spec", { spawnImpl });
+  assert.equal(r1.sessionId, r2.sessionId);
+});
+
+test("runClaude: a different sessionSalt produces a different sessionId for the same spec name + label", async () => {
+  const spawnImpl = fakeSpawn({ stdout: '{"is_error":false,"result":"done"}' });
+  const r1 = await runClaude({ prompt: "hi", label: "x", sessionSalt: "run-a" }, "spec", { spawnImpl });
+  const r2 = await runClaude({ prompt: "hi", label: "x", sessionSalt: "run-b" }, "spec", { spawnImpl });
+  assert.notEqual(r1.sessionId, r2.sessionId);
+});
+
 // ---- classifyOutcome truth table ----------------------------------------
 
 test("classifyOutcome: truth table", () => {
