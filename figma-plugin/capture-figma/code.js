@@ -1303,6 +1303,43 @@ async function walkV2Subtree(root, variableById, out, collectBindings) {
   await visit(root, null, false, null);
 }
 
+// === COMPONENT SET WALK (walk injected — tested via buildexport-perf.test.mjs,
+// which extracts this block by its markers and diffs it against the previous
+// sequential implementation) ===
+// Runs `walk(set, out)` for every component set and merges what each walk
+// collected into the shared `out` collector.
+//
+// OPTIMIZATION (lag verdict 2026-08-01, Addendum 6 — the components phase is
+// 10.5s of a 15.3s export): the sets used to be walked strictly one at a time,
+// each walk itself a chain of awaited plugin-API calls (getStyleByIdAsync,
+// getMainComponentAsync, getVariableByIdAsync — one round trip per layer, per
+// bound field). Nothing about set N's walk depends on set N-1's, so the walks
+// now go out together and their round trips overlap.
+//
+// Output is provably unchanged: each walk collects into its OWN bucket, and
+// the buckets are merged in SET order once all have settled — so completion
+// order cannot leak into the collected arrays the way it would if every walk
+// appended into the shared collector as it went (proven differentially in
+// buildexport-perf.test.mjs against a walk that deliberately completes in
+// reverse call order).
+async function walkComponentSets(componentSetNodes, out, walk) {
+  const buckets = componentSetNodes.map(function () {
+    return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  });
+  await Promise.all(
+    componentSetNodes.map(function (set, i) {
+      return walk(set, buckets[i]);
+    })
+  );
+  for (const bucket of buckets) {
+    for (const entry of bucket.nodeSnapshots) out.nodeSnapshots.push(entry);
+    for (const entry of bucket.spacerInstances) out.spacerInstances.push(entry);
+    for (const entry of bucket.latentCapabilities) out.latentCapabilities.push(entry);
+    for (const entry of bucket.variantBindings) out.variantBindings.set(entry[0], entry[1]);
+  }
+}
+// === END COMPONENT SET WALK ===
+
 // Reads one overridden field's current value off the live node. Common
 // scalar fields resolve directly; anything else falls back to a JSON-safe
 // snapshot of the raw property (Figma node fields are plain data, so
@@ -1688,18 +1725,30 @@ async function buildExport() {
   phase("styles");
 
   reportPhase("Collecting components…");
+  // SUB-PHASE ATTRIBUTION (operator verdict 2026-08-01, Addendum 6): the
+  // components phase measured 10.5s of a 15.3s export, but it is two very
+  // different things — the page-wide findAll scan, and the per-set subtree
+  // walk that resolves bindings against the plugin API. Each is timed
+  // separately so the next real sync attributes the cost; `components`
+  // stays as their roll-up so the operator's existing reading of the line
+  // keeps meaning the same thing.
+  const componentsStartedAt = Date.now();
   const componentNodes = await findAllComponentNodes(figma.root.children);
   const componentSetNodes = componentNodes.sets;
-  for (const set of componentSetNodes) {
-    await walkV2Subtree(set, variableById, warningsCollector, true);
-  }
+  phase("componentsScan");
+  await walkComponentSets(componentSetNodes, warningsCollector, function (set, out) {
+    return walkV2Subtree(set, variableById, out, true);
+  });
   const standaloneComponentNodes = componentNodes.standalone;
 
-  phase("components");
+  phase("componentsWalk");
+  timings.components = Date.now() - componentsStartedAt;
 
   reportPhase("Resolving templates…");
+  const templatesStartedAt = Date.now();
   const examplePage = findExamplePage();
   const exampleData = await buildExampleData(examplePage, variableById, warningsCollector);
+  phase("templatesExample");
 
   const componentSets = buildComponentSets(buildComponentSetSnapshots(componentSetNodes));
   const components = buildComponents(
@@ -1708,7 +1757,8 @@ async function buildExport() {
   const exampleStructure = buildExampleStructure(exampleData.sectionSnapshots);
   const templateFrames = buildTemplateFrames(exampleData.frameSnapshots);
 
-  phase("templates");
+  phase("templatesTransform");
+  timings.templates = Date.now() - templatesStartedAt;
 
   reportPhase("Scanning capabilities…");
   const latentCapabilities = buildLatentCapabilities(warningsCollector.latentCapabilities);

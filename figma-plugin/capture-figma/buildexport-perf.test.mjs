@@ -167,6 +167,79 @@ test("mode values: a variable with no valuesByMode at all matches the sequential
   assert.equal(JSON.stringify(after), JSON.stringify(before));
 });
 
+// --- component-set walk ---------------------------------------------------
+
+const { walkComponentSets } = extract("COMPONENT SET WALK", "{ walkComponentSets }");
+
+function emptyCollector() {
+  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+}
+
+// A walk that finishes in the REVERSE of the order it was called in — the only
+// way a parallelized version could differ from a sequential one is by letting
+// completion order leak into the collected output.
+function outOfOrderWalk(setCount) {
+  let call = 0;
+  return (set, out) => {
+    const delay = (setCount - call++) * 2;
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        out.nodeSnapshots.push({ id: set.name + ":root" }, { id: set.name + ":child" });
+        out.spacerInstances.push({ id: set.name + ":spacer" });
+        out.latentCapabilities.push({ node: set.name });
+        out.variantBindings.set(set.name + ":v1", [{ layer: "l", property: "fill", value: set.name }]);
+        resolve();
+      }, delay);
+    });
+  };
+}
+
+// The shipped-before-this-change implementation: one set at a time, every walk
+// appending straight into the shared collector (code.js at 4b5ce19).
+async function sequentialWalkBaseline(sets, out, walk) {
+  for (const set of sets) await walk(set, out);
+}
+
+const SETS = [{ name: "Button" }, { name: "Card" }, { name: "Chip" }, { name: "Spacer" }];
+
+function collectorAsJson(out) {
+  return JSON.stringify({
+    nodeSnapshots: out.nodeSnapshots,
+    spacerInstances: out.spacerInstances,
+    latentCapabilities: out.latentCapabilities,
+    variantBindings: [...out.variantBindings.entries()],
+  });
+}
+
+test("component-set walk: parallel walks collect byte-identically to the sequential version, entry order included", async () => {
+  const before = emptyCollector();
+  await sequentialWalkBaseline(SETS, before, outOfOrderWalk(SETS.length));
+  const after = emptyCollector();
+  await walkComponentSets(SETS, after, outOfOrderWalk(SETS.length));
+  assert.equal(collectorAsJson(after), collectorAsJson(before));
+});
+
+test("component-set walk: the walks really do overlap rather than queue", async () => {
+  let inFlight = 0;
+  let peak = 0;
+  const walk = () =>
+    new Promise((resolve) => {
+      peak = Math.max(peak, ++inFlight);
+      setTimeout(() => {
+        inFlight--;
+        resolve();
+      }, 5);
+    });
+  await walkComponentSets(SETS, emptyCollector(), walk);
+  assert.equal(peak, SETS.length, "every set's walk should be in flight at once");
+});
+
+test("component-set walk: no sets is not an error and collects nothing", async () => {
+  const out = emptyCollector();
+  await walkComponentSets([], out, outOfOrderWalk(0));
+  assert.equal(collectorAsJson(out), collectorAsJson(emptyCollector()));
+});
+
 // --- instrumentation ------------------------------------------------------
 
 test("timings: buildExport records every phase plus a total into header.timings", () => {
@@ -174,11 +247,34 @@ test("timings: buildExport records every phase plus a total into header.timings"
   const fn = /async function buildExport\(\) \{([\s\S]*?)\n  return output;/.exec(source);
   assert.ok(fn, "buildExport not found");
   const body = fn[1];
-  for (const phase of ["variables", "styles", "components", "templates", "capabilities", "lint"]) {
+  for (const phase of ["variables", "styles", "capabilities", "lint"]) {
     assert.match(body, new RegExp(`phase\\("${phase}"`), `no timing mark for the ${phase} phase`);
+  }
+  // components and templates are roll-ups over their sub-phases (see below).
+  for (const phase of ["components", "templates"]) {
+    assert.match(body, new RegExp(`timings\\.${phase} = `), `no timing for the ${phase} phase`);
   }
   assert.match(body, /timings: /);
   assert.match(body, /totalMs/);
+});
+
+// Sub-phase attribution (operator verdict 2026-08-01, Addendum 6: components
+// 10.5s of a 15.3s export — but "components" is three different things in a
+// trench coat). The next real sync must say WHICH of them, even if the
+// optimizations below only get part of it.
+test("timings: the two heavy phases are broken down into their sub-phases", () => {
+  const source = readCode();
+  const fn = /async function buildExport\(\) \{([\s\S]*?)\n  return output;/.exec(source);
+  assert.ok(fn, "buildExport not found");
+  const body = fn[1];
+  for (const phase of ["componentsScan", "componentsWalk", "templatesExample", "templatesTransform"]) {
+    assert.match(body, new RegExp(`phase\\("${phase}"`), `no timing mark for the ${phase} sub-phase`);
+  }
+  // The rolled-up phase names stay, so the operator's existing reading of the
+  // line ("components 10.5s") still means the same thing.
+  for (const phase of ["components", "templates"]) {
+    assert.match(body, new RegExp(`timings\\.${phase} = `), `${phase} is no longer reported as a roll-up`);
+  }
 });
 
 test("timings: the synced status carries them to the UI so no DevTools trace is needed", () => {
