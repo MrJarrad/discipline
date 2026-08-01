@@ -732,12 +732,24 @@ function nextRecordState(node, nodeWasRecorded) {
 // DUPLICATE SIBLING NAMES: the id-first/name-fallback correlation every v2
 // diff function uses (diffComponentSets, diffExampleStructure,
 // diffTemplateFrames, diffLatentCapabilities in capture-listener.mjs) falls
-// back to matching by name among siblings when an id isn't stable — two
-// siblings sharing a name breaks that fallback ambiguously, so it's flagged
-// as a structural warning wherever it occurs. `nodeSnapshots` is expected to
-// already be scoped to the override interface surface (see
+// back to matching by name among siblings when an id isn't stable. A name
+// collision only actually threatens that fallback when the colliding
+// siblings are DIFFERENT THINGS sharing a name — different node types, or
+// (for instances) different main components. Same-named siblings that are
+// all instances of the SAME main component are interchangeable repeats (the
+// DS-intended "I have a row, not specifically 6 rows" case — vault
+// decisions/capture-ui-feel-verdict-2026-08-01.md Addendum 8): the
+// name-fallback lands on an equivalent node either way, so the collision is
+// harmless and is not flagged. `nodeSnapshots` is expected to already be
+// scoped to the override interface surface (see
 // isOverrideSurfaceBoundary/nextRecordState above) by the caller's traversal
 // — this function itself has no opinion on scope, only on collision.
+function siblingsAreInterchangeable(a, b) {
+  if (a.type !== b.type) return false;
+  if (a.type !== "INSTANCE") return false;
+  return !!a.mainComponentId && a.mainComponentId === b.mainComponentId;
+}
+
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   const byParent = new Map();
   for (const node of nodeSnapshots || []) {
@@ -747,21 +759,28 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   }
   const warnings = [];
   for (const siblings of byParent.values()) {
-    const seen = new Set();
-    const flagged = new Set();
+    const byName = new Map();
     for (const node of siblings) {
-      if (seen.has(node.name) && !flagged.has(node.name)) {
-        const context = node.parentPath || siblings[0].parentId || null;
-        warnings.push({
-          type: "duplicate_sibling_name",
-          nodeId: node.id || null,
-          nodeName: node.name,
-          context: context,
-          message: `Duplicate sibling name "${node.name}" under ${context} — layer names must be unique among siblings for stable id/name-fallback matching.`,
-        });
-        flagged.add(node.name);
-      }
-      seen.add(node.name);
+      const key = node.name;
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push(node);
+    }
+    for (const group of byName.values()) {
+      if (group.length < 2) continue;
+      const first = group[0];
+      const allInterchangeable = group.every(function (node) {
+        return siblingsAreInterchangeable(first, node);
+      });
+      if (allInterchangeable) continue;
+      const node = group[1];
+      const context = node.parentPath || siblings[0].parentId || null;
+      warnings.push({
+        type: "duplicate_sibling_name",
+        nodeId: node.id || null,
+        nodeName: node.name,
+        context: context,
+        message: `Duplicate sibling name "${node.name}" under ${context} — layer names must be unique among siblings for stable id/name-fallback matching.`,
+      });
     }
   }
   return warnings;
@@ -1261,17 +1280,24 @@ async function collectLayerBindingEntries(node, layer, variableById, bindingsOut
 // own internals — they belong to a different component, not this variant.
 async function walkV2Subtree(root, variableById, out, collectBindings) {
   async function visit(node, parent, recordHere, bindingCtx) {
+    // Resolved once, up front, so both the nodeSnapshot (duplicate-sibling
+    // same-main-component check) and the spacer-instance detection below
+    // share the same lookup — no second getMainComponentAsync round trip.
+    const instanceMainComponent = node.type === "INSTANCE" ? await getInstanceMainComponent(node) : null;
+
     if (recordHere) {
       out.nodeSnapshots.push({
         id: node.id,
         name: node.name,
+        type: node.type,
+        mainComponentId: instanceMainComponent ? instanceMainComponent.id : null,
         parentId: parent ? parent.id : null,
         parentPath: parent ? nodeNamePath(parent, root) : null,
       });
     }
 
     if (node.type === "INSTANCE") {
-      const mainComponent = await getInstanceMainComponent(node);
+      const mainComponent = instanceMainComponent;
       const mainComponentSetName = resolveComponentSetName(mainComponent);
       if (mainComponentSetName && RAW_SPACER_COMPONENT_NAMES.has(mainComponentSetName)) {
         out.spacerInstances.push({ id: node.id, name: node.name, path: nodeNamePath(node, root) });
@@ -1547,6 +1573,8 @@ async function processExampleFrame(frame, parentId, parentPath, variableById, wa
   warningsCollector.nodeSnapshots.push({
     id: frame.id,
     name: frame.name,
+    type: frame.type,
+    mainComponentId: null,
     parentId: parentId,
     parentPath: parentPath,
   });

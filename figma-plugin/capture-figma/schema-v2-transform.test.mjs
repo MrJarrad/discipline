@@ -258,6 +258,75 @@ test("buildWarnings: flags two siblings sharing a name under the same parent, as
   ]);
 });
 
+test("buildWarnings: N same-named INSTANCE siblings of the SAME main component are interchangeable repeats — no warning (operator ruling 2026-08-01, Addendum 8)", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "Row", type: "INSTANCE", mainComponentId: "comp-row", parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n2", name: "Row", type: "INSTANCE", mainComponentId: "comp-row", parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n3", name: "Row", type: "INSTANCE", mainComponentId: "comp-row", parentId: "frame-1", parentPath: "Homepage/List" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components are genuine ambiguity — still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "Row", type: "INSTANCE", mainComponentId: "comp-row", parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n2", name: "Row", type: "INSTANCE", mainComponentId: "comp-row-variant", parentId: "frame-1", parentPath: "Homepage/List" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "Row",
+      context: "Homepage/List",
+      message: 'Duplicate sibling name "Row" under Homepage/List — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
+});
+
+test("buildWarnings: a same-named INSTANCE + FRAME pair is a node-type mismatch — still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "Row", type: "INSTANCE", mainComponentId: "comp-row", parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n2", name: "Row", type: "FRAME", mainComponentId: null, parentId: "frame-1", parentPath: "Homepage/List" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "Row",
+      context: "Homepage/List",
+      message: 'Duplicate sibling name "Row" under Homepage/List — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
+});
+
+test("buildWarnings: two same-named FRAME (non-instance) siblings keep the unchanged behavior — flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "Section", type: "FRAME", mainComponentId: null, parentId: "frame-1", parentPath: "Homepage" },
+      { id: "n2", name: "Section", type: "FRAME", mainComponentId: null, parentId: "frame-1", parentPath: "Homepage" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "Section",
+      context: "Homepage",
+      message: 'Duplicate sibling name "Section" under Homepage — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
+});
+
 test("buildWarnings: flags a non-device axis that diverges between an M-/D-Example frame pair (axis-ownership violation), as a typed record", () => {
   const result = buildWarnings({
     templateFrames: [

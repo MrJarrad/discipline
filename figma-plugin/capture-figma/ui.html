@@ -710,12 +710,16 @@
         why: "A spacer instance (of the SpaceVertical/SpaceHorizontal components) has a layer name that isn't one of the four canonical spacer names — most often it was never renamed after being dropped in, so it still carries the component's own name.",
         fix: "Rename the layer to whichever of SpacerTop, SpacerBottom, SpacerHorizontal or SpacerVertical describes the gap it holds. The component itself stays as-is; only the instance's layer name is checked.",
       },
-      // code.js buildDuplicateSiblingNameWarnings(): two nodes sharing a name
-      // under the same parent, scoped to the override interface surface
-      // (direct children of a COMPONENT or FRAME, plus one level under a
-      // dot-prefixed sub-component).
+      // code.js buildDuplicateSiblingNameWarnings(): two or more nodes sharing
+      // a name under the same parent, scoped to the override interface
+      // surface (direct children of a COMPONENT or FRAME, plus one level
+      // under a dot-prefixed sub-component) — but only when they're
+      // DIFFERENT THINGS: a different node type, or (for instances) a
+      // different main component. Same-named instances of the SAME main
+      // component are suppressed as interchangeable repeats (operator
+      // ruling 2026-08-01, "a row, not specifically 6 rows").
       duplicate_sibling_name: {
-        why: "Two layers directly under the same component or frame share a name. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared sibling name makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change.",
+        why: "Two or more layers directly under the same component or frame share a name AND are different things — a different node type, or (for instances) a different main component. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared name over different things makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change. Same-named instances of the SAME main component (interchangeable repeats, e.g. six identical Row instances) never trigger this — they're intentional.",
         fix: "Rename one of them so every sibling under that parent is unique (e.g. \"Row\" and \"Row 2\" become \"Row / label\" and \"Row / value\"). Only a block's own addressable layers are checked — deep icon internals are ignored.",
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
@@ -958,7 +962,15 @@
     // expandable-group language as the Figma-hygiene warnings above, because
     // the operator reads them together and the difference that matters is
     // WHICH question failed, not how the two look.
+    //
+    // When conformance field is absent from the listener response (older
+    // listeners that don't run the check), the entire section stays hidden.
     function renderDrift(conformance) {
+      // Hide entirely when conformance field is missing (not reported).
+      if (!conformance) {
+        driftRow.hidden = true;
+        return;
+      }
       driftRow.hidden = false;
       driftLaneEl.textContent = formatDriftLane(conformance);
       driftGroupsEl.innerHTML = "";
