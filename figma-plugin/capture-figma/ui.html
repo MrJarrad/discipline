@@ -265,6 +265,61 @@
       color: var(--color-chip-count-text);
     }
 
+    /* Warning groups: one expandable row per warning type, in the same
+       chip/label language as the other count sections (chip background,
+       chip radius, chip count weight) — the summary line reads like a chip
+       that opens. Collapsed by default so the section's resting height
+       matches the old chip row. */
+    .warn-group {
+      background: var(--color-chip-bg);
+      border: 1px solid var(--color-chip-border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-1) var(--space-3);
+      color: var(--color-chip-label-text);
+    }
+    .warn-group + .warn-group {
+      margin-top: var(--space-1);
+    }
+    .warn-group summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    .warn-group summary::-webkit-details-marker {
+      display: none;
+    }
+    .warn-group summary::before {
+      content: "▶ ";
+      color: var(--color-text-muted);
+    }
+    .warn-group[open] summary::before {
+      content: "▼ ";
+    }
+    .warn-count {
+      font-weight: 600;
+      color: var(--color-chip-count-text);
+    }
+    .warn-line {
+      margin: var(--space-1) 0 0;
+      color: var(--color-text-secondary);
+    }
+    .warn-line-label {
+      font-weight: 700;
+      color: var(--color-text);
+    }
+    .warn-samples {
+      margin: var(--space-1) 0 0;
+      padding-left: var(--space-4);
+      color: var(--color-text-secondary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      overflow-wrap: anywhere;
+    }
+    .warn-samples-more {
+      font-family: var(--font-sans);
+      color: var(--color-text-muted);
+      list-style: none;
+    }
+
     .raw-json-row {
       padding: var(--space-4) var(--space-5);
     }
@@ -509,6 +564,63 @@
       downloadBtn.setAttribute("aria-disabled", "false");
     }
 
+    // === WARNING GUIDE (pure catalog — tested via warning-guide.test.mjs,
+    // which extracts this block by its markers and asserts its keys equal the
+    // types code.js actually emits) ===
+    //
+    // Operator verdict 2026-08-01, Addendum 2 item 5: a bare "904 warning(s)"
+    // is unactionable. Every entry below is DERIVED from the emitting
+    // condition in code.js, not invented — the citation on each says which
+    // code path it describes. If a type's remedy is a policy decision rather
+    // than a file edit, the copy says so instead of inventing a fix.
+    const WARNING_GUIDE = {
+      // code.js buildMalformedSpacerNameWarnings(): fires for an INSTANCE
+      // whose main component SET is SpaceVertical/SpaceHorizontal (the only
+      // instances collected into spacerInstances) when the instance's own
+      // LAYER name isn't one of the four canonical names.
+      malformed_spacer_name: {
+        why: "A spacer instance (of the SpaceVertical/SpaceHorizontal components) has a layer name that isn't one of the four canonical spacer names — most often it was never renamed after being dropped in, so it still carries the component's own name.",
+        fix: "Rename the layer to whichever of SpacerTop, SpacerBottom, SpacerHorizontal or SpacerVertical describes the gap it holds. The component itself stays as-is; only the instance's layer name is checked.",
+      },
+      // code.js buildDuplicateSiblingNameWarnings(): two nodes sharing a name
+      // under the same parent, scoped to the override interface surface
+      // (direct children of a COMPONENT or FRAME, plus one level under a
+      // dot-prefixed sub-component).
+      duplicate_sibling_name: {
+        why: "Two layers directly under the same component or frame share a name. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared sibling name makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change.",
+        fix: "Rename one of them so every sibling under that parent is unique (e.g. \"Row\" and \"Row 2\" become \"Row / label\" and \"Row / value\"). Only a block's own addressable layers are checked — deep icon internals are ignored.",
+      },
+      // code.js compareInstancePair(): a non-device variant axis whose value
+      // differs between the M- and D- frame of one Example pair.
+      axis_ownership_violation: {
+        why: "An instance appears in both the M- and D- frame of an Example pair with a different value on a non-device variant axis. A layout holds one opinion per axis; only the device axis is allowed to differ between mobile and desktop.",
+        fix: "Pick the intended value and set it on both frames' instances — or, if the divergence is genuinely correct, raise it with the operator for a ratified exception rather than leaving it flagged.",
+      },
+      // code.js findRatifiedAxisException()/RATIFIED_AXIS_EXCEPTIONS: the same
+      // condition as above, downgraded (not dropped) for a cited exception.
+      ratified_axis_exception: {
+        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has already ratified as an intended exception (currently NavigationHeader's layout axis). It is reported rather than hidden so the suppression stays auditable.",
+        fix: "Nothing to fix — this is ratified operator policy, informational only. It only changes if the ruling changes.",
+      },
+      // code.js buildAxisOwnershipViolationWarnings(): within one instance-
+      // name group where BOTH sides repeat the name, an instance at a position
+      // past the shorter side's count.
+      unpaired_template_instance: {
+        why: "An Example pair's M- and D- frame hold a different number of instances of the same block, so instances past the shorter side's count have no counterpart to compare against.",
+        fix: "Add the missing instance on the shorter side, or delete the extra one — whichever matches the intended layout. Repeated content blocks correlate in authoring order, so also check the order matches.",
+      },
+    };
+
+    function warningGuideFor(type) {
+      return (
+        WARNING_GUIDE[type] || {
+          why: "This warning type has no documented explanation yet — see the plugin's warning builders in code.js for the condition that emits it.",
+          fix: "Read the individual warning messages in the Raw JSON panel; each one names the offending node and what it expected.",
+        }
+      );
+    }
+    // === END WARNING GUIDE ===
+
     // --- count sections ----------------------------------------------------
 
     function statChip(label, count) {
@@ -549,6 +661,81 @@
           row.appendChild(statChip(chipLabel, count));
         }
         section.appendChild(row);
+      }
+
+      return section;
+    }
+
+    // How many offending node names each warning group lists before it
+    // summarises the rest as "+K more" — enough to recognise the pattern
+    // (all in one frame? all the same layer name?) without turning an 839-
+    // strong group into an unscrollable wall.
+    const WARNING_SAMPLE_LIMIT = 5;
+
+    // The WARNINGS section: same heading language as the other count
+    // sections, but each type is an expandable group carrying its why/fix
+    // copy and the first few offending nodes — a bare per-type chip count
+    // was what the operator called unactionable.
+    function warningSection(total, groups) {
+      const section = document.createElement("div");
+      section.className = "row count-section";
+
+      const heading = document.createElement("div");
+      heading.className = "count-heading";
+      const num = document.createElement("span");
+      num.className = "count-number";
+      num.textContent = total.toLocaleString();
+      const lab = document.createElement("span");
+      lab.className = "count-label";
+      lab.textContent = "WARNINGS";
+      heading.appendChild(num);
+      heading.appendChild(lab);
+      section.appendChild(heading);
+
+      for (const group of groups) {
+        const details = document.createElement("details");
+        details.className = "warn-group";
+
+        const summary = document.createElement("summary");
+        const count = document.createElement("span");
+        count.className = "warn-count";
+        count.textContent = group.count.toLocaleString();
+        summary.appendChild(count);
+        summary.appendChild(document.createTextNode(" " + group.type.replace(/_/g, "-")));
+        details.appendChild(summary);
+
+        const guide = warningGuideFor(group.type);
+        for (const [label, text] of [["Why", guide.why], ["Fix", guide.fix]]) {
+          const p = document.createElement("p");
+          p.className = "warn-line";
+          const strong = document.createElement("span");
+          strong.className = "warn-line-label";
+          strong.textContent = label + " ";
+          p.appendChild(strong);
+          p.appendChild(document.createTextNode(text));
+          details.appendChild(p);
+        }
+
+        if (group.samples.length) {
+          const list = document.createElement("ul");
+          list.className = "warn-samples";
+          for (const sample of group.samples) {
+            const li = document.createElement("li");
+            li.textContent = sample;
+            list.appendChild(li);
+          }
+          const remaining = group.count - group.samples.length;
+          if (remaining > 0) {
+            const li = document.createElement("li");
+            li.className = "warn-samples-more";
+            li.textContent = "+" + remaining.toLocaleString() + " more";
+            list.appendChild(li);
+          }
+          details.appendChild(list);
+        }
+
+        details.addEventListener("toggle", scheduleResize);
+        section.appendChild(details);
       }
 
       return section;
@@ -604,24 +791,35 @@
       // visual language, as a stated assumption rather than a silent
       // invention; flagged for the operator to veto.
       let byType;
+      let samplesByType;
       let warningsTotal;
       if (Array.isArray(data.warnings)) {
         byType = new Map();
+        samplesByType = new Map();
         for (const w of data.warnings) {
           const key = w && w.type ? w.type : "unknown";
           byType.set(key, (byType.get(key) || 0) + 1);
+          const samples = samplesByType.get(key) || [];
+          if (samples.length < WARNING_SAMPLE_LIMIT) {
+            samples.push((w && (w.context || w.nodeName)) || "(unnamed node)");
+            samplesByType.set(key, samples);
+          }
         }
         warningsTotal = data.warnings.length;
       } else {
+        // Restored from clientStorage: only the per-type counts survive (the
+        // raw warnings[] array is deliberately not persisted, see code.js's
+        // LAST_SYNC_STORAGE_KEY comment) — the why/fix copy still applies,
+        // there are just no offending node names to list.
         byType = new Map(Object.entries(data.warningsByType || {}));
+        samplesByType = new Map();
         warningsTotal = typeof data.warningCount === "number" ? data.warningCount : 0;
       }
       const warningEntries = Array.from(byType.entries()).sort((a, b) => b[1] - a[1]);
       countsEl.appendChild(
-        countSection(
+        warningSection(
           warningsTotal,
-          "WARNINGS",
-          warningEntries.map(([type, n]) => [type.replace(/_/g, "-"), n])
+          warningEntries.map(([type, n]) => ({ type: type, count: n, samples: samplesByType.get(type) || [] }))
         )
       );
       scheduleResize();
