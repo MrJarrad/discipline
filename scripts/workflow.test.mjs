@@ -101,6 +101,16 @@ test("buildArgs: end-to-end — an unset-maxTurns agent run through applyAgentDe
   assert.equal(args[args.indexOf("--max-turns") + 1], String(DEFAULT_MAX_TURNS));
 });
 
+test("buildArgs: pluginDir passes through as --plugin-dir (T1 spike mechanism, used by skill-eval's baseline arm)", () => {
+  const args = buildArgs({ prompt: "hi", model: "haiku", pluginDir: "/tmp/discipline-alt" });
+  assert.equal(args[args.indexOf("--plugin-dir") + 1], "/tmp/discipline-alt");
+});
+
+test("buildArgs: omitting pluginDir never adds --plugin-dir", () => {
+  const args = buildArgs({ prompt: "hi", model: "haiku" });
+  assert.equal(args.includes("--plugin-dir"), false);
+});
+
 // ---- collectBurnWarnings -----------------------------------------------
 
 function specWithAgents(agents, phaseCount = 1) {

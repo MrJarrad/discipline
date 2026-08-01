@@ -246,6 +246,7 @@ async function main() {
   const getArg = (flag) => { const i = args.indexOf(flag); return i === -1 ? undefined : args[i + 1]; };
   const tag = getArg("--tag");
   const baselinePluginDir = getArg("--baseline-plugin-dir");
+  const candidatePluginDir = getArg("--candidate-plugin-dir");
   const live = args.includes("--live");
 
   let cases = loadCases(casesPath);
@@ -260,13 +261,13 @@ async function main() {
     process.exit(1);
   }
 
-  const candidateSpec = compileSpec(cases, { armName: "candidate" });
+  const candidateSpec = compileSpec(cases, { armName: "candidate", pluginDir: candidatePluginDir });
   if (!live) {
     console.log(JSON.stringify({ dryRun: true, candidateSpec, baselinePluginDir: baselinePluginDir ?? null }, null, 2));
     return;
   }
 
-  const results = await runArms({ cases, baselinePluginDir });
+  const results = await runArms({ cases, baselinePluginDir, candidatePluginDir });
   console.log(JSON.stringify({ results }, null, 2));
   const anyRed = results.some((r) => r.candidate.verdict === VERDICT.RED);
   process.exit(anyRed ? 1 : 0);
@@ -278,7 +279,7 @@ async function main() {
 // Each agent's real sessionId is captured off runWorkflow's `log` callback
 // (workflow.mjs computes it internally and never returns it in its final
 // value), then used to locate and read that agent's transcript.
-export async function runArms({ cases, baselinePluginDir, runWorkflowImpl = runWorkflow }) {
+export async function runArms({ cases, baselinePluginDir, candidatePluginDir, runWorkflowImpl = runWorkflow }) {
   const runArm = async (armName, pluginDir) => {
     const spec = compileSpec(cases, { armName, pluginDir });
     const sessionsByLabel = new Map();
@@ -301,7 +302,7 @@ export async function runArms({ cases, baselinePluginDir, runWorkflowImpl = runW
     return observedByCase;
   };
 
-  const candidateByCase = await runArm("candidate", undefined);
+  const candidateByCase = await runArm("candidate", candidatePluginDir);
   const baselineByCase = baselinePluginDir ? await runArm("baseline", baselinePluginDir) : null;
 
   return cases.map((c) => {

@@ -208,7 +208,7 @@ const spawnEnv = {
 export function buildArgs({
   prompt, model = "sonnet", allowedTools, disallowedTools,
   jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
-  sessionId,
+  sessionId, pluginDir,
 }) {
   const args = [
     "-p", prompt,
@@ -226,6 +226,11 @@ export function buildArgs({
   if (maxBudgetUsd != null) args.push("--max-budget-usd", String(maxBudgetUsd));
   if (fallbackModel) args.push("--fallback-model", fallbackModel);
   if (sessionId) args.push("--session-id", sessionId);
+  // Session-only alternate plugin root (T1 spike, eval-harness-shape
+  // §5.3/§9 S3) — never installs/registers a plugin, just points this one
+  // invocation at a different skills/ tree. Used by skill-eval.mjs's
+  // baseline arm to dispatch against a pre-change plugin worktree.
+  if (pluginDir) args.push("--plugin-dir", pluginDir);
   return args;
 }
 
@@ -242,14 +247,14 @@ export const STDERR_TAIL_BYTES = 64 * 1024;
 export function runClaude({
   prompt, model = "sonnet", cwd = process.cwd(), allowedTools, disallowedTools, persona, skills,
   jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
-  sessionId, label,
+  sessionId, label, pluginDir,
 }, specName, { spawnImpl = spawn, timeoutMs } = {}) {
   return new Promise((resolve) => {
     const finalPrompt = applyPersona(prompt, persona, skills);
     const resolvedSessionId = sessionId ?? (label ? deterministicSessionId(`${specName}:${label}`) : undefined);
     const args = buildArgs({
       prompt: finalPrompt, model, allowedTools, disallowedTools, jsonSchema, effort,
-      permissionMode, maxTurns, maxBudgetUsd, fallbackModel, sessionId: resolvedSessionId,
+      permissionMode, maxTurns, maxBudgetUsd, fallbackModel, sessionId: resolvedSessionId, pluginDir,
     });
 
     const startedAt = Date.now();
