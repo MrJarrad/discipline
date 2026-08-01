@@ -88,6 +88,12 @@
       border-bottom: 1px solid var(--color-border);
     }
 
+    /* `hidden` is only a UA-stylesheet rule, so the author-level display
+       above wins and a hidden row would still render — restate it here. */
+    .row[hidden] {
+      display: none;
+    }
+
     .status-row-top {
       display: flex;
       align-items: center;
@@ -283,6 +289,14 @@
        chip radius, chip count weight) — the summary line reads like a chip
        that opens. Collapsed by default so the section's resting height
        matches the old chip row. */
+    /* The drift lane's one-line verdict — the plain-language answer above
+       the expandable detail, in the same secondary voice as a status detail. */
+    .drift-lane {
+      margin: 0;
+      color: var(--color-text-secondary);
+      overflow-wrap: break-word;
+    }
+
     .warn-group {
       background: var(--color-chip-bg);
       border: 1px solid var(--color-chip-border);
@@ -398,6 +412,19 @@
 
   <div id="counts"></div>
 
+  <!-- Design<->code drift: the listener's conformance + binding lanes, a
+       different question from the Figma-hygiene warnings above (is the FILE
+       well-formed? vs does the CODE still match the file?). Rendered empty
+       until a sync reports on it. -->
+  <section class="row" id="drift-row" aria-label="Design to code drift" hidden>
+    <div class="count-heading">
+      <span class="count-number" id="drift-number">—</span>
+      <span class="count-label">DESIGN↔CODE DRIFT</span>
+    </div>
+    <p class="drift-lane" id="drift-lane"></p>
+    <div id="drift-groups"></div>
+  </section>
+
   <section class="raw-json-row">
     <details class="raw-json" id="raw-json">
       <summary id="raw-json-summary">▶ Raw JSON</summary>
@@ -433,6 +460,10 @@
     const snapshotBtn = document.getElementById("snapshot-btn");
 
     const countsEl = document.getElementById("counts");
+    const driftRow = document.getElementById("drift-row");
+    const driftNumberEl = document.getElementById("drift-number");
+    const driftLaneEl = document.getElementById("drift-lane");
+    const driftGroupsEl = document.getElementById("drift-groups");
     const rawJsonDetails = document.getElementById("raw-json");
     const rawJsonSummary = document.getElementById("raw-json-summary");
     const rawJsonOutput = document.getElementById("raw-json-output");
@@ -599,6 +630,32 @@
       downloadBtn.setAttribute("aria-disabled", "false");
     }
 
+    // === CONFORMANCE LANE (pure — tested via conformance-lane.test.mjs,
+    // which extracts this block by its markers) ===
+    //
+    // The listener runs two design<->code checks per capture (value lane:
+    // a Figma variable vs a token in code; binding lane: a component layer's
+    // binding vs what the code renders) and reports a compact summary on the
+    // POST /capture response. This turns that summary into one honest line.
+    // Both check lanes are opt-in on the listener side (CONFORMANCE_MAP_PATH),
+    // so "not configured", "not re-checked", "failed" and "clean" are four
+    // different answers here — never collapsed into "0".
+    function formatDriftLane(conformance) {
+      if (!conformance) return "Not reported — this listener doesn't run the design↔code check.";
+      if (conformance.skipped) return "Not configured — the listener has no conformance map set.";
+      if (conformance.error) return "Check failed — " + conformance.error;
+      if (conformance.unchanged) return "Not re-checked — nothing changed since the last sync.";
+      if (!conformance.ran) return "Not reported by the listener.";
+      const value = (conformance.value && conformance.value.defects) || 0;
+      const binding = (conformance.binding && conformance.binding.defects) || 0;
+      const total = value + binding;
+      if (total === 0) return "Token values and component bindings both match the code.";
+      // The headline number above already says how many in total — this line
+      // says which lanes they came from, and never repeats the total.
+      return value.toLocaleString() + " token value(s) and " + binding.toLocaleString() + " component binding(s) differ from the code.";
+    }
+    // === END CONFORMANCE LANE ===
+
     // === WARNING GUIDE (pure catalog — tested via warning-guide.test.mjs,
     // which extracts this block by its markers and asserts its keys equal the
     // types code.js actually emits) ===
@@ -722,7 +779,7 @@
       num.textContent = total.toLocaleString();
       const lab = document.createElement("span");
       lab.className = "count-label";
-      lab.textContent = "WARNINGS";
+      lab.textContent = "FIGMA HYGIENE";
       heading.appendChild(num);
       heading.appendChild(lab);
       section.appendChild(heading);
@@ -860,6 +917,57 @@
       scheduleResize();
     }
 
+    // Renders the design↔code drift section from the listener's conformance
+    // summary. Two lanes, each expandable when it has defects — same
+    // expandable-group language as the Figma-hygiene warnings above, because
+    // the operator reads them together and the difference that matters is
+    // WHICH question failed, not how the two look.
+    function renderDrift(conformance) {
+      driftRow.hidden = false;
+      driftLaneEl.textContent = formatDriftLane(conformance);
+      driftGroupsEl.innerHTML = "";
+
+      const ran = !!(conformance && conformance.ran);
+      const value = (ran && conformance.value) || { defects: 0, samples: [] };
+      const binding = (ran && conformance.binding) || { defects: 0, samples: [] };
+      const total = value.defects + binding.defects;
+      // An em dash, not "0": a check that didn't run has no number to show.
+      driftNumberEl.textContent = ran ? total.toLocaleString() : "—";
+
+      for (const [label, lane] of [["token values", value], ["component bindings", binding]]) {
+        if (!lane.defects) continue;
+        const details = document.createElement("details");
+        details.className = "warn-group";
+
+        const summary = document.createElement("summary");
+        const count = document.createElement("span");
+        count.className = "warn-count";
+        count.textContent = lane.defects.toLocaleString();
+        summary.appendChild(count);
+        summary.appendChild(document.createTextNode(" " + label));
+        details.appendChild(summary);
+
+        const list = document.createElement("ul");
+        list.className = "warn-samples";
+        for (const sample of lane.samples || []) {
+          const li = document.createElement("li");
+          li.textContent = sample.label + (sample.codeLocation ? " → " + sample.codeLocation : "") + " [" + sample.type + "]";
+          list.appendChild(li);
+        }
+        const remaining = lane.defects - (lane.samples || []).length;
+        if (remaining > 0) {
+          const li = document.createElement("li");
+          li.className = "warn-samples-more";
+          li.textContent = "+" + remaining.toLocaleString() + " more — see conformance.jsonl";
+          list.appendChild(li);
+        }
+        details.appendChild(list);
+        details.addEventListener("toggle", scheduleResize);
+        driftGroupsEl.appendChild(details);
+      }
+      scheduleResize();
+    }
+
     // Lazy: fills the Raw JSON <pre> from lastExportJson (already computed by
     // enableCopyDownload — never re-stringifies) but only does the DOM write
     // when the panel is actually open, and only once per export. Called both
@@ -966,6 +1074,7 @@
         setSyncRow("green", "Synced", msg.versionNote || "", t);
         setSyncResult(buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount));
         setSyncTiming(msg.timings);
+        renderDrift(msg.conformance);
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
         // last successful sync, shown before this session has synced
@@ -1055,6 +1164,12 @@
                         status: res.status,
                         warningCount: body && typeof body.warningCount === "number" ? body.warningCount : 0,
                         summary: body && body.summary ? body.summary : null,
+                        // Two-lane conformance summary (capture-listener's
+                        // POST /capture response) — design<->code drift,
+                        // reported separately from Figma-hygiene warnings.
+                        // Absent from an older listener; handled honestly
+                        // downstream rather than defaulted to "clean".
+                        conformance: body && body.conformance ? body.conformance : null,
                       },
                     },
                     "*"

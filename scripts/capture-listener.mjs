@@ -1055,7 +1055,49 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "content-type",
 };
 
-// Response body: { ok, path, unchanged, receipt, warningCount, summary? }.
+// How many defects per lane the response carries as examples. The full
+// records already live in conformance.jsonl; this is only enough for the
+// plugin to show "which token, which file" without a second round trip.
+const CONFORMANCE_SAMPLE_LIMIT = 3;
+
+// Compact, wire-friendly view of the two conformance lanes for the POST
+// /capture response — counts plus a few labelled examples. Deliberately does
+// NOT change conformance.jsonl, changes.jsonl, or the capture artifact: those
+// keep the full records in their existing schemas, and this is a derived
+// summary for the plugin UI, which has no filesystem access.
+//
+// Lane vocabulary: the VALUE lane (runConformanceCheck) compares a Figma
+// variable's value against a token in code; the BINDING lane (runBindingCheck)
+// compares a component layer's binding against what the code renders. Their
+// defect records carry different identifying fields, so each lane gets its own
+// label shape rather than one lowest-common-denominator string.
+export function summarizeConformance(valueResult, bindingResult) {
+  const lane = (result, label) => {
+    const defects = Array.isArray(result && result.defects) ? result.defects : [];
+    return {
+      defects: defects.length,
+      samples: defects.slice(0, CONFORMANCE_SAMPLE_LIMIT).map((d) => ({
+        type: d.type,
+        label: label(d),
+        codeLocation: d.codeLocation || null,
+      })),
+    };
+  };
+  return {
+    ran: true,
+    skipped: false,
+    value: lane(valueResult, (d) => d.tokenName || d.path || "(unnamed token)"),
+    binding: lane(bindingResult, (d) =>
+      [d.component, d.layer, d.property].filter(Boolean).join(" · ") || "(unnamed binding)"
+    ),
+  };
+}
+
+// Response body: { ok, path, unchanged, receipt, warningCount, conformance,
+// summary? }. `conformance` is always present: { ran, skipped } alone when
+// CONFORMANCE_MAP_PATH is unset (opt-in — never render that as "clean"),
+// { ran: false, skipped: false, error } when the check threw, or the two-lane
+// summary above when it ran. A check failure never fails the capture.
 // `warningCount` is always present (parsed.warnings.length, 0 default).
 // `summary` mirrors the changes.jsonl record's cross-bucket summary (see
 // this file's header) and is present ONLY on a diffed, non-initial sync —
@@ -1098,6 +1140,10 @@ function handleCapture(req, res) {
       // Set only when this sync actually diffed something (see response
       // shape note above handleCapture).
       let changeRecord = null;
+      // Design<->code conformance summary for the response body. Defaults to
+      // the honest "not configured" state: CONFORMANCE_MAP_PATH is opt-in, and
+      // "unset" must never render as "0 defects, all clean" in the plugin.
+      let conformance = { ran: false, skipped: true };
       if (unchanged) {
         receipt = {
           ts: new Date().toISOString(),
@@ -1108,6 +1154,12 @@ function handleCapture(req, res) {
           unchanged: true,
         };
         appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
+        // Nothing was written, so the conformance check doesn't re-run — but
+        // "configured and not re-run" is a different fact from "not
+        // configured", and the plugin has to be able to tell them apart.
+        if (process.env.CONFORMANCE_MAP_PATH) {
+          conformance = { ran: false, skipped: false, unchanged: true };
+        }
         console.log(`[capture-listener] unchanged, skipped write (${parsed.header.fileName})`);
       } else {
         writeAtomic(outPath, JSON.stringify(parsed, null, 2) + "\n");
@@ -1233,8 +1285,10 @@ function handleCapture(req, res) {
               JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",
               "utf8"
             );
+            conformance = summarizeConformance(result, binding);
           } catch (err) {
             console.error(`[capture-listener] conformance check failed: ${err.message}`);
+            conformance = { ran: false, skipped: false, error: err.message };
           }
         }
 
@@ -1256,6 +1310,7 @@ function handleCapture(req, res) {
         unchanged,
         receipt,
         warningCount: Array.isArray(parsed.warnings) ? parsed.warnings.length : 0,
+        conformance,
       };
       if (changeRecord && changeRecord.summary) {
         responseBody.summary = changeRecord.summary;

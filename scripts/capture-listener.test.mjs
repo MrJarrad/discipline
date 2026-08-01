@@ -987,3 +987,151 @@ test("POST /capture dedup: two syncs differing only in header.timings still coun
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+test("POST /capture response body: conformance is reported as skipped when CONFORMANCE_MAP_PATH is unset", async () => {
+  // The plugin shows design<->code drift as its own lane next to Figma
+  // hygiene warnings — "not configured" has to be distinguishable from
+  // "configured and clean", or an unset env reads as a passing check.
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    body = await res.json();
+  });
+
+  assert.equal(body.conformance.skipped, true);
+  assert.equal(body.conformance.ran, false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture response body: a clean conformance run reports zero defects in both lanes", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    body = await res.json();
+  });
+
+  assert.equal(body.conformance.ran, true);
+  assert.equal(body.conformance.skipped, false);
+  assert.equal(body.conformance.value.defects, 0);
+  assert.equal(body.conformance.binding.defects, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("POST /capture response body: binding-lane defects are counted and sampled for the plugin UI", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  mkdirSync(join(repoRoot, "src"), { recursive: true });
+  writeFileSync(join(repoRoot, "src", "hero.tsx"), `titleStep="title-style1-500"`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          { component: "HeroText", layer: "wrapper/Content/Title/Title", property: "textStyle", codeLocation: "src/hero.tsx", assertion: { kind: "css-class" } },
+        ],
+      },
+    }),
+    "utf8"
+  );
+
+  const componentsBody = {
+    header: { fileName: "Test File", pluginVersion: "1.0.0", exportedAt: Date.now(), counts: {} },
+    collections: [],
+    components: {
+      standalone: [],
+      sets: [
+        {
+          name: "HeroText",
+          key: "abc",
+          variants: [{ name: "device=desktop", key: "v1", bindings: [{ layer: "wrapper/Content/Title/Title", property: "textStyle", value: "title-style1/300" }] }],
+        },
+      ],
+    },
+  };
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(componentsBody) });
+    body = await res.json();
+  });
+
+  assert.equal(body.conformance.ran, true);
+  assert.equal(body.conformance.binding.defects, 1);
+  const sample = body.conformance.binding.samples[0];
+  assert.equal(sample.type, "binding_mismatch");
+  assert.match(sample.label, /HeroText/);
+  assert.equal(sample.codeLocation, "src/hero.tsx");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("POST /capture response body: a conformance check that throws is reported, not silently dropped", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: "/nonexistent/figma-map.json" }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(res.status, 200, "a broken mapping must never fail the capture");
+    body = await res.json();
+  });
+
+  assert.equal(body.conformance.ran, false);
+  assert.equal(body.conformance.skipped, false);
+  assert.match(body.conformance.error, /mapping file not found/);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("POST /capture response body: an unchanged sync says the conformance check wasn't re-run, not that it's unconfigured", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    body = await second.json();
+  });
+
+  assert.equal(body.unchanged, true);
+  assert.equal(body.conformance.ran, false);
+  assert.equal(body.conformance.skipped, false, "configured but not re-run is not the same as unconfigured");
+  assert.equal(body.conformance.unchanged, true);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});

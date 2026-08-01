@@ -1963,6 +1963,9 @@ async function runSyncExport(versionNote) {
     lastSyncCount: lastSyncCount,
     warningCount: typeof result.warningCount === "number" ? result.warningCount : 0,
     summary: result.summary || null,
+    // Relayed verbatim from the listener's response (ui.html performs the
+    // POST, see postSyncExportToUI) — the design<->code drift lane.
+    conformance: result.conformance || null,
     // Only set when the pre-sync version save didn't succeed — a successful
     // save needs no words here (the version is visible in Figma's own
     // version history, and the snapshot row reports it); a failed or
