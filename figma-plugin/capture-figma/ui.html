@@ -199,6 +199,24 @@
       background: var(--color-snapshot-border);
     }
 
+    /* The sync outcome line ("N item(s) sent to listener — N warning(s)").
+       Operator placement (verdict 2026-08-01, Addendum 2 item 2): BELOW the
+       sync section's buttons, not inline beside the status word — the
+       result is the outcome OF the button, so it reads under it. Spacing
+       stays on the row's own rhythm: the .row flex gap (--space-1) plus
+       this --space-1 top margin, the same "gap plus a touch" idiom the
+       operator's earlier .status-row-top refinement established. Collapses
+       entirely when empty so an idle/erroring row keeps its hugging height
+       (an empty block would otherwise reserve a line box). */
+    .sync-result {
+      margin: var(--space-1) 0 0;
+      color: var(--color-text-secondary);
+      overflow-wrap: break-word;
+    }
+    .sync-result:empty {
+      display: none;
+    }
+
     .count-heading {
       display: flex;
       align-items: baseline;
@@ -294,6 +312,7 @@
       <button type="button" class="btn" id="copy-btn" disabled>Copy</button>
       <a class="btn" id="download-btn" download="capture-figma-export.json" aria-disabled="true">Download</a>
     </div>
+    <p class="sync-result" id="sync-result" role="status" aria-live="polite"></p>
   </section>
 
   <section class="row" id="snapshot-row" aria-label="Snapshot status">
@@ -335,6 +354,7 @@
     const syncBtn = document.getElementById("sync-btn");
     const copyBtn = document.getElementById("copy-btn");
     const downloadBtn = document.getElementById("download-btn");
+    const syncResultEl = document.getElementById("sync-result");
 
     const snapshotDot = document.getElementById("snapshot-dot");
     const snapshotStateEl = document.getElementById("snapshot-state");
@@ -418,6 +438,14 @@
       syncStateEl.textContent = state;
       syncDetailEl.textContent = detail || "";
       syncTimeEl.textContent = time || "";
+      scheduleResize();
+    }
+
+    // The below-the-buttons sync outcome line (see .sync-result's CSS
+    // comment). Separate from setSyncRow's `detail` slot, which stays for
+    // in-flight/erroring text that belongs beside the state word.
+    function setSyncResult(text) {
+      syncResultEl.textContent = text || "";
       scheduleResize();
     }
 
@@ -684,6 +712,8 @@
     function handleSyncStatus(msg) {
       if (msg.state === "syncing") {
         syncBtn.disabled = true;
+        // The previous run's outcome is stale the moment a new one starts.
+        setSyncResult("");
         setSyncRow("", "Syncing…", "exporting now…", "");
       } else if (msg.state === "synced") {
         syncBtn.disabled = false;
@@ -692,8 +722,10 @@
         // "to listener" is a static mockup label; the real, richer sync
         // detail (item counts / added-modified-removed) takes that same
         // regular-weight slot instead of being dropped, per BEHAVIOR IS
-        // FROZEN (this data must keep showing somewhere).
-        setSyncRow("green", "Synced", buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount), t);
+        // FROZEN (this data must keep showing somewhere) — that slot is now
+        // the below-the-buttons result line, per the operator's placement.
+        setSyncRow("green", "Synced", "", t);
+        setSyncResult(buildSyncedDetail(msg.lastSyncCount, msg.summary, msg.warningCount));
       } else if (msg.state === "restored") {
         // From clientStorage, loaded once at panel-open — a prior session's
         // last successful sync, shown before this session has synced
@@ -701,7 +733,8 @@
         // other) status the moment this session produces one.
         const t = new Date(msg.lastSyncAt).toLocaleTimeString();
         const d = new Date(msg.lastSyncAt).toLocaleDateString();
-        setSyncRow("green", "Synced", msg.lastSyncCount + " item(s) — previous session, " + d, t);
+        setSyncRow("green", "Synced", "", t);
+        setSyncResult(msg.lastSyncCount + " item(s) — previous session, " + d);
         // Repaint the count sections too (Variables/Styles/Components/
         // Warnings) — not just the sync row — so a reload shows the full
         // last-sync state, matching state-05-synced.png. Raw JSON/Copy/
