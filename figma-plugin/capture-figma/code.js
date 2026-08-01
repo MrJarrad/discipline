@@ -113,7 +113,6 @@ const PLUGIN_VERSION = "1.16.0";
 // listener was healthy — see runSyncExport()/postSyncExportToUI() below for
 // the fix: post the export payload to ui.html and let it perform the fetch,
 // reporting the result back over the same postMessage channel.
-const SYNC_DEBOUNCE_MS = 5000;
 
 // header.propskitAvailable's live value — see buildHeaderPropskitField's
 // comment above for why this is reported by ui.html rather than detected
@@ -124,7 +123,23 @@ const SYNC_DEBOUNCE_MS = 5000;
 // non-optimistic default rather than an assumed true).
 let propskitAvailable = false;
 
-figma.showUI(__html__, { width: 480, height: 640 });
+// Content-hugging panel (operator ruling, 2026-07-31): the Figma-authored
+// mockup's window ends right below the Raw JSON row, no reserved empty
+// space — unlike a fixed 480x640 shell. PANEL_WIDTH is the mockup's idle
+// render (figma-capture-figma.png, 684px) at its real 2x-screenshot scale
+// halved (684 / 2 = 342); the window never changes width, only height.
+// PANEL_HEIGHT_IDLE is a same-math starting guess (420 / 2 = 210) for the
+// one showUI() call that must happen before ui.html's DOM exists to measure
+// anything — ui.html corrects it within a frame via the boot-time "resize"
+// message (see ui.html's scheduleResize()). PANEL_HEIGHT_MAX caps growth at
+// ~90% of the synced-state mockup's height at the same halved scale
+// (figma-capture-figma-1.png, 876 / 2 = 438 -> 394); content beyond that
+// scrolls inside the iframe rather than growing the window further.
+const PANEL_WIDTH = 342;
+const PANEL_HEIGHT_IDLE = 210;
+const PANEL_HEIGHT_MAX = 394;
+
+figma.showUI(__html__, { width: PANEL_WIDTH, height: PANEL_HEIGHT_IDLE });
 loadLastSyncFromStorage();
 postSnapshotAvailability();
 
@@ -205,25 +220,21 @@ async function getLocalEffectStyles() {
 }
 
 // documentAccess is "dynamic-page" (manifest.json), so pages are lazily
-// loaded by default and figma.on('documentchange') cannot register in
-// incremental mode until every page has been loaded via
-// figma.loadAllPagesAsync(). buildExport() DOES need this now: schema v2's
-// componentSets/exampleStructure/templateFrames/latentCapabilities/warnings
-// buckets traverse every page plus the page literally named "Example", both
-// page-scoped reads that throw on an unloaded page — see buildExport()'s own
-// call to this function, awaited before any page.children/findAll call.
-// startSync() awaits it too, for the same reason, before registering the
-// documentchange handler (which additionally cannot register in incremental
-// mode until every page is loaded, regardless of what it reads).
+// loaded by default. buildExport() needs every page loaded via
+// figma.loadAllPagesAsync(): schema v2's componentSets/exampleStructure/
+// templateFrames/latentCapabilities/warnings buckets traverse every page
+// plus the page literally named "Example", both page-scoped reads that
+// throw on an unloaded page — see buildExport()'s own call to this
+// function, awaited before any page.children/findAll call.
 async function ensureAllPagesLoaded() {
   if (typeof figma.loadAllPagesAsync === "function") {
     await figma.loadAllPagesAsync();
     return true;
   }
-  // Older API surface without loadAllPagesAsync: fall back gracefully —
-  // the documentchange handler still gets registered (matches this file's
-  // established pattern of trying the async accessor first, then falling
-  // back rather than throwing), just without the pre-load guarantee.
+  // Older API surface without loadAllPagesAsync: fall back gracefully
+  // (matches this file's established pattern of trying the async accessor
+  // first, then falling back rather than throwing), just without the
+  // pre-load guarantee.
   return false;
 }
 
@@ -724,6 +735,31 @@ function groupInstancesByName(instances) {
   return groups;
 }
 
+// RATIFIED AXIS EXCEPTIONS (operator ruling 2026-08-01, vault
+// memories/token-rulings.md "NavigationHeader M/D split composition is
+// INTENDED"): a documented, cited exception to the axis-ownership rule —
+// NavigationHeader's mobile split into title/actions instances vs desktop's
+// single title+actions instance is a ratified multi-instance composition,
+// not divergence. Keyed by the instance/component name (mInst.name — the
+// same identity groupInstancesByName groups on), with an optional `axis`
+// restriction so a future exception can scope to one axis without opening
+// every axis on that component. A match downgrades the would-be violation
+// to the distinct `ratified_axis_exception` informational type instead of
+// silently dropping it — the suppression stays visible and auditable.
+const RATIFIED_AXIS_EXCEPTIONS = {
+  NavigationHeader: {
+    axis: "layout",
+    citation: "operator ruling 2026-08-01, vault memories/token-rulings.md",
+  },
+};
+
+function findRatifiedAxisException(name, axis) {
+  const exception = RATIFIED_AXIS_EXCEPTIONS[name];
+  if (!exception) return null;
+  if (exception.axis && exception.axis !== axis) return null;
+  return exception;
+}
+
 function compareInstancePair(base, mInst, dInst) {
   const warnings = [];
   const mVariant = mInst.variantProps || {};
@@ -732,6 +768,17 @@ function compareInstancePair(base, mInst, dInst) {
   for (const axis of axes) {
     if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
     if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
+    const exception = findRatifiedAxisException(mInst.name, axis);
+    if (exception) {
+      warnings.push({
+        type: "ratified_axis_exception",
+        nodeId: mInst.id || null,
+        nodeName: mInst.name,
+        context: `${base}/${axis}`,
+        message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — ratified exception (${exception.citation}), not a violation.`,
+      });
+      continue;
+    }
     warnings.push({
       type: "axis_ownership_violation",
       nodeId: mInst.id || null,
@@ -1424,10 +1471,9 @@ async function buildExampleData(examplePage, variableById, warningsCollector) {
 // large file can take several seconds with no other feedback; this is a
 // one-way status line, never gated on a UI acknowledgement (matches every
 // other figma.ui.postMessage call in this file). Every buildExport() call
-// runs through runSyncExport() (toggling Sync on always exports once
-// immediately, then again on every debounced document change) — ui.html
-// renders "export-progress" in the sync status row's detail text while it
-// runs.
+// runs through runSyncExport() (clicking Sync runs exactly one export+POST
+// cycle — see the "manual sync" section below) — ui.html renders
+// "export-progress" in the sync status row's detail text while it runs.
 function reportPhase(text) {
   figma.ui.postMessage({ type: "export-progress", text: text });
 }
@@ -1615,21 +1661,19 @@ async function buildExport() {
   return output;
 }
 
-// --- live sync mode ---------------------------------------------------------
+// --- manual sync ------------------------------------------------------------
 //
-// The Sync chip toggles this on/off; there is no separate one-shot export
-// trigger (v1.16.0 UI rebuild — see ui.html). Toggling on runs a full export
-// immediately (this is the "works with no listener running" fallback: the
-// export-result posted from runSyncExport() populates the UI's counts/Raw
-// JSON/Copy/Download whether or not the POST below reaches a listener), then
-// again on every figma.on('documentchange'), debounced SYNC_DEBOUNCE_MS
-// trailing so a burst of edits produces one POST, not one per keystroke.
-// Sandbox rule (also stated in ui.html): sync only runs while this plugin's
-// UI is open in the file — Figma plugins have no background execution, so
-// closing the plugin stops sync until it's reopened and restarted.
+// RULING (operator, re-confirmed 2026-08-01, vault memories/token-
+// rulings.md "Sync is MANUAL-ONLY — auto sync removed"): sync is a one-shot
+// manual action — click Sync -> export -> POST -> done. There is no
+// continuous/watch mode: no figma.on('documentchange') re-sync registration,
+// no debounce loop, no "Stop" toggle. Clicking Sync always runs exactly one
+// runSyncExport() cycle (this is also the "works with no listener running"
+// fallback: the export-result posted from runSyncExport() populates the
+// UI's counts/Raw JSON/Copy/Download whether or not the POST below reaches
+// a listener). The button never becomes "Stop"; ui.html's states are
+// Ready -> Syncing -> Synced.
 
-let syncEnabled = false;
-let syncDebounceTimer = null;
 let lastSyncAt = null;
 let lastSyncCount = 0;
 
@@ -1692,8 +1736,10 @@ function totalExportCount(data) {
 // Posts the export payload to ui.html and waits for its fetch result.
 // ui.html is the only context in this plugin with a real fetch (see the
 // CAPTURE_LISTENER_URL comment above) — this main thread only relays. At
-// most one sync POST is in flight at a time (runSyncExport is debounce-
-// serialized), so a single pending resolver is sufficient.
+// most one sync POST is in flight at a time (each click runs exactly one
+// awaited runSyncExport() cycle before another can start — see runSync()
+// and ui.html's syncBtn.disabled), so a single pending resolver is
+// sufficient.
 let pendingSyncResolve = null;
 
 function postSyncExportToUI(data) {
@@ -1779,66 +1825,30 @@ async function runSyncExport() {
   );
 }
 
-function scheduleSyncExport() {
-  if (!syncEnabled) return;
-  if (syncDebounceTimer !== null) {
-    clearTimeout(syncDebounceTimer);
-  }
-  syncDebounceTimer = setTimeout(() => {
-    syncDebounceTimer = null;
-    runSyncExport();
-  }, SYNC_DEBOUNCE_MS);
-}
-
-let documentChangeHandlerRegistered = false;
-
-function ensureDocumentChangeHandler() {
-  if (documentChangeHandlerRegistered) return;
-  figma.on("documentchange", () => {
-    scheduleSyncExport();
-  });
-  documentChangeHandlerRegistered = true;
-}
-
-async function startSync() {
-  // Must load every page before registering the documentchange listener —
-  // in "dynamic-page" documentAccess mode, figma.on('documentchange') throws
-  // "Cannot register documentchange handler in incremental mode without
-  // calling figma.loadAllPagesAsync first" otherwise. Large files take a
-  // moment, so tell the UI why sync hasn't started yet.
-  figma.ui.postMessage({
-    type: "sync-status",
-    state: "loading",
-    message: "loading all pages…",
-  });
-  await ensureAllPagesLoaded();
-  ensureDocumentChangeHandler();
-
-  syncEnabled = true;
-  figma.ui.postMessage({ type: "sync-status", state: "on" });
-  await runSyncExport(); // full export once immediately, per the task
-}
-
-function stopSync() {
-  syncEnabled = false;
-  if (syncDebounceTimer !== null) {
-    clearTimeout(syncDebounceTimer);
-    syncDebounceTimer = null;
-  }
-  figma.ui.postMessage({ type: "sync-status", state: "off" });
+// One-shot manual sync: Ready -> Syncing -> Synced (or an error/unreachable
+// terminal state), per the manual-only ruling above. runSyncExport() already
+// loads every page (via buildExport()'s own ensureAllPagesLoaded() call),
+// builds the export, and posts every terminal sync-status itself — this
+// wrapper's only job is the immediate "syncing" status so the button/row
+// react the instant the click is handled, before the export even starts.
+async function runSync() {
+  figma.ui.postMessage({ type: "sync-status", state: "syncing" });
+  await runSyncExport();
 }
 
 // --- manual version snapshot (adopt-list #11) -------------------------------
 //
 // RULING (operator, 2026-07-31): Save snapshot is MANUAL ONLY — a UI button
 // click is the sole trigger. NEVER call saveSnapshot() from
-// runSyncExport()/startSync()/scheduleSyncExport(). The reference
-// implementation this feature was ported from
-// (~/Downloads/capture-figma/code.ts's onmessage handler for
-// 'post-success': `saveSnapshot('Snapshot on sync.')`) auto-stamps a
-// version on every successful sync POST — that pattern was explicitly
-// rejected here: a debounced sync can fire on every document change, and a
-// version stamp per change would flood the file's version history.
+// runSyncExport()/runSync(). The reference implementation this feature was
+// ported from (~/Downloads/capture-figma/code.ts's onmessage handler for
+// 'post-success': `saveSnapshot('Snapshot on sync.')`) auto-stamps a version
+// on every successful sync POST — that pattern was explicitly rejected
+// here: sync and snapshot are two independent, separately-triggered manual
+// actions (same philosophy as sync itself being manual-only, see the
+// "manual sync" section above) — a version stamp tied to sync would tie one
+// manual action's history to another's, never something either button click
+// should do on the other's behalf.
 //
 // DOCUMENTACCESS HONESTY: this manifest sets documentAccess: "dynamic-page".
 // The current @figma/plugin-typings surface documents
@@ -1903,6 +1913,17 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
 
+  if (msg.type === "resize") {
+    // ui.html reports its own measured document.body.scrollHeight on every
+    // state transition (never per-repaint — see its scheduleResize()); this
+    // clamps to [1, PANEL_HEIGHT_MAX] and is the only place that actually
+    // calls figma.ui.resize(), width held fixed at PANEL_WIDTH throughout.
+    const measured = Math.round(msg.height);
+    const height = Math.min(Math.max(Number.isFinite(measured) ? measured : PANEL_HEIGHT_IDLE, 1), PANEL_HEIGHT_MAX);
+    figma.ui.resize(PANEL_WIDTH, height);
+    return;
+  }
+
   if (msg.type === "sync-post-result") {
     // Reply to the postSyncExportToUI() request currently in flight, if any.
     if (pendingSyncResolve) {
@@ -1913,13 +1934,8 @@ figma.ui.onmessage = async (msg) => {
     return;
   }
 
-  if (msg.type === "start-sync") {
-    await startSync();
-    return;
-  }
-
-  if (msg.type === "stop-sync") {
-    stopSync();
+  if (msg.type === "sync") {
+    await runSync();
     return;
   }
 
