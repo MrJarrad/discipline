@@ -47,9 +47,10 @@
     {
       "id": "trigger-define-terms",
       "type": "trigger",
-      "prompt": "Just to be clear, when you say 'account' in the spec do you mean Customer or User? I need to be clear on this one before I write anything else.",
-      "provenance": "skills/define-terms/SKILL.md:3 (description trigger phrases)",
+      "prompt": "I'm about to add a new entry to ~/JHD/vault/memories/token-rulings.md, but reading back through the existing entries first, I keep seeing 'spacer' and 'gap' used for what looks like the same underlying idea in different places. I don't want to add my new ruling until that's sorted out — can you help me pin down which term is actually correct here before I write anything new into that file?",
+      "provenance": "skills/define-terms/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2, real file: memories/token-rulings.md",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["define-terms"],
       "forbidSkills": [],
       "samples": 3
@@ -57,9 +58,10 @@
     {
       "id": "trigger-design-modules",
       "type": "trigger",
-      "prompt": "Where should this logic live — should we split this service into two modules, or does it belong in one?",
-      "provenance": "skills/design-modules/SKILL.md:3 (description trigger phrases)",
+      "prompt": "I'm planning a change to the skill-eval harness in ~/JHD/discipline — right now the scoring logic and the transcript-reading logic are both packed into one file with no clear seam between them. Before I write a single line, I want to work out whether they should stay as one module or get split into two, and what the interface between them should look like either way.",
+      "provenance": "skills/design-modules/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2, real target: scripts/skill-eval.mjs",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["design-modules"],
       "forbidSkills": [],
       "samples": 3
@@ -67,9 +69,10 @@
     {
       "id": "trigger-discover-scope",
       "type": "trigger",
-      "prompt": "I'd like to explore a new concept for the app. I'm reconsidering a few things and the requirements are clearly still forming.",
-      "provenance": "skills/discover-scope/SKILL.md:3 (description trigger phrases)",
+      "prompt": "I want to explore extending the skill-eval harness (in ~/JHD/discipline) to also score which model tier an agent ends up dispatched on, not just whether the right skill fired. It's still a pretty fuzzy idea — I'm reconsidering what 'good' would even mean for that kind of decision, and I haven't nailed down real requirements yet. Can you help me think through this before we shape it into anything concrete?",
+      "provenance": "skills/discover-scope/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["discover-scope"],
       "forbidSkills": [],
       "samples": 3
@@ -77,9 +80,10 @@
     {
       "id": "trigger-issue-triage",
       "type": "trigger",
-      "prompt": "I noticed some issues in the audit output — a couple of things are off, here's a list of defects to sort through.",
-      "provenance": "skills/issue-triage/SKILL.md:3 (description trigger phrases)",
+      "prompt": "I just re-read ~/JHD/vault/documents/figma-structural-audit-2026-07-29.md and there's a list of defects logged in there — a few spacing values off by a couple of px, a misaligned chip, a couple of loose color values — that nobody has actually sorted through yet. Can you help me work through that list and figure out what needs fixing first?",
+      "provenance": "skills/issue-triage/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2, real file: documents/figma-structural-audit-2026-07-29.md",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["issue-triage"],
       "forbidSkills": [],
       "samples": 3
@@ -87,9 +91,10 @@
     {
       "id": "trigger-capture-figma",
       "type": "trigger",
-      "prompt": "Here's the figma.com URL for the new header — I need a fresh sync, pull the tokens and variants before anything gets built.",
-      "provenance": "skills/capture-figma/SKILL.md:3 (description trigger phrases)",
+      "prompt": "The operator just dropped a fresh figma.com URL for the new dashboard header into this session. Nothing has been pulled from it yet — before the engineer builds anything against it, I need a full local sync: the tokens, the variants, the actual node structure, all of it landed somewhere the doers can read without browsing Figma themselves.",
+      "provenance": "skills/capture-figma/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["capture-figma"],
       "forbidSkills": [],
       "samples": 3
@@ -97,9 +102,10 @@
     {
       "id": "trigger-capture-website",
       "type": "trigger",
-      "prompt": "Look at this site — https://example.com — like pentagram does it. I want it as a design reference.",
-      "provenance": "skills/capture-website/SKILL.md:3 (description trigger phrases)",
+      "prompt": "The operator wants https://example.com filed into ~/JHD/vault/references as ground truth for a layout claim we're about to make in a design review — pixels, computed tokens, the works, the way pentagram's site would get captured. Nothing has been pulled from it yet and no agent should have to browse the live URL themselves to check this claim later.",
+      "provenance": "skills/capture-website/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["capture-website"],
       "forbidSkills": [],
       "samples": 3
@@ -107,9 +113,10 @@
     {
       "id": "trigger-diagnosing-bugs",
       "type": "trigger",
-      "prompt": "This is still broken — the toggle is not picking up the state change, and the first fix attempt failed. It's hard to pin down.",
-      "provenance": "skills/diagnosing-bugs/SKILL.md:3 (description trigger phrases)",
+      "prompt": "A toggle component isn't picking up its state change after a click, and this is the second time someone's tried to fix it — the first attempt shipped but the bug is still there. It's proving genuinely hard to pin down. Before anyone touches the code again I want to actually get to the bottom of what's happening, not just take another guess.",
+      "provenance": "skills/diagnosing-bugs/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["diagnosing-bugs"],
       "forbidSkills": [],
       "samples": 3
@@ -117,9 +124,10 @@
     {
       "id": "trigger-perplexity-research",
       "type": "trigger",
-      "prompt": "What's the best in class way to do rate limiting right now — worth researching the cutting edge options before we pick one?",
-      "provenance": "skills/perplexity-research/SKILL.md:3 (description trigger phrases)",
+      "prompt": "Before we build our own rate limiter for the API, I want a real, sourced answer — not something pulled from memory — on what's actually best in class right now and worth building against. Can you find out what the current state of the art looks like before we commit to an approach?",
+      "provenance": "skills/perplexity-research/SKILL.md:3 (description trigger phrases); grounded task-context rewrite for T6-v2",
       "cwd": "~/JHD/vault",
+      "maxTurns": 8,
       "expectSkills": ["perplexity-research"],
       "forbidSkills": [],
       "samples": 3

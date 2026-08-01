@@ -21,28 +21,33 @@ Output-quality scoring (was `skill-compare`), charter-quality-once-loaded (was
 load", not "was the resulting work better" or "was the right model used". See
 the shape doc §7 for the full list and rationale.
 
-## Known limitations (as of the T3-T6 build, 2026-08-01)
+## Validity fixes landed (T6-v2, 2026-08-01)
 
-- **Route-case scoring does not yet read the `--json-schema` structured output.**
-  `sampleOutcome` currently scores every case type off `Skill` tool_use blocks
-  in the transcript; `route` cases ask the model to *state* a persona/skills
-  decision via a JSON schema without loading a persona, so nothing fires a
-  `Skill` tool and every route case reads RED regardless of the actual
-  decision quality. Fix: parse the run's structured JSON result into
-  `observed.persona`/`observed.skills` and score route cases against that
-  field instead of tool_use.
-- **Session ID collisions across separate invocations.** `workflow.mjs`
-  derives each agent's session id deterministically from `${spec.name}:
-  ${label}`, and `skill-eval.mjs` always names the spec `skill-eval-<arm>` —
-  so two separate `--live` runs using the same case ids collide on the same
-  session ids and the second run's colliding agents fail outright ("Session ID
-  ... already in use"). Fix: fold a run nonce (timestamp or random suffix)
-  into the spec name before dispatch.
-- **Short, context-free `trigger` prompts under-fire.** Empirically (T6 live
-  run, 2026-08-01), a bare phrase with no surrounding task — even one that
-  reproduces a skill's own trigger language verbatim — does not spontaneously
-  invoke the Skill tool at maxTurns 4, haiku *or* sonnet, low or default
-  effort: the model asks a clarifying question instead of reaching for a
-  skill it has no work to apply. Case prompts likely need real task framing
-  (a concrete file, a real decision to make) to exercise triggering
-  meaningfully, not just the phrase itself.
+The three gaps the first live T6 run (`~/JHD/vault/documents/skill-eval-t6-first-run-2026-08-01.md`)
+found are closed:
+
+- **Route-case scoring now reads the `--json-schema` structured output.**
+  `runArms` captures each agent's `result` off `runWorkflow`'s `log` callback
+  and, for any agent that carried a `jsonSchema` (route cases), parses it
+  with `parseRouteResult` into `observed.persona` — `sampleOutcome` scores
+  route cases against that field, not `Skill` tool_use blocks. Route verdicts
+  are trustworthy now; the earlier "scorer ignores --json-schema" caveat no
+  longer applies.
+- **Session-ID collisions across separate `--live` invocations are fixed.**
+  `workflow.mjs`'s `runClaude` accepts an optional `sessionSalt`, folded into
+  the deterministic-session-id seed only when present — every other spec's
+  `buildArgs` output is byte-identical to before. `skill-eval.mjs` generates
+  one random `runNonce` per CLI invocation and threads it onto every
+  generated agent as `sessionSalt`, so two separate runs of the same case
+  set never collide.
+- **Trigger fixtures were rebuilt as grounded task prompts.** Each `trigger`
+  case in `cases.json` now poses a real, task-anchored ask (a concrete file
+  in `~/JHD/vault`, a real decision to make) instead of a bare phrase, still
+  without ever naming the target skill (fixture lint enforces this).
+  `maxTurns` for trigger cases was raised to 8 (from the harness default 4)
+  to give the model room to actually engage the task before the run caps
+  out. Whether this closes the T5/T6 empirical finding — that short,
+  context-free prompts never spontaneously invoke a skill at low `maxTurns`
+  — is what the T6-v2 re-run tests; see the re-run's own results record for
+  the outcome, including if it turns out to be a genuine resolution limit of
+  the harness rather than a fixture problem.
