@@ -104,7 +104,10 @@ path in prose about *this* session — but every hit needs a look before wrap cl
 State, section by section, what changed and what was verified — not just "wrapped."
 A wrap report that only says "done" gives the next session nothing to check against; one
 that names the specific commits, the listener's running/restart state, and which rulings
-landed where lets the next session trust it without re-deriving it.
+landed where lets the next session trust it without re-deriving it. Also report the
+personas and skills invoked this session against the routing tables
+(`skills/routing/SKILL.md`) — any mandated-skill zero on relevant work is a defect to log,
+not a silent gap.
 
 ## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
 

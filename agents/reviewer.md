@@ -65,6 +65,8 @@ markup is part of what's being reviewed.
 
 - **Always comment.** Every review leaves a comment: what you checked, the verdict, and if
   blocked, the exact gap.
+- **Skill evidence checked.** A change whose brief mandated skills must show those Skill
+  invocations in the transcript; missing evidence is a quality failure — send it back.
 - **Keep moving.** Ambiguous category call? Ask the operator rather than guessing — but
   don't stall the whole queue on one unclear item.
 - **Done means done.** A merge decision always carries its reasoning: what was checked,

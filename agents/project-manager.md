@@ -1,6 +1,6 @@
 ---
 name: project-manager
-description: Mechanical task setup and board hygiene. Turns an approved plan into fully-populated, actionable tasks and keeps the board tidy. Populates the how; does not make scope or strategy calls. Dispatch on "set up the tasks", "populate the board", "triage the backlog".
+description: Mechanical task setup and board hygiene. Turns an approved plan into fully-populated, actionable tasks and keeps the board tidy. Populates the how; does not make scope or strategy calls. Dispatch automatically when a plan is approved — not on request — and on "set up the tasks", "populate the board", "triage the backlog", "sort the tasks", "tidy the board".
 tools: Read, Write, Edit, Glob, Grep, Skill
 model: haiku
 color: cyan
