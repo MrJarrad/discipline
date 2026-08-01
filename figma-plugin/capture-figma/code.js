@@ -958,6 +958,25 @@ function findRatifiedAxisException(name, axis) {
   return exception;
 }
 
+// DEVICE-OWNED AXES (operator ruling 2026-08-01, vault memories/token-
+// rulings.md "LayoutGrid `columns` is a device-owned axis"): distinct from a
+// RATIFIED_AXIS_EXCEPTION — an exception downgrades a genuine divergence to
+// a visible, auditable informational record; a device-owned axis is proper
+// axis ownership (like the built-in `device` axis itself,
+// AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) and produces NO warning of
+// either type, silently, exactly like `device`. Keyed by COMPONENT (the
+// instance/component name — same identity RATIFIED_AXIS_EXCEPTIONS keys
+// on) to a list of its device-owned axis names, so a future ruling is a
+// one-line addition here, never a new special case in the loop below.
+const DEVICE_OWNED_AXES = {
+  LayoutGrid: ["columns"],
+};
+
+function isDeviceOwnedAxis(name, axis) {
+  const axes = DEVICE_OWNED_AXES[name];
+  return !!axes && axes.includes(axis);
+}
+
 function compareInstancePair(base, mInst, dInst) {
   const warnings = [];
   const mVariant = mInst.variantProps || {};
@@ -965,6 +984,7 @@ function compareInstancePair(base, mInst, dInst) {
   const axes = new Set([...Object.keys(mVariant), ...Object.keys(dVariant)]);
   for (const axis of axes) {
     if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
+    if (isDeviceOwnedAxis(mInst.name, axis)) continue;
     if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
     const exception = findRatifiedAxisException(mInst.name, axis);
     if (exception) {

@@ -465,6 +465,79 @@ test("buildWarnings: a NavigationHeader layout divergence between M-/D- is a rat
   }
 });
 
+test("buildWarnings: LayoutGrid's `columns` axis diverging between M-/D- is silent — neither an axis_ownership_violation nor a ratified_axis_exception (operator ruling 2026-08-01, DEVICE_OWNED_AXES)", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Projects",
+        instances: [{ id: "inst-m", name: "LayoutGrid", component: "LayoutGrid", variantProps: { device: "sm", columns: "1" }, properties: {}, overrides: [] }],
+      },
+      {
+        id: "tf-d",
+        name: "D - Projects",
+        instances: [{ id: "inst-d", name: "LayoutGrid", component: "LayoutGrid", variantProps: { device: "md+", columns: "3" }, properties: {}, overrides: [] }],
+      },
+    ],
+  });
+
+  assert.deepEqual(result, [], "LayoutGrid.columns divergence produces NO warning of any type");
+});
+
+test("buildWarnings: a NON-columns axis on LayoutGrid still flags a genuine axis-ownership violation", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Projects",
+        instances: [{ id: "inst-m", name: "LayoutGrid", component: "LayoutGrid", variantProps: { device: "sm", gap: "8" }, properties: {}, overrides: [] }],
+      },
+      {
+        id: "tf-d",
+        name: "D - Projects",
+        instances: [{ id: "inst-d", name: "LayoutGrid", component: "LayoutGrid", variantProps: { device: "md+", gap: "16" }, properties: {}, overrides: [] }],
+      },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "axis_ownership_violation",
+      nodeId: "inst-m",
+      nodeName: "LayoutGrid",
+      context: "Projects/gap",
+      message: 'Projects: instance "LayoutGrid" has divergent gap between M-Projects ("8") and D-Projects ("16") — a layout holds one opinion per non-device axis.',
+    },
+  ]);
+});
+
+test("buildWarnings: a DIFFERENT component's `columns` axis is NOT device-owned — still flags", () => {
+  const result = buildWarnings({
+    templateFrames: [
+      {
+        id: "tf-m",
+        name: "M - Table",
+        instances: [{ id: "inst-m", name: "DataTable", component: "DataTable", variantProps: { device: "sm", columns: "1" }, properties: {}, overrides: [] }],
+      },
+      {
+        id: "tf-d",
+        name: "D - Table",
+        instances: [{ id: "inst-d", name: "DataTable", component: "DataTable", variantProps: { device: "md+", columns: "3" }, properties: {}, overrides: [] }],
+      },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "axis_ownership_violation",
+      nodeId: "inst-m",
+      nodeName: "DataTable",
+      context: "Table/columns",
+      message: 'Table: instance "DataTable" has divergent columns between M-Table ("1") and D-Table ("3") — a layout holds one opinion per non-device axis.',
+    },
+  ]);
+});
+
 test("buildWarnings + computeWarningsByType: a ratified NavigationHeader exception and a genuine Hero violation in the same run count separately, never merged", () => {
   const result = buildWarnings({
     templateFrames: [
