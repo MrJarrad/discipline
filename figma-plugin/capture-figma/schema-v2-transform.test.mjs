@@ -270,6 +270,36 @@ test("buildWarnings: N same-named INSTANCE siblings of the SAME main component a
   assert.deepEqual(result, []);
 });
 
+test("buildWarnings: same-named INSTANCE siblings that are DIFFERENT VARIANTS of the SAME component set are interchangeable — no warning", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ActionButton", type: "INSTANCE", mainComponentId: "comp-variant-a", componentSetId: "set-actionbutton", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+      { id: "n2", name: "ActionButton", type: "INSTANCE", mainComponentId: "comp-variant-b", componentSetId: "set-actionbutton", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: same-named INSTANCE siblings that are variants of DIFFERENT component sets are genuine ambiguity — still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-variant-a", componentSetId: "set-slider", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+      { id: "n2", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-variant-b", componentSetId: "set-toggle", parentId: "frame-1", parentPath: "HeaderSection/actions" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "ControlSlider",
+      context: "HeaderSection/actions",
+      message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+    },
+  ]);
+});
+
 test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components are genuine ambiguity — still flagged", () => {
   const result = buildWarnings({
     nodeSnapshots: [

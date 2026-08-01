@@ -175,19 +175,25 @@ function nextRecordState(node, nodeWasRecorded) {
 // back to matching by name among siblings when an id isn't stable. A name
 // collision only actually threatens that fallback when the colliding
 // siblings are DIFFERENT THINGS sharing a name — different node types, or
-// (for instances) different main components. Same-named siblings that are
-// all instances of the SAME main component are interchangeable repeats (the
-// DS-intended "I have a row, not specifically 6 rows" case — vault
-// decisions/capture-ui-feel-verdict-2026-08-01.md Addendum 8): the
-// name-fallback lands on an equivalent node either way, so the collision is
-// harmless and is not flagged. `nodeSnapshots` is expected to already be
-// scoped to the override interface surface (see
-// isOverrideSurfaceBoundary/nextRecordState above) by the caller's traversal
-// — this function itself has no opinion on scope, only on collision.
+// (for instances) different main components AND different component sets.
+// Same-named siblings that are all instances of the SAME main component are
+// interchangeable repeats (the DS-intended "I have a row, not specifically 6
+// rows" case — vault decisions/capture-ui-feel-verdict-2026-08-01.md
+// Addendum 8). So are same-named siblings that are instances of DIFFERENT
+// variants of the SAME component set (e.g. ActionButton instances each set
+// to a different variant of the ActionButton component set) — a variant of
+// one set is still DS-interchangeable with its siblings; the set, not the
+// individual variant node, is the addressable identity. Either way the
+// name-fallback lands on an equivalent node, so the collision is harmless
+// and is not flagged. `nodeSnapshots` is expected to already be scoped to
+// the override interface surface (see isOverrideSurfaceBoundary/
+// nextRecordState above) by the caller's traversal — this function itself
+// has no opinion on scope, only on collision.
 function siblingsAreInterchangeable(a, b) {
   if (a.type !== b.type) return false;
   if (a.type !== "INSTANCE") return false;
-  return !!a.mainComponentId && a.mainComponentId === b.mainComponentId;
+  if (!!a.mainComponentId && a.mainComponentId === b.mainComponentId) return true;
+  return !!a.componentSetId && a.componentSetId === b.componentSetId;
 }
 
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {

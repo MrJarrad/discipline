@@ -715,11 +715,12 @@
       // surface (direct children of a COMPONENT or FRAME, plus one level
       // under a dot-prefixed sub-component) — but only when they're
       // DIFFERENT THINGS: a different node type, or (for instances) a
-      // different main component. Same-named instances of the SAME main
-      // component are suppressed as interchangeable repeats (operator
-      // ruling 2026-08-01, "a row, not specifically 6 rows").
+      // different main component AND a different component set. Same-named
+      // instances of the SAME main component, or of DIFFERENT VARIANTS of
+      // the SAME component set, are suppressed as interchangeable repeats
+      // (operator ruling 2026-08-01, "a row, not specifically 6 rows").
       duplicate_sibling_name: {
-        why: "Two or more layers directly under the same component or frame share a name AND are different things — a different node type, or (for instances) a different main component. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared name over different things makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change. Same-named instances of the SAME main component (interchangeable repeats, e.g. six identical Row instances) never trigger this — they're intentional.",
+        why: "Two or more layers directly under the same component or frame share a name AND are different things — a different node type, or (for instances) a different main component belonging to a different component set. Diffing correlates nodes by id first and by name among siblings as a fallback, so a shared name over different things makes that fallback ambiguous — a rename or reorder can then be read as an unrelated change. Same-named instances of the SAME main component, or of different variants of the SAME component set (e.g. six ActionButton instances each set to a different variant), never trigger this — they're intentional.",
         fix: "Rename one of them so every sibling under that parent is unique (e.g. \"Row\" and \"Row 2\" become \"Row / label\" and \"Row / value\"). Only a block's own addressable layers are checked — deep icon internals are ignored.",
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
