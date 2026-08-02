@@ -94,7 +94,7 @@
 // version-sync.test.mjs is the mechanical guard: it fails `node --test` the
 // moment this constant and plugin.json's "version" disagree, so drift is
 // caught before it ships instead of being rediscovered in a stale export.
-const PLUGIN_VERSION = "1.29.0";
+const PLUGIN_VERSION = "1.30.0";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
@@ -701,6 +701,15 @@ function buildTemplateFrames(frameSnapshots) {
     name: frame.name,
     width: frame.width,
     height: frame.height,
+    // devStatus: Figma's DevStatusMixin field (@figma/plugin-typings
+    // plugin-api.d.ts:5172 DevStatus type, :5670-5679 DevStatusMixin,
+    // mixed into BaseFrameMixin at :8268 — a FRAME node carries this
+    // directly). `null` when unset OR when the source snapshot never
+    // reported the field at all (null-is-unknown principle,
+    // capture-figma-primer.md §3 — no devStatus is never treated as
+    // "ready"). page-template-check.mjs's scope rule reads this: only
+    // frames with devStatus.type === "READY_FOR_DEV" are checkable.
+    devStatus: frame.devStatus || null,
     instances: (frame.instances || []).map((inst) => {
       const variantProps = {};
       const properties = {};
@@ -2019,6 +2028,10 @@ async function processExampleFrame(frame, parentId, parentPath, variableById, wa
     name: frame.name,
     width: Math.round(frame.width),
     height: Math.round(frame.height),
+    // frame.devStatus is the live figma.* read (DevStatusMixin on FRAME —
+    // see buildTemplateFrames's doc comment for the typings citation);
+    // buildTemplateFrames (the pure, mirrored function) passes it through.
+    devStatus: frame.devStatus || null,
     instances: instanceSnapshots,
   };
 }
