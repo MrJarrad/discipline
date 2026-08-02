@@ -211,6 +211,82 @@ test("css-scale: drifted mode-200 value -> one value_mismatch defect naming that
   assert.equal(result.defects[0].new, 40);
 });
 
+test("css-root-dark: figma RGB-object color matches an identical code hex string (no defect)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light", "dark"],
+        variables: [
+          {
+            name: "background/default/primary",
+            valuesByMode: {
+              light: { r: 1, g: 1, b: 1, a: 1 },
+              dark: { r: 0.03921568766236305, g: 0.03921568766236305, b: 0.03921568766236305, a: 1 },
+            },
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/background/default/primary": { codeLocation: "styles.css", tokenName: "--background-default-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --background-default-primary: #ffffff;\n}\n.dark {\n  --background-default-primary: #0a0a0a;\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("css-root-dark: genuinely different figma RGB-object color vs code hex still produces a value_mismatch", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light", "dark"],
+        variables: [
+          {
+            name: "border/focused/dark",
+            valuesByMode: {
+              // light resolves to #3a96cf (matches code) — dark resolves to
+              // #2582bb (genuine drift from code, which has no .dark override).
+              light: { r: 0.22745098173618317, g: 0.5882353186607361, b: 0.8117647171020508, a: 1 },
+              dark: { r: 0.14509804546833038, g: 0.5098039507865906, b: 0.7333333492279053, a: 1 },
+            },
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/border/focused/dark": { codeLocation: "styles.css", tokenName: "--state-focused", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --state-focused: #3a96cf;\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defects, [
+    {
+      path: "color/border/focused/dark",
+      mode: "dark",
+      old: "#2582bb",
+      new: "#3a96cf",
+      codeLocation: "styles.css",
+      tokenName: "--state-focused",
+      type: "value_mismatch",
+    },
+  ]);
+});
+
 test("CLI exits 0 when ok:true, nonzero when ok:false", () => {
   const aligned = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
