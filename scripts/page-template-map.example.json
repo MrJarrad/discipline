@@ -1,0 +1,12 @@
+{
+  "$schema": "page-template-map/v1",
+  "$note": "Illustrative only — mirrors template-map.example.json's convention. Reference example of the shape page-template-check.mjs's --map flag expects. The portfolio repo's REAL map (which pages, which expectations) is a separate dispatch — this file is not consumed by anything, it documents the schema.",
+  "entries": [
+    { "template": "D - Projects", "instance": "ProjectsGrid", "prop": "height", "expect": "large" },
+    { "template": "D - Projects", "instance": "LayoutGrid", "prop": "columns", "expect": "4" },
+    { "template": "M - Projects", "instance": "LayoutGrid", "prop": "columns", "expect": "1" }
+  ],
+  "unmappable": [
+    { "template": "D - Draft", "reason": "not READY_FOR_DEV yet — exempt by the checker's scope rule, not worth mapping until it is" }
+  ]
+}

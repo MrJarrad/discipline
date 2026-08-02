@@ -152,6 +152,7 @@ test("buildTemplateFrames: splits an instance's componentProperties into variant
       name: "Homepage",
       width: 1440,
       height: 3120,
+      devStatus: null,
       instances: [
         {
           id: "inst-1",
@@ -199,6 +200,26 @@ test("buildTemplateFrames: carries the frame's width/height through (Math.round'
 
   assert.equal(result[0].width, 1440);
   assert.equal(result[0].height, 3120);
+});
+
+test("buildTemplateFrames: carries the frame's devStatus through verbatim (page-template conformance lane's scope signal — READY_FOR_DEV templates are the checkable set)", () => {
+  const frames = [
+    { id: "tf-1", name: "D - Projects", width: 1280, height: 720, devStatus: { type: "READY_FOR_DEV" }, instances: [] },
+    { id: "tf-2", name: "D - Draft", width: 1280, height: 720, devStatus: null, instances: [] },
+  ];
+
+  const result = buildTemplateFrames(frames);
+
+  assert.deepEqual(result[0].devStatus, { type: "READY_FOR_DEV" });
+  assert.equal(result[1].devStatus, null);
+});
+
+test("buildTemplateFrames: a frame snapshot with no devStatus field at all still produces devStatus: null (null-is-unknown — no field is never treated as ready)", () => {
+  const frames = [{ id: "tf-1", name: "D - Legacy", width: 1280, height: 720, instances: [] }];
+
+  const result = buildTemplateFrames(frames);
+
+  assert.equal(result[0].devStatus, null);
 });
 
 test("buildLatentCapabilities: maps a capability-node snapshot to id/name/visible/binding, dropping unrelated fields", () => {

@@ -169,6 +169,55 @@ test("CONFORMANCE_MAP_PATH set with a components section: binding drift appears 
   rmSync(repoRoot, { recursive: true, force: true });
 });
 
+test("PAGE_TEMPLATE_MAP_PATH set, CONFORMANCE_MAP_PATH unset: the page-template lane still runs on its own and appends to conformance.jsonl under `pageTemplate`", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "page-template-repo-test-"));
+  const mappingPath = join(repoRoot, "page-template-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "page-template-map/v1",
+      entries: [{ template: "Homepage", instance: "Hero", prop: "height", expect: "M" }],
+    }),
+    "utf8"
+  );
+
+  await withListener({ CAPTURES_DIR: capturesDir, PAGE_TEMPLATE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ templateFrames: [{ ...v2ExportBody().templateFrames[0], devStatus: { type: "READY_FOR_DEV" } }] })),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.conformance.ran, true);
+    assert.equal("value" in body.conformance, false);
+    assert.equal(body.conformance.pageTemplate.defects, 1);
+  });
+
+  const conformancePath = join(capturesDir, "conformance.jsonl");
+  const record = JSON.parse(readFileSync(conformancePath, "utf8").trim().split("\n")[0]);
+  assert.equal(record.pageTemplate.defects.length, 1);
+  assert.equal(record.pageTemplate.defects[0].type, "page_template_mismatch");
+  assert.equal("binding" in record, false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("PAGE_TEMPLATE_MAP_PATH unset: response body never reports a pageTemplate key (absent means not configured, never rendered as clean)", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal("pageTemplate" in body.conformance, false);
+  });
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
 test("changes.jsonl reports a raw->raw layer-binding value change (regression: instance-size change on an unchanged layer path was silently dropped)", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
 

@@ -208,6 +208,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { runConformanceCheck } from "./conformance-check.mjs";
 import { runBindingCheck } from "./binding-check.mjs";
+import { runPageTemplateCheck } from "./page-template-check.mjs";
 
 const PORT = Number(process.env.CAPTURE_LISTENER_PORT || 4411);
 const MAX_BODY_BYTES = 50 * 1024 * 1024; // ~50MB
@@ -361,16 +362,20 @@ function jsonEq(a, b) {
 // Four independent things invalidate a cached check result; a match on ALL
 // four is what "nothing changed" actually means:
 //   - docHash            the export content hash (existing dedup hash)
-//   - checkerHash         conformance-check.mjs + binding-check.mjs, content-
-//                          hashed fresh on every request. Content hashing
-//                          (not mtime) is used because it's a direct claim
-//                          ("the bytes the checks would run are the same
-//                          bytes as last time"), not an inference from a
-//                          filesystem timestamp a touch/checkout could
-//                          change without altering content.
-//   - mapHash              CONFORMANCE_MAP_PATH's own file, same reasoning —
-//                          already read fresh per request by runConformance
-//                          Check/runBindingCheck, so a map edit takes effect
+//   - checkerHash         conformance-check.mjs + binding-check.mjs +
+//                          page-template-check.mjs, content-hashed fresh on
+//                          every request. Content hashing (not mtime) is
+//                          used because it's a direct claim ("the bytes the
+//                          checks would run are the same bytes as last
+//                          time"), not an inference from a filesystem
+//                          timestamp a touch/checkout could change without
+//                          altering content.
+//   - mapHash              every configured map file's content, combined —
+//                          CONFORMANCE_MAP_PATH (shared by the value/binding
+//                          lanes) and PAGE_TEMPLATE_MAP_PATH (the page-
+//                          template lane's own map), whichever are actually
+//                          set. Already read fresh per request by the check
+//                          functions themselves, so a map edit takes effect
 //                          without a listener restart and must invalidate
 //                          the cache the same way.
 //   - processStartedAt     fixed once at module load (see PROCESS_STARTED_AT
@@ -396,7 +401,11 @@ const PROCESS_STARTED_AT = Date.now();
 // binding-check.mjs mid-run — same override convention as CAPTURES_DIR above.
 const CHECKER_SOURCE_PATHS = process.env.CHECKER_SOURCE_PATHS
   ? process.env.CHECKER_SOURCE_PATHS.split(",")
-  : [join(import.meta.dirname, "conformance-check.mjs"), join(import.meta.dirname, "binding-check.mjs")];
+  : [
+      join(import.meta.dirname, "conformance-check.mjs"),
+      join(import.meta.dirname, "binding-check.mjs"),
+      join(import.meta.dirname, "page-template-check.mjs"),
+    ];
 
 // Both hashers fail OPEN, never throw: a missing/unreadable file (a
 // transient lock during a deploy pull, a permissions hiccup, or a genuine
@@ -422,21 +431,33 @@ function checkerSourceHash() {
   }
 }
 
-function mapFileHash(mappingPath) {
-  if (!mappingPath) return null;
+// Combines every CONFIGURED map path's content into one hash (null entries —
+// an unset PAGE_TEMPLATE_MAP_PATH alongside a set CONFORMANCE_MAP_PATH, say —
+// are skipped rather than hashed as absence, so turning a second map on/off
+// doesn't change the fingerprint of a sync that never touches it). Same
+// fail-open contract as checkerSourceHash: any read failure returns null,
+// which fingerprintsMatch treats as "can't confirm this matches," never as
+// a match.
+function mapFilesHash(mappingPaths) {
+  const paths = (mappingPaths || []).filter(Boolean);
+  if (paths.length === 0) return null;
   try {
-    if (!existsSync(mappingPath)) return null;
-    return createHash("sha256").update(readFileSync(mappingPath)).digest("hex");
+    const h = createHash("sha256");
+    for (const p of paths) {
+      if (!existsSync(p)) return null;
+      h.update(readFileSync(p));
+    }
+    return h.digest("hex");
   } catch {
     return null;
   }
 }
 
-function checkFingerprint(docHash, mappingPath) {
+function checkFingerprint(docHash, mappingPath, pageTemplateMappingPath) {
   return {
     docHash,
     checkerHash: checkerSourceHash(),
-    mapHash: mapFileHash(mappingPath),
+    mapHash: mapFilesHash([mappingPath, pageTemplateMappingPath]),
     processStartedAt: PROCESS_STARTED_AT,
   };
 }
@@ -1194,10 +1215,23 @@ const CONFORMANCE_SAMPLE_LIMIT = 3;
 //
 // Lane vocabulary: the VALUE lane (runConformanceCheck) compares a Figma
 // variable's value against a token in code; the BINDING lane (runBindingCheck)
-// compares a component layer's binding against what the code renders. Their
+// compares a component layer's binding against what the code renders; the
+// PAGE-TEMPLATE lane (runPageTemplateCheck) compares a page's call-site
+// expectation against a READY_FOR_DEV template's resolved variantProps. Their
 // defect records carry different identifying fields, so each lane gets its own
 // label shape rather than one lowest-common-denominator string.
-export function summarizeConformance(valueResult, bindingResult) {
+//
+// Every result param is OPTIONAL (the `undefined` default, not `null`) — a
+// lane's key is included in the returned summary ONLY when that lane
+// actually ran this request (its mapping file is configured), never
+// synthesized as "0 defects" when the lane didn't run at all. "Absent key
+// means not configured, not clean" is the same contract the whole
+// `conformance` object already holds at the top level for CONFORMANCE_MAP_PATH
+// unset (capture-figma-primer.md's live-sync landmine: "not configured" must
+// never render as "clean") — applied per-lane now that the value/binding
+// lanes (CONFORMANCE_MAP_PATH) and the page-template lane
+// (PAGE_TEMPLATE_MAP_PATH) are independently opt-in.
+export function summarizeConformance(valueResult, bindingResult, pageTemplateResult) {
   const lane = (result, label) => {
     const defects = Array.isArray(result && result.defects) ? result.defects : [];
     return {
@@ -1209,14 +1243,22 @@ export function summarizeConformance(valueResult, bindingResult) {
       })),
     };
   };
-  return {
-    ran: true,
-    skipped: false,
-    value: lane(valueResult, (d) => d.tokenName || d.path || "(unnamed token)"),
-    binding: lane(bindingResult, (d) =>
+  const summary = { ran: true, skipped: false };
+  if (valueResult !== undefined) {
+    summary.value = lane(valueResult, (d) => d.tokenName || d.path || "(unnamed token)");
+  }
+  if (bindingResult !== undefined) {
+    summary.binding = lane(bindingResult, (d) =>
       [d.component, d.layer, d.property].filter(Boolean).join(" · ") || "(unnamed binding)"
-    ),
-  };
+    );
+  }
+  if (pageTemplateResult !== undefined) {
+    summary.pageTemplate = lane(
+      pageTemplateResult,
+      (d) => [d.template, d.instance, d.prop].filter(Boolean).join(" · ") || "(unnamed template prop)"
+    );
+  }
+  return summary;
 }
 
 // Response body: { ok, path, unchanged, receipt, warningCount, conformance,
@@ -1266,9 +1308,13 @@ function handleCapture(req, res) {
       // RESULT) and reused by both branches below — see the RE-CHECK
       // INVALIDATION header comment for what each fingerprint field means.
       const mappingPath = process.env.CONFORMANCE_MAP_PATH || null;
-      const currentCheckFingerprint = mappingPath ? checkFingerprint(hash, mappingPath) : null;
+      const pageTemplateMappingPath = process.env.PAGE_TEMPLATE_MAP_PATH || null;
+      const anyMapConfigured = !!mappingPath || !!pageTemplateMappingPath;
+      const currentCheckFingerprint = anyMapConfigured
+        ? checkFingerprint(hash, mappingPath, pageTemplateMappingPath)
+        : null;
       const prevCheckFingerprint = (prevState && prevState.checkFingerprint) || null;
-      const checksStale = !!mappingPath && !fingerprintsMatch(currentCheckFingerprint, prevCheckFingerprint);
+      const checksStale = anyMapConfigured && !fingerprintsMatch(currentCheckFingerprint, prevCheckFingerprint);
 
       let receipt;
       // Set only when this sync actually diffed something (see response
@@ -1288,22 +1334,32 @@ function handleCapture(req, res) {
           unchanged: true,
         };
         appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
-        if (mappingPath && checksStale) {
-          // The document is unchanged, but the checker source, the mapping
+        if (anyMapConfigured && checksStale) {
+          // The document is unchanged, but the checker source, a mapping
           // file, or the listener process itself has moved on since the
-          // cached fingerprint — re-run both lanes against the artifact
-          // already on disk (nothing about the FILE changed, so it's not
-          // rewritten) and refresh the sidecar's fingerprint so the next
-          // truly-unchanged sync can skip again.
+          // cached fingerprint — re-run whichever lanes are configured
+          // against the artifact already on disk (nothing about the FILE
+          // changed, so it's not rewritten) and refresh the sidecar's
+          // fingerprint so the next truly-unchanged sync can skip again.
           try {
-            const result = runConformanceCheck({ capturePath: outPath, mappingPath });
-            const binding = runBindingCheck({ capturePath: outPath, mappingPath });
+            const result = mappingPath ? runConformanceCheck({ capturePath: outPath, mappingPath }) : undefined;
+            const binding = mappingPath ? runBindingCheck({ capturePath: outPath, mappingPath }) : undefined;
+            const pageTemplate = pageTemplateMappingPath
+              ? runPageTemplateCheck({ capturePath: outPath, mappingPath: pageTemplateMappingPath })
+              : undefined;
             appendFileSync(
               CONFORMANCE_PATH,
-              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",
+              JSON.stringify({
+                ts: new Date().toISOString(),
+                fileName: parsed.header.fileName,
+                fileKey: fileKey || null,
+                ...(result || {}),
+                ...(mappingPath ? { binding } : {}),
+                ...(pageTemplate !== undefined ? { pageTemplate } : {}),
+              }) + "\n",
               "utf8"
             );
-            conformance = summarizeConformance(result, binding);
+            conformance = summarizeConformance(result, binding, pageTemplate);
             writeAtomic(sidecarPath, JSON.stringify({ hash, export: prevState.export, checkFingerprint: currentCheckFingerprint }) + "\n");
           } catch (err) {
             console.error(`[capture-listener] conformance check failed: ${err.message}`);
@@ -1314,7 +1370,7 @@ function handleCapture(req, res) {
           // Nothing was written, so the conformance check doesn't re-run — but
           // "configured and not re-run" is a different fact from "not
           // configured", and the plugin has to be able to tell them apart.
-          if (mappingPath) {
+          if (anyMapConfigured) {
             conformance = { ran: false, skipped: false, unchanged: true };
           }
           console.log(`[capture-listener] unchanged, skipped write (${parsed.header.fileName})`);
@@ -1425,25 +1481,37 @@ function handleCapture(req, res) {
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
 
-        // Opt-in conformance check (CONFORMANCE_MAP_PATH): unset by default,
-        // so this block never runs unless explicitly configured — existing
-        // behavior is unchanged with nothing configured. Never lets a check
-        // failure fail the capture request; a broken mapping/capture just
-        // logs and skips the append. Runs BOTH lanes off the same mapping
-        // file — the value lane (`entries`, top-level result fields) and
+        // Opt-in conformance checks (CONFORMANCE_MAP_PATH, PAGE_TEMPLATE_MAP_PATH):
+        // unset by default, so this block never runs unless explicitly
+        // configured — existing behavior is unchanged with nothing configured.
+        // Never lets a check failure fail the capture request; a broken
+        // mapping/capture just logs and skips the append. CONFORMANCE_MAP_PATH
+        // drives BOTH the value lane (`entries`, top-level result fields) and
         // the binding lane (`components.entries`, nested under `binding`) —
         // so a mapping with no "components" section still works exactly as
         // before (runBindingCheck sees zero entries and reports ok:true).
-        if (mappingPath) {
+        // PAGE_TEMPLATE_MAP_PATH is independently opt-in — the fourth
+        // (page-template) lane runs even when CONFORMANCE_MAP_PATH is unset.
+        if (mappingPath || pageTemplateMappingPath) {
           try {
-            const result = runConformanceCheck({ capturePath: outPath, mappingPath });
-            const binding = runBindingCheck({ capturePath: outPath, mappingPath });
+            const result = mappingPath ? runConformanceCheck({ capturePath: outPath, mappingPath }) : undefined;
+            const binding = mappingPath ? runBindingCheck({ capturePath: outPath, mappingPath }) : undefined;
+            const pageTemplate = pageTemplateMappingPath
+              ? runPageTemplateCheck({ capturePath: outPath, mappingPath: pageTemplateMappingPath })
+              : undefined;
             appendFileSync(
               CONFORMANCE_PATH,
-              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",
+              JSON.stringify({
+                ts: new Date().toISOString(),
+                fileName: parsed.header.fileName,
+                fileKey: fileKey || null,
+                ...(result || {}),
+                ...(mappingPath ? { binding } : {}),
+                ...(pageTemplate !== undefined ? { pageTemplate } : {}),
+              }) + "\n",
               "utf8"
             );
-            conformance = summarizeConformance(result, binding);
+            conformance = summarizeConformance(result, binding, pageTemplate);
           } catch (err) {
             console.error(`[capture-listener] conformance check failed: ${err.message}`);
             conformance = { ran: false, skipped: false, error: err.message };

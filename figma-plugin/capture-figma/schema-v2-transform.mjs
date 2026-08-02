@@ -70,6 +70,15 @@ function buildTemplateFrames(frameSnapshots) {
     name: frame.name,
     width: frame.width,
     height: frame.height,
+    // devStatus: Figma's DevStatusMixin field (@figma/plugin-typings
+    // plugin-api.d.ts:5172 DevStatus type, :5670-5679 DevStatusMixin,
+    // mixed into BaseFrameMixin at :8268 — a FRAME node carries this
+    // directly). `null` when unset OR when the source snapshot never
+    // reported the field at all (null-is-unknown principle,
+    // capture-figma-primer.md §3 — no devStatus is never treated as
+    // "ready"). page-template-check.mjs's scope rule reads this: only
+    // frames with devStatus.type === "READY_FOR_DEV" are checkable.
+    devStatus: frame.devStatus || null,
     instances: (frame.instances || []).map((inst) => {
       const variantProps = {};
       const properties = {};

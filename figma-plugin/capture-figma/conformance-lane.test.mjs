@@ -18,10 +18,10 @@ function readUi() {
 function load() {
   const match = /=== CONFORMANCE LANE[\s\S]*?===\n([\s\S]*?)\n {4}\/\/ === END CONFORMANCE LANE ===/.exec(readUi());
   if (!match) throw new Error("CONFORMANCE LANE markers not found in ui.html");
-  return new Function(`${match[1]}\nreturn { formatDriftLane };`)();
+  return new Function(`${match[1]}\nreturn { formatDriftLane, formatPageTemplateLane };`)();
 }
 
-const { formatDriftLane } = load();
+const { formatDriftLane, formatPageTemplateLane } = load();
 
 test("drift lane: an unconfigured check says so instead of reporting zero defects", () => {
   const text = formatDriftLane({ ran: false, skipped: true });
@@ -62,6 +62,45 @@ test("drift lane: a missing conformance field (an older listener) degrades hones
   assert.equal(/\b0 defects\b/.test(text), false);
 });
 
+test("drift lane: value/binding keys both absent (only the page-template lane ran this request) reads as not configured, never as clean", () => {
+  const text = formatDriftLane({ ran: true, skipped: false, pageTemplate: { defects: 0, samples: [] } });
+  assert.equal(/\b0\b/.test(text), false, "must not imply a clean result for an unconfigured lane pair");
+  assert.match(text, /not configured/i);
+});
+
+test("page-template lane: an unconfigured check says so instead of reporting zero defects", () => {
+  const text = formatPageTemplateLane({ ran: false, skipped: true });
+  assert.equal(/\b0\b/.test(text), false, "must not imply a clean result");
+  assert.match(text, /not configured/i);
+});
+
+test("page-template lane: a clean run says every ready template matches, in words", () => {
+  const text = formatPageTemplateLane({ ran: true, skipped: false, pageTemplate: { defects: 0, samples: [] } });
+  assert.match(text, /match/i);
+});
+
+test("page-template lane: defects are counted honestly", () => {
+  const text = formatPageTemplateLane({ ran: true, skipped: false, pageTemplate: { defects: 5, samples: [] } });
+  assert.match(text, /\b5\b/);
+  assert.match(text, /mismatch/i);
+});
+
+test("page-template lane: the pageTemplate key absent (only value/binding ran this request) reads as not configured, never as clean", () => {
+  const text = formatPageTemplateLane({ ran: true, skipped: false, value: { defects: 0, samples: [] }, binding: { defects: 0, samples: [] } });
+  assert.equal(/\b0\b/.test(text), false, "must not imply a clean result for an unconfigured lane");
+  assert.match(text, /not configured/i);
+});
+
+test("page-template lane: an unchanged sync says it wasn't re-checked, not that it's clean", () => {
+  const text = formatPageTemplateLane({ ran: false, skipped: false, unchanged: true });
+  assert.match(text, /not re-checked|unchanged/i);
+});
+
+test("page-template lane: a failed check surfaces its error", () => {
+  const text = formatPageTemplateLane({ ran: false, skipped: false, error: "mapping file not found: /x.json" });
+  assert.match(text, /mapping file not found/);
+});
+
 test("drift UI: hygiene and drift are shown as two named lanes, with defects expandable", () => {
   const ui = readUi();
   assert.match(ui, /id="drift-row"/);
@@ -69,6 +108,13 @@ test("drift UI: hygiene and drift are shown as two named lanes, with defects exp
   assert.match(ui, /Design.code drift/i);
   assert.match(ui, /function renderDrift\(/);
   assert.match(ui, /codeLocation/);
+});
+
+test("drift UI: a third page-template lane row exists and renderDrift wires it up", () => {
+  const ui = readUi();
+  assert.match(ui, /id="page-template-lane"/);
+  assert.match(ui, /formatPageTemplateLane\(/);
+  assert.match(ui, /page\/template mismatches/);
 });
 
 test("drift UI: the sync-post-result relays the listener's conformance summary back to code.js", () => {
