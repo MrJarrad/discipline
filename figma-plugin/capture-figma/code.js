@@ -897,6 +897,20 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
         nodeName: node.name,
         context: context,
         message: `Duplicate sibling name "${node.name}" under ${context} — layer names must be unique among siblings for stable id/name-fallback matching.`,
+        // DIAGNOSTIC (operator's v1.26.1 syncs, still 48 duplicate_sibling_name
+        // survivors after the setId-only gate — our resolution inferences are
+        // wrong somewhere and hypothesizing further isn't finding it).
+        // Additive, duplicate_sibling_name-only field: the flagged node's own
+        // resolved identity, exactly as the walk populated it on the
+        // nodeSnapshot (see code.js's createSubtreeWalk visit()) — null
+        // preserved as null, never coerced away, so the next artifact shows
+        // which of the three actually failed to resolve instead of us
+        // guessing again. No predicate change this round.
+        resolution: {
+          mainComponentId: node.mainComponentId || null,
+          componentSetId: node.componentSetId || null,
+          mainComponentSetName: node.mainComponentSetName || null,
+        },
       });
     }
   }

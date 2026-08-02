@@ -269,6 +269,7 @@ test("buildWarnings: flags two siblings sharing a name under the same parent, as
       nodeName: "Icon",
       context: "Homepage/Hero",
       message: 'Duplicate sibling name "Icon" under Homepage/Hero — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: null, componentSetId: null, mainComponentSetName: null },
     },
   ]);
 });
@@ -311,6 +312,7 @@ test("buildWarnings: same-named INSTANCE siblings that are variants of DIFFERENT
       nodeName: "ControlSlider",
       context: "HeaderSection/actions",
       message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-variant-b", componentSetId: "set-toggle", mainComponentSetName: null },
     },
   ]);
 });
@@ -330,6 +332,7 @@ test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components a
       nodeName: "Row",
       context: "Homepage/List",
       message: 'Duplicate sibling name "Row" under Homepage/List — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-row-variant", componentSetId: null, mainComponentSetName: null },
     },
   ]);
 });
@@ -378,6 +381,7 @@ test("buildWarnings: same-named INSTANCE siblings with non-null, DIFFERENT compo
       nodeName: "ControlSlider",
       context: "HeaderSection/actions",
       message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-b", componentSetId: "set-2", mainComponentSetName: "ControlSlider" },
     },
   ]);
 });
@@ -397,6 +401,7 @@ test("buildWarnings: same-named INSTANCE siblings with unresolved componentSetId
       nodeName: "ControlSlider",
       context: "HeaderSection/actions",
       message: 'Duplicate sibling name "ControlSlider" under HeaderSection/actions — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: "ToggleSlider" },
     },
   ]);
 });
@@ -416,6 +421,7 @@ test("buildWarnings: a same-named INSTANCE + FRAME pair is a node-type mismatch 
       nodeName: "Row",
       context: "Homepage/List",
       message: 'Duplicate sibling name "Row" under Homepage/List — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: null, componentSetId: null, mainComponentSetName: null },
     },
   ]);
 });
@@ -435,8 +441,31 @@ test("buildWarnings: two same-named FRAME (non-instance) siblings keep the uncha
       nodeName: "Section",
       context: "Homepage",
       message: 'Duplicate sibling name "Section" under Homepage — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: null, componentSetId: null, mainComponentSetName: null },
     },
   ]);
+});
+
+// DIAGNOSTIC FIELDS (operator's v1.26.1 syncs — the 48 duplicate_sibling_name
+// survivors are still flagging after the setId-only gate; instrumenting the
+// actual resolved values rather than hypothesizing further). Additive,
+// duplicate_sibling_name-only: `resolution` carries the flagged node's own
+// mainComponentId/componentSetId/mainComponentSetName exactly as the walk
+// resolved them — null preserved as null on every field, not coerced away.
+test("buildWarnings: a duplicate_sibling_name record carries the flagged node's resolved mainComponentId/componentSetId/mainComponentSetName under `resolution`, values exactly as resolved (nulls preserved, not coerced)", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-left", componentSetId: null, mainComponentSetName: null, parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-right", componentSetId: "set-icon-resolved", mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+    ],
+  });
+
+  assert.equal(result.length, 1);
+  assert.deepEqual(result[0].resolution, {
+    mainComponentId: "comp-right",
+    componentSetId: "set-icon-resolved",
+    mainComponentSetName: "ActionButtonIcon",
+  });
 });
 
 test("buildWarnings: flags a non-device axis that diverges between an M-/D-Example frame pair (axis-ownership violation), as a typed record", () => {
