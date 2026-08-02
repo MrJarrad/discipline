@@ -105,12 +105,17 @@ reviewer gates, release operations, per-domain engineers. Spawn fresh only for n
 domains or when a prior transcript has grown beyond useful size (then retire the prior
 agent and respawn fresh against the primer).
 
-Every repeated workstream gets a vault primer (`documents/<workstream>-primer.md`):
-architecture map, file inventory, invariants and conventions (test techniques, marker
-blocks), current version/baselines, and standing rulings binding the code. Name the
-primer as **FIRST READ** in the brief so the receiver starts from a knowledge base,
-not an empty page. If a workstream is getting repeated dispatches and has no primer,
-creating one is part of the orchestrator's job.
+Every repeated workstream gets a vault primer at
+`projects/<project-slug>/primers/<workstream>-primer.md` (thing-then-aspect — the
+project first, the primer aspect inside it; e.g.
+`projects/capture-figma/primers/capture-figma-primer.md`): architecture map, file
+inventory, invariants and conventions (test techniques, marker blocks), current
+version/baselines, and standing rulings binding the code. Name the primer as **FIRST
+READ** in the brief so the receiver starts from a knowledge base, not an empty page. If
+a workstream is getting repeated dispatches and has no primer, creating one is part of
+the orchestrator's job — and it isn't a project until it also has its
+`projects/<name>/hub.md` + `estate/estate-map.md` row + `estate/repo-docs/` mirror
+(the new-project trio, see `vault-write`).
 
 Brief the receiver with verified facts: file:line loci, baselines (commit hash, version,
 last-touched date), and hashes of key files — so the agent starts working, not exploring
