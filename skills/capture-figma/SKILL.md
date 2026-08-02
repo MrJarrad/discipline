@@ -48,8 +48,10 @@ available and what you're reading, not by habit:
    (pages, frames, components, variant matrices) and real version pinning, the discipline
    plugin's `scripts/figma-capture.mjs` (snapshot/delta) plus `scripts/capture-poll.mjs`
    against the plain REST API (`depth`/`ids` omitted) is best-in-class: no active-tab
-   constraint, no lazy-page gaps, real `?version=` pinning (research decision,
-   `documents/figma-reading-research.md`). Use this lane for anything that needs to be
+   constraint, no lazy-page gaps, real `?version=` pinning (research decision — the
+   original research note did not survive the vault's 2026-07-31 legacy purge; a
+   fresh decision record, if this needs re-grounding, belongs at
+   `projects/capture-figma/decisions/`). Use this lane for anything that needs to be
    pinned to a specific version id and diffed structurally later (`figma-capture.mjs
    versions` / `snapshot --version <id>` / `delta`).
 3. **Active variables/styles/components lane — the Figma-agent-built exporter, live
@@ -545,17 +547,19 @@ full-bleed image translates to the block's `flush` prop, not `width: 1280px`.
 
 A capture is not one document. It's two, cross-referencing, each with its own frontmatter
 and vault path — this is the codified convention, not a one-off from any particular
-capture:
+capture. Filed thing-then-aspect, under the owning project's `artifacts/` (e.g.
+`projects/capture-figma/artifacts/` for this plugin's own captures, or
+`projects/<consuming-project>/artifacts/` when the capture is for another project's UI):
 
-1. **Architecture map** (`documents/<file-name>-architecture-map.md`) — Step 1's anatomy,
-   the skeleton. Frontmatter: `file` (human-name-first, key in parens), `captured` (date),
-   `sources` (what was pulled and when — pinned REST snapshot id / MCP session, plus any
-   operator screenshots), `status` (e.g. "architecture baseline," in-flight caveats),
-   `supersedes` (the previous map this replaces, or "nothing" for a first capture). Body:
-   pages in canvas order with role and frame counts, the PRODUCER/CONSUMER archetype,
-   library manifest, per-page findings — everything from Steps 1, 3, and 4's structural
-   layers.
-2. **Variables ledger** (`documents/<file-name>-variables-ledger.md`) — Step 2's values.
+1. **Architecture map** (`projects/<name>/artifacts/<file-name>-architecture-map.md`) —
+   Step 1's anatomy, the skeleton. Frontmatter: `file` (human-name-first, key in
+   parens), `captured` (date), `sources` (what was pulled and when — pinned REST
+   snapshot id / MCP session, plus any operator screenshots), `status` (e.g.
+   "architecture baseline," in-flight caveats), `supersedes` (the previous map this
+   replaces, or "nothing" for a first capture). Body: pages in canvas order with role
+   and frame counts, the PRODUCER/CONSUMER archetype, library manifest, per-page
+   findings — everything from Steps 1, 3, and 4's structural layers.
+2. **Variables ledger** (`projects/<name>/artifacts/<file-name>-variables-ledger.md`) — Step 2's values.
    Frontmatter: `file_key`, `file_name`, `capture_date`, `version` (the pinned version id,
    or an explicit "unpinned" note with why), `coverage` (a list of `page_id`/`page_name`
    pairs actually pulled), `method` (which tool and mode — e.g. "MCP get_variable_defs per
