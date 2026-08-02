@@ -36,6 +36,7 @@ function mockApi() {
     getInstanceMainComponent: async (n) => n.mainComponent || null,
     resolveComponentSetName: (c) => (c && c.parent && c.parent.type === "COMPONENT_SET" ? c.parent.name : c ? c.name : null),
     isSpacerSetName: () => false,
+    isOrphanedComponent: () => false,
     nodeNamePath: (n) => n.name,
     nextRecordState: (n, recorded) => {
       const isBoundary = !!n && (n.type === "COMPONENT" || n.type === "FRAME");
@@ -66,7 +67,7 @@ test("nested-instance interchangeability: two same-set ActionButtonIcon variant 
   const headerCompDef = node("comp-header", "COMPONENT", "HeaderSection", [controlSlider]);
 
   const walk = createSubtreeWalk(mockApi());
-  const out = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
   await walk(headerCompDef, new Map(), out, false);
 
   const arrows = out.nodeSnapshots.filter((n) => n.name === "ActionButtonIcon");
@@ -106,7 +107,7 @@ test("nested-instance interchangeability (LIVE CASE): two ActionButtonIcon varia
   const headerCompDef = node("comp-header", "COMPONENT", "HeaderSection", [controlSlider]);
 
   const walk = createSubtreeWalk(mockApi());
-  const out = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
   await walk(headerCompDef, new Map(), out, false);
 
   const arrows = out.nodeSnapshots.filter((n) => n.name === "ActionButtonIcon");

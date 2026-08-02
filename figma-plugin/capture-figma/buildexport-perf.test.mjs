@@ -172,7 +172,7 @@ test("mode values: a variable with no valuesByMode at all matches the sequential
 const { collectInParallel } = extract("PARALLEL COLLECT", "{ collectInParallel }");
 
 function emptyCollector() {
-  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  return { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
 }
 
 // A walk that finishes in the REVERSE of the order it was called in — the only
@@ -471,6 +471,7 @@ function reverseCompletionApi() {
     getInstanceMainComponent: (inst) => later(inst.main || null),
     resolveComponentSetName: (c) => (c && c.setName) || null,
     isSpacerSetName: (name) => name === "SpaceVertical",
+    isOrphanedComponent: () => false,
     nodeNamePath: testNodeNamePath,
     nextRecordState: testNextRecordState,
     resolveCapabilityBinding: (paint) => later(paint.binding || null),
@@ -674,7 +675,7 @@ function variantSetFixture() {
 }
 
 function walkCollector() {
-  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  return { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
 }
 
 // `baseline` here is the REVERTED round-2 parallel walk, not a sequential
@@ -810,7 +811,7 @@ function reverseCompletionFrameProcessor() {
 // 5d64bf2 — now REVERTED. Kept here only so the round-1 depth-first shape
 // shipped in code.js can be proven output-identical to what it replaced.
 function newWarningsCollectorBaseline() {
-  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  return { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
 }
 function mergeWarningsCollectorBaseline(target, bucket) {
   for (const entry of bucket.nodeSnapshots) target.nodeSnapshots.push(entry);
@@ -1231,6 +1232,7 @@ function gatedReverseCompletionApi(limit, probe) {
     getInstanceMainComponent: (inst) => later(inst.main || null),
     resolveComponentSetName: (c) => (c && c.setName) || null,
     isSpacerSetName: (name) => name === "SpaceVertical",
+    isOrphanedComponent: () => false,
     nodeNamePath: testNodeNamePath,
     nextRecordState: testNextRecordState,
     resolveCapabilityBinding: (paint) => later(paint.binding || null),

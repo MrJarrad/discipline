@@ -824,6 +824,15 @@
           templateName = segments.slice(0, -1).join("/");
           componentName = layerName;
           segments = [segments[segments.length - 1]];
+        } else if (type === "orphaned_component_instance") {
+          // ORPHANED COMPONENT GROUPING (operator ruling 2026-08-02): "Group
+          // by orphaned component name" — the identity here is the DELETED
+          // component (warning.mainComponentName), not the containing block
+          // or the flagged instance's own layer name, so every instance
+          // pointing at the same deleted master collapses to one row even
+          // when their layer names differ (Spacer-top vs Spacer-bottom).
+          componentName = (warning && warning.mainComponentName) || null;
+          segments = [];
         } else {
           if (segments.length && segments[0].indexOf("=") >= 0) {
             variant = segments.shift();
@@ -840,7 +849,14 @@
         // With an empty path the parent IS the owning component's own root.
         const container = segments.length ? segments[segments.length - 1] : componentName;
 
-        const key = [type, componentName, container, layerName].join(" ");
+        // orphaned_component_instance's identity is the orphaned component
+        // alone (see the branch above) -- the key must not also fold in the
+        // flagged instance's own (possibly varying) layerName, or same-
+        // component sites with different layer names would never collapse.
+        const key =
+          type === "orphaned_component_instance"
+            ? [type, componentName].join(" ")
+            : [type, componentName, container, layerName].join(" ");
         let group = groups.get(key);
         if (!group) {
           group = {
@@ -960,6 +976,13 @@
     // and the copy must not pretend otherwise.
     const ROLE_PAIR = { primary: "secondary", secondary: "primary" };
 
+    // The four canonical spacer layer names — mirrors
+    // CANONICAL_SPACER_INSTANCE_NAMES in schema-v2-transform.mjs/code.js
+    // (this file has no access to that shared block, so the small set is
+    // kept here too, guide-copy-only: only used to decide whether an
+    // orphaned instance's modern equivalent is derivable).
+    const ORPHANED_SPACER_LAYER_NAMES = new Set(["SpacerTop", "SpacerBottom", "SpacerHorizontal", "SpacerVertical"]);
+
     const WARNING_GUIDE = {
       // code.js buildMalformedSpacerNameWarnings(): fires for an INSTANCE
       // whose main component SET is SpaceVertical/SpaceHorizontal (the only
@@ -1029,6 +1052,34 @@
         fix: () =>
           "Ratified — nothing to fix. You approved this mobile/desktop difference; it disappears if the ruling changes.",
         why: "The same M/D axis divergence as an axis-ownership violation, on a component you've ratified as intended (currently NavigationHeader's layout axis). One row covers every template pair it fires on — expand it for the per-template list.",
+      },
+      // code.js buildOrphanedComponentInstanceWarnings(): an INSTANCE whose
+      // resolved main component still exists as a node but is detached from
+      // any page (a deleted master) and isn't a remote library component —
+      // see isOrphanedComponent's own comment for the parent/remote check.
+      // Grouped by the ORPHANED COMPONENT's name (groupWarningsByRootCause's
+      // orphaned_component_instance branch), so every instance pointing at
+      // the same deleted master collapses to one row regardless of the
+      // flagged instances' own (possibly varying) layer names.
+      orphaned_component_instance: {
+        headline: (group) =>
+          quoted(group.layerName) +
+          " is an instance of " +
+          quoted(group.componentName || "an unknown component") +
+          ", a component that no longer exists in this file" +
+          rootCauseEcho(group),
+        // A modern-equivalent suggestion is only ever named when it's
+        // derivable from data, not guessed — a canonical spacer layer name
+        // is the one case this file can currently derive (the DS's Spacer
+        // set is the only family the plugin already tracks by canonical
+        // name; see CANONICAL_SPACER_INSTANCE_NAMES in schema-v2-
+        // transform.mjs/code.js, mirrored here as a small local set since
+        // ui.html has no access to that shared block).
+        fix: (group) =>
+          ORPHANED_SPACER_LAYER_NAMES.has(group.layerName)
+            ? "Swap it for a current component — this is a canonical spacer layer name, so the modern equivalent is the current Spacer set."
+            : "Swap it for a current component that covers the same role. Check the file for what replaced it — there's no way to guess the modern equivalent from this name alone.",
+        why: "The instance's main component still exists as a node (getMainComponentAsync/mainComponent resolved something) but has no parent — it's on no page in this file — and isn't a remote library component. That combination is the deleted-master signal @figma/plugin-typings documents on BaseNode.parent, not a lookup failure: an unresolvable main component never triggers this warning, only a confirmed orphan does.",
       },
       // code.js buildAxisOwnershipViolationWarnings(): within one instance-
       // name group where BOTH sides repeat the name, an instance at a position

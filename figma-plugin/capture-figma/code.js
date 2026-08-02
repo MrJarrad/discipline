@@ -762,6 +762,18 @@ function resolveComponentSetName(component) {
   return component.name;
 }
 
+// ORPHANED COMPONENT (operator ruling 2026-08-02, vault decisions/capture-
+// ui-feel-verdict-2026-08-01.md Addenda 13-14): true only for a resolved
+// main component (already-fetched live node, never called on `null` —
+// unresolvable is unknown, not orphaned) that is BOTH detached from any
+// page (parent null/undefined, the "deleted master" signal
+// @figma/plugin-typings documents on BaseNode.parent) AND not a remote
+// library component (ComponentNode.remote === true is a legitimate,
+// published-elsewhere component and must never warn).
+function isOrphanedComponent(component) {
+  return !!component && !component.parent && component.remote !== true;
+}
+
 function buildMalformedSpacerNameWarnings(spacerInstances) {
   const warnings = [];
   for (const inst of spacerInstances || []) {
@@ -1291,6 +1303,40 @@ function buildHeaderPropskitField(propskitAvailable) {
   return { propskitAvailable: !!propskitAvailable };
 }
 
+// ORPHANED COMPONENT INSTANCE (operator ruling 2026-08-02, vault decisions/
+// capture-ui-feel-verdict-2026-08-01.md Addenda 13-14): an INSTANCE whose
+// resolved main component still EXISTS as a node (getMainComponentAsync/
+// mainComponent returned something) but is detached from any page — parent
+// null/undefined, per @figma/plugin-typings' own note on BaseNode.parent
+// ("Components accessed via instance.getMainComponentAsync()/
+// instance.mainComponent do not always have a parent. They could be remote
+// components or soft-deleted components") — and is NOT remote
+// (ComponentNode.remote === true means a legitimate library component,
+// published from elsewhere; never a warning). code.js's walk does the live
+// parent/remote check (isOrphanedComponent — a live-node-only predicate,
+// see its own comment there) and only pushes a node into
+// `orphanedInstances` once that's already decided true; an unresolvable
+// main component (null) never reaches this list at all — unknown is never
+// orphaned, only a confirmed deleted master is. This function only shapes
+// the already-collected records into typed warnings, exactly like
+// buildMalformedSpacerNameWarnings does for spacerInstances.
+function buildOrphanedComponentInstanceWarnings(orphanedInstances) {
+  const warnings = [];
+  for (const inst of orphanedInstances || []) {
+    const label = inst.path || inst.name;
+    warnings.push({
+      type: "orphaned_component_instance",
+      nodeId: inst.id || null,
+      nodeName: inst.name,
+      context: label,
+      mainComponentName: inst.mainComponentName || null,
+      mainComponentSetName: inst.mainComponentSetName || null,
+      message: `${label} is an instance of ${JSON.stringify(inst.mainComponentName || "an unknown component")}, a component that no longer exists in this file — swap it for a current component.`,
+    });
+  }
+  return warnings;
+}
+
 // warnings[]: the plugin's structural-lint bucket — combines every lint
 // type into one flat array of typed records {type, nodeId, nodeName,
 // context, message} (per the published contract and its listener/test
@@ -1302,6 +1348,7 @@ function buildWarnings(input) {
     ...buildMalformedSpacerNameWarnings(snapshot.spacerInstances),
     ...buildDuplicateSiblingNameWarnings(snapshot.nodeSnapshots),
     ...buildAxisOwnershipViolationWarnings(snapshot.templateFrames),
+    ...buildOrphanedComponentInstanceWarnings(snapshot.orphanedInstances),
   ];
 }
 
@@ -1579,6 +1626,15 @@ function createSubtreeWalk(api) {
         if (mainComponentSetName && api.isSpacerSetName(mainComponentSetName)) {
           out.spacerInstances.push({ id: node.id, name: node.name, path: api.nodeNamePath(node, root) });
         }
+        if (api.isOrphanedComponent(mainComponent)) {
+          out.orphanedInstances.push({
+            id: node.id,
+            name: node.name,
+            path: api.nodeNamePath(node, root),
+            mainComponentName: mainComponent.name,
+            mainComponentSetName: mainComponentSetName,
+          });
+        }
         if (bindingCtx) {
           const boundName = mainComponent ? api.resolveComponentSetName(mainComponent) || mainComponent.name : null;
           if (boundName) {
@@ -1644,6 +1700,7 @@ const walkV2Subtree = createSubtreeWalk({
   getInstanceMainComponent: function (node) { return getInstanceMainComponent(node); },
   resolveComponentSetName: function (component) { return resolveComponentSetName(component); },
   isSpacerSetName: function (name) { return RAW_SPACER_COMPONENT_NAMES.has(name); },
+  isOrphanedComponent: function (component) { return isOrphanedComponent(component); },
   nodeNamePath: function (node, root) { return nodeNamePath(node, root); },
   nextRecordState: function (node, recorded) { return nextRecordState(node, recorded); },
   resolveCapabilityBinding: function (paint, variableById) { return resolveCapabilityBinding(paint, variableById); },
@@ -1677,7 +1734,7 @@ const walkV2Subtree = createSubtreeWalk({
 // buildexport-perf.test.mjs against a walk that deliberately completes in
 // reverse call order).
 function newWarningsCollector() {
-  return { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  return { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
 }
 
 // Appends `bucket` onto `target` wholesale. Every merge in this file goes
@@ -1686,6 +1743,7 @@ function newWarningsCollector() {
 function mergeWarningsCollector(target, bucket) {
   for (const entry of bucket.nodeSnapshots) target.nodeSnapshots.push(entry);
   for (const entry of bucket.spacerInstances) target.spacerInstances.push(entry);
+  for (const entry of bucket.orphanedInstances) target.orphanedInstances.push(entry);
   for (const entry of bucket.latentCapabilities) target.latentCapabilities.push(entry);
   for (const entry of bucket.variantBindings) target.variantBindings.set(entry[0], entry[1]);
 }
@@ -2150,7 +2208,7 @@ async function buildExport() {
   // any of the pure transform functions run on them. variantBindings is
   // populated in the SAME componentSetNodes walk (collectBindings=true) —
   // see walkV2Subtree's header comment.
-  const warningsCollector = { nodeSnapshots: [], spacerInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  const warningsCollector = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
 
   phase("styles");
 
@@ -2199,6 +2257,7 @@ async function buildExport() {
   const warnings = buildWarnings({
     spacerInstances: warningsCollector.spacerInstances,
     nodeSnapshots: warningsCollector.nodeSnapshots,
+    orphanedInstances: warningsCollector.orphanedInstances,
     templateFrames: templateFrames,
   });
 

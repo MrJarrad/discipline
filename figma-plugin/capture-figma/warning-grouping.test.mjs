@@ -234,6 +234,44 @@ test("root causes: a ratified exception on a DIFFERENT component stays a separat
   assert.equal(groups.length, 2);
 });
 
+// ORPHANED COMPONENT INSTANCE GROUPING (operator ruling 2026-08-02): "Group
+// by orphaned component name" — every instance pointing at the same deleted
+// master collapses to one row, even when the flagged instances' own layer
+// names differ (Spacer-top vs Spacer-bottom, say).
+function orphaned(path, layerName, mainComponentName) {
+  return {
+    type: "orphaned_component_instance",
+    nodeId: "N:" + path,
+    nodeName: layerName,
+    context: path,
+    mainComponentName: mainComponentName,
+    message: `${path} is an instance of "${mainComponentName}", a component that no longer exists in this file.`,
+  };
+}
+
+test("root causes: orphaned_component_instance rows for the SAME orphaned component collapse to ONE row, even with different layer names", () => {
+  const warnings = [
+    orphaned("FeatureText/1/Spacer-top", "Spacer-top", "SpaceVertical/space-xl"),
+    orphaned("FeatureText/2/Spacer-bottom", "Spacer-bottom", "SpaceVertical/space-xl"),
+    orphaned("RichText/1/Spacer-top", "Spacer-top", "SpaceVertical/space-xl"),
+  ];
+  const groups = groupWarningsByRootCause(warnings, resolver());
+  assert.equal(groups.length, 1, "all three point at the same deleted master — one row");
+  assert.equal(groups[0].componentName, "SpaceVertical/space-xl");
+  assert.equal(groups[0].count, 3);
+  assert.equal(groups[0].layerName, "Spacer-top", "the FIRST occurrence's own layer name is the representative headline name");
+  assert.equal(groups[0].occurrences.length, 3, "every individual site stays available underneath");
+});
+
+test("root causes: orphaned_component_instance rows for DIFFERENT orphaned components stay separate rows", () => {
+  const warnings = [
+    orphaned("FeatureText/1/Spacer-top", "Spacer-top", "SpaceVertical/space-xl"),
+    orphaned("RichText/1/Icon", "Icon", "LegacyIconWrapper"),
+  ];
+  const groups = groupWarningsByRootCause(warnings, resolver());
+  assert.equal(groups.length, 2);
+});
+
 // NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02): a
 // ratified_axis_exception is a decision already made, not work — it must
 // leave the hygiene section entirely, excluded from both the array-shaped

@@ -569,6 +569,49 @@ test("buildWarnings: a duplicate_sibling_name record carries the flagged node's 
   });
 });
 
+// ORPHANED COMPONENT INSTANCE (operator ruling 2026-08-02, vault
+// decisions/capture-ui-feel-verdict-2026-08-01.md Addenda 13-14): code.js's
+// live walk decides orphaned-ness (parent null/undefined AND not remote)
+// and only pushes a confirmed record into orphanedInstances — this pure
+// function just shapes whatever it's given, so these tests exercise the
+// shaping, not the live parent/remote decision (that lives in code.js and
+// is exercised by conformance-lane.test.mjs / the plugin harness).
+test("buildWarnings: flags an INSTANCE whose orphaned main component was already identified by the walk, as a typed record", () => {
+  const result = buildWarnings({
+    orphanedInstances: [
+      { id: "n1", name: "Spacer-top", path: "FeatureText/Spacer-top", mainComponentName: "SpaceVertical/space-xl", mainComponentSetName: "SpaceVertical" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "orphaned_component_instance",
+      nodeId: "n1",
+      nodeName: "Spacer-top",
+      context: "FeatureText/Spacer-top",
+      mainComponentName: "SpaceVertical/space-xl",
+      mainComponentSetName: "SpaceVertical",
+      message: 'FeatureText/Spacer-top is an instance of "SpaceVertical/space-xl", a component that no longer exists in this file — swap it for a current component.',
+    },
+  ]);
+});
+
+test("buildWarnings: no orphanedInstances (or undefined) produces no orphaned_component_instance warnings", () => {
+  assert.deepEqual(buildWarnings({ orphanedInstances: [] }), []);
+  assert.deepEqual(buildWarnings({}), []);
+});
+
+test("buildWarnings: flags every distinct orphaned instance separately, carrying its own path/name", () => {
+  const result = buildWarnings({
+    orphanedInstances: [
+      { id: "n1", name: "Spacer-top", path: "FeatureText/1/Spacer-top", mainComponentName: "RichText/legacy" },
+      { id: "n2", name: "Spacer-bottom", path: "FeatureText/2/Spacer-bottom", mainComponentName: "RichText/legacy" },
+    ],
+  });
+  assert.equal(result.length, 2);
+  assert.deepEqual(result.map((w) => w.context), ["FeatureText/1/Spacer-top", "FeatureText/2/Spacer-bottom"]);
+});
+
 test("buildWarnings: flags a non-device axis that diverges between an M-/D-Example frame pair (axis-ownership violation), as a typed record", () => {
   const result = buildWarnings({
     templateFrames: [

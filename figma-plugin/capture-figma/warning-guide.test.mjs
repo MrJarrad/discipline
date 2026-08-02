@@ -117,6 +117,40 @@ test("warning guide: duplicate-sibling's fix leads with the approved-voice line,
   }
 });
 
+// ORPHANED COMPONENT INSTANCE (operator ruling 2026-08-02): the headline
+// names the flagged instance's own layer name, the orphaned component it
+// points at, and how many sites echo it; the fix suggests the modern
+// equivalent only when it's derivable (a canonical spacer layer name ->
+// the current Spacer set), never invented for anything else.
+test("warning guide: orphaned-component-instance's headline names the flagged layer, the deleted component, and the echo count", () => {
+  const g = group({
+    type: "orphaned_component_instance",
+    componentName: "SpaceVertical/space-xl",
+    container: "SpaceVertical/space-xl",
+    layerName: "Spacer-top",
+    count: 19,
+    variants: [],
+  });
+  const headline = warningGuideFor("orphaned_component_instance").headline(g);
+  assert.match(headline, /Spacer-top/);
+  assert.match(headline, /SpaceVertical\/space-xl/);
+  assert.match(headline, /no longer exists/);
+  assert.match(headline, /19 places/);
+});
+
+test("warning guide: orphaned-component-instance's fix suggests the current Spacer set only for a canonical spacer layer name", () => {
+  const spacerFix = warningGuideFor("orphaned_component_instance").fix(
+    group({ type: "orphaned_component_instance", layerName: "SpacerTop" })
+  );
+  assert.match(spacerFix, /Spacer set/);
+
+  const genericFix = warningGuideFor("orphaned_component_instance").fix(
+    group({ type: "orphaned_component_instance", layerName: "FeatureIcon" })
+  );
+  assert.equal(/Spacer set/.test(genericFix), false, "never invents a spacer suggestion for a non-spacer layer name");
+  assert.match(genericFix, /current component/);
+});
+
 test("warning guide: ratified-axis-exception's fix uses the approved second-person copy", () => {
   const fix = warningGuideFor("ratified_axis_exception").fix(group({ type: "ratified_axis_exception" }));
   assert.match(fix, /Ratified — nothing to fix\. You approved this mobile\/desktop difference; it disappears if the ruling changes\./);
