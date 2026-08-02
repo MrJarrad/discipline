@@ -79,6 +79,25 @@
    no-op sync (nothing changed since last time): the artifact file is not
    rewritten, and the receipt line gets `unchanged: true`. A POST whose hash
    differs is diffed against the sidecar's previous export — variables
+
+   CONFORMANCE RE-CHECK INVALIDATION: an unchanged document does NOT always
+   mean the design<->code conformance/binding lanes can skip re-running. The
+   sidecar also carries a `checkFingerprint` ({ docHash, checkerHash,
+   mapHash, processStartedAt } — see this file's checkFingerprint/
+   fingerprintsMatch) alongside the document hash; the checks re-run
+   whenever ANY of the four differ from the cached fingerprint, not just
+   docHash: the checker source (conformance-check.mjs + binding-check.mjs,
+   content-hashed fresh per request), the mapping file (CONFORMANCE_MAP_PATH,
+   also content-hashed fresh per request — it's already read live, never
+   cached), or the listener process itself (PROCESS_STARTED_AT, fixed at
+   module load — a restart is the only way a checker-source edit actually
+   takes effect, since Node's ESM cache never reloads a changed file without
+   one; releaseops kickstarts the com.jhd.capture-listener launchd service
+   after every release, so a restart reliably follows a checker deploy). An
+   unchanged document whose fingerprint is stale still skips rewriting the
+   artifact/changes.jsonl (nothing about the FILE changed), but the
+   conformance/binding lanes run anyway and the sidecar's fingerprint is
+   refreshed so the next truly-unchanged sync can skip again.
    (keyed by collection/name, compared per mode, added/removed), styles
    (keyed by type/name, compared per property, added/removed), and components
    (keyed by name within standalone/sets, added/removed; for sets: per-prop
@@ -331,6 +350,78 @@ function readState(path) {
 
 function jsonEq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// RE-CHECK INVALIDATION — the conformance/binding lanes used to skip
+// re-running whenever the document hash was unchanged, full stop. That's
+// right for "the same document synced twice in a row" but wrong the moment
+// the CHECKER code, the mapping file, or the listener process itself has
+// moved on since the cached result — a checker bugfix landing and then an
+// unchanged-document re-sync would keep showing the pre-fix defect count.
+// Four independent things invalidate a cached check result; a match on ALL
+// four is what "nothing changed" actually means:
+//   - docHash            the export content hash (existing dedup hash)
+//   - checkerHash         conformance-check.mjs + binding-check.mjs, content-
+//                          hashed fresh on every request. Content hashing
+//                          (not mtime) is used because it's a direct claim
+//                          ("the bytes the checks would run are the same
+//                          bytes as last time"), not an inference from a
+//                          filesystem timestamp a touch/checkout could
+//                          change without altering content.
+//   - mapHash              CONFORMANCE_MAP_PATH's own file, same reasoning —
+//                          already read fresh per request by runConformance
+//                          Check/runBindingCheck, so a map edit takes effect
+//                          without a listener restart and must invalidate
+//                          the cache the same way.
+//   - processStartedAt     fixed once at module load (see PROCESS_STARTED_AT
+//                          below). A listener restart is the only way a
+//                          checker-source edit actually takes effect (ESM
+//                          imports are cached for the process lifetime), so
+//                          this is the cheap, direct signal for "the code
+//                          that's about to run may not be the code that ran
+//                          last time" — belt-and-braces alongside checkerHash
+//                          rather than a replacement for it, since it also
+//                          catches a redeploy where a hash happens to
+//                          collide (astronomically unlikely, but the check
+//                          is nearly free) or any future checker input this
+//                          fingerprint hasn't been extended to cover yet.
+// The fingerprint is persisted in the sidecar next to the document hash, so
+// it survives a listener restart on disk and is compared fresh on the very
+// next request from a brand-new process (a fresh PROCESS_STARTED_AT).
+const PROCESS_STARTED_AT = Date.now();
+// CHECKER_SOURCE_PATHS is overridable (test isolation only — production
+// always hashes the real sibling checkers) via a comma-separated env var, so
+// a test can simulate "the checker source changed" by pointing at scratch
+// files it controls, instead of mutating this repo's own conformance-check.mjs/
+// binding-check.mjs mid-run — same override convention as CAPTURES_DIR above.
+const CHECKER_SOURCE_PATHS = process.env.CHECKER_SOURCE_PATHS
+  ? process.env.CHECKER_SOURCE_PATHS.split(",")
+  : [join(import.meta.dirname, "conformance-check.mjs"), join(import.meta.dirname, "binding-check.mjs")];
+
+function checkerSourceHash() {
+  const h = createHash("sha256");
+  for (const p of CHECKER_SOURCE_PATHS) {
+    h.update(readFileSync(p));
+  }
+  return h.digest("hex");
+}
+
+function mapFileHash(mappingPath) {
+  if (!mappingPath || !existsSync(mappingPath)) return null;
+  return createHash("sha256").update(readFileSync(mappingPath)).digest("hex");
+}
+
+function checkFingerprint(docHash, mappingPath) {
+  return {
+    docHash,
+    checkerHash: checkerSourceHash(),
+    mapHash: mapFileHash(mappingPath),
+    processStartedAt: PROCESS_STARTED_AT,
+  };
+}
+
+function fingerprintsMatch(a, b) {
+  return !!a && !!b && a.docHash === b.docHash && a.checkerHash === b.checkerHash && a.mapHash === b.mapHash && a.processStartedAt === b.processStartedAt;
 }
 
 // A v2 bucket (components, componentSets, exampleStructure, templateFrames,
@@ -1135,6 +1226,14 @@ function handleCapture(req, res) {
       const prevState = readState(sidecarPath);
       const hash = exportHash(parsed);
       const unchanged = prevState !== null && prevState.hash === hash;
+      // mappingPath/currentCheckFingerprint are computed once up front (they
+      // depend only on the document hash + files on disk, never on the check
+      // RESULT) and reused by both branches below — see the RE-CHECK
+      // INVALIDATION header comment for what each fingerprint field means.
+      const mappingPath = process.env.CONFORMANCE_MAP_PATH || null;
+      const currentCheckFingerprint = mappingPath ? checkFingerprint(hash, mappingPath) : null;
+      const prevCheckFingerprint = (prevState && prevState.checkFingerprint) || null;
+      const checksStale = !!mappingPath && !fingerprintsMatch(currentCheckFingerprint, prevCheckFingerprint);
 
       let receipt;
       // Set only when this sync actually diffed something (see response
@@ -1154,16 +1253,40 @@ function handleCapture(req, res) {
           unchanged: true,
         };
         appendFileSync(RECEIPTS_PATH, JSON.stringify(receipt) + "\n", "utf8");
-        // Nothing was written, so the conformance check doesn't re-run — but
-        // "configured and not re-run" is a different fact from "not
-        // configured", and the plugin has to be able to tell them apart.
-        if (process.env.CONFORMANCE_MAP_PATH) {
-          conformance = { ran: false, skipped: false, unchanged: true };
+        if (mappingPath && checksStale) {
+          // The document is unchanged, but the checker source, the mapping
+          // file, or the listener process itself has moved on since the
+          // cached fingerprint — re-run both lanes against the artifact
+          // already on disk (nothing about the FILE changed, so it's not
+          // rewritten) and refresh the sidecar's fingerprint so the next
+          // truly-unchanged sync can skip again.
+          try {
+            const result = runConformanceCheck({ capturePath: outPath, mappingPath });
+            const binding = runBindingCheck({ capturePath: outPath, mappingPath });
+            appendFileSync(
+              CONFORMANCE_PATH,
+              JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",
+              "utf8"
+            );
+            conformance = summarizeConformance(result, binding);
+            writeAtomic(sidecarPath, JSON.stringify({ hash, export: prevState.export, checkFingerprint: currentCheckFingerprint }) + "\n");
+          } catch (err) {
+            console.error(`[capture-listener] conformance check failed: ${err.message}`);
+            conformance = { ran: false, skipped: false, error: err.message };
+          }
+          console.log(`[capture-listener] unchanged document, but checkers/map/process moved on — re-checked (${parsed.header.fileName})`);
+        } else {
+          // Nothing was written, so the conformance check doesn't re-run — but
+          // "configured and not re-run" is a different fact from "not
+          // configured", and the plugin has to be able to tell them apart.
+          if (mappingPath) {
+            conformance = { ran: false, skipped: false, unchanged: true };
+          }
+          console.log(`[capture-listener] unchanged, skipped write (${parsed.header.fileName})`);
         }
-        console.log(`[capture-listener] unchanged, skipped write (${parsed.header.fileName})`);
       } else {
         writeAtomic(outPath, JSON.stringify(parsed, null, 2) + "\n");
-        writeAtomic(sidecarPath, JSON.stringify({ hash, export: parsed }) + "\n");
+        writeAtomic(sidecarPath, JSON.stringify({ hash, export: parsed, checkFingerprint: currentCheckFingerprint }) + "\n");
         writeAtomic(WARNINGS_PATH, JSON.stringify(Array.isArray(parsed.warnings) ? parsed.warnings : []) + "\n");
 
         changeRecord = {
@@ -1276,10 +1399,10 @@ function handleCapture(req, res) {
         // the binding lane (`components.entries`, nested under `binding`) —
         // so a mapping with no "components" section still works exactly as
         // before (runBindingCheck sees zero entries and reports ok:true).
-        if (process.env.CONFORMANCE_MAP_PATH) {
+        if (mappingPath) {
           try {
-            const result = runConformanceCheck({ capturePath: outPath, mappingPath: process.env.CONFORMANCE_MAP_PATH });
-            const binding = runBindingCheck({ capturePath: outPath, mappingPath: process.env.CONFORMANCE_MAP_PATH });
+            const result = runConformanceCheck({ capturePath: outPath, mappingPath });
+            const binding = runBindingCheck({ capturePath: outPath, mappingPath });
             appendFileSync(
               CONFORMANCE_PATH,
               JSON.stringify({ ts: new Date().toISOString(), fileName: parsed.header.fileName, fileKey: fileKey || null, ...result, binding }) + "\n",

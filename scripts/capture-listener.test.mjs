@@ -1135,3 +1135,168 @@ test("POST /capture response body: an unchanged sync says the conformance check 
   rmSync(capturesDir, { recursive: true, force: true });
   rmSync(repoRoot, { recursive: true, force: true });
 });
+
+// --- Re-check invalidation (a checker fix landing between two unchanged
+// syncs must not keep showing the pre-fix defect count — see
+// checkFingerprint/fingerprintsMatch in capture-listener.mjs) ---
+
+test("re-check invalidation: an unchanged document with an unchanged checker/map re-uses the cached result (no re-run)", async () => {
+  // Same shape as the "unchanged sync" test above, restated here as the
+  // control case for the three re-check invalidation tests below: nothing
+  // relevant moved between the two syncs, so the second one skips.
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+
+  let body;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    body = await second.json();
+  });
+
+  assert.equal(body.unchanged, true);
+  assert.equal(body.conformance.ran, false, "nothing relevant changed — the cached result is re-used");
+  assert.equal(body.conformance.unchanged, true);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("re-check invalidation: a checker source edit between two unchanged syncs forces a re-run", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  const checkerDir = mkdtempSync(join(tmpdir(), "checker-source-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+  // Scratch stand-ins for the real conformance-check.mjs/binding-check.mjs —
+  // CHECKER_SOURCE_PATHS lets a test point the content-hash at files it
+  // controls instead of mutating this repo's own checkers mid-run.
+  const checkerA = join(checkerDir, "checker-a.mjs");
+  const checkerB = join(checkerDir, "checker-b.mjs");
+  writeFileSync(checkerA, "// checker v1\n", "utf8");
+  writeFileSync(checkerB, "// checker v1\n", "utf8");
+
+  const env = { CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath, CHECKER_SOURCE_PATHS: `${checkerA},${checkerB}` };
+
+  let firstBody, secondBody;
+  await withListener(env, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    firstBody = await first.json();
+
+    // The "checker fix" — content changes, same file path, mid-run.
+    writeFileSync(checkerA, "// checker v2 — fixed a false positive\n", "utf8");
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    secondBody = await second.json();
+  });
+
+  assert.equal(firstBody.unchanged, false, "first sync always runs (no prior state)");
+  assert.equal(secondBody.unchanged, true, "the document itself did not change");
+  assert.equal(secondBody.conformance.ran, true, "a checker source edit must force a re-run even though the document is unchanged");
+  assert.equal(secondBody.conformance.value.defects, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+  rmSync(checkerDir, { recursive: true, force: true });
+});
+
+test("re-check invalidation: a mapping-file edit between two unchanged syncs forces a re-run", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n  --content-secondary: #111111;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  const mappingV1 = {
+    $schema: "conformance-map/v1",
+    entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+  };
+  writeFileSync(mappingPath, JSON.stringify(mappingV1), "utf8");
+
+  let firstBody, secondBody;
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    firstBody = await first.json();
+
+    // The map picks up a second entry — operator wired a new token — while
+    // the synced document itself doesn't change.
+    const mappingV2 = {
+      ...mappingV1,
+      entries: {
+        ...mappingV1.entries,
+        "color/content/secondary": { codeLocation: "styles.css", tokenName: "--content-secondary", extraction: "css-root-dark" },
+      },
+    };
+    writeFileSync(mappingPath, JSON.stringify(mappingV2), "utf8");
+
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    secondBody = await second.json();
+  });
+
+  assert.equal(firstBody.unchanged, false);
+  assert.equal(secondBody.unchanged, true, "the document itself did not change");
+  assert.equal(secondBody.conformance.ran, true, "a mapping-file edit must force a re-run even though the document is unchanged");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("re-check invalidation: a listener restart between two unchanged syncs forces a re-run", async () => {
+  // Two separate listener processes sharing one CAPTURES_DIR/.state sidecar —
+  // the fingerprint persists to disk, so the second (freshly-started)
+  // process's own PROCESS_STARTED_AT differs from the cached one and forces
+  // a re-run even though nothing about the document, checker, or map moved.
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+
+  const env = { CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath };
+
+  let firstBody;
+  await withListener(env, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    firstBody = await first.json();
+  });
+
+  let secondBody;
+  await withListener(env, async (base) => {
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    secondBody = await second.json();
+  });
+
+  assert.equal(firstBody.unchanged, false);
+  assert.equal(secondBody.unchanged, true, "the document itself did not change");
+  assert.equal(secondBody.conformance.ran, true, "a listener restart must force a re-run even though the document is unchanged");
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
