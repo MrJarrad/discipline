@@ -171,11 +171,9 @@ Use lowercase kebab-case.
 
 ## Canonical schema reference
 
-The ruling that defines this shape: `~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`.
-`~/JHD/vault/AGENTS.md` documents an earlier flat-by-type schema and has not yet been
-updated to thing-then-aspect — treat this skill and the ruling as current, `AGENTS.md`
-as historical until it's rewritten (flagged as a vault-repo follow-up, out of scope for
-this plugin).
+`~/JHD/vault/AGENTS.md` (schema rev-6, thing-then-aspect) is the current canonical
+statement of this shape — point there first. The ruling that established it:
+`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`.
 
 The sharp do/don't edges of this procedure live in [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
 

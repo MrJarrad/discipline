@@ -21,7 +21,7 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
 - **Don't edit the body of a superseded note.** Frontmatter status + link only; the old body is history.
 - **Don't type a thing WE made as `reference`.** A map/spec/report/plan we produced reads like documentation but it's an `artifact` — `reference` is only for material whose author is *not us*.
 - **Don't treat `sources:` as optional** on a `reference` — the one field this schema still hard-requires.
-- **Don't restate the schema.** The canonical shape lives in the ruling
-  (`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`) and this
-  skill; `~/JHD/vault/AGENTS.md` is the pre-migration schema and is stale — don't cite it
-  as current, and don't fork a third description of the schema here.
+- **Don't restate the schema.** `~/JHD/vault/AGENTS.md` (rev-6, thing-then-aspect) is
+  the current canonical statement — point there first, alongside the ruling
+  (`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`). Don't fork
+  a third description of the schema here.
