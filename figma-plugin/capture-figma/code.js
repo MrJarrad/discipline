@@ -94,7 +94,7 @@
 // version-sync.test.mjs is the mechanical guard: it fails `node --test` the
 // moment this constant and plugin.json's "version" disagree, so drift is
 // caught before it ships instead of being rediscovered in a stale export.
-const PLUGIN_VERSION = "1.28.0";
+const PLUGIN_VERSION = "1.28.1";
 
 // manifest.json's networkAccess.allowedDomains is scoped to
 // http://localhost:4411 ONLY — never a public internet host. Live sync mode
@@ -1543,7 +1543,16 @@ function createLayerBindingCollector(api) {
   return async function collectLayerBindingEntries(node, layer, variableById, bindingsOut, seen) {
     function push(property, value) {
       if (value === null || value === undefined) return;
-      const key = property + "\u0000" + value;
+      // Keyed by layer too, not just property+value: `seen` is one Set
+      // shared across an entire variant's binding chain (every non-instance
+      // child reuses bindingCtx.seen by reference -- see SUBTREE WALK), so a
+      // property+value-only key silently drops a real binding fact whenever
+      // two DIFFERENT sibling layers happen to resolve to the same token
+      // (e.g. two "Subtitle" text layers sharing one typography style -- a
+      // normal, expected pattern, not a duplicate to collapse). See
+      // binding-cross-layer-dedup.test.mjs and the live-verified
+      // subtitle-secondary blind spot it reproduces.
+      const key = layer + "\u0000" + property + "\u0000" + value;
       if (seen.has(key)) return;
       seen.add(key);
       bindingsOut.push({ layer: layer, property: property, value: value });
