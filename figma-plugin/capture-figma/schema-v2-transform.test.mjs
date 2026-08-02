@@ -505,6 +505,54 @@ test("buildWarnings: two same-named FRAME (non-instance) siblings keep the uncha
 // duplicate_sibling_name-only: `resolution` carries the flagged node's own
 // mainComponentId/componentSetId/mainComponentSetName exactly as the walk
 // resolved them — null preserved as null on every field, not coerced away.
+// SPACER SIBLING EXEMPTION (operator ruling 2026-08-02, vault
+// decisions/capture-ui-feel-verdict-2026-08-01.md Addenda 13-14): the
+// spacer-naming rule forces every spacer instance to carry one of the four
+// canonical names, so duplicate canonical-named spacer siblings are
+// intended, not the id/name-fallback ambiguity this check exists to catch.
+test("buildWarnings: a stack of canonical-named spacer siblings with UNRESOLVABLE members (the live SplitAsymmetric/feed/.CardMedia/content false positive — same-set stacked spacers, not a legacy-component issue) is silent — unresolved members don't break the exemption", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "651:6025", componentSetId: "30:159", mainComponentSetName: "SpacerVertical", parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+      { id: "n2", name: "SpacerVertical", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: null, parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+      { id: "n3", name: "SpacerVertical", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: null, parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: an all-resolvable stack of canonical-named spacer siblings (every member a real spacer-set instance) is silent", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "SpacerTop", type: "INSTANCE", mainComponentId: "651:6025", componentSetId: "30:159", mainComponentSetName: "SpacerVertical", parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n2", name: "SpacerTop", type: "INSTANCE", mainComponentId: "651:9999", componentSetId: "30:159", mainComponentSetName: "SpacerVertical", parentId: "frame-1", parentPath: "Homepage/List" },
+    ],
+  });
+
+  assert.deepEqual(result, []);
+});
+
+test("buildWarnings: a canonical-named spacer stack with a RESOLVED, NON-SPACER intruder still flags (exemption doesn't cover a different thing wearing the spacer name)", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "651:6025", componentSetId: "30:159", mainComponentSetName: "SpacerVertical", parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+      { id: "n2", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "comp-icon", componentSetId: "set-icon", mainComponentSetName: "IconWrapper", parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "SpacerVertical",
+      context: "SplitAsymmetric/feed/.CardMedia/content",
+      message: 'Duplicate sibling name "SpacerVertical" under SplitAsymmetric/feed/.CardMedia/content — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-icon", componentSetId: "set-icon", mainComponentSetName: "IconWrapper" },
+    },
+  ]);
+});
+
 test("buildWarnings: a duplicate_sibling_name record carries the flagged node's resolved mainComponentId/componentSetId/mainComponentSetName under `resolution`, values exactly as resolved (nulls preserved, not coerced)", () => {
   const result = buildWarnings({
     nodeSnapshots: [

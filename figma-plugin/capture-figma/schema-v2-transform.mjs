@@ -266,6 +266,44 @@ function siblingsAreInterchangeable(a, b) {
   return sameComponentFamily(a.mainComponentSetName || null, b.mainComponentSetName || null);
 }
 
+// SPACER SIBLING EXEMPTION (operator ruling 2026-08-02, vault
+// decisions/capture-ui-feel-verdict-2026-08-01.md Addenda 13-14): the spacer-
+// naming rule above (CANONICAL_SPACER_INSTANCE_NAMES) forces every spacer
+// instance in a stack to carry one of four function names, so duplicate
+// canonical-named spacer siblings are inevitable and intended — not the
+// id/name-fallback ambiguity duplicate_sibling_name exists to catch. A
+// "spacer-set instance" reuses the malformed-spacer checker's identification
+// (RAW_SPACER_COMPONENT_NAMES — the pre-rename component names), extended to
+// also accept a resolved set name that already IS one of the canonical
+// function names: the live SplitAsymmetric/feed/.CardMedia/content stack's
+// real SpacerVertical component set (id 30:159, see the GROUND TRUTH b test
+// above) resolves its mainComponentSetName to the string "SpacerVertical"
+// itself, not "SpaceVertical" — these are FALSE POSITIVES of same-set
+// stacked spacers, not related to any legacy component.
+function isSpacerSetInstance(node) {
+  if (!node || node.type !== "INSTANCE" || !node.mainComponentSetName) return false;
+  return RAW_SPACER_COMPONENT_NAMES.has(node.mainComponentSetName) || CANONICAL_SPACER_INSTANCE_NAMES.has(node.mainComponentSetName);
+}
+
+// An INSTANCE with no resolved main-component identity yet — unresolvable,
+// not disqualifying. Per the ruling: "unresolvable members do NOT break the
+// exemption — null is unknown."
+function isUnresolvedSpacerCandidate(node) {
+  return !!node && node.type === "INSTANCE" && !node.mainComponentSetName;
+}
+
+// Exempt a sibling group only when its shared name IS one of the four
+// canonical spacer names AND every member either resolved to a spacer-set
+// instance or didn't resolve at all. A member that resolved to something
+// else (a real different component, or a non-instance node) still breaks
+// the exemption and falls through to the normal interchangeability check.
+function spacerSiblingGroupExempt(name, group) {
+  if (!CANONICAL_SPACER_INSTANCE_NAMES.has(name)) return false;
+  return group.every(function (node) {
+    return isUnresolvedSpacerCandidate(node) || isSpacerSetInstance(node);
+  });
+}
+
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   const byParent = new Map();
   for (const node of nodeSnapshots || []) {
@@ -283,6 +321,7 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
     }
     for (const group of byName.values()) {
       if (group.length < 2) continue;
+      if (spacerSiblingGroupExempt(group[0].name, group)) continue;
       const first = group[0];
       const allInterchangeable = group.every(function (node) {
         return siblingsAreInterchangeable(first, node);
