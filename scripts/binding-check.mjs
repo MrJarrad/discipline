@@ -55,6 +55,24 @@
      code-string transform (an instance swap, a CSS var reference, a prop
      default) — extend with new kinds as new code shapes need support,
      mirroring conformance-check.mjs's EXTRACTORS enum.
+   entries[].ratifiedVariants — OPTIONAL array of { variant, value, citation }
+     carving an operator-ratified divergence out of the defect surface,
+     mirroring the plugin's RATIFIED_AXIS_EXCEPTIONS pattern (code.js
+     ~1055). `variant` is a substring filter (same matching rule as
+     entries[].variant); `value` is the exact binding value the ratification
+     covers; `citation` is a MANDATORY, non-empty string naming the ruling —
+     an entry with a ratifiedVariants item missing a citation is a map-lint
+     error (thrown before any check runs), never silently accepted. Matches
+     narrowed to a ratifiedVariants filter are pulled out of the ordinary
+     variant-divergence/binding_mismatch comparison before it runs: a
+     binding whose value equals the ratified `value` is downgraded to an
+     informational `ratified[]` row (excluded from `defects`, kept in the
+     summary); a binding narrowed to the same filter but carrying a
+     DIFFERENT value is reported as a real `ratified-mismatch` defect —
+     reality changed again, the ratification no longer holds, re-ratify or
+     fix it. This keeps the actionable surface honest without deleting the
+     check (capture-figma-primer.md §3's actionable-only-panel rule, same
+     spirit applied to this checker's own output).
 
    THIRD LANE: this is the BINDING lane. There are two siblings —
    conformance-check.mjs (does a mapped token's resolved VALUE match?) and
@@ -113,6 +131,45 @@ function resolveCodeLocation(mappingPath, codeLocation) {
   return join(repoRoot, codeLocation);
 }
 
+// Map-lint: every ratifiedVariants item must carry a non-empty citation.
+// Runs before any check so a missing citation is caught as an authoring
+// error, not silently accepted as an uncited exception.
+function validateRatifications(entries) {
+  for (const entry of entries) {
+    for (const rv of entry.ratifiedVariants || []) {
+      if (typeof rv.citation !== "string" || rv.citation.trim() === "") {
+        throw new Error(
+          `[binding-check] ratifiedVariants entry for ${entry.component} ${entry.layer}.${entry.property} (variant "${rv.variant}") is missing a citation — every ratification must cite the ruling it came from.`
+        );
+      }
+    }
+  }
+}
+
+// Splits a layer+property's variant matches into ratified vs. ordinary,
+// per entry.ratifiedVariants. Ratified matches whose value equals the
+// ratification's expected value are pulled out entirely (reported via
+// `ratified`, never `defects`); ratified matches whose value has since
+// diverged are reported as a `ratified-mismatch` defect (the ratification
+// no longer describes reality) and also excluded from the ordinary
+// divergence comparison, since they're already flagged on their own terms.
+function splitRatifiedMatches(matches, ratifiedVariants) {
+  const ordinary = [];
+  const ratified = [];
+  const mismatched = [];
+  for (const match of matches) {
+    const rule = (ratifiedVariants || []).find((rv) => match.variantName.includes(rv.variant));
+    if (!rule) {
+      ordinary.push(match);
+    } else if (JSON.stringify(match.value) === JSON.stringify(rule.value)) {
+      ratified.push({ ...match, citation: rule.citation });
+    } else {
+      mismatched.push({ ...match, citation: rule.citation, expected: rule.value });
+    }
+  }
+  return { ordinary, ratified, mismatched };
+}
+
 export function runBindingCheck({ capturePath, mappingPath }) {
   if (!existsSync(capturePath)) throw new Error(`capture file not found: ${capturePath}`);
   if (!existsSync(mappingPath)) throw new Error(`mapping file not found: ${mappingPath}`);
@@ -122,7 +179,10 @@ export function runBindingCheck({ capturePath, mappingPath }) {
   const index = buildComponentIndex(capture.components);
 
   const entries = mapping.components?.entries || [];
+  validateRatifications(entries);
+
   const defects = [];
+  const ratified = [];
   let checkedCount = 0;
 
   for (const entry of entries) {
@@ -135,9 +195,38 @@ export function runBindingCheck({ capturePath, mappingPath }) {
       continue;
     }
 
-    const matches = collectBindingValues(comp, layer, property, variant);
-    if (matches.length === 0) {
+    const allMatches = collectBindingValues(comp, layer, property, variant);
+    if (allMatches.length === 0) {
       defects.push({ component, layer, property, variant, codeLocation, type: "missing-figma-binding" });
+      continue;
+    }
+
+    const { ordinary: matches, ratified: ratifiedMatches, mismatched } = splitRatifiedMatches(
+      allMatches,
+      entry.ratifiedVariants
+    );
+
+    for (const m of ratifiedMatches) {
+      ratified.push({ component, layer, property, variant: m.variantName, value: m.value, citation: m.citation });
+    }
+    for (const m of mismatched) {
+      defects.push({
+        component,
+        layer,
+        property,
+        variant: m.variantName,
+        codeLocation,
+        old: m.expected,
+        new: m.value,
+        citation: m.citation,
+        type: "ratified-mismatch",
+      });
+    }
+
+    if (matches.length === 0) {
+      // Every match for this (layer, property) was covered by a
+      // ratification (matched or mismatched) — nothing ordinary left to
+      // check against code.
       continue;
     }
 
@@ -185,15 +274,20 @@ export function runBindingCheck({ capturePath, mappingPath }) {
   }
 
   const ok = defects.length === 0;
-  const summaryLines = [`Binding check: ${checkedCount} entries checked, ${defects.length} defects.`];
+  const summaryLines = [`Binding check: ${checkedCount} entries checked, ${defects.length} defects, ${ratified.length} ratified.`];
   for (const d of defects) {
     if (d.type === "binding_mismatch") {
       summaryLines.push(`  [binding_mismatch] ${d.component} ${d.layer}.${d.property}: figma expects "${d.old}" ("${d.new}") missing from ${d.codeLocation}`);
+    } else if (d.type === "ratified-mismatch") {
+      summaryLines.push(`  [ratified-mismatch] ${d.component} ${d.layer}.${d.property} (${d.variant}): ratified "${d.old}" (${d.citation}) but figma now says "${d.new}" — ratification no longer holds`);
     } else {
       summaryLines.push(`  [${d.type}] ${d.component} ${d.layer ?? ""}.${d.property ?? ""} (${d.codeLocation})`);
     }
   }
-  return { ok, defects, summary: summaryLines.join("\n") };
+  for (const r of ratified) {
+    summaryLines.push(`  [ratified] ${r.component} ${r.layer}.${r.property} (${r.variant}): "${r.value}" — ${r.citation}`);
+  }
+  return { ok, defects, ratified, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------

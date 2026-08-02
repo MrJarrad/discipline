@@ -297,6 +297,167 @@ test("variants disagree with no variant filter -> variant-divergence defect", ()
   assert.equal(result.defects[0].type, "variant-divergence");
 });
 
+test("ratifiedVariants match -> no defect, informational ratified[] row instead", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    sets: [
+      {
+        name: "SplitContent",
+        key: "sc",
+        variants: [
+          {
+            name: "device=sm, layout=split-text",
+            key: "v1",
+            bindings: [{ layer: "layout/grid", property: "gap", value: "layout/grid/gap-lg" }],
+          },
+          {
+            name: "device=lg, layout=split-text",
+            key: "v2",
+            bindings: [{ layer: "layout/grid", property: "gap", value: "layout/grid/gap" }],
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "SplitContent",
+            layer: "layout/grid",
+            property: "gap",
+            codeLocation: "src/components/split-content.tsx",
+            assertion: { kind: "css-class" },
+            ratifiedVariants: [
+              {
+                variant: "device=sm, layout=split-text",
+                value: "layout/grid/gap-lg",
+                citation: "operator ruling 2026-08-02: two stacked text blocks need more space",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    code: { "src/components/split-content.tsx": `className="layout-grid-gap"` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.ratified.length, 1);
+  assert.deepEqual(result.ratified[0], {
+    component: "SplitContent",
+    layer: "layout/grid",
+    property: "gap",
+    variant: "device=sm, layout=split-text",
+    value: "layout/grid/gap-lg",
+    citation: "operator ruling 2026-08-02: two stacked text blocks need more space",
+  });
+});
+
+test("ratifiedVariants mismatch (reality changed again) -> ratified-mismatch defect", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    sets: [
+      {
+        name: "SplitContent",
+        key: "sc",
+        variants: [
+          {
+            name: "device=sm, layout=split-text",
+            key: "v1",
+            // Figma now says something OTHER than the ratified value —
+            // the ratification no longer describes reality.
+            bindings: [{ layer: "layout/grid", property: "gap", value: "layout/grid/gap-xl" }],
+          },
+          {
+            name: "device=lg, layout=split-text",
+            key: "v2",
+            bindings: [{ layer: "layout/grid", property: "gap", value: "layout/grid/gap" }],
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "SplitContent",
+            layer: "layout/grid",
+            property: "gap",
+            codeLocation: "src/components/split-content.tsx",
+            assertion: { kind: "css-class" },
+            ratifiedVariants: [
+              {
+                variant: "device=sm, layout=split-text",
+                value: "layout/grid/gap-lg",
+                citation: "operator ruling 2026-08-02: two stacked text blocks need more space",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    code: { "src/components/split-content.tsx": `className="layout-grid-gap"` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.deepEqual(result.defects[0], {
+    component: "SplitContent",
+    layer: "layout/grid",
+    property: "gap",
+    variant: "device=sm, layout=split-text",
+    codeLocation: "src/components/split-content.tsx",
+    old: "layout/grid/gap-lg",
+    new: "layout/grid/gap-xl",
+    citation: "operator ruling 2026-08-02: two stacked text blocks need more space",
+    type: "ratified-mismatch",
+  });
+  assert.deepEqual(result.ratified, []);
+});
+
+test("ratifiedVariants item missing a citation -> map-lint error, thrown before any check", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    sets: [
+      {
+        name: "SplitContent",
+        key: "sc",
+        variants: [
+          {
+            name: "device=sm, layout=split-text",
+            key: "v1",
+            bindings: [{ layer: "layout/grid", property: "gap", value: "layout/grid/gap-lg" }],
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "SplitContent",
+            layer: "layout/grid",
+            property: "gap",
+            codeLocation: "src/components/split-content.tsx",
+            assertion: { kind: "css-class" },
+            ratifiedVariants: [
+              { variant: "device=sm, layout=split-text", value: "layout/grid/gap-lg" },
+            ],
+          },
+        ],
+      },
+    },
+    code: { "src/components/split-content.tsx": `className="layout-grid-gap"` },
+  });
+
+  assert.throws(() => runBindingCheck({ capturePath, mappingPath }), /missing a citation/);
+});
+
 test("variant filter narrows to the matching variant only", () => {
   const { capturePath, mappingPath } = makeFixture({
     sets: [
