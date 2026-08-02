@@ -1090,8 +1090,14 @@ test("layer bindings: a missing style still falls back to the raw style id", asy
 });
 
 test("layer bindings: an entry already in `seen` is still skipped by the caller's chain", async () => {
+  // The dedupe key includes `layer`, not just property+value (fix for the
+  // live-verified subtitle-secondary blind spot -- see
+  // binding-cross-layer-dedup.test.mjs): two DIFFERENT layers resolving to
+  // the same token are two real facts, not a duplicate. So the seeded key
+  // here must match the SAME layer ("later") this call is scoped to, for
+  // the caller-seeded-`seen` behaviour to still apply.
   const out = [];
-  const seen = new Set(["textStyle\u0000style/S:body"]);
+  const seen = new Set(["later\u0000textStyle\u0000style/S:body"]);
   await createLayerBindingCollector(reverseCompletionBindingApi())(BINDING_NODE, "later", new Map(), out, seen);
   assert.equal(out.some((e) => e.property === "textStyle"), false);
 });
