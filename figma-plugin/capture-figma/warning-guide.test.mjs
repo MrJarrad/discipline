@@ -103,6 +103,33 @@ test("warning guide: duplicate-sibling's fix asks for the correct ROLE, never a 
   assert.equal(fix.includes("/"), false, "renames use the operator's ' - ' convention, never a '/' path");
 });
 
+// APPROVED VOICE (operator ruling 2026-08-02, vault decisions/capture-ui-
+// feel-verdict-2026-08-01.md Addenda 13-14): fact -> action, second person,
+// plain, no overconfidence. "They are different things wearing one name" is
+// retired flavour text — every guide entry addresses the reader directly,
+// never talks about "the operator" in the third person.
+test("warning guide: duplicate-sibling's fix leads with the approved-voice line, not the retired 'different things wearing one name' copy", () => {
+  const onRole = warningGuideFor("duplicate_sibling_name").fix(group({ layerName: "primary" }));
+  const offRole = warningGuideFor("duplicate_sibling_name").fix(group({ layerName: "ActionButtonIcon" }));
+  for (const fix of [onRole, offRole]) {
+    assert.match(fix, /Two layers here share a name but don't appear to be the same component\. Rename one for the role it plays/);
+    assert.equal(/different things wearing one name/i.test(fix), false);
+  }
+});
+
+test("warning guide: ratified-axis-exception's fix uses the approved second-person copy", () => {
+  const fix = warningGuideFor("ratified_axis_exception").fix(group({ type: "ratified_axis_exception" }));
+  assert.match(fix, /Ratified — nothing to fix\. You approved this mobile\/desktop difference; it disappears if the ruling changes\./);
+});
+
+test("warning guide: no guide entry addresses the reader in the third person as 'the operator'", () => {
+  for (const [type, entry] of Object.entries(WARNING_GUIDE)) {
+    const g = group({ type: type });
+    const text = [entry.headline(g), entry.fix(g), entry.why].join(" ");
+    assert.equal(/\bthe operator\b/i.test(text), false, `${type} still addresses the reader in the third person`);
+  }
+});
+
 test("warning guide: any rename example anywhere in the guide uses ' - ', never a '/' path", () => {
   for (const [type, entry] of Object.entries(WARNING_GUIDE)) {
     const text = entry.fix(group({ type: type })) + " " + entry.why;

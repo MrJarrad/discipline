@@ -989,12 +989,12 @@
         // second layer's role actually is.
         fix: (group) =>
           ROLE_PAIR[group.layerName]
-            ? "They are different things wearing one name. Give each the role it actually plays — if this one is " +
+            ? "Two layers here share a name but don't appear to be the same component. Rename one for the role it plays — if this one is " +
               quoted(group.layerName) +
               ", the other is most likely " +
               quoted(ROLE_PAIR[group.layerName]) +
               '. Names are roles, never positions, so a suffix (with the " - " separator) only helps if it names another role.'
-            : "They are different things wearing one name. Rename one for the role it actually plays — a role name, or the existing name plus a role suffix using the \" - \" separator. Never a position or a content type: position changes with the breakpoint, the role doesn't.",
+            : "Two layers here share a name but don't appear to be the same component. Rename one for the role it plays — e.g. primary / secondary. Use a role name, or the existing name plus a role suffix with the \" - \" separator. Never a position or a content type: position changes with the breakpoint, the role doesn't.",
         why: "Diffing correlates nodes by id first and by name among siblings as a fallback, so two different things sharing one name make that fallback ambiguous and a later rename or reorder reads as an unrelated change. Same-named instances of the SAME main component, or of different variants of the SAME component set (six ActionButton instances each on a different variant, say), never trigger this — they are interchangeable repeats and are suppressed.",
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
@@ -1003,7 +1003,7 @@
         headline: (group) =>
           quoted(group.layerName) + " is set differently on mobile and desktop on the " + axisPlace(group) + rootCauseEcho(group),
         fix: () =>
-          "Decide which value is intended and set it on the instance in BOTH the M- and D- frame. If the two really are meant to differ, raise it with the operator for a ratified exception rather than leaving it flagged.",
+          "Decide which value is intended and set it on the instance in BOTH the M- and D- frame. If the two really are meant to differ, flag it for a ratified exception rather than leaving it flagged.",
         why: "A layout holds one opinion per axis; only the device axis is allowed to differ between the M- and D- frame of an Example pair. A divergence on any other axis is a machine-detectable inconsistency, not a design decision the capture can see.",
       },
       // code.js findRatifiedAxisException()/RATIFIED_AXIS_EXCEPTIONS: the same
@@ -1027,8 +1027,8 @@
           group.count +
           " places",
         fix: () =>
-          "Nothing to fix — the operator has already ratified this divergence. It is listed rather than hidden so the suppression stays auditable, and it disappears only if the ruling changes.",
-        why: "The same M/D axis divergence as an axis-ownership violation, on a component the operator has ratified as intended (currently NavigationHeader's layout axis). One row covers every template pair it fires on — expand it for the per-template list.",
+          "Ratified — nothing to fix. You approved this mobile/desktop difference; it disappears if the ruling changes.",
+        why: "The same M/D axis divergence as an axis-ownership violation, on a component you've ratified as intended (currently NavigationHeader's layout axis). One row covers every template pair it fires on — expand it for the per-template list.",
       },
       // code.js buildAxisOwnershipViolationWarnings(): within one instance-
       // name group where BOTH sides repeat the name, an instance at a position
