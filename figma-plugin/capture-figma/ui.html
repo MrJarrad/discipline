@@ -895,6 +895,24 @@
       return (warnings || []).filter((w) => !NON_ACTIONABLE_WARNING_TYPES.has(w && w.type));
     }
 
+    // DISTINGUISHABLE LOCATIONS (operator ruling 2026-08-02): a root-cause
+    // row's "where it shows up" list must uniquely identify every
+    // occurrence. duplicate_sibling_name's `context` is a relative,
+    // NAME-based parent path (node.parentPath) — a repeated block (e.g.
+    // "SplitAsymmetric/feed/.CardMedia/content" instantiated many times)
+    // legitimately produces the identical string for several distinct
+    // literal sites, which rendered as 8 duplicate-looking list entries.
+    // nodeId (present on every warning already — no emitter change needed)
+    // is the one field that's always literally unique per site; it's
+    // appended, parenthetically, only to the entries that actually collide
+    // — a path with no collision renders exactly as authored.
+    function disambiguateOccurrencePaths(occurrences) {
+      const list = (occurrences || []).filter((o) => o && o.path);
+      const counts = new Map();
+      for (const o of list) counts.set(o.path, (counts.get(o.path) || 0) + 1);
+      return list.map((o) => (counts.get(o.path) > 1 && o.nodeId ? o.path + " (" + o.nodeId + ")" : o.path));
+    }
+
     function filterActionableWarningsByType(warningsByType) {
       const result = {};
       for (const [type, count] of Object.entries(warningsByType || {})) {
@@ -1228,7 +1246,7 @@
         why.addEventListener("toggle", scheduleResize);
         details.appendChild(why);
 
-        const paths = (group.occurrences || []).map((o) => o.path).filter(Boolean);
+        const paths = disambiguateOccurrencePaths(group.occurrences);
         if (paths.length) {
           // Captioned, because with "why this matters" collapsed the bare list
           // sits right under that summary and reads as its contents.
