@@ -866,6 +866,27 @@
       }
       return Array.from(groups.values());
     }
+    // NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02):
+    // a ratified_axis_exception is a decision already made, not work — it
+    // leaves the section entirely (not rendered, excluded from both the
+    // group count and the occurrence count). The export's raw
+    // warnings[]/warningsByType stay untouched — this filters only the copy
+    // renderCounts feeds into warningSection, for both shapes it consumes:
+    // a live export-result's array and a restored {type: count} map.
+    const NON_ACTIONABLE_WARNING_TYPES = new Set(["ratified_axis_exception"]);
+
+    function filterActionableWarnings(warnings) {
+      return (warnings || []).filter((w) => !NON_ACTIONABLE_WARNING_TYPES.has(w && w.type));
+    }
+
+    function filterActionableWarningsByType(warningsByType) {
+      const result = {};
+      for (const [type, count] of Object.entries(warningsByType || {})) {
+        if (NON_ACTIONABLE_WARNING_TYPES.has(type)) continue;
+        result[type] = count;
+      }
+      return result;
+    }
     // === END WARNING ROOT CAUSES ===
 
     // === WARNING GUIDE (pure catalog — tested via warning-guide.test.mjs,
@@ -1243,13 +1264,15 @@
       let warningGroups;
       let warningsTotal;
       if (Array.isArray(data.warnings)) {
+        const actionableWarnings = filterActionableWarnings(data.warnings);
         warningGroups = groupWarningsByRootCause(
-          data.warnings,
+          actionableWarnings,
           createVariantOwnerResolver(data.componentSets)
         );
-        warningsTotal = data.warnings.length;
+        warningsTotal = actionableWarnings.length;
       } else {
-        warningGroups = Object.entries(data.warningsByType || {}).map(([type, n]) => ({
+        const actionableByType = filterActionableWarningsByType(data.warningsByType);
+        warningGroups = Object.entries(actionableByType).map(([type, n]) => ({
           type: type,
           componentName: null,
           container: null,
@@ -1258,7 +1281,7 @@
           variants: [],
           occurrences: [],
         }));
-        warningsTotal = typeof data.warningCount === "number" ? data.warningCount : 0;
+        warningsTotal = Object.values(actionableByType).reduce((sum, n) => sum + n, 0);
       }
       warningGroups.sort((a, b) => b.count - a.count);
       countsEl.appendChild(warningSection(warningGroups, warningsTotal));

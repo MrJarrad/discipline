@@ -24,9 +24,9 @@ function extractBlock(marker, returns) {
   return new Function(`${match[1]}\nreturn ${returns};`)();
 }
 
-const { groupWarningsByRootCause, createVariantOwnerResolver } = extractBlock(
+const { groupWarningsByRootCause, createVariantOwnerResolver, filterActionableWarnings, filterActionableWarningsByType } = extractBlock(
   "WARNING ROOT CAUSES",
-  "{ groupWarningsByRootCause, createVariantOwnerResolver }"
+  "{ groupWarningsByRootCause, createVariantOwnerResolver, filterActionableWarnings, filterActionableWarningsByType }"
 );
 
 // Two component sets shaped like the real ones: SplitContent is identified by
@@ -232,4 +232,48 @@ test("root causes: a ratified exception on a DIFFERENT component stays a separat
   const warnings = [ratified("Home", "layout", "NavigationHeader"), ratified("Home", "layout", "LayoutGrid")];
   const groups = groupWarningsByRootCause(warnings, resolver());
   assert.equal(groups.length, 2);
+});
+
+// NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02): a
+// ratified_axis_exception is a decision already made, not work — it must
+// leave the hygiene section entirely, excluded from both the array-shaped
+// live-export path and the persisted-count restore path.
+test("filterActionableWarnings: drops ratified_axis_exception entries, keeps everything else, in order", () => {
+  const warnings = [
+    { type: "duplicate_sibling_name", nodeName: "a" },
+    ratified("Home", "layout", "NavigationHeader"),
+    { type: "axis_ownership_violation", nodeName: "b" },
+  ];
+  const result = filterActionableWarnings(warnings);
+  assert.deepEqual(
+    result.map((w) => w.type),
+    ["duplicate_sibling_name", "axis_ownership_violation"]
+  );
+});
+
+test("filterActionableWarnings: an all-ratified array filters down to empty (0 FIGMA HYGIENE, not hidden)", () => {
+  assert.deepEqual(filterActionableWarnings([ratified("Home", "layout", "NavigationHeader")]), []);
+});
+
+test("filterActionableWarnings: no warnings and undefined both filter to an empty array", () => {
+  assert.deepEqual(filterActionableWarnings([]), []);
+  assert.deepEqual(filterActionableWarnings(undefined), []);
+});
+
+test("filterActionableWarningsByType: drops the ratified_axis_exception key from a restored {type:count} map, keeps the rest", () => {
+  const result = filterActionableWarningsByType({
+    duplicate_sibling_name: 6,
+    ratified_axis_exception: 12,
+    axis_ownership_violation: 3,
+  });
+  assert.deepEqual(result, { duplicate_sibling_name: 6, axis_ownership_violation: 3 });
+});
+
+test("filterActionableWarningsByType: an all-ratified map filters down to an empty object", () => {
+  assert.deepEqual(filterActionableWarningsByType({ ratified_axis_exception: 12 }), {});
+});
+
+test("filterActionableWarningsByType: no map and undefined both filter to an empty object", () => {
+  assert.deepEqual(filterActionableWarningsByType({}), {});
+  assert.deepEqual(filterActionableWarningsByType(undefined), {});
 });
