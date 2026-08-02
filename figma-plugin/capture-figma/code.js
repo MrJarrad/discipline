@@ -1419,6 +1419,63 @@ function buildRestoredSyncMessage(stored) {
 // capability is latent precisely because it's hidden today), so this must
 // never be true during a v2 export.
 
+// === JUMP TO NODE (pure ancestor/page resolution — tested via jump-to-
+// node.test.mjs, which extracts this block by its markers and evals it
+// standalone, same technique as RESIZE DEDUP) ===
+//
+// JUMP TO NODE (operator request 2026-08-02): every FIGMA HYGIENE "where it
+// shows up" entry is clickable — selects + scrolls the flagged node into
+// view. getNodeByIdAsync resolves a live node reference (including nested-
+// instance ids, "I…;…;…" — supported directly, no special-casing needed),
+// but two live-node facts still need resolving before figma.currentPage.
+// selection/figma.viewport.scrollAndZoomIntoView can be called: (a) is the
+// node itself directly selectable (a PAGE/DOCUMENT node isn't — walk up to
+// the nearest ancestor that is), and (b) which PAGE actually owns it (this
+// manifest is documentAccess:"dynamic-page" — figma.currentPage is READ-ONLY,
+// figma.setCurrentPageAsync(page) is required before selecting a node on a
+// different page; verified against @figma/plugin-typings' plugin-api.d.ts
+// currentPage/setCurrentPageAsync doc comments). Both walks only read
+// .type/.parent — no figma.* call — so this is pure and testable with plain
+// mock node objects, same shape as the SUBTREE WALK tests' node() helper.
+function isSelectableNodeType(type) {
+  return typeof type === "string" && type !== "PAGE" && type !== "DOCUMENT";
+}
+
+function findSelectableAncestor(node) {
+  let cur = node;
+  while (cur && !isSelectableNodeType(cur.type)) {
+    cur = cur.parent;
+  }
+  return cur || null;
+}
+
+function findOwningPage(node) {
+  let cur = node;
+  while (cur && cur.type !== "PAGE") {
+    cur = cur.parent;
+  }
+  return cur || null;
+}
+
+// Resolves a live node (already fetched via getNodeByIdAsync) into what
+// selecting/scrolling to it actually needs: {selectableNode, page,
+// usedAncestor}. Returns null for a stale/removed node, or one with no
+// selectable ancestor / no owning page at all (both defensive — never seen
+// on a real document, but the null-is-unknown principle applies here too:
+// an unresolvable target is never guessed at). `node.removed` (true once a
+// node is deleted from the document — see BaseNodeMixin) catches the "stale
+// capture, node no longer exists" case the caller reports in the approved
+// voice.
+function resolveJumpTarget(node) {
+  if (!node || node.removed) return null;
+  const selectableNode = findSelectableAncestor(node);
+  if (!selectableNode) return null;
+  const page = findOwningPage(selectableNode);
+  if (!page) return null;
+  return { selectableNode: selectableNode, page: page, usedAncestor: selectableNode !== node };
+}
+// === END JUMP TO NODE ===
+
 const getNodeById = gatePluginCall(async function getNodeById(id) {
   if (typeof figma.getNodeByIdAsync === "function") {
     return figma.getNodeByIdAsync(id);
@@ -2636,6 +2693,38 @@ async function saveSnapshot() {
   }
 }
 
+// JUMP TO NODE — the IO half (getNodeByIdAsync/setCurrentPageAsync/
+// selection/scrollAndZoomIntoView all live figma.* calls; the pure ancestor/
+// page resolution is resolveJumpTarget, above). Reports back over the same
+// postMessage channel every other status message uses, in the approved
+// voice (fact -> action, second person) — never a raw error/stack.
+async function handleJumpToNode(nodeId) {
+  const node = nodeId ? await getNodeById(nodeId) : null;
+  const target = resolveJumpTarget(node);
+  if (!target) {
+    figma.ui.postMessage({
+      type: "jump-to-node-result",
+      ok: false,
+      nodeId: nodeId,
+      message: "That layer isn't in the file any more — re-sync.",
+    });
+    return;
+  }
+  if (figma.currentPage.id !== target.page.id) {
+    await figma.setCurrentPageAsync(target.page);
+  }
+  target.page.selection = [target.selectableNode];
+  figma.viewport.scrollAndZoomIntoView([target.selectableNode]);
+  figma.ui.postMessage({
+    type: "jump-to-node-result",
+    ok: true,
+    nodeId: nodeId,
+    message: target.usedAncestor
+      ? "That exact layer isn't selectable on its own — selected the nearest layer that is."
+      : "",
+  });
+}
+
 figma.ui.onmessage = async (msg) => {
   if (!msg) return;
 
@@ -2681,6 +2770,11 @@ figma.ui.onmessage = async (msg) => {
 
   if (msg.type === "save-snapshot") {
     await saveSnapshot();
+    return;
+  }
+
+  if (msg.type === "jump-to-node") {
+    await handleJumpToNode(msg.nodeId);
     return;
   }
 };
