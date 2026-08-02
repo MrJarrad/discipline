@@ -226,12 +226,49 @@ function normalize(v) {
 // p2y}), not a plain scalar — convert it to the same cubic-bezier(...)
 // string CSS authors it as, rounding away the export's float noise (e.g.
 // 0.8500000238418579 -> 0.85) before formatting.
+// A Figma COLOR variable resolves to an unbound RGB(A) object ({r,g,b,a},
+// each channel a 0..1 float), while every color token on the code side is
+// authored as a hex string — same color, two representations. Detected by
+// shape (r/g/b all numbers), not by extraction type, since css-root-dark is
+// used for both color and non-color tokens.
+function isRgbColor(value) {
+  return (
+    value &&
+    typeof value === "object" &&
+    typeof value.r === "number" &&
+    typeof value.g === "number" &&
+    typeof value.b === "number"
+  );
+}
+
+// Converts a Figma RGB(A) object to hex for comparison against code. Channel
+// rounding (Math.round(c*255)) mirrors serializeColor's semantics (figma-
+// plugin/capture-figma/schema-v2-transform.mjs:585-598 — the plugin export's
+// canonical color-serialization rule) so both sides of the pipeline agree on
+// what "the same color" rounds to. Format differs from serializeColor
+// deliberately: serializeColor emits "rgba(r, g, b, a)" for alpha < 1 (its
+// consumer is the plugin's human-readable export/diff); here the code side
+// is always a hex string, so alpha < 1 is folded into an 8-digit
+// "#rrggbbaa" hex suffix instead — decided so a code token authored as
+// 8-digit hex (rare but valid CSS) can still compare equal. Alpha === 1
+// (the common case in the live capture) yields plain 6-digit hex, matching
+// how every color token found in figma-map.json today is authored.
+function figmaColorToHex(color) {
+  const channel = (c) => Math.round(c * 255).toString(16).padStart(2, "0");
+  const hex = "#" + channel(color.r) + channel(color.g) + channel(color.b);
+  if (typeof color.a === "number" && color.a !== 1) {
+    return hex + channel(color.a);
+  }
+  return hex;
+}
+
 function normalizeFigmaValue(value) {
   if (value && typeof value === "object" && value.bezierValues) {
     const { p1x, p1y, p2x, p2y } = value.bezierValues;
     const round = (n) => Number(n.toFixed(4));
     return `cubic-bezier(${round(p1x)}, ${round(p1y)}, ${round(p2x)}, ${round(p2y)})`;
   }
+  if (isRgbColor(value)) return figmaColorToHex(value);
   return value;
 }
 
