@@ -327,29 +327,44 @@ test("filterActionableWarningsByType: no map and undefined both filter to an emp
 // identical string "SplitAsymmetric/feed/.CardMedia/content" was the live
 // failure (a repeated block's relative parentPath collapses distinct literal
 // sites into visually-identical strings).
-test("disambiguateOccurrencePaths: colliding paths get their nodeId appended so each is unique; a lone path stays exactly as authored", () => {
+// SHAPE CHANGE (jump-to-node, operator request 2026-08-02): each rendered
+// entry now carries its own nodeId alongside the disambiguated display text
+// — the "where it shows up" list is about to become clickable (select the
+// node) and get a copy-deep-link affordance, both keyed on nodeId. Bare
+// string output is retired; `{text, nodeId}` is the new, still-pure,
+// interface.
+test("disambiguateOccurrencePaths: colliding paths get their nodeId appended to `text` so each is unique; `nodeId` is carried through unmodified for every entry", () => {
   const occurrences = [
     { path: "SplitAsymmetric/feed/.CardMedia/content", nodeId: "1:100" },
     { path: "SplitAsymmetric/feed/.CardMedia/content", nodeId: "1:200" },
     { path: "Homepage/Hero", nodeId: "1:300" },
   ];
   const result = disambiguateOccurrencePaths(occurrences);
-  assert.equal(new Set(result).size, 3, "every rendered entry must be unique");
-  assert.equal(result[0], "SplitAsymmetric/feed/.CardMedia/content (1:100)");
-  assert.equal(result[1], "SplitAsymmetric/feed/.CardMedia/content (1:200)");
-  assert.equal(result[2], "Homepage/Hero", "a path with no collision is untouched");
+  assert.equal(new Set(result.map((r) => r.text)).size, 3, "every rendered entry must be unique");
+  assert.deepEqual(result[0], { text: "SplitAsymmetric/feed/.CardMedia/content (1:100)", nodeId: "1:100" });
+  assert.deepEqual(result[1], { text: "SplitAsymmetric/feed/.CardMedia/content (1:200)", nodeId: "1:200" });
+  assert.deepEqual(result[2], { text: "Homepage/Hero", nodeId: "1:300" }, "a path with no collision is untouched");
 });
 
-test("disambiguateOccurrencePaths: no collisions leaves every path untouched", () => {
+test("disambiguateOccurrencePaths: no collisions leaves every text untouched", () => {
   const occurrences = [
     { path: "A/B", nodeId: "1:1" },
     { path: "C/D", nodeId: "1:2" },
   ];
-  assert.deepEqual(disambiguateOccurrencePaths(occurrences), ["A/B", "C/D"]);
+  assert.deepEqual(disambiguateOccurrencePaths(occurrences), [
+    { text: "A/B", nodeId: "1:1" },
+    { text: "C/D", nodeId: "1:2" },
+  ]);
 });
 
 test("disambiguateOccurrencePaths: empty/missing paths are dropped, same as the plain .map().filter(Boolean) it replaces", () => {
-  assert.deepEqual(disambiguateOccurrencePaths([{ path: "", nodeId: "1:1" }, { path: "A", nodeId: "1:2" }]), ["A"]);
+  assert.deepEqual(disambiguateOccurrencePaths([{ path: "", nodeId: "1:1" }, { path: "A", nodeId: "1:2" }]), [
+    { text: "A", nodeId: "1:2" },
+  ]);
   assert.deepEqual(disambiguateOccurrencePaths([]), []);
   assert.deepEqual(disambiguateOccurrencePaths(undefined), []);
+});
+
+test("disambiguateOccurrencePaths: an occurrence with no nodeId at all still renders its text, with nodeId null (never crashes, never guesses an id)", () => {
+  assert.deepEqual(disambiguateOccurrencePaths([{ path: "A/B" }]), [{ text: "A/B", nodeId: null }]);
 });
