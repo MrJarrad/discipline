@@ -337,36 +337,89 @@ test("buildWarnings: same-named INSTANCE siblings of DIFFERENT main components a
   ]);
 });
 
-// PRIMARY FIXTURE — the live case (operator's v1.26.0 sync, ActionButtonIcon
-// x36 + SpacerVertical x8 still flagging): different VARIANTS of one
-// component set are DIFFERENT COMPONENT NODES, so mainComponentId
-// legitimately (and normally) differs between them — that is not a signal
-// of anything wrong, it's what "two variants" IS. componentSetId is what
-// failed to resolve (nested-instance internals, see the mechanism comment
-// above); mainComponentId differing must never veto the name fallback.
-test("buildWarnings (LIVE CASE): same-named INSTANCE siblings that are DIFFERENT VARIANTS (different mainComponentId, each variant its own component node) with unresolved componentSetId (null on both) are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+// GROUND TRUTH (operator's v1.26.2 sync, diagnostic artifact
+// ~/JHD/captures/live/jhd-spec-designsystem-variables-styles.json,
+// warnings[] entries verbatim — see this file's siblingsAreInterchangeable
+// doc comment for the full derivation):
+//
+// ActionButtonIcon x40: the flagged node resolves mainComponentId
+// "919:6993", componentSetId NULL, mainComponentSetName
+// "ActionButtonIconEllipse/tertiary/100/default/right" (39x — 1x carries
+// ".../disabled/right" instead). ActionButtonIconEllipse is NOT a component
+// SET — it's a slash-named STANDALONE component family (no componentSets[]
+// entry for it at all); the colliding sibling is its /left twin. Full
+// names legitimately differ; only the family (first slash segment) agrees.
+//
+// SpacerVertical x8: the flagged node resolves BOTH ids — componentSetId
+// "30:159", which IS a real componentSets[] entry (name "SpacerVertical",
+// 13 variants). The previous "either side truthy -> veto" gate
+// (`a.componentSetId || b.componentSetId`) treated the flagged node's
+// resolved id and the sibling's unresolved (null) id as a DECIDED
+// difference, when a null is really UNKNOWN — it should have deferred to
+// the name instead of flagging.
+test("buildWarnings (GROUND TRUTH a — ActionButtonIcon live case): same-named INSTANCE siblings from a slash-named STANDALONE family (no component set — componentSetId null on both, mainComponentId legitimately differs) suppress via FAMILY match (equal first slash-segment), full names differing — no warning", () => {
   const result = buildWarnings({
     nodeSnapshots: [
-      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-left", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
-      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "comp-right", componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "919:6993", componentSetId: null, mainComponentSetName: "ActionButtonIconEllipse/tertiary/100/default/right", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: "919:7100", componentSetId: null, mainComponentSetName: "ActionButtonIconEllipse/tertiary/100/default/left", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
     ],
   });
 
   assert.deepEqual(result, []);
 });
 
-test("buildWarnings: same-named INSTANCE siblings whose getMainComponentAsync lookup failed entirely (mainComponentId AND componentSetId both null on both sides) are still interchangeable when their resolved component-set NAME matches — no warning", () => {
+test("buildWarnings (GROUND TRUTH b — SpacerVertical live case): a componentSetId resolved on ONE side and null on the other is UNKNOWN, not a decided difference — falls to name, which matches (same real SpacerVertical component set, 30:159) — no warning", () => {
   const result = buildWarnings({
     nodeSnapshots: [
-      { id: "n1", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
-      { id: "n2", name: "ActionButtonIcon", type: "INSTANCE", mainComponentId: null, componentSetId: null, mainComponentSetName: "ActionButtonIcon", parentId: "i-slider", parentPath: "HeaderSection/.ControlSlider" },
+      { id: "n1", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "651:6025", componentSetId: "30:159", mainComponentSetName: "SpacerVertical", parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
+      { id: "n2", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "999:1111", componentSetId: null, mainComponentSetName: "SpacerVertical", parentId: "i-cardmedia", parentPath: "SplitAsymmetric/feed/.CardMedia/content" },
     ],
   });
 
   assert.deepEqual(result, []);
 });
 
-test("buildWarnings: same-named INSTANCE siblings with non-null, DIFFERENT componentSetIds are genuine ambiguity — still flagged even if their resolved set names happen to be identical (the name fallback must never override a resolved-but-different componentSetId)", () => {
+test("buildWarnings (GROUND TRUTH e): same-named INSTANCE siblings with null componentSetId on both AND null mainComponentSetName on both cannot establish interchangeability — conservatively still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "Row", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: null, mainComponentSetName: null, parentId: "frame-1", parentPath: "Homepage/List" },
+      { id: "n2", name: "Row", type: "INSTANCE", mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: null, parentId: "frame-1", parentPath: "Homepage/List" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "Row",
+      context: "Homepage/List",
+      message: 'Duplicate sibling name "Row" under Homepage/List — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: null },
+    },
+  ]);
+});
+
+test("buildWarnings (GROUND TRUTH d): same-named INSTANCE siblings with null componentSetId on both but DIFFERENT families (different first slash-segment) are genuine ambiguity — still flagged", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: null, mainComponentSetName: "CardMedia/size=100", parentId: "frame-1", parentPath: "SplitAsymmetric/feed" },
+      { id: "n2", name: "SpacerVertical", type: "INSTANCE", mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: "ActionButton/size=200", parentId: "frame-1", parentPath: "SplitAsymmetric/feed" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "SpacerVertical",
+      context: "SplitAsymmetric/feed",
+      message: 'Duplicate sibling name "SpacerVertical" under SplitAsymmetric/feed — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-b", componentSetId: null, mainComponentSetName: "ActionButton/size=200" },
+    },
+  ]);
+});
+
+test("buildWarnings (GROUND TRUTH c): same-named INSTANCE siblings with non-null, DIFFERENT componentSetIds are genuine ambiguity — still flagged even if their resolved set names happen to be identical (both present -> decided by id, name never gets a turn)", () => {
   const result = buildWarnings({
     nodeSnapshots: [
       { id: "n1", name: "ControlSlider", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: "set-1", mainComponentSetName: "ControlSlider", parentId: "frame-1", parentPath: "HeaderSection/actions" },

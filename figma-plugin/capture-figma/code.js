@@ -845,26 +845,56 @@ function nextRecordState(node, nodeWasRecorded) {
 // when the id-based check can't decide (both sides null), a matching name
 // is still proof the two nodes are variants of the one interchangeable set.
 //
-// The fallback GATES ON componentSetId ALONE, ignoring mainComponentId
-// presence/difference entirely (live falsification, operator's v1.26.0
-// sync: ActionButtonIcon x36 + SpacerVertical x8 still flagged after an
-// earlier "both ids null" gate — DIFFERENT VARIANTS of one set are
-// DIFFERENT COMPONENT NODES, so mainComponentId legitimately, normally
-// differs between them; that's what "two variants" IS, never a signal of
-// anything wrong, and must never veto the name fallback). componentSetId is
-// the one that actually fails to resolve for a nested-instance-internal
-// node — so it alone decides: both null -> the name gets a turn; either
-// side resolved -> that id is authoritative (equal -> true, unequal -> a
-// decided "no", never falling through to the name — two successfully-
-// resolved but DIFFERENT component sets sharing an identical set-name
-// string, real if unlikely, must still flag).
+// GROUND TRUTH (operator's v1.26.2 sync, diagnostic artifact — see
+// buildDuplicateSiblingNameWarnings' `resolution` field below, and vault
+// decisions/capture-ui-feel-verdict-2026-08-01.md): the previous
+// "componentSetId alone gates, either side truthy vetoes" rule was ALSO
+// wrong, in the opposite direction from the mainComponentId bug it fixed —
+// it treated a componentSetId resolved on ONE side and null on the OTHER
+// as a decided difference, when null is UNKNOWN, not "different". Real
+// data proved two distinct failure shapes:
+//   - ActionButtonIcon (x40 survivors): mainComponentId "919:6993",
+//     componentSetId NULL. ActionButtonIconEllipse is a slash-named
+//     STANDALONE component family, not a component SET at all (no
+//     componentSets[] entry exists for it) — its variants are separate
+//     component nodes named "Family/axis/axis/.../slot" (e.g.
+//     ".../default/right" vs ".../default/left"), so there is no set id to
+//     ever resolve, on EITHER sibling, and mainComponentId legitimately
+//     differs (two different named components). The full name legitimately
+//     differs too (".../right" vs ".../left") — only the FAMILY (the
+//     string before the first "/") is the shared identity.
+//   - SpacerVertical (x8 survivors): componentSetId "30:159" resolved
+//     (SpacerVertical IS a real 13-variant set) on the flagged node, but
+//     the OLD gate (`a.componentSetId || b.componentSetId`) flagged it
+//     anyway — meaning the colliding sibling's componentSetId came back
+//     null. One side resolved, one side didn't: that is NOT two distinct,
+//     confirmed component sets — it's a missing data point, and the name
+//     (both sides agree: "SpacerVertical") is the only usable signal.
+//
+// mainComponentId is checked FIRST and stays a pure equality decision — a
+// match here is always an exact same-component repeat, never ambiguous.
+// componentSetId only DECIDES when BOTH sides resolved it (present on a
+// AND b): equal -> interchangeable, unequal -> two confirmed, distinct
+// sets, always flagged, name never gets a turn. The moment EITHER side's
+// componentSetId is null, id resolution has nothing decided to say, and
+// control falls to the name — compared by FAMILY (exact string equality,
+// or an equal first "/"-segment when the full strings differ), computed
+// only when BOTH names are non-null; two null names can't establish
+// anything and stay flagged (rule 5 — conservative by default, since a
+// false "these are the same" is worse than a false "still ambiguous").
+function sameComponentFamily(nameA, nameB) {
+  if (nameA === null || nameB === null) return false;
+  if (nameA === nameB) return true;
+  return nameA.split("/")[0] === nameB.split("/")[0];
+}
+
 function siblingsAreInterchangeable(a, b) {
   if (a.type !== b.type) return false;
   if (a.type !== "INSTANCE") return false;
   if (!!a.mainComponentId && a.mainComponentId === b.mainComponentId) return true;
-  if (!!a.componentSetId && a.componentSetId === b.componentSetId) return true;
-  if (a.componentSetId || b.componentSetId) return false;
-  return !!a.mainComponentSetName && a.mainComponentSetName === b.mainComponentSetName;
+  const bothSetIdsResolved = !!a.componentSetId && !!b.componentSetId;
+  if (bothSetIdsResolved) return a.componentSetId === b.componentSetId;
+  return sameComponentFamily(a.mainComponentSetName || null, b.mainComponentSetName || null);
 }
 
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
