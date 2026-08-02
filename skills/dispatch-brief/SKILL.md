@@ -97,6 +97,27 @@ agent's false alarm. Evidence artifacts (measurement tables, audit output, befor
 diffs) get committed in-repo alongside the change; a finding that only exists in session
 output is lost the moment the session ends.
 
+## Context continuity — standing specialists and primers
+
+Within a session, prefer resuming a standing specialist (SendMessage to an existing agent)
+over spawning fresh whenever the work continues a domain that agent already holds —
+reviewer gates, release operations, per-domain engineers. Spawn fresh only for new
+domains or when a prior transcript has grown beyond useful size (then retire the prior
+agent and respawn fresh against the primer).
+
+Every repeated workstream gets a vault primer (`documents/<workstream>-primer.md`):
+architecture map, file inventory, invariants and conventions (test techniques, marker
+blocks), current version/baselines, and standing rulings binding the code. Name the
+primer as **FIRST READ** in the brief so the receiver starts from a knowledge base,
+not an empty page. If a workstream is getting repeated dispatches and has no primer,
+creating one is part of the orchestrator's job.
+
+Brief the receiver with verified facts: file:line loci, baselines (commit hash, version,
+last-touched date), and hashes of key files — so the agent starts working, not exploring
+the repository and re-deriving what you already know. This is the foundation of
+low-overhead continuity: agents re-mapping the same codebase on every dispatch is
+avoidable token cost.
+
 ## Checklist before dispatch
 
 ```
@@ -104,6 +125,8 @@ output is lost the moment the session ends.
 [ ] Label is persona-model; headless spec sets the persona field
 [ ] Required skills named per the work-type table above
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
+[ ] Existing agent resumed if one holds the domain; primer cited as first read where one exists
+[ ] Brief carries verified file:line loci, baselines (commit hash, version), and key-file hashes
 [ ] Branch/cwd stated; out-of-bounds named; "do NOT push" for repo work
 [ ] model set from the model-routing table (sonnet default); opus escalation justified in writing
 [ ] caps set from the floor (mechanical ~70 / build ~110 / audit 120+); effort matched to stage
