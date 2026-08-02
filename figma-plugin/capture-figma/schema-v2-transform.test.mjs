@@ -13,6 +13,7 @@ import {
   buildLatentCapabilities,
   buildWarnings,
   resolveComponentSetName,
+  isOrphanedComponent,
   nextRecordState,
   isBoundButHiddenPaint,
   collectNodeLatentCapabilities,
@@ -911,6 +912,35 @@ test("resolveComponentSetName: a standalone (non-variant) component resolves to 
 
 test("resolveComponentSetName: null component resolves to null", () => {
   assert.equal(resolveComponentSetName(null), null);
+});
+
+// isOrphanedComponent TRUTH TABLE (operator ruling 2026-08-02, reviewer gap:
+// "isOrphanedComponent has zero direct tests of its own branches"). Verified
+// against @figma/plugin-typings' plugin-api.d.ts:5423 (BaseNode.parent — "do
+// not always have a parent. They could be remote components or soft-deleted
+// components") and :8224 (ComponentNode.remote).
+test("isOrphanedComponent: parent null/undefined + remote false -> orphaned (a real SpaceVertical/space-xl-shaped deleted master)", () => {
+  const deletedMaster = { name: "SpaceVertical/space-xl", parent: null, remote: false };
+  assert.equal(isOrphanedComponent(deletedMaster), true);
+});
+
+test("isOrphanedComponent: parent undefined (never even set) + remote false -> orphaned", () => {
+  assert.equal(isOrphanedComponent({ name: "SpaceVertical/space-xl", remote: false }), true);
+});
+
+test("isOrphanedComponent: parent null + remote true -> silent (a legitimate remote library component)", () => {
+  const libraryComponent = { name: "SpaceVertical/space-xl", parent: null, remote: true };
+  assert.equal(isOrphanedComponent(libraryComponent), false);
+});
+
+test("isOrphanedComponent: parent present -> silent, regardless of remote", () => {
+  const onPage = { name: "SpaceVertical/space-xl", parent: { type: "COMPONENT_SET", name: "SpaceVertical" }, remote: false };
+  assert.equal(isOrphanedComponent(onPage), false);
+});
+
+test("isOrphanedComponent: an unresolvable (null) main component is never orphaned — unknown is not orphaned", () => {
+  assert.equal(isOrphanedComponent(null), false);
+  assert.equal(isOrphanedComponent(undefined), false);
 });
 
 test("nextRecordState: a COMPONENT's children are in the override interface surface", () => {

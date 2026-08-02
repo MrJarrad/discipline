@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildWarnings } from "./schema-v2-transform.mjs";
+import { buildWarnings, isOrphanedComponent } from "./schema-v2-transform.mjs";
 
 function readCode() {
   return readFileSync(join(import.meta.dirname, "code.js"), "utf8");
@@ -120,4 +120,82 @@ test("nested-instance interchangeability (LIVE CASE): two ActionButtonIcon varia
 
   const warnings = buildWarnings({ nodeSnapshots: out.nodeSnapshots });
   assert.deepEqual(warnings, [], "the live case must be suppressed — mainComponentId differing must never veto the name fallback");
+});
+
+// ORPHANED COMPONENT INSTANCE — END-TO-END WALK (reviewer gap, 2026-08-02:
+// isOrphanedComponent had zero direct tests of its own branches; every
+// existing test either mocked it away or exercised only the shaping
+// function, buildOrphanedComponentInstanceWarnings, on pre-built records).
+// These drive the REAL isOrphanedComponent predicate (imported straight from
+// schema-v2-transform.mjs — the exact function code.js's walk calls,
+// sync-check-verified byte-identical) through createSubtreeWalk end to end,
+// same LIVE CASE pattern as the tests above. The fixture uses a
+// "SpaceVertical/space-xl"-shaped deleted master, matching the operator's
+// real FeatureText/RichText case.
+function mockApiWithOrphanDetection() {
+  return Object.assign(mockApi(), { isOrphanedComponent });
+}
+
+test("orphaned component instance (LIVE CASE): main component with no parent and remote:false is a deleted master — walk records it in orphanedInstances", async () => {
+  // Deliberately NOT attached as a `children` entry of any node() call, so
+  // node()'s auto-parent-assignment never runs on it — parent stays
+  // undefined, exactly like a real getMainComponentAsync() result for a
+  // soft-deleted component (see plugin-api.d.ts:5423).
+  const deletedMaster = { id: "comp-deleted", type: "COMPONENT", name: "SpaceVertical/space-xl", remote: false };
+  const spacerTop = node("i-spacer-top", "INSTANCE", "Spacer-top", [], { mainComponent: deletedMaster });
+  const featureText = node("comp-featuretext", "COMPONENT", "FeatureText", [spacerTop]);
+
+  const walk = createSubtreeWalk(mockApiWithOrphanDetection());
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  await walk(featureText, new Map(), out, false);
+
+  assert.equal(out.orphanedInstances.length, 1);
+  assert.equal(out.orphanedInstances[0].id, "i-spacer-top");
+  assert.equal(out.orphanedInstances[0].name, "Spacer-top");
+  assert.equal(out.orphanedInstances[0].mainComponentName, "SpaceVertical/space-xl");
+
+  const warnings = buildWarnings({ orphanedInstances: out.orphanedInstances });
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].type, "orphaned_component_instance");
+});
+
+test("orphaned component instance (LIVE CASE): main component with no parent but remote:true is a legitimate library component — silent", async () => {
+  const libraryComponent = { id: "comp-library", type: "COMPONENT", name: "SpaceVertical/space-xl", remote: true };
+  const spacerTop = node("i-spacer-top", "INSTANCE", "Spacer-top", [], { mainComponent: libraryComponent });
+  const featureText = node("comp-featuretext", "COMPONENT", "FeatureText", [spacerTop]);
+
+  const walk = createSubtreeWalk(mockApiWithOrphanDetection());
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  await walk(featureText, new Map(), out, false);
+
+  assert.deepEqual(out.orphanedInstances, []);
+});
+
+test("orphaned component instance (LIVE CASE): main component still ON A PAGE (parent present) is silent, regardless of remote", async () => {
+  const setSpaceVertical = node(undefined, "COMPONENT_SET", "SpaceVertical", []);
+  const onPageComponent = node("comp-onpage", "COMPONENT", "space-xl");
+  onPageComponent.parent = setSpaceVertical;
+  onPageComponent.remote = false;
+  const spacerTop = node("i-spacer-top", "INSTANCE", "Spacer-top", [], { mainComponent: onPageComponent });
+  const featureText = node("comp-featuretext", "COMPONENT", "FeatureText", [spacerTop]);
+
+  const walk = createSubtreeWalk(mockApiWithOrphanDetection());
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  await walk(featureText, new Map(), out, false);
+
+  assert.deepEqual(out.orphanedInstances, []);
+});
+
+test("orphaned component instance (LIVE CASE): an unresolvable main component (getInstanceMainComponent returns null) never reaches orphanedInstances — unknown is not orphaned", async () => {
+  // mockApi()'s getInstanceMainComponent resolves `n.mainComponent || null`
+  // — omitting `mainComponent` entirely reproduces the real unresolvable
+  // case (getMainComponentAsync() returning null/undefined).
+  const spacerTop = node("i-spacer-top", "INSTANCE", "Spacer-top", []);
+  const featureText = node("comp-featuretext", "COMPONENT", "FeatureText", [spacerTop]);
+
+  const walk = createSubtreeWalk(mockApiWithOrphanDetection());
+  const out = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  await walk(featureText, new Map(), out, false);
+
+  assert.deepEqual(out.orphanedInstances, []);
 });

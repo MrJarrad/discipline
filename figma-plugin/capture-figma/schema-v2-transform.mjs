@@ -778,6 +778,7 @@ export {
   buildLatentCapabilities,
   buildWarnings,
   resolveComponentSetName,
+  isOrphanedComponent,
   nextRecordState,
   isBoundButHiddenPaint,
   collectNodeLatentCapabilities,
