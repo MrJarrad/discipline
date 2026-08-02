@@ -55,6 +55,24 @@ be duplicate, driftable state next to the real one.
 
 ---
 
+## Vault placement — when a repo doc gets banked
+
+These templates live in the product repo's own `docs/`. If a copy or summary is worth
+banking into `~/JHD/vault` (per the vault's own bank-on-receipt rule), place it
+thing-then-aspect — which project first, which aspect second — never at the vault root
+by document type:
+
+| Repo artifact | Vault home when banked |
+|---|---|
+| SCOPE | `projects/<name>/decisions/` (it records what was confirmed/decided before shaping) |
+| DOCUMENTATION | `projects/<name>/artifacts/` (a produced deliverable) |
+| Shaped project doc (`shape-stress`) | `projects/<name>/artifacts/` |
+| CONTEXT.md / ADR (`define-terms`) | Left in-repo; not routinely mirrored — the repo-docs mirror at `estate/repo-docs/{plugins|repos}/<name>/` is the vault-side pointer, not a copy |
+| Prototype NOTES.md | `projects/<name>/audits/` if it verified a build claim, otherwise left in-repo |
+
+See `vault-write`'s SKILL.md for the full thing-then-aspect decision test; this table
+only maps `doc-formats`' own artifact types onto it.
+
 ## Cross-template rules
 
 See [references/NAMING.md](NAMING.md) for filenames.
