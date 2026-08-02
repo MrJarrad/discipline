@@ -1173,7 +1173,7 @@ test("re-check invalidation: an unchanged document with an unchanged checker/map
   rmSync(repoRoot, { recursive: true, force: true });
 });
 
-test("re-check invalidation: a checker source edit between two unchanged syncs forces a re-run", async () => {
+test("re-check invalidation: a checker-source hash change between two unchanged syncs forces a re-run", async () => {
   const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
   const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
   const checkerDir = mkdtempSync(join(tmpdir(), "checker-source-test-"));
@@ -1203,8 +1203,13 @@ test("re-check invalidation: a checker source edit between two unchanged syncs f
     const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
     firstBody = await first.json();
 
-    // The "checker fix" — content changes, same file path, mid-run.
-    writeFileSync(checkerA, "// checker v2 — fixed a false positive\n", "utf8");
+    // Same path, different bytes — checkerSourceHash() (:400-407) hashes
+    // content fresh per request, so this alone must invalidate the cached
+    // fingerprint. (It does NOT prove a real conformance-check.mjs edit
+    // would take effect mid-process without a restart — Node's ESM cache
+    // wouldn't reload it; that's what PROCESS_STARTED_AT covers, exercised
+    // by the separate restart test below.)
+    writeFileSync(checkerA, "// checker v2 — different bytes\n", "utf8");
 
     const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
     secondBody = await second.json();
@@ -1212,12 +1217,65 @@ test("re-check invalidation: a checker source edit between two unchanged syncs f
 
   assert.equal(firstBody.unchanged, false, "first sync always runs (no prior state)");
   assert.equal(secondBody.unchanged, true, "the document itself did not change");
-  assert.equal(secondBody.conformance.ran, true, "a checker source edit must force a re-run even though the document is unchanged");
+  assert.equal(secondBody.conformance.ran, true, "a checker-source hash change must force a re-run even though the document is unchanged");
   assert.equal(secondBody.conformance.value.defects, 0);
 
   rmSync(capturesDir, { recursive: true, force: true });
   rmSync(repoRoot, { recursive: true, force: true });
   rmSync(checkerDir, { recursive: true, force: true });
+});
+
+test("re-check invalidation: an unreadable checker source file degrades to a re-check, never crashes the listener", async () => {
+  // Regression for a reviewer-caught crash: checkerSourceHash() used to do a
+  // bare readFileSync with no guard, so a missing/unreadable checker file
+  // (a transient lock during a deploy pull, a permissions hiccup) threw
+  // synchronously inside the http handler — no try/catch anywhere in
+  // handleCapture covers this, so it took the whole listener down for every
+  // capture until launchd relaunched it. checkerSourceHash/mapFileHash must
+  // fail OPEN (null hash -> never "matches" -> always re-checks) instead.
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+
+  const env = {
+    CAPTURES_DIR: capturesDir,
+    CONFORMANCE_MAP_PATH: mappingPath,
+    CHECKER_SOURCE_PATHS: join(tmpdir(), "definitely-does-not-exist", "checker-a.mjs") + "," + join(tmpdir(), "definitely-does-not-exist", "checker-b.mjs"),
+  };
+
+  let firstStatus, secondStatus, secondBody, healthAfter;
+  await withListener(env, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    firstStatus = first.status;
+
+    // Same, unchanged document again — this is the path that used to hash
+    // the (missing) checker source and throw.
+    const second = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    secondStatus = second.status;
+    secondBody = await second.json();
+
+    healthAfter = (await fetch(`${base}/health`)).status;
+  });
+
+  assert.equal(firstStatus, 200, "an unreadable checker source must never fail the capture itself");
+  assert.equal(secondStatus, 200, "the listener must survive an unchanged-document sync with an unreadable checker source");
+  assert.equal(healthAfter, 200, "the listener process must still be alive and answering after the unreadable-checker sync");
+  assert.equal(secondBody.unchanged, true, "the document itself did not change");
+  assert.equal(secondBody.conformance.ran, true, "a null checker hash never counts as unchanged — it always re-checks (the real mapping file is valid, so the re-run itself succeeds)");
+  assert.equal(secondBody.conformance.value.defects, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
 });
 
 test("re-check invalidation: a mapping-file edit between two unchanged syncs forces a re-run", async () => {

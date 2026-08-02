@@ -398,17 +398,38 @@ const CHECKER_SOURCE_PATHS = process.env.CHECKER_SOURCE_PATHS
   ? process.env.CHECKER_SOURCE_PATHS.split(",")
   : [join(import.meta.dirname, "conformance-check.mjs"), join(import.meta.dirname, "binding-check.mjs")];
 
+// Both hashers fail OPEN, never throw: a missing/unreadable file (a
+// transient lock during a deploy pull, a permissions hiccup, or a genuine
+// TOCTOU race between an existsSync check and the readFileSync right after
+// it) must never crash the HTTP handler mid-request — handleCapture has no
+// try/catch around the fingerprint computation itself (it isn't inside the
+// existing conformance-check-throws try/catch, which only wraps the actual
+// runConformanceCheck/runBindingCheck calls), so a bare throw here would
+// take the whole listener down for every capture until launchd relaunches
+// it. Returning null instead makes fingerprintsMatch (below) treat it as
+// "can't confirm this matches the cached one" — the check re-runs and any
+// resulting error surfaces through the same conformance-check-throws path
+// as a broken mapping file already does.
 function checkerSourceHash() {
-  const h = createHash("sha256");
-  for (const p of CHECKER_SOURCE_PATHS) {
-    h.update(readFileSync(p));
+  try {
+    const h = createHash("sha256");
+    for (const p of CHECKER_SOURCE_PATHS) {
+      h.update(readFileSync(p));
+    }
+    return h.digest("hex");
+  } catch {
+    return null;
   }
-  return h.digest("hex");
 }
 
 function mapFileHash(mappingPath) {
-  if (!mappingPath || !existsSync(mappingPath)) return null;
-  return createHash("sha256").update(readFileSync(mappingPath)).digest("hex");
+  if (!mappingPath) return null;
+  try {
+    if (!existsSync(mappingPath)) return null;
+    return createHash("sha256").update(readFileSync(mappingPath)).digest("hex");
+  } catch {
+    return null;
+  }
 }
 
 function checkFingerprint(docHash, mappingPath) {
@@ -421,7 +442,21 @@ function checkFingerprint(docHash, mappingPath) {
 }
 
 function fingerprintsMatch(a, b) {
-  return !!a && !!b && a.docHash === b.docHash && a.checkerHash === b.checkerHash && a.mapHash === b.mapHash && a.processStartedAt === b.processStartedAt;
+  // A null checkerHash/mapHash means the last hash attempt failed (see the
+  // fail-open comment on checkerSourceHash/mapFileHash above) — that can
+  // never count as "matches," even against another null, or a permanently
+  // unreadable checker file would look permanently unchanged and the check
+  // would never re-run once it started failing.
+  return (
+    !!a &&
+    !!b &&
+    a.docHash === b.docHash &&
+    a.checkerHash != null &&
+    a.checkerHash === b.checkerHash &&
+    a.mapHash != null &&
+    a.mapHash === b.mapHash &&
+    a.processStartedAt === b.processStartedAt
+  );
 }
 
 // A v2 bucket (components, componentSets, exampleStructure, templateFrames,
