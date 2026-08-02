@@ -563,6 +563,7 @@
       <span class="count-label">DESIGN↔CODE DRIFT</span>
     </div>
     <p class="drift-lane" id="drift-lane"></p>
+    <p class="drift-lane" id="page-template-lane"></p>
     <div id="drift-groups"></div>
   </section>
 
@@ -606,6 +607,7 @@
     const driftRow = document.getElementById("drift-row");
     const driftNumberEl = document.getElementById("drift-number");
     const driftLaneEl = document.getElementById("drift-lane");
+    const pageTemplateLaneEl = document.getElementById("page-template-lane");
     const driftGroupsEl = document.getElementById("drift-groups");
     const rawJsonDetails = document.getElementById("raw-json");
     const rawJsonSummary = document.getElementById("raw-json-summary");
@@ -799,19 +801,28 @@
     // === CONFORMANCE LANE (pure — tested via conformance-lane.test.mjs,
     // which extracts this block by its markers) ===
     //
-    // The listener runs two design<->code checks per capture (value lane:
+    // The listener runs THREE design<->code checks per capture (value lane:
     // a Figma variable vs a token in code; binding lane: a component layer's
-    // binding vs what the code renders) and reports a compact summary on the
-    // POST /capture response. This turns that summary into one honest line.
-    // Both check lanes are opt-in on the listener side (CONFORMANCE_MAP_PATH),
-    // so "not configured", "not re-checked", "failed" and "clean" are four
-    // different answers here — never collapsed into "0".
+    // binding vs what the code renders; page-template lane: a page's call-
+    // site prop vs a READY_FOR_DEV template's resolved variantProp) and
+    // reports a compact summary on the POST /capture response. This turns
+    // that summary into honest lines, one function per lane pair. Every
+    // lane is INDEPENDENTLY opt-in on the listener side (CONFORMANCE_MAP_PATH
+    // for value/binding, PAGE_TEMPLATE_MAP_PATH for page-template), so "not
+    // configured", "not re-checked", "failed" and "clean" are four different
+    // answers here — never collapsed into "0", and never inferred for a lane
+    // whose key the listener didn't even send this request (a lane running
+    // ALONE while its sibling lane is unconfigured must not read as "0
+    // defects, clean" for the unconfigured one).
     function formatDriftLane(conformance) {
       if (!conformance) return "Not reported — this listener doesn't run the design↔code check.";
       if (conformance.skipped) return "Not configured — the listener has no conformance map set.";
       if (conformance.error) return "Check failed — " + conformance.error;
       if (conformance.unchanged) return "Not re-checked — nothing changed since the last sync.";
       if (!conformance.ran) return "Not reported by the listener.";
+      if (conformance.value === undefined && conformance.binding === undefined) {
+        return "Not configured — the listener has no conformance map set.";
+      }
       const value = (conformance.value && conformance.value.defects) || 0;
       const binding = (conformance.binding && conformance.binding.defects) || 0;
       const total = value + binding;
@@ -819,6 +830,24 @@
       // The headline number above already says how many in total — this line
       // says which lanes they came from, and never repeats the total.
       return value.toLocaleString() + " token value(s) and " + binding.toLocaleString() + " component binding(s) differ from the code.";
+    }
+
+    // Third lane: does a page's call-site prop match what its READY_FOR_DEV
+    // template resolves? Un-marked templates are exempt at the checker
+    // level already (page-template-check.mjs's scope rule), so a defect
+    // reported here always means a ready template's contract was broken.
+    function formatPageTemplateLane(conformance) {
+      if (!conformance) return "Not reported — this listener doesn't run the page-template check.";
+      if (conformance.skipped) return "Not configured — the listener has no page-template map set.";
+      if (conformance.error) return "Check failed — " + conformance.error;
+      if (conformance.unchanged) return "Not re-checked — nothing changed since the last sync.";
+      if (!conformance.ran) return "Not reported by the listener.";
+      if (conformance.pageTemplate === undefined) {
+        return "Not configured — the listener has no page-template map set.";
+      }
+      const defects = conformance.pageTemplate.defects || 0;
+      if (defects === 0) return "Every ready template matches what its pages expect.";
+      return defects.toLocaleString() + " page/template mismatch(es) found.";
     }
     // === END CONFORMANCE LANE ===
 
@@ -1543,16 +1572,23 @@
       }
       driftRow.hidden = false;
       driftLaneEl.textContent = formatDriftLane(conformance);
+      pageTemplateLaneEl.textContent = formatPageTemplateLane(conformance);
       driftGroupsEl.innerHTML = "";
 
       const ran = !!(conformance && conformance.ran);
+      // Each lane's own key is only present when the listener actually ran
+      // it this request (see the CONFORMANCE LANE marker block's summary-
+      // shape comment) — an absent key contributes 0 to the total AND is
+      // skipped by the expandable-groups loop below, never rendered as a
+      // "0 defects" group for a lane that isn't configured.
       const value = (ran && conformance.value) || { defects: 0, samples: [] };
       const binding = (ran && conformance.binding) || { defects: 0, samples: [] };
-      const total = value.defects + binding.defects;
+      const pageTemplate = (ran && conformance.pageTemplate) || { defects: 0, samples: [] };
+      const total = value.defects + binding.defects + pageTemplate.defects;
       // An em dash, not "0": a check that didn't run has no number to show.
       driftNumberEl.textContent = ran ? total.toLocaleString() : "—";
 
-      for (const [label, lane] of [["token values", value], ["component bindings", binding]]) {
+      for (const [label, lane] of [["token values", value], ["component bindings", binding], ["page/template mismatches", pageTemplate]]) {
         if (!lane.defects) continue;
         const details = document.createElement("details");
         details.className = "warn-group";
