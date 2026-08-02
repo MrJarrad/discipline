@@ -15,7 +15,7 @@ jarrad.design's served HTML, or a cited standard (WHATWG HTML, WAI-ARIA APG, WCA
 None of it is invented preference.
 
 <a id="source"></a>
-**Source audit:** `~/JHD/vault/artifacts/2026-07-27-markup-audit.md` — 12 routes, curled
+**Source audit:** `~/JHD/vault/projects/portfolio/audits/2026-07-27-markup-audit.md` — 12 routes, curled
 live, parsed for element/landmark/heading/class stats, cross-checked with axe-core.
 Findings cited below as **[Audit #N]**.
 
@@ -161,9 +161,12 @@ Three gates layered on top of everything above, adopted the same day as this ski
 markup floor, grounded in `launch-plan-2026-07-27.md`'s "Exceed tier" entry: **W3C
 validator zero errors/warnings**, **APCA contrast** (WCAG-3 draft algorithm, beyond AA
 ratios), and **full function with JavaScript disabled**. Findings cited below as
-**[Audit #E-N]**, from the dedicated exceed-tier audit
-(`~/JHD/vault/artifacts/2026-07-27-exceed-tier-audit.md`) — same live-curl, same 11
-routes, same methodology as the markup audit above, extended rather than repeated.
+**[Audit #E-N]**, from the dedicated exceed-tier audit — same live-curl, same 11
+routes, same methodology as the markup audit above, extended rather than repeated. (The
+standalone exceed-tier audit file did not survive the 2026-07-31 vault legacy purge;
+`~/JHD/vault/projects/portfolio/audits/2026-07-27-markup-audit.md` is the closest
+surviving primary source — re-running the exceed-tier gates is the correct fix if this
+evidence is needed again, not reconstructing the citation.)
 
 **Validator-zero.** Prefer `npx vnu-jar` (the Nu Html Checker) — it needs a Java
 runtime; where that's unavailable, `html-validate` (`npx html-validate`) is the

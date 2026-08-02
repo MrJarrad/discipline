@@ -90,7 +90,7 @@ charter, once loaded, produces good behaviour is out of scope for v1 (see
 
 In every case the bar is **GREEN + discriminates against a no-change baseline** (run via
 `--baseline-plugin-dir`, a pre-change worktree of this repo — see
-`~/JHD/vault/documents/eval-t1-plugin-root-spike-2026-08-01.md` for the mechanism). A change
+`~/JHD/vault/projects/discipline/audits/eval-t1-plugin-root-spike-2026-08-01.md` for the mechanism). A change
 that passes with *and* without itself changed nothing worth shipping; a run with no baseline
 arm reports BASELINE UNAVAILABLE, never GREEN. Model routing / tier changes are out of scope
 for v1 (`meta/skill-eval/README.md`).

@@ -11,82 +11,131 @@ description: Procedure for writing any note, process log, or reference to ~/JHD/
 
 ---
 
-## What to write — pick the type by the decision test
+## Thing-then-aspect — the organizing principle (ruling 2026-08-02)
 
-The write seam checks that `type` **exists**, not that it is **true**. Picking the right type is your job, here, before you write. Each type answers a different question about where the note *came from*:
+Every placement decision answers two questions, in this order: **WHICH THING** (which
+project, or the fleet/estate if cross-project), **then WHAT KIND** of knowledge about it
+(hub, primer, decision, audit, artifact, reference, ruling, lesson). Never type-first
+scattering across a flat `memories/`/`decisions/`/`documents/`/`hubs/` split — that
+schema is retired. See `~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`
+for the ruling.
 
-| Type | Crisp definition |
-|---|---|
-| `reference` | Points **outward** at material we did **not** author — a product, article, external spec, style board. We're *citing*, not *claiming*. |
-| `artifact` | A thing **we made** — a deliverable with versions/supersession: maps, specs, design systems, reports, plans. |
-| `decision` | A **call that was made** — what we chose, by whom, its lineage. |
-| `memory` | **Distilled operational knowledge** — a lesson, recipe, or piece of state we learned. |
-| `project-hub` | A project-scoped index/hub. |
+## Step 1 — which thing
 
-**Decision test — run top-down, take the first that fits:**
+- **Scoped to one project** (portfolio, discipline, capture-figma, flux-legacy, …) →
+  `~/JHD/vault/projects/<name>/`.
+- **True cross-project doctrine or a reusable lesson** (a ruling that binds every
+  project, a technical lesson learned once and reusable everywhere) →
+  `~/JHD/vault/fleet/`.
+- **The orchestrator's own operating state** (HANDOVER, CONTRACT, standing process
+  notes about running the vault itself) → `~/JHD/vault/orchestrator/`.
+- **Material we did not author** (a captured site, a screenshot, external code to
+  imitate) → `~/JHD/vault/references/` — this one folder stays type-first because a
+  reference is never "about" one project; it's a durable cross-project database (see
+  `fleet/rulings/reference-database-schema.md`).
+- **Machine setup, repo-docs mirrors, the estate map** → `~/JHD/vault/estate/`.
 
-> - **Did we make it?** → `artifact`
-> - **Did we decide it?** → `decision`
-> - **Did we learn it?** → `memory`
-> - **Are we pointing at someone else's thing?** → `reference`
+If a project has no folder yet under `projects/`, creating it is part of this write —
+see **New-project trio** below; don't park the note at the vault root waiting for one.
 
-The trap: a map/spec/report **we produced** *describes* something, so it reads like documentation and is easy to mis-type as `reference`. It is not — we made it, so it is an `artifact`. `reference` is only for material whose author is *not us* (and it must carry a `sources:` list — required for that type, not optional). Process logs go in as `type: memory`.
+## Step 2 — what kind, within that thing
 
-**Second trap — authored collection masquerading as document:** a hand-authored list of references/sources that should instead be individual typed `reference` records + a derived view. Rule: *references are records, collections are derived, curation is metadata.* Curation intent (`pinned`/`weight`/tags) belongs on each individual reference record — not in authored body prose. Worked example: `vision/visual-direction-references.md` (post-`9f2e53f`) — 18 individual reference records in `references/`; the old monolithic file is now a slim `document` carrying only the curation rationale + `[[links]]`; the reference list is derived by tag, never hand-authored.
+Once you know which project (or fleet), pick the aspect subfolder. Each answers a
+different question about the note's origin — the same decision test as before, now
+routing to a subfolder instead of a type-named top-level folder:
+
+| Aspect | Crisp definition | Project folder | Fleet folder |
+|---|---|---|---|
+| Hub | The project's standing index — one per project | `hub.md` (file, not folder) | — |
+| Primer | Architecture map / file inventory / invariants for a repeated workstream, written as a dispatch **first read** | `primers/` | — |
+| Decision | A call that was made — what we chose, by whom, its lineage | `decisions/` | `fleet/rulings/` if the call binds every project, not just this one |
+| Audit | A build verified against a source of truth — findings, defect lists, measured evidence | `audits/` | — |
+| Artifact | A thing we made with versions/supersession — maps, specs, design systems, reports, plans | `artifacts/` | — |
+| Lesson | Distilled operational knowledge learned once, reusable anywhere | (rare inside a project; prefer fleet) | `fleet/lessons/` |
+| Reference | Points outward at material we did not author | `~/JHD/vault/references/` (never project-scoped) | `~/JHD/vault/references/` |
+
+**Decision test — run top-down, take the first that fits, THEN place by the table above:**
+
+> - **Did we make it?** → `artifact` (or `audit` if it's specifically a build-vs-source
+>   verification)
+> - **Did we decide it?** → `decision` (project-scoped) or `fleet/rulings/`
+>   (cross-project)
+> - **Did we learn it?** → `fleet/lessons/` (a project-specific "decision" that's really
+>   a lesson still routes here — lessons are fleet-wide by nature)
+> - **Is it a standing repeated-workstream knowledge base for a dispatch to read
+>   first?** → `primers/`
+> - **Are we pointing at someone else's thing?** → `~/JHD/vault/references/`
+
+**A ruling vs a project decision:** the operator approving *this specific button's
+color* is a `projects/<name>/decisions/` record. The operator approving *a rule every
+future project follows* (like this doctrine itself) is a `fleet/rulings/` record —
+worked example: `fleet/rulings/token-rulings.md`.
+
+**The trap:** a map/spec/report **we produced** *describes* something, so it reads like
+documentation and is easy to mis-file as a `reference`. It is not — we made it, so it's
+an `artifact`. `reference` is only for material whose author is *not us* (and it must
+carry a `sources:` list — required, not optional).
+
+**Second trap — authored collection masquerading as prose:** a hand-authored list of
+references/sources that should instead be individual typed reference records + a
+derived view. Rule: *references are records, collections are derived, curation is
+metadata.* Curation intent (`pinned`/`weight`/tags) belongs on each individual reference
+record, filed in `references/` — never as authored body prose inside a project artifact.
 
 ---
 
-## Where it goes — type-based folder routing
+## New-project trio — created together, same action
 
-| Type | Folder |
-|---|---|
-| `memory` | `memories/` |
-| `decision` | `decisions/` |
-| `reference` | `references/` |
-| `artifact` | `artifacts/` |
-| `project-hub` | `hubs/` |
+A project doesn't exist in the vault until all three of these land in the same write:
 
-**Do NOT file by project.** Scope is frontmatter, not folder. Every note lands in its type folder regardless of which project it belongs to.
+1. **`projects/<name>/` folder shape** — `hub.md` + empty-until-needed `primers/`,
+   `decisions/`, `audits/`, `artifacts/` subfolders.
+2. **An `[[estate-map]]` row** — `~/JHD/vault/estate/estate-map.md`, the project's
+   repo, git remote, and where its knowledge lives.
+3. **A repo-docs mirror** — `~/JHD/vault/estate/repo-docs/{plugins|repos}/<name>/`,
+   mirroring the repo's own README/HANDOVER surface.
 
-**Legacy folders** (`orchestrator/`, `hive/`, `vision/`, `projects/`) are frozen — do not add new notes there.
+Creating only the folder without the estate-map row and repo-docs mirror leaves the
+project unanchored — see `estate/estate-map.md`'s own `UNANCHORED` markers for what
+that failure mode looks like in practice.
 
 ---
 
 ## How to write
 
-### Required frontmatter — 5 fields, all mandatory
+### Frontmatter — placement is the aspect folder, not a `type:` field
+
+Under thing-then-aspect, the folder position (`projects/<name>/decisions/`,
+`fleet/lessons/`, `references/`, …) already carries the classification that a flat
+`type:` field used to encode — don't re-derive it in frontmatter. Where frontmatter is
+used (references always carry it; fleet/lessons and project artifacts often do; project
+decisions and hub prose are frequently plain markdown with no frontmatter block — both
+are observed in the live vault), keep it minimal and match the nearest sibling file in
+the same aspect folder rather than inventing a schema:
 
 ```yaml
 ---
-type: memory          # enum: memory | decision | reference | artifact | project-hub
-scope: portfolio      # company | <project-slug>
+name: <slug>
+description: "<one line — what this record is and when to reach for it>"
 created: YYYY-MM-DD
 status: current       # draft | current | superseded
-tags: []              # always a list, even if empty
+tags: []
 ---
 ```
 
-### Type-specific additional required fields
-
-| Type | Required extra field |
-|---|---|
-| `reference` | `sources:` — list of URLs or slugs (required, not optional) |
-| `artifact` | `produced_by:` — agent or process that created it |
-| `project-hub` | `owner:` — agent or team responsible |
-
-`memory` and `decision` have no additional required fields beyond the base 5.
+`reference` records are the one place frontmatter stays mandatory and richer — see
+**References are a typed write too**, below.
 
 ### Write model
 
 **Write tool only.** A dumb cron outside the session handles git commits automatically — never invoke `git` directly. Do not run `git add`, `git commit`, `git push`, or any git operation.
 
-### Scope semantics
+### Scope, now implicit in placement
 
-`scope` is a recall filter, not a storage hierarchy:
-- `scope: company` → surfaces everywhere by default
-- `scope: <slug>` → surfaces when working in that project context
-
-Neither value changes where the file is stored — the folder is determined by `type` only.
+Filing a decision under `projects/portfolio/decisions/` already scopes it to
+portfolio — no separate `scope:` field is needed to do that job. A cross-project ruling
+in `fleet/rulings/` is implicitly company-wide. If a note still carries a `scope:`
+field from before this migration, treat it as informational, not load-bearing.
 
 Recall defaults to `status: current` — only non-superseded records surface unless history is explicitly requested.
 
@@ -98,15 +147,14 @@ When replacing an older note, follow this exact sequence:
 2. Create the **new note** with `status: current` + `supersedes: "[[old-slug]]"` in its frontmatter
 3. **Never edit the old note body** — only frontmatter status + link are permitted to change
 
-### Hub files — do not touch
+### Hub files — link into them, don't rewrite them
 
-When writing a new record, **do NOT touch any hub file.** Hub listing sections (e.g. `## Related References`, `## Active Decisions`) are machine-written by the query layer and update automatically from the new note's frontmatter.
-
-Use this placeholder when the query layer is not yet wired:
-
-```markdown
-<!-- derived: scope:portfolio type:reference status:current -->
-```
+`projects/<name>/hub.md` is a project's standing index (see
+`projects/portfolio/hub.md` for the worked shape). Unlike the old query-layer-derived
+hub listings, hubs in the current schema are hand-maintained `[[wikilink]]` indexes —
+when you add a decision/audit/artifact/primer worth surfacing, add its `[[link]]` under
+the relevant hub section in the same action, don't leave it to a query layer that isn't
+wired. Never delete or reorder existing hub entries while adding yours.
 
 ---
 
@@ -123,13 +171,15 @@ Use lowercase kebab-case.
 
 ## Canonical schema reference
 
-→ `~/JHD/vault/AGENTS.md`
+`~/JHD/vault/AGENTS.md` (schema rev-6, thing-then-aspect) is the current canonical
+statement of this shape — point there first. The ruling that established it:
+`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`.
 
 The sharp do/don't edges of this procedure live in [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
 
 ## References are a typed write too
 
-References (`~/JHD/vault/references/`) are a durable cross-project database, not project notes — never archive a capture when a project retires. Every reference written gets the database frontmatter (see memories/reference-database-schema.md):
+References (`~/JHD/vault/references/`) are a durable cross-project database, not project notes — never archive a capture when a project retires. Every reference written gets the database frontmatter (see `fleet/rulings/reference-database-schema.md`):
 
 - `projects: [portfolio, ...]` — every project it informs; append projects as they adopt it, never overwrite.
 - `good_for: [layout, motion, markup, visual, typography, components, transitions, style-board, code]` — what you'd consult it for.

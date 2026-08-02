@@ -68,8 +68,9 @@ every dispatch, not just the model.
 ## What today cost, and why
 
 On 2026-07-26 one run dispatched 21 workflows / 42 agents in 6h30m wall time (39 sonnet, 1
-haiku, 2 unlabeled), burning an estimated $150–400 for the day
-(`~/JHD/vault/artifacts/2026-07-26-burn-report.md`). None of that spend came from
+haiku, 2 unlabeled), burning an estimated $150–400 for the day. (The dedicated burn-report
+artifact did not survive the vault's 2026-07-31 legacy purge; under the current schema
+this evidence would live at `projects/discipline/artifacts/`.) None of that spend came from
 opus or top-tier — the routing table already held. The waste was structural: **no agent
 in any spec that day carried a `maxTurns` cap**, six near-identical "engineer + reviewer"
 lanes ran serially instead of in 2–3 parallel lanes (~54 min lost), a duplicated

@@ -11,13 +11,35 @@ description: Procedure for reading and recalling from ~/JHD/vault as shared memo
 
 ---
 
-## Entry points — where to start
+## Entry points — thing-then-aspect (ruling 2026-08-02)
 
-**Start with the project hub.** Every project has a standing hub note in `hubs/<project-slug>.md`. The hub is the index — read it first, then follow its `[[wikilinks]]` into the graph.
+Vault reads mirror vault writes: **which thing, then what kind.** Start with the thing,
+not the aspect.
 
-When there is no hub route, search the category folders directly: `documents/`, `artifacts/`, `references/`, `decisions/`, `memories/`. The folder matches the **`category`** frontmatter, not the project.
+- **Working in a specific project** (portfolio, discipline, capture-figma, …) → start
+  at `~/JHD/vault/projects/<name>/hub.md`, the project's standing index. Follow its
+  `[[wikilinks]]` out into `primers/`, `decisions/`, `audits/`, `artifacts/` — all
+  inside that same project folder.
+- **Doing repeated work in a workstream** (a repo you keep dispatching into) → read
+  `projects/<name>/primers/<workstream>-primer.md` first — the dispatch-brief skill
+  requires it be cited as FIRST READ. If no primer exists yet, that's a signal to write
+  one after the dispatch, not to skip the read.
+- **Checking cross-project doctrine or a binding rule** → `~/JHD/vault/fleet/rulings/`.
+- **Checking a reusable technical lesson** → `~/JHD/vault/fleet/lessons/`.
+- **Checking the state of the whole estate** (every `~/JHD` directory, git state,
+  where its knowledge lives) → `~/JHD/vault/estate/estate-map.md`.
+- **Checking a repo's own knowledge surface without leaving the vault** →
+  `~/JHD/vault/estate/repo-docs/{plugins|repos}/<name>/`.
+- **Looking for material we did not author** (a captured site, a code snippet, an
+  operator screenshot) → `~/JHD/vault/references/`, filterable by its database
+  frontmatter (`projects:`, `good_for:`, `type:`) rather than by project folder.
+- **Orchestrator's own operating files** (current handover state, the operating
+  contract) → `~/JHD/vault/orchestrator/HANDOVER.md`, `orchestrator/CONTRACT.md`.
 
-Use `grep` or file glob to search by **`scope:` frontmatter**, never by folder-per-project. `scope: company` surfaces everywhere; `scope: <project-slug>` surfaces in that project context.
+When there is no hub route yet (a project too new to have one, or you're unsure which
+project a note belongs to), `grep` across `projects/*/` and `fleet/` directly rather
+than guessing a single folder — the folder is determined by thing-then-aspect, not by a
+`category`/`scope` frontmatter field to filter on.
 
 ---
 
@@ -31,9 +53,11 @@ Use `grep` or file glob to search by **`scope:` frontmatter**, never by folder-p
 
 ## Check-before-derive rule — the gate
 
-**Before making a decision**, check `decisions/` for prior calls + lineage.
+**Before making a project-scoped decision**, check `projects/<name>/decisions/` for prior calls + lineage.
 
-**Before re-learning or distilling**, check `memories/` for recipes, lessons, or state already captured.
+**Before making a call that would bind every project**, check `fleet/rulings/` first — it may already be settled doctrine.
+
+**Before re-learning or distilling a technique**, check `fleet/lessons/` for a recipe or lesson already captured.
 
 **Before re-capturing an external source**, check `references/` for what we already hold.
 
@@ -54,4 +78,8 @@ A note may be authored correctly but now stale. Stale signals a new record (supe
 
 ## The vault context map
 
-The vault holds our typed graph: decisions, references, memories, artifacts, documents, and project hubs — all linked by `[[wikilinks]]`. Recall means landing on a node and following its edges to assemble working context for the task at hand.
+The vault holds our graph organized thing-then-aspect: `orchestrator/` + one
+`projects/<name>/` folder per project (hub, primers, decisions, audits, artifacts) +
+`fleet/` for cross-project rulings and lessons + `references/` + `estate/` — all linked
+by `[[wikilinks]]`. Recall means landing on the right project's hub (or `fleet/` for
+doctrine) and following its edges to assemble working context for the task at hand.

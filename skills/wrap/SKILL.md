@@ -39,21 +39,25 @@ than an honest gap does. Rewrite it to cover:
   session, note whether it's current or stale relative to the live file/site, so the
   next session doesn't build against a snapshot it thinks is live.
 
-### 2. Rulings — landed with lineage, same-action verified
+### 2. Rulings — landed with lineage, same-action verified, thing-then-aspect placed
 
-Every operator ruling made this session lands in `memories/token-rulings.md` (or the
-relevant memory file) with lineage — who ruled it, when, and what it supersedes if
-anything. Walk back through the session and confirm each ruling was written in the same
-action as the event, not batched here at the end from memory — a ruling recalled at
-wrap time has already had a chance to drift from what was actually said.
+Every operator ruling made this session lands **by thing, then aspect**: a call that
+binds every project goes to `fleet/rulings/` (e.g. `fleet/rulings/token-rulings.md`); a
+call scoped to one project goes to `projects/<name>/decisions/`. Every ruling carries
+lineage — who ruled it, when, and what it supersedes if anything. Walk back through the
+session and confirm each ruling was written in the same action as the event, not
+batched here at the end from memory — a ruling recalled at wrap time has already had a
+chance to drift from what was actually said.
 
-### 3. Memory — auto-memory dir current
+### 3. Memory — fleet lessons and the auto-memory index current
 
-Check the auto-memory directory (`memories/` in the vault, and the `MEMORY.md` index)
-for two things: the index actually lists every memory file present (no orphaned files,
-no index entries pointing at deleted ones), and any feedback or preference surfaced this
-session that should outlive it has been written down, not left in this session's
-transcript alone.
+A reusable technical lesson learned this session lands in `fleet/lessons/`, not a flat
+`memories/` folder (that schema is retired — see `vault-write`). Separately, check the
+auto-memory directory (`~/.claude/projects/-Users-jarradharvey-JHD-vault/memory/`,
+mirrored into `estate/auto-memory/` at sync) and its `MEMORY.md` index for two things:
+the index actually lists every memory file present (no orphaned files, no index entries
+pointing at deleted ones), and any feedback or preference surfaced this session that
+should outlive it has been written down, not left in this session's transcript alone.
 
 ### 4. Toolkit — committed, versioned, mirrored, registered
 
@@ -68,13 +72,20 @@ Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
   to cache is invisible to whatever reads from cache.
 - Registration (marketplace.json, any install manifest) reflects the current version.
 
-### 5. Vault/Obsidian hygiene
+### 5. Vault/Obsidian hygiene — structure conformance, thing-then-aspect
 
-New documents produced this session are linked from a relevant hub or index — an
-unlinked document is functionally invisible in a graph-navigated vault. Artifact
-frontmatter (`captured`, `sources`, `status`, `supersedes` and equivalents) is current,
-not stale from a template. Naming conventions (human-name-first, path-composed names,
-the vault's own file-naming rules) held across everything written this session.
+Every new record produced this session lands inside its project's aspect subfolder
+(`projects/<name>/{primers,decisions,audits,artifacts}/`) or `fleet/{rulings,lessons}/`
+for cross-project material — nothing new goes to the vault root or to a retired
+flat-by-type folder (`memories/`, `documents/`, `hubs/`, root-level `decisions/`). A new
+project gets its full trio (folder shape + `estate/estate-map.md` row + `estate/repo-docs/`
+mirror) in the same action it's created, not staggered across sessions.
+
+New records are linked from their project's `hub.md` — an unlinked record is
+functionally invisible in a graph-navigated vault. Artifact frontmatter (`created`,
+`sources`, `status`, `supersedes` and equivalents) is current, not stale from a
+template. Naming conventions (human-name-first, path-composed names, the vault's own
+file-naming rules) held across everything written this session.
 
 ### 6. Tasks — board state matches reality
 
@@ -122,7 +133,21 @@ All four, every time — compact-but-no-next-step is still a dead end; redacted-
 
 ## Link health at wrap
 
-Run `python3 scripts/vault-lint.py` from the vault root before committing the wrap. BROKEN links must be fixed (or the target restored); ARCHIVED citations are fine (historical lineage); new ORPHANS mean the note was banked without being connected — link it from the right hub before closing.
+Run `python3 scripts/vault-lint.py` from the vault root before committing the wrap.
+BROKEN links must be fixed (or the target restored) — this is the exit-1 gate.
+ARCHIVED citations are fine (historical lineage). New ORPHANS mean the note was banked
+without being connected — link it from the right project hub (or fleet ruling context)
+before closing. New WEAK notes (outbound links but zero inbound) are non-fatal but
+still worth a look — a record nothing points back to is graph-hygiene debt piling up;
+link it from its project hub in the same pass as fixing ORPHANS rather than deferring
+it.
+
+## Estate sync at wrap
+
+Run `~/JHD/vault/estate/sync-estate.sh` before the wrap commit — it banks live machine
+setup (LaunchAgents, claude-usage logs, auto-memory) one-way into `estate/`, and stages
+any changes for the wrap commit. Skipping it means the estate map and repo-docs mirrors
+silently drift from the live machine between sessions.
 
 ## Push at wrap
 
