@@ -158,6 +158,28 @@ wired. Never delete or reorder existing hub entries while adding yours.
 
 ---
 
+## Graph linking is part of the write, not a follow-up (ruling 2026-08-03)
+
+Nothing may land as an orphan or straggler in the vault's Obsidian graph. A
+structural pre-commit gate enforces this (`vault/scripts/githooks/pre-commit`
+runs `vault-lint.py` and blocks on BROKEN/AMBIGUOUS/ORPHANS) — but the gate is a
+backstop, not the mechanism. Wiring the note in is your job, done in the same
+write as creating it:
+
+1. **At least one inbound link** — from the owning hub (`projects/<name>/hub.md`),
+   the relevant `_index`, or a MEMORY-equivalent index — added in the same action,
+   not queued as a follow-up.
+2. **Outbound `[[links]]` to lineage** — the decision/artifact/reference this note
+   builds on, supersedes, or was prompted by.
+3. **Run `python3 scripts/vault-lint.py` from vault root before declaring done**
+   and report `BROKEN`/`AMBIGUOUS`/`ORPHANS` all 0. (`wrap` runs this same check
+   at session close — this is the per-write version, not a duplicate step.)
+
+**Reference entries carry one more requirement:** add the row to
+`references/_index.md` in the same write (see **References are a typed write
+too**, above, and `fleet/rulings/reference-database-schema.md`) — an
+unindexed reference is unfindable even if it isn't a graph orphan.
+
 ## Naming convention
 
 ```
