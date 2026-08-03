@@ -108,8 +108,8 @@
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
        variablesRemoved, variablesRenamed, aliasRepoints, styles,
        stylesRenamed, components, componentsAdded, componentsRemoved,
-       componentsRenamed, layerBindings }, counts, summary: { added, modified,
-       removed, renamed, repointed, layerBindings } }
+       componentsRenamed, layerBindings, copy }, counts, summary: { added,
+       modified, removed, renamed, repointed, layerBindings, copy } }
 
    RENAME DETECTION: variables/styles/components each carry an OPTIONAL
    stable id (variables/styles: `id`; components: the existing `key` field —
@@ -1155,6 +1155,58 @@ function diffLatentCapabilities(oldCaps, newCaps) {
   return records;
 }
 
+// COPY CAPTURE (brief: "COPY CAPTURE — the text-node walk"): `copy` is an
+// OPTIONAL top-level array of authored text-node records ({ path, text, id?,
+// componentContext? }) over a deliverable page's text nodes. Entries are
+// correlated id-first (a text node's persistent Figma id), falling back to
+// `path` when an id is missing on either side — the same id-first/path-
+// fallback pattern as every other bucket in this contract. Only `text` is
+// diffed (a path/id match with the same text is not a change); a `path`
+// present only on the new side is `copy_added`, only on the old side is
+// `copy_removed`. This is the machinery behind the nav-label incident (design
+// said "About", code said "Info") — copy drift is now a diffable signal.
+function diffCopy(oldCopy, newCopy) {
+  const records = [];
+  const oldByKey = new Map((oldCopy || []).filter((c) => c.id).map((c) => [c.id, c]));
+  const newByKey = new Map((newCopy || []).filter((c) => c.id).map((c) => [c.id, c]));
+  const oldByPath = new Map((oldCopy || []).map((c) => [c.path, c]));
+  const newByPath = new Map((newCopy || []).map((c) => [c.path, c]));
+  const matchedOld = new Set();
+  const matchedNew = new Set();
+
+  function diffEntry(oldEntry, newEntry) {
+    if (oldEntry.text !== newEntry.text) {
+      records.push({ type: "copy_changed", path: newEntry.path, old: oldEntry.text, new: newEntry.text });
+    }
+  }
+
+  for (const [id, newEntry] of newByKey) {
+    const oldEntry = oldByKey.get(id);
+    if (!oldEntry) continue;
+    matchedOld.add(oldEntry);
+    matchedNew.add(newEntry);
+    diffEntry(oldEntry, newEntry);
+  }
+  for (const newEntry of newCopy || []) {
+    if (matchedNew.has(newEntry) || (newEntry.id && oldByKey.has(newEntry.id))) continue;
+    const oldEntry = oldByPath.get(newEntry.path);
+    if (!oldEntry || matchedOld.has(oldEntry)) {
+      if (!oldEntry) records.push({ type: "copy_added", path: newEntry.path, text: newEntry.text });
+      continue;
+    }
+    matchedOld.add(oldEntry);
+    diffEntry(oldEntry, newEntry);
+  }
+  for (const oldEntry of oldCopy || []) {
+    if (matchedOld.has(oldEntry) || (oldEntry.id && newByKey.has(oldEntry.id))) continue;
+    if (!newByPath.has(oldEntry.path)) {
+      records.push({ type: "copy_removed", path: oldEntry.path });
+    }
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -1421,6 +1473,9 @@ function handleCapture(req, res) {
           const capabilities = bothSidesDefined(prevState.export.latentCapabilities, parsed.latentCapabilities)
             ? diffLatentCapabilities(prevState.export.latentCapabilities, parsed.latentCapabilities)
             : [];
+          const copy = bothSidesDefined(prevState.export.copy, parsed.copy)
+            ? diffCopy(prevState.export.copy, parsed.copy)
+            : [];
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -1438,6 +1493,7 @@ function handleCapture(req, res) {
             examples,
             templateFrames,
             capabilities,
+            copy,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -1456,6 +1512,7 @@ function handleCapture(req, res) {
             examples: examples.length,
             templateFrames: templateFrames.length,
             capabilities: capabilities.length,
+            copy: copy.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
@@ -1470,6 +1527,11 @@ function handleCapture(req, res) {
           // `changed.layerBindings` (all four of its record types) as its own
           // signal — it's a different chain (component-internals, not
           // variable/style aliasing) so it isn't folded into `repointed`.
+          // `copy` totals `changed.copy` (all three of its record types —
+          // copy_changed/copy_added/copy_removed) as its own signal for the
+          // same reason: authored text drift is not a variable/style/
+          // component-internals concern, so it isn't folded into any of the
+          // above either.
           changeRecord.summary = {
             added: variablesAdded.length + componentsAdded.length,
             modified: variables.length + styles.length + components.length,
@@ -1477,6 +1539,7 @@ function handleCapture(req, res) {
             renamed: variablesRenamed.length + stylesRenamed.length + componentsRenamed.length,
             repointed: aliasRepoints.length,
             layerBindings: layerBindings.length,
+            copy: copy.length,
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");

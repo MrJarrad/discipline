@@ -1407,3 +1407,84 @@ test("re-check invalidation: a listener restart between two unchanged syncs forc
   rmSync(capturesDir, { recursive: true, force: true });
   rmSync(repoRoot, { recursive: true, force: true });
 });
+
+test("changes.jsonl reports copy_changed when a matched text node's characters change", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ copy: [{ id: "text-1", path: "Landing/NavigationHeader/Info", text: "About" }] })),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ copy: [{ id: "text-1", path: "Landing/NavigationHeader/Info", text: "Info" }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.copy, [
+    { type: "copy_changed", path: "Landing/NavigationHeader/Info", old: "About", new: "Info" },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("changes.jsonl reports copy_added/copy_removed for text nodes added or removed from a deliverable page, and summary.copy totals both", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ copy: [{ path: "Landing/NavigationHeader/Info", text: "About" }] })),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ copy: [{ path: "Landing/NavigationHeader/Contact", text: "Contact" }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.copy, [
+    { type: "copy_added", path: "Landing/NavigationHeader/Contact", text: "Contact" },
+    { type: "copy_removed", path: "Landing/NavigationHeader/Info" },
+  ]);
+  assert.equal(diffed.summary.copy, 2);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("copy: an exporter that omits `copy` entirely (older plugin) diffs cleanly with an empty copy array, not a crash or a spurious removed-everything", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.copy, []);
+  assert.equal(diffed.summary.copy, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
