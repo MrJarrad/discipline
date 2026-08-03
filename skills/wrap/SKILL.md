@@ -131,6 +131,58 @@ Every piece of handover prose — the HANDOVER document, a wrap summary, a block
 
 All four, every time — compact-but-no-next-step is still a dead end; redacted-but-pasted-stack-trace still fails move 3.
 
+## Learn — mine the session for lessons before the lint/commit gate (operator ruling 2026-08-03)
+
+Wrap does not end at re-stating what happened — it also asks whether the session
+just taught something durable that mid-session vault-write discipline didn't
+already catch. Relying purely on "someone banks it as it happens" leaves a gap:
+a correction or a surprise can pass without anyone stopping to write it down.
+This step is that catch, run once per wrap, after the sections above have
+settled what changed and before Link health/commit below locks the wrap in —
+so anything mined lands in the same wrap commit, not a follow-up session.
+
+Pattern borrowed from headroom's `learn` step; the implementation here is the
+vault's own, no external dependency.
+
+Review the session across three lanes:
+
+1. **Failed/errored/re-dispatched agent runs** — any run that didn't pass first
+   try. What was actually wrong, and what fixed it?
+2. **Operator corrections and mid-flight ruling changes** — anywhere the
+   operator overrode a plan, corrected an assumption, or changed a ruling after
+   it was first stated.
+3. **Surprises** — bugs found, assumptions overturned, tool quirks (transcript
+   evidence behaving unexpectedly, task-notification timing, journal entries
+   that revealed something not already known).
+
+For each item found in those three lanes, ask: **does a durable lesson exist
+here that isn't already banked?**
+
+- **Yes** → write it now, in this wrap, as a typed vault note per `vault-write`
+  (right thing-then-aspect folder — `fleet/lessons/` for anything reusable
+  across projects, `projects/<name>/decisions/` for a project-scoped call) —
+  wikilinked and hub-linked per vault-write's graph-linking rule (see
+  `vault-write`'s **Graph linking is part of the write** section — this step
+  doesn't restate that mechanic, it just triggers it for whatever mining
+  turns up).
+- **No** — either it's already banked (a prior lesson/ruling already covers
+  it) or it's purely situational (true only of this one session, no future
+  session would benefit) — skip it, with a one-line reason either way.
+
+**Output contract:** a short mined-lessons list in HANDOVER.md, one line per
+item reviewed across the three lanes:
+
+```
+### Mined lessons (wrap learn step)
+- Written: [[fleet/lessons/<slug>]] — <one-line what/why>
+- Skipped (already banked): <what it was> — covered by [[<existing note>]]
+- Skipped (situational): <what it was> — <why it won't recur>
+- None found in <lane> this session
+```
+
+This list is the audit trail — the next session can check that mining
+actually happened this wrap, not just that the checkbox was ticked.
+
 ## Link health at wrap
 
 Run `python3 scripts/vault-lint.py` from the vault root before committing the wrap.
