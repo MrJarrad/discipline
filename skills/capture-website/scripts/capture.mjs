@@ -46,6 +46,12 @@ for (const vp of VIEWPORTS) {
   const total = await page.evaluate(() =>
     Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
   );
+  // Residual gap this warning doesn't cover: a page that scroll-jacks via JS
+  // transform (translates an inner wrapper instead of moving the real
+  // scroll position) can report a tall, correct total here yet
+  // window.scrollTo() below never actually moves the content — every
+  // screenshot below comes out identical. Height alone can't detect that;
+  // catch it downstream by diffing screenshot bytes if it's ever suspected.
   if (total <= vp.height) {
     console.error(
       `WARNING: ${vp.name} measured height (${total}px) is <= one viewport (${vp.height}px) for ${url}. ` +
@@ -53,14 +59,20 @@ for (const vp of VIEWPORTS) {
     );
   }
   const steps = computeScrollSteps(total, vp.height);
+  let shotsTaken = 0;
   for (let i = 0; i < steps; i++) {
     await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'instant' }), i * vp.height);
     await page.waitForTimeout(600); // let reveals settle
-    await page.screenshot({
-      path: join(outDir, `${vp.name}-${String(i).padStart(2, '0')}.png`),
-    });
+    try {
+      await page.screenshot({
+        path: join(outDir, `${vp.name}-${String(i).padStart(2, '0')}.png`),
+      });
+      shotsTaken++;
+    } catch (err) {
+      console.error(`WARNING: screenshot ${vp.name}-${String(i).padStart(2, '0')} failed for ${url}: ${err.message}`);
+    }
   }
-  shotCounts[vp.name] = steps;
+  shotCounts[vp.name] = shotsTaken;
 
   if (vp.name === 'desktop') {
     // Tokens + geometry from the desktop render.
