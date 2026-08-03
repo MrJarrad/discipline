@@ -4,6 +4,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { computeScrollSteps } from './lib/scroll-steps-lib.mjs';
 
 const require = createRequire(join(process.cwd(), 'noop.js'));
 const { chromium } = require('playwright');
@@ -24,6 +25,7 @@ const VIEWPORTS = [
 const PICK = 'h1,h2,h3,h4,p,a,button,img,video,figure,section,header,footer,nav,li';
 
 const browser = await chromium.launch();
+const shotCounts = {};
 
 for (const vp of VIEWPORTS) {
   const ctx = await browser.newContext({
@@ -35,15 +37,42 @@ for (const vp of VIEWPORTS) {
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
   await page.waitForTimeout(1500);
 
-  const total = await page.evaluate(() => document.body.scrollHeight);
-  const steps = Math.min(Math.ceil(total / vp.height), 20);
+  // document.body.scrollHeight alone is unreliable: sites that pin body to
+  // the viewport (overflow:hidden + position:absolute/fixed content wrapper —
+  // common with smooth-scroll libs like Lenis/GSAP) report a body height of
+  // 0 or the viewport height, undercounting real content by orders of
+  // magnitude. documentElement.scrollHeight doesn't have that failure mode,
+  // so take the max of both.
+  const total = await page.evaluate(() =>
+    Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)
+  );
+  // Residual gap this warning doesn't cover: a page that scroll-jacks via JS
+  // transform (translates an inner wrapper instead of moving the real
+  // scroll position) can report a tall, correct total here yet
+  // window.scrollTo() below never actually moves the content — every
+  // screenshot below comes out identical. Height alone can't detect that;
+  // catch it downstream by diffing screenshot bytes if it's ever suspected.
+  if (total <= vp.height) {
+    console.error(
+      `WARNING: ${vp.name} measured height (${total}px) is <= one viewport (${vp.height}px) for ${url}. ` +
+      `This usually means the page hasn't finished rendering, or uses a scroll pattern this script can't measure — verify manually.`
+    );
+  }
+  const steps = computeScrollSteps(total, vp.height);
+  let shotsTaken = 0;
   for (let i = 0; i < steps; i++) {
     await page.evaluate((y) => window.scrollTo({ top: y, behavior: 'instant' }), i * vp.height);
     await page.waitForTimeout(600); // let reveals settle
-    await page.screenshot({
-      path: join(outDir, `${vp.name}-${String(i).padStart(2, '0')}.png`),
-    });
+    try {
+      await page.screenshot({
+        path: join(outDir, `${vp.name}-${String(i).padStart(2, '0')}.png`),
+      });
+      shotsTaken++;
+    } catch (err) {
+      console.error(`WARNING: screenshot ${vp.name}-${String(i).padStart(2, '0')} failed for ${url}: ${err.message}`);
+    }
   }
+  shotCounts[vp.name] = shotsTaken;
 
   if (vp.name === 'desktop') {
     // Tokens + geometry from the desktop render.
@@ -78,7 +107,7 @@ for (const vp of VIEWPORTS) {
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     await page.waitForTimeout(400);
     await page.evaluate(async () => {
-      const total = document.body.scrollHeight - innerHeight;
+      const total = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - innerHeight;
       const step = 12;
       for (let y = 0; y <= total; y += step) {
         window.scrollTo(0, y);
@@ -98,4 +127,11 @@ for (const vp of VIEWPORTS) {
 }
 
 await browser.close();
-console.log(`Captured ${url} → ${outDir}`);
+
+const zeroShotViewports = Object.entries(shotCounts).filter(([, n]) => n < 1).map(([name]) => name);
+if (zeroShotViewports.length > 0) {
+  console.error(`FAILED: zero screenshots captured for viewport(s): ${zeroShotViewports.join(', ')} — ${url}`);
+  process.exit(1);
+}
+
+console.log(`Captured ${url} → ${outDir} (${Object.entries(shotCounts).map(([n, c]) => `${n}: ${c}`).join(', ')})`);
