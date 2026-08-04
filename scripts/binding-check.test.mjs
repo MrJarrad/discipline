@@ -268,6 +268,124 @@ test("component-set property missing from the capture -> missing-figma-binding d
   ]);
 });
 
+test("component-set property default: figmaExpected present and code aligned -> ok:true, zero defects", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = true,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("component-set property default: FIGMA-side flip (defaultValue true->false) with code unchanged -> one figma-value-mismatch defect (the reviewer's reproduced blind spot)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    // The designer flips the default in Figma...
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: false },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    // ...but code never changed. A plain "literal" check (code text still
+    // contains "hasSpacerBottom = true") would report zero defects here —
+    // figmaExpected is what catches the Figma-side drift.
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = true,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defects, [
+    {
+      component: "HeroText",
+      layer: "HeroText",
+      property: "has-spacer-bottom#153:1",
+      codeLocation: "src/components/hero-text.tsx",
+      old: true,
+      new: false,
+      type: "figma-value-mismatch",
+    },
+  ]);
+});
+
+test("component-set property default: figmaExpected satisfied but CODE drifted -> still one binding_mismatch defect (both directions covered)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    // Figma's default still matches figmaExpected — but the code drifted.
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = false,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "binding_mismatch");
+});
+
 function paginationFrame({ frameName, deviceVariant, variableId }) {
   return {
     id: `${frameName}-id`,

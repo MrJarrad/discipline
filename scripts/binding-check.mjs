@@ -57,6 +57,12 @@
            references CSS custom properties, never a Figma variable id) —
            it checks the capture's alias id against entry.assertion.value's
            leading token instead of reading codeLocation at all.
+     Routing precedence (runBindingCheck's main loop, checked in this
+     order per entry): (b) boundVariables-prefixed property first, then
+     (a) componentSet-property-shaped property, then the ordinary
+     per-variant-binding lane last — property-name shape is checked before
+     any capture lookup runs, so a name that happens to match more than one
+     shape always resolves to the earliest-listed lane.
    entries[].variant — OPTIONAL substring match against a variant's `name`
      (e.g. "device=sm"). When omitted, ALL of the component's variants must
      carry an identical value for (layer, property) — a component-level
@@ -76,6 +82,19 @@
      code-string transform (an instance swap, a CSS var reference, a prop
      default) — extend with new kinds as new code shapes need support,
      mirroring conformance-check.mjs's EXTRACTORS enum.
+     entries[].assertion.figmaExpected — OPTIONAL, orthogonal to `kind`: the
+     value figmaValue itself (not code) must equal, checked FIRST and
+     independently of the code-side kind check (see applyAssertion /
+     checkFigmaExpected). A plain "literal" assertion's `value` is an
+     author-supplied code-side string that never looks at figmaValue at
+     all — without figmaExpected, a Figma-side flip of the SOURCE property
+     (e.g. componentSets[].properties[].defaultValue going true->false)
+     ships silently, since the literal string in code hasn't changed
+     (reviewer finding 2026-08-04, closed same session: HeroText
+     has-spacer-bottom's map entry now carries
+     `figmaExpected: true` alongside its literal code check, so either side
+     drifting — Figma's default OR the code string — flags on its own
+     terms, `figma-value-mismatch` vs `binding_mismatch`).
    entries[].ratifiedVariants — OPTIONAL array of { variant, value, citation }
      carving an operator-ratified divergence out of the defect surface,
      mirroring the plugin's RATIFIED_AXIS_EXCEPTIONS pattern (code.js
@@ -213,7 +232,38 @@ const ASSERTIONS = {
 // per-variant lane and the componentSets-property lane) so the
 // missing-code-location / unsupported-assertion / binding_mismatch shapes
 // stay identical regardless of where figmaValue came from.
+// Optional figma-side check, orthogonal to the code-side ASSERTIONS check
+// below: entry.assertion.figmaExpected, when present, is the value Figma's
+// OWN resolved value (componentSets[].properties[].defaultValue today; any
+// figmaValue-producing lane tomorrow) must equal. Closes the blind spot a
+// plain "literal" assertion has on its own — a "literal" assertion's
+// expected string is author-supplied and never derived from figmaValue, so
+// it can't detect a Figma-side flip by itself (reviewer finding
+// 2026-08-04: HeroText has-spacer-bottom's defaultValue flipping
+// true->false in Figma produced zero defects since the code-side literal
+// check never looked at figmaValue at all). figmaExpected is compared
+// with strict equality — the property types this lane sees today
+// (BOOLEAN, TEXT) are exact-match values, not tolerance-band numbers/colors
+// like the value lane's tokens.
+function checkFigmaExpected(entry, figmaValue) {
+  const { component, layer, property, codeLocation } = entry;
+  if (entry.assertion?.figmaExpected === undefined) return undefined;
+  if (figmaValue === entry.assertion.figmaExpected) return undefined;
+  return {
+    component,
+    layer,
+    property,
+    codeLocation,
+    old: entry.assertion.figmaExpected,
+    new: figmaValue,
+    type: "figma-value-mismatch",
+  };
+}
+
 function applyAssertion(entry, figmaValue, mappingPath) {
+  const figmaDefect = checkFigmaExpected(entry, figmaValue);
+  if (figmaDefect) return figmaDefect;
+
   const { component, layer, property, codeLocation } = entry;
   const codeFilePath = resolveCodeLocation(mappingPath, codeLocation);
   if (!existsSync(codeFilePath)) {
@@ -403,6 +453,8 @@ export function runBindingCheck({ capturePath, mappingPath }) {
   for (const d of defects) {
     if (d.type === "binding_mismatch") {
       summaryLines.push(`  [binding_mismatch] ${d.component} ${d.layer}.${d.property}: figma expects "${d.old}" ("${d.new}") missing from ${d.codeLocation}`);
+    } else if (d.type === "figma-value-mismatch") {
+      summaryLines.push(`  [figma-value-mismatch] ${d.component} ${d.layer}.${d.property}: map expects figma default "${d.old}" but the capture now says "${d.new}" — Figma-side drift`);
     } else if (d.type === "ratified-mismatch") {
       summaryLines.push(`  [ratified-mismatch] ${d.component} ${d.layer}.${d.property} (${d.variant}): ratified "${d.old}" (${d.citation}) but figma now says "${d.new}" — ratification no longer holds`);
     } else {
