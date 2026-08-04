@@ -1488,3 +1488,85 @@ test("copy: an exporter that omits `copy` entirely (older plugin) diffs cleanly 
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+test("changes.jsonl reports mode_pin_changed when a matched frame's pinned mode changes", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ modePins: [{ path: "Landing/Hero", modes: { color: "light" } }] })),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ modePins: [{ path: "Landing/Hero", modes: { color: "dark" } }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.modePins, [
+    { type: "mode_pin_changed", path: "Landing/Hero", collection: "color", old: "light", new: "dark" },
+  ]);
+  assert.equal(diffed.summary.modePins, 1);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("changes.jsonl reports mode_pin_added/mode_pin_removed for frames added or removed from a deliverable page, and summary.modePins totals all three record types", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ modePins: [{ path: "Landing/Hero", modes: { color: "light" } }] })),
+    });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(v2ExportBody({ modePins: [{ path: "Landing/Footer", modes: { color: "dark" } }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.modePins, [
+    { type: "mode_pin_added", path: "Landing/Footer", modes: { color: "dark" } },
+    { type: "mode_pin_removed", path: "Landing/Hero" },
+  ]);
+  assert.equal(diffed.summary.modePins, 2);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("modePins: an exporter that omits `modePins` entirely (older plugin) diffs cleanly with an empty modePins array, not a crash or a spurious removed-everything", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    assert.equal(second.status, 200);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const diffed = JSON.parse(lines[1]);
+  assert.deepEqual(diffed.changed.modePins, []);
+  assert.equal(diffed.summary.modePins, 0);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});

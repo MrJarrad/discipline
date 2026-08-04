@@ -20,7 +20,17 @@ variables sorted by full path, modes in collection-defined order):
               "exportedAt" (epoch number or ISO-8601 string — both valid),
               "counts": { per-collection variable counts },
               "styleCounts": { "text","paint","effect","grid","total","emptyDescriptions" } },
-  "collections": [ { "name", "modes": [mode names in order], "variables": [
+  "collections": [ { "name",
+      "id" (OPTIONAL — the collection's persistent Figma id, from
+      collection.id, e.g. "VariableCollectionId:8:496"; without it, a raw
+      pin recorded elsewhere in this export as { collectionId, modeId } has
+      no way to resolve back to this collection — include it whenever the
+      API surface exposes it),
+      "modeTable" (OPTIONAL — a { modeId: name } map built from
+      collection.modes, e.g. { "26:1": "Dark" }; pairs with "id" so any raw
+      modeId captured elsewhere resolves to the human mode name without a
+      second Figma read),
+      "modes": [mode names in order], "variables": [
       { "name" (VERBATIM — including misspellings; names are data, never corrected),
         "id" (OPTIONAL — Figma's persistent variable id, from variable.id; when present
         it lets the listener correlate a renamed variable across syncs instead of
@@ -82,7 +92,26 @@ variables sorted by full path, modes in collection-defined order):
         directly authored on the layer itself: { "component": enclosing instance's
         component/set name, "prop": the TEXT prop name }. Omit entirely for a raw
         text node — absence of componentContext means these are authored characters
-        sitting directly on the canvas, not a prop default) } ]
+        sitting directly on the canvas, not a prop default) } ],
+  "modePins" (OPTIONAL — omit the whole key when the plugin doesn't support
+      mode-pin export yet; the listener never requires it, older contract plugins
+      stay valid — see MODE-PIN CAPTURE below for the full walk procedure): [
+    { "path" (page/frame path, same names-are-paths convention as `copy` above —
+        the frame's ancestor chain of frame/instance names down to the frame's
+        own name, joined "/", e.g. "Landing/NavigationHeader"),
+      "modes" (a { axis: mode name } object, one entry per variable collection
+        this frame explicitly pins — the capture-figma mode-vector shape, e.g.
+        { "color": "dark", "layout": "lg" }. The axis key is the pinning
+        collection's `name`, lowercased. The value is the RESOLVED mode name
+        (collections[].modeTable[modeId]) when the collection is resolvable
+        from this same export's `collections`; when it isn't — e.g. the
+        collection lives in a library this file doesn't locally define, or
+        this exporter version omits collection ids/modeTables — fall back to
+        the raw ids so the pin is still captured, never silently dropped:
+        key becomes the raw collectionId (e.g. "VariableCollectionId:8:496")
+        and value the raw modeId (e.g. "26:1"). Resolved names are preferred;
+        raw ids are the fallback, never the default when a name is
+        available) } ]
 }
 
 COPY CAPTURE — the text-node walk:
@@ -108,6 +137,38 @@ design and the build, not to archive every scratch page's throwaway text:
   NOT skip a node just because its content looks like a placeholder (e.g. "Lorem
   ipsum") — placeholder copy left in a deliverable page is itself a legitimate drift
   signal, not noise to filter out.
+
+MODE-PIN CAPTURE — the frame walk:
+Frames pin variable-collection modes via their Appearance property
+(`node.explicitVariableModes`, a { collectionId: modeId } map Figma populates only
+for the collections a frame EXPLICITLY pins — inherited/"Auto" collections are
+absent from the map, not present with an inherited value). Capture this for every
+TEMPLATE FRAME and every nested frame on the file's DELIVERABLE pages, not only
+the instance overrides Figma happens to record elsewhere — the gap this section
+closes is that `explicitVariableModes` instance overrides alone under-capture: a
+frame's own pin is missed if nothing inside it happens to override a variable, so
+walk frames directly instead of inferring pins from override side-effects.
+- Same page/frame walk ordering as COPY CAPTURE above (pages in canvas order,
+  then frames within a page in canvas order; DELIVERABLE pages only, per
+  capture-figma's archetype model — never exploration/scratch pages).
+- For each visible FrameNode (`node.visible !== false`) whose
+  `node.explicitVariableModes` is non-empty, record one `modePins` entry: `path`
+  (the frame's ancestor chain, same convention as `copy`), and `modes` — walk the
+  `explicitVariableModes` map, resolve each `{ collectionId, modeId }` pair against
+  this export's own `collections[].id` / `collections[].modeTable` (built per the
+  COLLECTIONS shape above), and key the resolved entry by the pinning collection's
+  `name` lowercased. A pair that can't be resolved (the collection id isn't one
+  this export's `collections` array carries — a cross-file library collection, or
+  an older exporter that didn't emit collection ids/modeTables) still gets
+  recorded, keyed and valued by the RAW collectionId/modeId — never dropped for
+  being unresolvable, since the raw pair is exactly what a later export (once ids
+  ARE resolvable) needs to reconcile against.
+- Skip a frame with an empty `explicitVariableModes` (nothing pinned — it inherits
+  every collection's mode from its ancestor chain, which is the common case and not
+  itself a capture-worthy fact).
+- Do NOT walk hidden pages, hidden frames, or exploration/scratch pages — identical
+  scoping to COPY CAPTURE; a mode pin on a scratch page is scenery, not a diff
+  target.
 
 DELIVERY:
 - POST the JSON to http://localhost:4411/capture (content-type: application/json).
@@ -213,6 +274,28 @@ available (OPTIONAL field, omit on failure).
   `repointed` or `modified`. This is the machinery behind the nav-label incident
   (design said "About", code said "Info", and only the operator's eye caught it) —
   copy drift is now a diffable signal like every other design-system drift.
+- MODE-PIN CAPTURE (listener, this revision — operator ruling: color modes are
+  core-system/global, so a design-derived section color mode is unblocked only
+  once its pin is exportable): the top-level `modePins` array is OPTIONAL — never
+  required, absent from older-plugin exports the same as every other optional
+  field in this contract. It closes the gap the auto-mode pipeline's SECTIONS half
+  found: capture previously carried only raw `explicitVariableModes` INSTANCE
+  overrides keyed by unresolvable ids like `VariableCollectionId:8:496 -> 26:1`
+  (collections exported without ids, and frames didn't emit pins at all). The
+  fix is two-sided — collections now carry `id` + `modeTable` so a raw pin
+  resolves, and every template/nested frame on deliverable pages is walked
+  directly for its own `explicitVariableModes`, not inferred from whichever
+  instance overrides Figma happened to record. When both sides of a sync carry
+  `modePins`, entries are correlated by `path` (frames have no id field in this
+  surface, so no id-first tier here — path is the only key); a matched entry
+  whose `modes` differ on any axis is `mode_pin_changed` ({ path, collection,
+  old, new }, one record per changed axis) in `changed.modePins`; a `path`
+  present only on the new side is `mode_pin_added` ({ path, modes }); a `path`
+  present only on the old side is `mode_pin_removed` ({ path }). `summary` gains
+  a `modePins` count (total of `changed.modePins`, all three record types)
+  alongside the existing `copy` count — kept separate for the same reason copy
+  is: it's its own drift signal (a design-derived mode reassignment), not folded
+  into `repointed`, `layerBindings`, or `copy`.
 - v1.2.0 adopted six improvements from an external contract-compliant plugin
   (operator-endorsed, 2026-07-25): header.fileKey; POST-failure UI shows the
   listener's response body, not just the status; a client-side content-length
