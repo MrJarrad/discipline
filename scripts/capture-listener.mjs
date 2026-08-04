@@ -108,8 +108,9 @@
      { ts, fileName, fileKey, changed: { variables, variablesAdded,
        variablesRemoved, variablesRenamed, aliasRepoints, styles,
        stylesRenamed, components, componentsAdded, componentsRemoved,
-       componentsRenamed, layerBindings, copy }, counts, summary: { added,
-       modified, removed, renamed, repointed, layerBindings, copy } }
+       componentsRenamed, layerBindings, copy, modePins }, counts, summary: {
+       added, modified, removed, renamed, repointed, layerBindings, copy,
+       modePins } }
 
    RENAME DETECTION: variables/styles/components each carry an OPTIONAL
    stable id (variables/styles: `id`; components: the existing `key` field —
@@ -1207,6 +1208,46 @@ function diffCopy(oldCopy, newCopy) {
   return records;
 }
 
+// MODE PINS (brief: "MODE-PIN CAPTURE — the frame walk"): `modePins` is an
+// OPTIONAL top-level array of { path, modes } records — one per deliverable-
+// page frame that explicitly pins one or more variable-collection modes,
+// `modes` a { axis: mode name (or raw id fallback) } object per the
+// capture-figma mode-vector shape. Frames carry no id in this surface (unlike
+// copy's text nodes), so correlation is path-only — no id-first tier. Each
+// axis present on either side of a matched path is compared independently
+// (a frame can repin one collection without touching another): a changed
+// axis is `mode_pin_changed` ({ path, collection, old, new }); a path present
+// only on the new side is `mode_pin_added` ({ path, modes }); only on the old
+// side is `mode_pin_removed` ({ path }).
+function diffModePins(oldPins, newPins) {
+  const records = [];
+  const oldByPath = new Map((oldPins || []).map((p) => [p.path, p]));
+  const newByPath = new Map((newPins || []).map((p) => [p.path, p]));
+
+  for (const [path, newEntry] of newByPath) {
+    const oldEntry = oldByPath.get(path);
+    if (!oldEntry) {
+      records.push({ type: "mode_pin_added", path, modes: newEntry.modes });
+      continue;
+    }
+    const axes = new Set([...Object.keys(oldEntry.modes || {}), ...Object.keys(newEntry.modes || {})]);
+    for (const collection of axes) {
+      const oldVal = (oldEntry.modes || {})[collection];
+      const newVal = (newEntry.modes || {})[collection];
+      if (oldVal !== newVal) {
+        records.push({ type: "mode_pin_changed", path, collection, old: oldVal ?? null, new: newVal ?? null });
+      }
+    }
+  }
+  for (const [path] of oldByPath) {
+    if (!newByPath.has(path)) {
+      records.push({ type: "mode_pin_removed", path });
+    }
+  }
+
+  return records;
+}
+
 export function writeAtomic(path, contents) {
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, contents, "utf8");
@@ -1476,6 +1517,9 @@ function handleCapture(req, res) {
           const copy = bothSidesDefined(prevState.export.copy, parsed.copy)
             ? diffCopy(prevState.export.copy, parsed.copy)
             : [];
+          const modePins = bothSidesDefined(prevState.export.modePins, parsed.modePins)
+            ? diffModePins(prevState.export.modePins, parsed.modePins)
+            : [];
           changeRecord.changed = {
             variables,
             variablesAdded,
@@ -1494,6 +1538,7 @@ function handleCapture(req, res) {
             templateFrames,
             capabilities,
             copy,
+            modePins,
           };
           changeRecord.counts = {
             variablesChanged: variables.length,
@@ -1513,6 +1558,7 @@ function handleCapture(req, res) {
             templateFrames: templateFrames.length,
             capabilities: capabilities.length,
             copy: copy.length,
+            modePins: modePins.length,
           };
           // Cross-bucket totals for a quick at-a-glance read of the record —
           // added/removed come from the buckets that track them separately
@@ -1531,7 +1577,11 @@ function handleCapture(req, res) {
           // copy_changed/copy_added/copy_removed) as its own signal for the
           // same reason: authored text drift is not a variable/style/
           // component-internals concern, so it isn't folded into any of the
-          // above either.
+          // above either. `modePins` totals `changed.modePins` (all three of
+          // its record types) for the same reason again: a design-derived
+          // mode reassignment is its own drift signal, not a variable value
+          // change (aliasRepoints/repointed), a layer-internals rebind
+          // (layerBindings), or authored text (copy).
           changeRecord.summary = {
             added: variablesAdded.length + componentsAdded.length,
             modified: variables.length + styles.length + components.length,
@@ -1540,6 +1590,7 @@ function handleCapture(req, res) {
             repointed: aliasRepoints.length,
             layerBindings: layerBindings.length,
             copy: copy.length,
+            modePins: modePins.length,
           };
         }
         appendFileSync(CHANGES_PATH, JSON.stringify(changeRecord) + "\n", "utf8");
