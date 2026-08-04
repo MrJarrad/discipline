@@ -14,7 +14,7 @@ const CLI_PATH = join(import.meta.dirname, "binding-check.mjs");
 // <root>/<codeLocation> (the code file) + a capture with a components section,
 // matching the real convention where codeLocation is relative to the mapping
 // file's grandparent directory.
-function makeFixture({ sets = [], standalone = [], mapping, code = {} }) {
+function makeFixture({ sets = [], standalone = [], componentSets = [], templateFrames = [], mapping, code = {} }) {
   const root = mkdtempSync(join(tmpdir(), "binding-check-test-"));
   mkdirSync(join(root, "design"), { recursive: true });
   const capturePath = join(root, "capture.json");
@@ -25,6 +25,8 @@ function makeFixture({ sets = [], standalone = [], mapping, code = {} }) {
       collections: [],
       styles: [],
       components: { standalone, sets },
+      componentSets,
+      templateFrames,
     }),
     "utf8"
   );
@@ -160,6 +162,347 @@ test("literal assertion, aligned -> ok:true", () => {
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.defects, []);
+});
+
+test("component-set property default: aligned -> ok:true, zero defects", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true" },
+          },
+        ],
+      },
+    },
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = true,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("component-set property default: code drifted from the figma default -> one binding_mismatch defect", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true" },
+          },
+        ],
+      },
+    },
+    // code drifted to a false default
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = false,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "binding_mismatch");
+});
+
+test("component-set property missing from the capture -> missing-figma-binding defect", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [{ name: "HeroText", id: "153:64", properties: {} }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true" },
+          },
+        ],
+      },
+    },
+    code: { "src/components/hero-text.tsx": `hasSpacerBottom = true,` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defects, [
+    {
+      component: "HeroText",
+      layer: "HeroText",
+      property: "has-spacer-bottom#153:1",
+      codeLocation: "src/components/hero-text.tsx",
+      type: "missing-figma-binding",
+    },
+  ]);
+});
+
+test("component-set property default: figmaExpected present and code aligned -> ok:true, zero defects", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = true,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("component-set property default: FIGMA-side flip (defaultValue true->false) with code unchanged -> one figma-value-mismatch defect (the reviewer's reproduced blind spot)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    // The designer flips the default in Figma...
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: false },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    // ...but code never changed. A plain "literal" check (code text still
+    // contains "hasSpacerBottom = true") would report zero defects here —
+    // figmaExpected is what catches the Figma-side drift.
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = true,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defects, [
+    {
+      component: "HeroText",
+      layer: "HeroText",
+      property: "has-spacer-bottom#153:1",
+      codeLocation: "src/components/hero-text.tsx",
+      old: true,
+      new: false,
+      type: "figma-value-mismatch",
+    },
+  ]);
+});
+
+test("component-set property default: figmaExpected satisfied but CODE drifted -> still one binding_mismatch defect (both directions covered)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    componentSets: [
+      {
+        name: "HeroText",
+        id: "153:64",
+        properties: {
+          "has-spacer-bottom#153:1": { type: "BOOLEAN", defaultValue: true },
+        },
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "HeroText",
+            property: "has-spacer-bottom#153:1",
+            codeLocation: "src/components/hero-text.tsx",
+            assertion: { kind: "literal", value: "hasSpacerBottom = true", figmaExpected: true },
+          },
+        ],
+      },
+    },
+    // Figma's default still matches figmaExpected — but the code drifted.
+    code: { "src/components/hero-text.tsx": `export function HeroText({\n  hasSpacerBottom = false,\n}) {}` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "binding_mismatch");
+});
+
+function paginationFrame({ frameName, deviceVariant, variableId }) {
+  return {
+    id: `${frameName}-id`,
+    name: frameName,
+    instances: [
+      {
+        id: `${frameName}-instance`,
+        name: "PaginationPage",
+        component: "PaginationPage",
+        variantProps: { device: deviceVariant },
+        overrides: [
+          {
+            id: `${frameName}-instance/PaginationPage`,
+            property: "boundVariables",
+            value: { height: { type: "VARIABLE_ALIAS", id: variableId } },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+test("instance boundVariables alias target: matching id present under the variant filter -> ok:true, zero defects", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    templateFrames: [
+      paginationFrame({ frameName: "M - Project", deviceVariant: "sm", variableId: "VariableID:163:90" }),
+      paginationFrame({ frameName: "D - Home", deviceVariant: "md+", variableId: "VariableID:163:91" }),
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "PaginationPage",
+            layer: "PaginationPage",
+            property: "boundVariables.height",
+            variant: "device=sm",
+            codeLocation: "src/app/globals.css",
+            assertion: { kind: "literal", value: "VariableID:163:90 (expected device/screen-height/500)" },
+          },
+        ],
+      },
+    },
+    code: { "src/app/globals.css": `:root { --screen-height-500: 70dvh; }` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("instance boundVariables alias target: no matching instance carries the expected id -> one binding_mismatch defect", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    // The capture drifted back to the OLD id under device=sm — nothing
+    // matches VariableID:163:90 anymore, so the repoint the map asserts is
+    // gone.
+    templateFrames: [paginationFrame({ frameName: "M - Project", deviceVariant: "sm", variableId: "VariableID:163:91" })],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "PaginationPage",
+            layer: "PaginationPage",
+            property: "boundVariables.height",
+            variant: "device=sm",
+            codeLocation: "src/app/globals.css",
+            assertion: { kind: "literal", value: "VariableID:163:90 (expected device/screen-height/500)" },
+          },
+        ],
+      },
+    },
+    code: { "src/app/globals.css": `:root { --screen-height-500: 70dvh; }` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "binding_mismatch");
+});
+
+test("instance boundVariables alias target: no instance of the component at all -> missing-figma-binding defect", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    templateFrames: [],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "PaginationPage",
+            layer: "PaginationPage",
+            property: "boundVariables.height",
+            variant: "device=sm",
+            codeLocation: "src/app/globals.css",
+            assertion: { kind: "literal", value: "VariableID:163:90 (expected device/screen-height/500)" },
+          },
+        ],
+      },
+    },
+    code: { "src/app/globals.css": `:root { --screen-height-500: 70dvh; }` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.defects, [
+    {
+      component: "PaginationPage",
+      layer: "PaginationPage",
+      property: "boundVariables.height",
+      variant: "device=sm",
+      codeLocation: "src/app/globals.css",
+      type: "missing-figma-binding",
+    },
+  ]);
 });
 
 test("CLI exits 0 when ok:true, nonzero when ok:false", () => {

@@ -262,21 +262,78 @@ function figmaColorToHex(color) {
   return hex;
 }
 
-function normalizeFigmaValue(value) {
-  if (value && typeof value === "object" && value.bezierValues) {
+// Extracts {x1,y1,x2,y2} control points from either shape a Figma EASING
+// variable's resolved value carries: the older/test-fixture "bezierValues"
+// shape ({p1x,p1y,p2x,p2y}), or the live capture's actual export shape
+// ({type: "CUSTOM_CUBIC_BEZIER", easingFunctionCubicBezier: {x1,y1,x2,y2}}).
+// Returns null when neither shape matches (not an easing value).
+function extractBezierPoints(value) {
+  if (!value || typeof value !== "object") return null;
+  if (value.bezierValues) {
     const { p1x, p1y, p2x, p2y } = value.bezierValues;
+    return { x1: p1x, y1: p1y, x2: p2x, y2: p2y };
+  }
+  if (value.easingFunctionCubicBezier) {
+    const { x1, y1, x2, y2 } = value.easingFunctionCubicBezier;
+    return { x1, y1, x2, y2 };
+  }
+  return null;
+}
+
+function normalizeFigmaValue(value) {
+  const bezier = extractBezierPoints(value);
+  if (bezier) {
     const round = (n) => Number(n.toFixed(4));
-    return `cubic-bezier(${round(p1x)}, ${round(p1y)}, ${round(p2x)}, ${round(p2y)})`;
+    return `cubic-bezier(${round(bezier.x1)}, ${round(bezier.y1)}, ${round(bezier.x2)}, ${round(bezier.y2)})`;
   }
   if (isRgbColor(value)) return figmaColorToHex(value);
   return value;
 }
 
+// ---- Color comparison (alpha quantization) --------------------------------
+
+// Parses a color string down to {r,g,b,alphaPercent} (alphaPercent 0..100,
+// rounded to the nearest integer) so a Figma hex8 export and a code-side
+// rgb()-with-percent-alpha string can be compared on the SAME terms, per the
+// banked ruling (vault fleet/rulings/token-rulings.md "Alpha quantization"):
+// the stated percentage governs, the hex byte is quantization noise (0d =
+// 5.098% rounds to 5%). Returns null when the string isn't a recognized
+// color shape.
+function parseColor(str) {
+  if (typeof str !== "string") return null;
+  const hexMatch = str.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+  if (hexMatch) {
+    const [, rgbHex, alphaHex] = hexMatch;
+    const r = parseInt(rgbHex.slice(0, 2), 16);
+    const g = parseInt(rgbHex.slice(2, 4), 16);
+    const b = parseInt(rgbHex.slice(4, 6), 16);
+    const alphaPercent = alphaHex === undefined ? 100 : Math.round((parseInt(alphaHex, 16) / 255) * 100);
+    return { r, g, b, alphaPercent };
+  }
+  // Modern space-separated rgb()/rgba() syntax with an optional "/ N%" alpha
+  // (the code-side convention seen in globals.css, e.g. "rgb(10 10 10 / 5%)").
+  const rgbMatch = str.match(/^rgba?\(\s*(\d+)\s+(\d+)\s+(\d+)\s*(?:\/\s*([\d.]+)%\s*)?\)$/i);
+  if (rgbMatch) {
+    const [, r, g, b, alpha] = rgbMatch;
+    const alphaPercent = alpha === undefined ? 100 : Math.round(Number(alpha));
+    return { r: Number(r), g: Number(g), b: Number(b), alphaPercent };
+  }
+  return null;
+}
+
 // Figma's exported floats carry binary-conversion noise (0.1 ->
 // 0.10000000149011612); compare numerically within a tight tolerance when
-// both sides parse as numbers, and fall back to exact string equality
-// otherwise (hex colors, bezier strings, keywords).
+// both sides parse as numbers. Colors get their own comparison (RGB exact,
+// alpha within quantization tolerance) since a hex8 byte and a stated
+// percentage are two representations of the same rounded value, not two
+// numbers to diff directly. Everything else falls back to exact string
+// equality (bezier strings, keywords).
 function valuesMatch(a, b) {
+  const colorA = parseColor(a);
+  const colorB = parseColor(b);
+  if (colorA && colorB) {
+    return colorA.r === colorB.r && colorA.g === colorB.g && colorA.b === colorB.b && colorA.alphaPercent === colorB.alphaPercent;
+  }
   const na = Number(a);
   const nb = Number(b);
   if (a !== "" && b !== "" && !Number.isNaN(na) && !Number.isNaN(nb)) {

@@ -36,6 +36,33 @@
      private components).
    entries[].layer / property — identifies the binding within each variant
      (variants[].bindings[] entries carry {layer, property, value}).
+
+     Two OTHER assertion kinds share this schema by property-name shape
+     alone — no separate discriminator field, so a Figma-side rename can't
+     silently point an entry at the wrong lane:
+       (a) a component-SET's own property default — property matches
+           "name#nodeId:index" (Figma's own property-key format, e.g.
+           "has-spacer-bottom#153:1"), resolved from
+           componentSets[name=component].properties[property].defaultValue
+           instead of a per-variant binding, then run through the SAME
+           applyAssertion downstream as the ordinary lane.
+       (b) an instance boundVariables alias TARGET — property starts with
+           "boundVariables." (e.g. "boundVariables.height"), resolved by
+           walking templateFrames[].instances[] (matched by `component`,
+           filtered by `variant` against a "key=value, key2=value2" string
+           built from the instance's own variantProps) for an
+           overrides[] entry whose property is "boundVariables" and whose
+           value[subProperty] is a { type: "VARIABLE_ALIAS", id }. This
+           lane has no code-side counterpart to compare against (code
+           references CSS custom properties, never a Figma variable id) —
+           it checks the capture's alias id against entry.assertion.value's
+           leading token instead of reading codeLocation at all.
+     Routing precedence (runBindingCheck's main loop, checked in this
+     order per entry): (b) boundVariables-prefixed property first, then
+     (a) componentSet-property-shaped property, then the ordinary
+     per-variant-binding lane last — property-name shape is checked before
+     any capture lookup runs, so a name that happens to match more than one
+     shape always resolves to the earliest-listed lane.
    entries[].variant — OPTIONAL substring match against a variant's `name`
      (e.g. "device=sm"). When omitted, ALL of the component's variants must
      carry an identical value for (layer, property) — a component-level
@@ -55,6 +82,19 @@
      code-string transform (an instance swap, a CSS var reference, a prop
      default) — extend with new kinds as new code shapes need support,
      mirroring conformance-check.mjs's EXTRACTORS enum.
+     entries[].assertion.figmaExpected — OPTIONAL, orthogonal to `kind`: the
+     value figmaValue itself (not code) must equal, checked FIRST and
+     independently of the code-side kind check (see applyAssertion /
+     checkFigmaExpected). A plain "literal" assertion's `value` is an
+     author-supplied code-side string that never looks at figmaValue at
+     all — without figmaExpected, a Figma-side flip of the SOURCE property
+     (e.g. componentSets[].properties[].defaultValue going true->false)
+     ships silently, since the literal string in code hasn't changed
+     (reviewer finding 2026-08-04, closed same session: HeroText
+     has-spacer-bottom's map entry now carries
+     `figmaExpected: true` alongside its literal code check, so either side
+     drifting — Figma's default OR the code string — flags on its own
+     terms, `figma-value-mismatch` vs `binding_mismatch`).
    entries[].ratifiedVariants — OPTIONAL array of { variant, value, citation }
      carving an operator-ratified divergence out of the defect surface,
      mirroring the plugin's RATIFIED_AXIS_EXCEPTIONS pattern (code.js
@@ -83,6 +123,66 @@
 */
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+
+// Property-key format Figma uses for a component-SET's own properties (a
+// BOOLEAN/TEXT/VARIANT default, not a per-variant layer binding) —
+// "name#nodeId:index", e.g. "has-spacer-bottom#153:1". Distinguishes a
+// componentSets[].properties lookup (assertion kind (a)) from the ordinary
+// per-variant components.sets[].variants[].bindings lookup, without needing
+// a new discriminator field on the map entry itself — the property NAME
+// Figma already exports carries the discriminator.
+const COMPONENT_SET_PROPERTY_RE = /#\d+:\d+$/;
+
+// entry.property prefix identifying assertion kind (b): an instance's
+// boundVariables alias TARGET (templateFrames[].instances[].overrides[]),
+// not a components.sets[] layer binding — e.g. "boundVariables.height".
+const BOUND_VARIABLE_PREFIX = "boundVariables.";
+
+function isComponentSetProperty(property) {
+  return COMPONENT_SET_PROPERTY_RE.test(property);
+}
+
+function isBoundVariableProperty(property) {
+  return property.startsWith(BOUND_VARIABLE_PREFIX);
+}
+
+// Looks up a component-SET's own property default (assertion kind (a)):
+// componentSets[name=component].properties[propertyKey].defaultValue.
+// Returns undefined when the set or the property isn't found.
+function lookupComponentSetProperty(componentSets, componentName, propertyKey) {
+  const set = (componentSets || []).find((cs) => cs.name === componentName);
+  const prop = set?.properties?.[propertyKey];
+  return prop === undefined ? undefined : prop.defaultValue;
+}
+
+// Collects every instance boundVariables alias TARGET (assertion kind (b))
+// for `subProperty` (e.g. "height") across every instance of `componentName`
+// found in any templateFrame, optionally narrowed to instances whose
+// variantProps — formatted as "key=value, key2=value2" to match the same
+// substring-filter convention as a components.sets[] variant name — contain
+// `variantFilter`. A boundVariables override's value is
+// { [property]: { type: "VARIABLE_ALIAS", id } }; only alias entries are
+// collected (a raw/unbound value has nothing to compare).
+function collectBoundVariableMatches(templateFrames, componentName, subProperty, variantFilter) {
+  const matches = [];
+  for (const frame of templateFrames || []) {
+    for (const inst of frame.instances || []) {
+      if (inst.component !== componentName) continue;
+      const variantName = Object.entries(inst.variantProps || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ");
+      if (variantFilter && !variantName.includes(variantFilter)) continue;
+      for (const override of inst.overrides || []) {
+        if (override.property !== "boundVariables") continue;
+        const target = override.value?.[subProperty];
+        if (target && target.type === "VARIABLE_ALIAS" && typeof target.id === "string") {
+          matches.push({ variantName, value: target.id, frame: frame.name });
+        }
+      }
+    }
+  }
+  return matches;
+}
 
 function buildComponentIndex(components) {
   const index = new Map(); // name -> component (set or standalone)
@@ -125,6 +225,61 @@ const ASSERTIONS = {
     return { expected, found: codeText.includes(expected) };
   },
 };
+
+// Runs entry.assertion against `figmaValue` and the file at entry's
+// codeLocation, returning a defect object or undefined when it passes.
+// Shared by every lane that ends in an ASSERTIONS[kind] check (the ordinary
+// per-variant lane and the componentSets-property lane) so the
+// missing-code-location / unsupported-assertion / binding_mismatch shapes
+// stay identical regardless of where figmaValue came from.
+// Optional figma-side check, orthogonal to the code-side ASSERTIONS check
+// below: entry.assertion.figmaExpected, when present, is the value Figma's
+// OWN resolved value (componentSets[].properties[].defaultValue today; any
+// figmaValue-producing lane tomorrow) must equal. Closes the blind spot a
+// plain "literal" assertion has on its own — a "literal" assertion's
+// expected string is author-supplied and never derived from figmaValue, so
+// it can't detect a Figma-side flip by itself (reviewer finding
+// 2026-08-04: HeroText has-spacer-bottom's defaultValue flipping
+// true->false in Figma produced zero defects since the code-side literal
+// check never looked at figmaValue at all). figmaExpected is compared
+// with strict equality — the property types this lane sees today
+// (BOOLEAN, TEXT) are exact-match values, not tolerance-band numbers/colors
+// like the value lane's tokens.
+function checkFigmaExpected(entry, figmaValue) {
+  const { component, layer, property, codeLocation } = entry;
+  if (entry.assertion?.figmaExpected === undefined) return undefined;
+  if (figmaValue === entry.assertion.figmaExpected) return undefined;
+  return {
+    component,
+    layer,
+    property,
+    codeLocation,
+    old: entry.assertion.figmaExpected,
+    new: figmaValue,
+    type: "figma-value-mismatch",
+  };
+}
+
+function applyAssertion(entry, figmaValue, mappingPath) {
+  const figmaDefect = checkFigmaExpected(entry, figmaValue);
+  if (figmaDefect) return figmaDefect;
+
+  const { component, layer, property, codeLocation } = entry;
+  const codeFilePath = resolveCodeLocation(mappingPath, codeLocation);
+  if (!existsSync(codeFilePath)) {
+    return { component, layer, property, codeLocation, type: "missing-code-location" };
+  }
+  const assertionFn = ASSERTIONS[entry.assertion?.kind];
+  if (!assertionFn) {
+    return { component, layer, property, codeLocation, type: "unsupported-assertion", kind: entry.assertion?.kind };
+  }
+  const codeText = readFileSync(codeFilePath, "utf8");
+  const { expected, found } = assertionFn(figmaValue, codeText, entry);
+  if (!found) {
+    return { component, layer, property, codeLocation, old: figmaValue, new: expected, type: "binding_mismatch" };
+  }
+  return undefined;
+}
 
 function resolveCodeLocation(mappingPath, codeLocation) {
   const repoRoot = dirname(dirname(resolve(mappingPath)));
@@ -189,6 +344,49 @@ export function runBindingCheck({ capturePath, mappingPath }) {
     const { component, layer, property, variant, codeLocation } = entry;
     checkedCount++;
 
+    // Assertion kind (b): an instance boundVariables alias TARGET
+    // (templateFrames[].instances[].overrides[]) — no components.sets[]
+    // binding to walk, and no code-side representation to compare against
+    // (the code is CSS custom properties, not variable ids), so this lane
+    // checks the capture against the map's own expected id instead of code.
+    if (isBoundVariableProperty(property)) {
+      const subProperty = property.slice(BOUND_VARIABLE_PREFIX.length);
+      const matches = collectBoundVariableMatches(capture.templateFrames, component, subProperty, variant);
+      if (matches.length === 0) {
+        defects.push({ component, layer, property, variant, codeLocation, type: "missing-figma-binding" });
+        continue;
+      }
+      const expectedId = String(entry.assertion?.value ?? "").split(/\s+/)[0];
+      const found = matches.some((m) => m.value === expectedId);
+      if (!found) {
+        defects.push({
+          component,
+          layer,
+          property,
+          codeLocation,
+          old: expectedId,
+          new: matches.map((m) => `${m.variantName}:${m.value}`).join(", "),
+          type: "binding_mismatch",
+        });
+      }
+      continue;
+    }
+
+    // Assertion kind (a): a component-SET's own property default
+    // (componentSets[].properties), not a per-variant layer binding — same
+    // downstream code-comparison (applyAssertion) as the ordinary lane
+    // below, just a different source for figmaValue.
+    if (isComponentSetProperty(property)) {
+      const defaultValue = lookupComponentSetProperty(capture.componentSets, component, property);
+      if (defaultValue === undefined) {
+        defects.push({ component, layer, property, codeLocation, type: "missing-figma-binding" });
+        continue;
+      }
+      const defect = applyAssertion(entry, defaultValue, mappingPath);
+      if (defect) defects.push(defect);
+      continue;
+    }
+
     const comp = index.get(component);
     if (!comp) {
       defects.push({ component, layer, property, codeLocation, type: "missing-figma-component" });
@@ -246,31 +444,8 @@ export function runBindingCheck({ capturePath, mappingPath }) {
 
     const figmaValue = matches[0].value;
 
-    const codeFilePath = resolveCodeLocation(mappingPath, codeLocation);
-    if (!existsSync(codeFilePath)) {
-      defects.push({ component, layer, property, codeLocation, type: "missing-code-location" });
-      continue;
-    }
-
-    const assertionFn = ASSERTIONS[entry.assertion?.kind];
-    if (!assertionFn) {
-      defects.push({ component, layer, property, codeLocation, type: "unsupported-assertion", kind: entry.assertion?.kind });
-      continue;
-    }
-
-    const codeText = readFileSync(codeFilePath, "utf8");
-    const { expected, found } = assertionFn(figmaValue, codeText, entry);
-    if (!found) {
-      defects.push({
-        component,
-        layer,
-        property,
-        codeLocation,
-        old: figmaValue,
-        new: expected,
-        type: "binding_mismatch",
-      });
-    }
+    const defect = applyAssertion(entry, figmaValue, mappingPath);
+    if (defect) defects.push(defect);
   }
 
   const ok = defects.length === 0;
@@ -278,6 +453,8 @@ export function runBindingCheck({ capturePath, mappingPath }) {
   for (const d of defects) {
     if (d.type === "binding_mismatch") {
       summaryLines.push(`  [binding_mismatch] ${d.component} ${d.layer}.${d.property}: figma expects "${d.old}" ("${d.new}") missing from ${d.codeLocation}`);
+    } else if (d.type === "figma-value-mismatch") {
+      summaryLines.push(`  [figma-value-mismatch] ${d.component} ${d.layer}.${d.property}: map expects figma default "${d.old}" but the capture now says "${d.new}" — Figma-side drift`);
     } else if (d.type === "ratified-mismatch") {
       summaryLines.push(`  [ratified-mismatch] ${d.component} ${d.layer}.${d.property} (${d.variant}): ratified "${d.old}" (${d.citation}) but figma now says "${d.new}" — ratification no longer holds`);
     } else {

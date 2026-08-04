@@ -287,6 +287,128 @@ test("css-root-dark: genuinely different figma RGB-object color vs code hex stil
   ]);
 });
 
+test("hex8 alpha: figma hex8 export and code rgb()-with-percent-alpha at the SAME quantized percentage match (no defect)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light"],
+        // 0x0d / 255 = 5.098% -> rounds to 5%, matching code's stated 5%.
+        variables: [{ name: "background/action/primary", valuesByMode: { light: "#0a0a0a0d" } }],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/background/action/primary": { codeLocation: "styles.css", tokenName: "--background-action-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --background-action-primary: rgb(10 10 10 / 5%);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("hex8 alpha: a genuinely different quantized alpha percentage still produces a value_mismatch", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        // 0x26 / 255 = 14.9% -> rounds to 15%, but code still states 5% — a
+        // real 10-point drift, not quantization noise.
+        name: "color",
+        modes: ["light"],
+        variables: [{ name: "background/action/primary", valuesByMode: { light: "#ffffff26" } }],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/background/action/primary": { codeLocation: "styles.css", tokenName: "--background-action-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --background-action-primary: rgb(255 255 255 / 5%);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "value_mismatch");
+});
+
+test("easing: figma's live CUSTOM_CUBIC_BEZIER export shape normalizes for comparison against a cubic-bezier() code string", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "motion",
+        modes: ["Mode 1"],
+        variables: [
+          {
+            name: "easing/circ-in-out",
+            valuesByMode: {
+              "Mode 1": {
+                type: "CUSTOM_CUBIC_BEZIER",
+                easingFunctionCubicBezier: { x1: 0.8500000238418579, y1: 0, x2: 0.15000000596046448, y2: 1 },
+              },
+            },
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "motion/easing/circ-in-out": { codeLocation: "styles.css", tokenName: "--easing-circ-in-out", extraction: "css-scalar" },
+      },
+    },
+    css: `@theme inline {\n  --easing-circ-in-out: cubic-bezier(0.85, 0, 0.15, 1);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.defects, []);
+});
+
+test("easing: a genuinely different curve still produces a value_mismatch", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "motion",
+        modes: ["Mode 1"],
+        variables: [
+          {
+            name: "easing/circ-in-out",
+            valuesByMode: {
+              "Mode 1": {
+                type: "CUSTOM_CUBIC_BEZIER",
+                easingFunctionCubicBezier: { x1: 0.85, y1: 0, x2: 0.15, y2: 1 },
+              },
+            },
+          },
+        ],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "motion/easing/circ-in-out": { codeLocation: "styles.css", tokenName: "--easing-circ-in-out", extraction: "css-scalar" },
+      },
+    },
+    // code drifted to a different curve entirely
+    css: `@theme inline {\n  --easing-circ-in-out: cubic-bezier(0.2, 0, 0.8, 1);\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "value_mismatch");
+});
+
 test("CLI exits 0 when ok:true, nonzero when ok:false", () => {
   const aligned = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
