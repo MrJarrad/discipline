@@ -211,11 +211,14 @@ available (OPTIONAL field, omit on failure).
 ---PASTE ENDS---
 
 ## Context for the operator (not for the agent)
-- ACTIVE EXPORTER (operator ruling 2026-07-26): the Figma-agent-built "Variable & style
-  exporter" — it is the working plugin. Our figma-plugin/capture-figma (v1.2.0) is
-  RETIRED from active use (operator: "doesn't work properly" — its sync path was never
-  live-verified) and kept in the repo solely as the contract's reference source.
-  Improvements continue to flow brief → Figma agent → adopted into the contract.
+- ACTIVE EXPORTER (operator ruling 2026-08-05, reverses the 2026-07-26 note this
+  replaced — see
+  ~/JHD/vault/fleet/rulings/2026-08-05-active-exporter-reversal.md): our
+  figma-plugin/capture-figma (v1.34.0+) is the active exporter — operator: "we don't use
+  the figma version of the plugin." The Figma-agent-built "Variable & style exporter" is
+  not in active use. This brief pack remains valid as the CONTRACT source of truth;
+  improvements land by implementing the contract directly in capture-figma, not by
+  re-running the Figma in-app agent against this pack.
 - The listener (scripts/capture-listener.mjs) writes to ~/JHD/captures/live/ and
   appends receipts.jsonl — anything speaking the contract lands in the same pipeline.
   When header.fileKey is present, the listener routes/dedups on it and the output

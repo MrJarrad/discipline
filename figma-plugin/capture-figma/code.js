@@ -33,7 +33,8 @@
 //                       emptyDescriptions: { text, paint, effect, grid, total } },
 //       componentCounts: { standalone: n, sets: n }, warningCount: n
 //     },
-//     collections: [ { name, modes: [...], variables: [...] }, ... ],
+//     collections: [ { name, id, modeTable: { modeId: name }, modes: [...],
+//       variables: [...] }, ... ],
 //     styles: {
 //       text:   [ { name, type: "TEXT",   description, properties: {...} }, ... ],
 //       paint:  [ { name, type: "PAINT",  description, properties: {...} }, ... ],
@@ -51,7 +52,17 @@
 //     templateFrames: [ { id, name, instances: [ { id, name, component,
 //       variantProps, properties, overrides: [ { id, property, value } ] }, ... ] }, ... ],
 //     latentCapabilities: [ { id, name, visible, binding }, ... ],
-//     warnings: [ { type, nodeId, nodeName, context, message }, ... ]
+//     warnings: [ { type, nodeId, nodeName, context, message }, ... ],
+//     copy: [ { path, text, id, componentContext?: { component, prop } }, ... ] —
+//       every visible TextNode's verbatim characters on the "Example" page
+//       (this plugin's DELIVERABLE surface — see findExamplePage), path
+//       composed of FRAME/INSTANCE ancestor names down to the node's own
+//       name (brief pack "COPY CAPTURE").
+//     modePins: [ { path, modes: { axis: modeName } }, ... ] — every visible
+//       FrameNode on the "Example" page with a non-empty
+//       explicitVariableModes, resolved against this SAME export's
+//       collections[].id/modeTable (raw collectionId/modeId fallback when
+//       unresolvable — brief pack "MODE-PIN CAPTURE").
 //   }
 // Each style list is sorted by name (type is fixed per list, so sort order
 // is effectively type-then-name across the whole `styles` block). Every
@@ -655,6 +666,63 @@ function buildComponentSets(setSnapshots) {
     properties: Object.assign({}, set.componentPropertyDefinitions || {}),
     variantCount: set.variantCount,
   }));
+}
+
+// collections[].modeTable: a {modeId: name} lookup built from a collection's
+// own modes[] (collection.modes, {modeId, name} pairs) — pairs with
+// collections[].id so a raw modePins pin recorded elsewhere in this export
+// resolves back to the human mode name without a second Figma read (brief
+// pack "MODE-PIN CAPTURE").
+function buildModeTable(modes) {
+  const table = {};
+  for (const mode of modes || []) {
+    table[mode.modeId] = mode.name;
+  }
+  return table;
+}
+
+// modePins[]: resolves each raw {collectionId: modeId} pin snapshot (brief
+// pack "MODE-PIN CAPTURE") against THIS export's own collections[] (id +
+// modeTable, see buildModeTable above). A collection this export's
+// collections[] doesn't carry — a cross-file library collection, or an
+// older exporter that omitted ids/modeTables — still gets recorded, keyed
+// and valued by the raw collectionId/modeId; never dropped for being
+// unresolvable. Axes are sorted by resolved axis name (not Figma's own map
+// iteration order or explicitVariableModes insertion order) so the same
+// file state always produces the same key order.
+function resolveModePinAxis(collectionId, modeId, collections) {
+  const collection = (collections || []).find((c) => c.id === collectionId);
+  if (!collection) {
+    return { axis: collectionId, mode: modeId };
+  }
+  const modeTable = collection.modeTable || {};
+  const mode = Object.prototype.hasOwnProperty.call(modeTable, modeId) ? modeTable[modeId] : modeId;
+  return { axis: collection.name.toLowerCase(), mode: mode };
+}
+
+function buildModePins(pinSnapshots, collections) {
+  return (pinSnapshots || []).map((pin) => {
+    const explicitVariableModes = pin.explicitVariableModes || {};
+    const axisEntries = Object.keys(explicitVariableModes)
+      .map((collectionId) => resolveModePinAxis(collectionId, explicitVariableModes[collectionId], collections))
+      .sort((a, b) => a.axis.localeCompare(b.axis));
+    const modes = {};
+    for (const entry of axisEntries) modes[entry.axis] = entry.mode;
+    return { path: pin.path, modes: modes };
+  });
+}
+
+// copy[]: verbatim field selection off each text-node snapshot (brief pack
+// "COPY CAPTURE") — {path, text, id, componentContext?}. componentContext is
+// omitted entirely for a raw (directly-authored) text node — its presence,
+// not a null/undefined placeholder, is what marks a node's characters as
+// driven by an enclosing instance's TEXT component property.
+function buildCopyEntries(copySnapshots) {
+  return (copySnapshots || []).map((entry) => {
+    const out = { path: entry.path, text: entry.text, id: entry.id };
+    if (entry.componentContext) out.componentContext = entry.componentContext;
+    return out;
+  });
 }
 
 // exampleStructure[]: the Example page's section hierarchy, verbatim field
@@ -1466,6 +1534,21 @@ function findOwningPage(node) {
   return cur || null;
 }
 
+// Nearest INSTANCE ancestor STRICTLY above `node` (never `node` itself) —
+// used by the COPY AND MODE-PIN WALK to resolve a text node's
+// componentContext back to the instance whose TEXT component property
+// drives its characters. Same walk-up-.parent idiom as
+// findSelectableAncestor/findOwningPage above; pure and testable with plain
+// mock node objects.
+function findEnclosingInstance(node) {
+  let cur = node.parent;
+  while (cur) {
+    if (cur.type === "INSTANCE") return cur;
+    cur = cur.parent;
+  }
+  return null;
+}
+
 // Resolves a live node (already fetched via getNodeByIdAsync) into what
 // selecting/scrolling to it actually needs: {selectableNode, page,
 // usedAncestor}. Returns null for a stale/removed node, or one with no
@@ -1787,6 +1870,85 @@ const walkV2Subtree = createSubtreeWalk({
   },
 });
 
+// === COPY AND MODE-PIN WALK (plugin API injected — tested via
+// copy-modepin-walk.test.mjs, which extracts this block by its markers) ===
+// Brief pack references/figma-agent-plugin-brief.md "COPY CAPTURE"/
+// "MODE-PIN CAPTURE": one recursive pass per Example-page top-level frame,
+// collecting both buckets together (same DELIVERABLE-page scope, same
+// canvas-order walk, no reason to traverse the subtree twice). A hidden node
+// (`visible === false`) is skipped along with everything beneath it — "skip
+// anything inside a hidden layer" applies transitively, not node-by-node.
+//
+// PATH: "the ancestor chain of frame/instance names down to the node's own
+// name" (brief pack, both sections) — only FRAME and INSTANCE ancestors
+// contribute a path segment as the walk descends; a GROUP/SECTION/BOOLEAN_
+// OPERATION etc. in between is structurally transparent. The node's own name
+// is always the last segment, regardless of its own type.
+//
+// MODE PINS: captured for every visible FrameNode with non-empty
+// explicitVariableModes — including the top-level Example frame itself, not
+// only frames nested inside it — since inferring a frame's own pin from
+// instance-override side effects elsewhere under-captures (the gap the
+// brief pack's MODE-PIN CAPTURE section closes). Resolution against this
+// export's collections[].id/modeTable happens later, in buildModePins
+// (schema-v2-transform.mjs) — this walk only collects the raw
+// {collectionId: modeId} pairs, which is all a live tree walk can see.
+function createCopyModePinWalk(api) {
+  return async function walkCopyAndModePins(root, out) {
+    async function visit(node, ancestorPath) {
+      if (node.visible === false) return;
+
+      if (node.type === "TEXT") {
+        if (node.characters !== "") {
+          const entry = {
+            path: ancestorPath.concat(node.name).join("/"),
+            text: node.characters,
+            id: node.id,
+          };
+          // componentContext: present ONLY when this node's characters are
+          // driven by an enclosing instance's TEXT component property, not
+          // authored directly on the layer (brief pack "COPY CAPTURE").
+          const propRef = node.componentPropertyReferences && node.componentPropertyReferences.characters;
+          if (propRef) {
+            const instance = api.findEnclosingInstance(node);
+            if (instance) {
+              const mainComponent = await api.getInstanceMainComponent(instance);
+              entry.componentContext = {
+                component: api.resolveComponentSetName(mainComponent) || instance.name,
+                prop: propRef,
+              };
+            }
+          }
+          out.copy.push(entry);
+        }
+      } else if (node.type === "FRAME") {
+        const modes = node.explicitVariableModes;
+        if (modes && Object.keys(modes).length > 0) {
+          out.modePins.push({
+            path: ancestorPath.concat(node.name).join("/"),
+            explicitVariableModes: modes,
+          });
+        }
+      }
+
+      if (Array.isArray(node.children)) {
+        const childPath = node.type === "FRAME" || node.type === "INSTANCE" ? ancestorPath.concat(node.name) : ancestorPath;
+        for (const child of node.children) {
+          await visit(child, childPath);
+        }
+      }
+    }
+    await visit(root, []);
+  };
+}
+// === END COPY AND MODE-PIN WALK ===
+
+const walkCopyAndModePins = createCopyModePinWalk({
+  findEnclosingInstance: function (node) { return findEnclosingInstance(node); },
+  getInstanceMainComponent: function (node) { return getInstanceMainComponent(node); },
+  resolveComponentSetName: function (component) { return resolveComponentSetName(component); },
+});
+
 // === PARALLEL COLLECT (walk injected — tested via buildexport-perf.test.mjs,
 // which extracts this block by its markers and diffs it against the previous
 // sequential implementation) ===
@@ -1809,7 +1971,15 @@ const walkV2Subtree = createSubtreeWalk({
 // buildexport-perf.test.mjs against a walk that deliberately completes in
 // reverse call order).
 function newWarningsCollector() {
-  return { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  return {
+    nodeSnapshots: [],
+    spacerInstances: [],
+    orphanedInstances: [],
+    latentCapabilities: [],
+    variantBindings: new Map(),
+    copy: [],
+    modePins: [],
+  };
 }
 
 // Appends `bucket` onto `target` wholesale. Every merge in this file goes
@@ -1821,6 +1991,8 @@ function mergeWarningsCollector(target, bucket) {
   for (const entry of bucket.orphanedInstances) target.orphanedInstances.push(entry);
   for (const entry of bucket.latentCapabilities) target.latentCapabilities.push(entry);
   for (const entry of bucket.variantBindings) target.variantBindings.set(entry[0], entry[1]);
+  for (const entry of bucket.copy) target.copy.push(entry);
+  for (const entry of bucket.modePins) target.modePins.push(entry);
 }
 
 async function collectInParallel(items, out, walk) {
@@ -2014,6 +2186,15 @@ async function processExampleFrame(frame, parentId, parentPath, variableById, wa
     parentPath: parentPath,
   });
   await walkV2Subtree(frame, variableById, warningsCollector);
+  // COPY CAPTURE / MODE-PIN CAPTURE (brief pack): a second pass over the
+  // same frame's subtree — walkV2Subtree above doesn't visit TEXT
+  // characters or a FRAME's explicitVariableModes, and folding this into it
+  // would touch the perf-tuned SUBTREE WALK block (see its own header
+  // comment on why round-2 fan-out inside one frame was reverted as a net
+  // loss). Writes into the SAME per-frame bucket, so collectInParallel's
+  // fold-back-in-item-order guarantee covers these two arrays exactly as it
+  // already covers nodeSnapshots/spacerInstances/latentCapabilities.
+  await walkCopyAndModePins(frame, warningsCollector);
 
   // One snapshot per instance, resolved together rather than one at a time —
   // each snapshot is an independent chain of plugin-API round trips and
@@ -2268,6 +2449,8 @@ async function buildExport() {
 
     collectionsOut.push({
       name: collection.name,
+      id: collection.id,
+      modeTable: buildModeTable(modes),
       modes: modes.map((m) => m.name),
       variables: variablesOut,
     });
@@ -2287,7 +2470,7 @@ async function buildExport() {
   // any of the pure transform functions run on them. variantBindings is
   // populated in the SAME componentSetNodes walk (collectBindings=true) —
   // see walkV2Subtree's header comment.
-  const warningsCollector = { nodeSnapshots: [], spacerInstances: [], orphanedInstances: [], latentCapabilities: [], variantBindings: new Map() };
+  const warningsCollector = newWarningsCollector();
 
   phase("styles");
 
@@ -2323,6 +2506,14 @@ async function buildExport() {
   );
   const exampleStructure = buildExampleStructure(exampleData.sectionSnapshots);
   const templateFrames = buildTemplateFrames(exampleData.frameSnapshots);
+  // copy/modePins: raw snapshots collected by walkCopyAndModePins inside
+  // processExampleFrame (same DELIVERABLE-page scope, same per-frame
+  // buckets folded back in item order as every other warningsCollector
+  // bucket). buildModePins resolves each raw {collectionId: modeId} pair
+  // against THIS export's own collectionsOut (id + modeTable, built above)
+  // — never a second Figma read.
+  const copy = buildCopyEntries(warningsCollector.copy);
+  const modePins = buildModePins(warningsCollector.modePins, collectionsOut);
 
   phase("templatesTransform");
   timings.templates = Date.now() - templatesStartedAt;
@@ -2387,6 +2578,8 @@ async function buildExport() {
     templateFrames: templateFrames,
     latentCapabilities: latentCapabilities,
     warnings: warnings,
+    copy: copy,
+    modePins: modePins,
   };
 
   return output;
