@@ -1,6 +1,6 @@
 ---
 name: verify-finding
-description: Ground a claim about how code works or how to implement a change with a 0-100 confidence score, typed sources citing path:line, and a short why. Use before tracing behaviour, choosing an implementation approach, answering "does X exist / what calls Y", or acting on any assumption about the codebase. Loops — gathering a new primary source each pass — when confidence is below 40, capped at 3 loops before escalating.
+description: Ground a claim about how code works or how to implement a change with a 0-100 confidence score, typed sources citing path:line, and a short why. Use before tracing behaviour, choosing an implementation approach, answering "does X exist / what calls Y", or acting on any assumption about the codebase. Loops — gathering a new primary source each pass — when confidence is below 40, capped at 3 loops before escalating. Not walking acceptance criteria before shipping — that's qa-acceptance; not the overall done/ship-ready bar — that's quality.
 ---
 
 # Verify Finding

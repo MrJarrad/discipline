@@ -130,6 +130,28 @@ tags: []
 
 **Write tool only.** A dumb cron outside the session handles git commits automatically — never invoke `git` directly. Do not run `git add`, `git commit`, `git push`, or any git operation.
 
+### Shared files and parallel agents — re-read live, edit narrow (2026-08-05)
+
+Most vault writes are a new file with no contention. A handful of files are
+shared indexes that more than one parallel agent may touch in the same
+window — `hub.md`, `MEMORY.md`, `references/_index.md`, or any file two
+dispatches from the same session might both append to. Per
+`concurrent-agents-worktree-isolation`, parallel agents already work in
+separate worktrees for exactly this class of race; a shared vault file is the
+same race one level up; the fix is the same shape, applied at the file level:
+
+1. **Re-read the file immediately before writing, not earlier in the turn.**
+   A read taken at the start of a long tool sequence is stale by the time you
+   write — another agent may have appended in between.
+2. **Prefer the narrowest edit that adds your entry** (`Edit`, anchored to a
+   specific line or section) over a full-file `Write` rewrite built from a
+   remembered snapshot — a whole-file rewrite from a stale snapshot silently
+   discards whatever a concurrent write added in between, with no error on
+   either side.
+3. **If a full rewrite is unavoidable** (e.g. resequencing), diff the fresh
+   read against your snapshot first and carry forward any entries that
+   appeared since — never write back a version older than what's on disk.
+
 ### Scope, now implicit in placement
 
 Filing a decision under `projects/portfolio/decisions/` already scopes it to

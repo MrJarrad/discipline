@@ -1,6 +1,6 @@
 ---
 name: research-synthesis
-description: Method for answering open questions with sourced, adversarially-verified findings — decompose, fan out, source-or-stop, verify, synthesize with confidence. Pairs with the Researcher charter; assign to any agent doing research, competitive analysis, or market scans.
+description: Method for answering open questions with sourced, adversarially-verified findings — decompose, fan out, source-or-stop, verify, synthesize with confidence. Use when doing research, a competitive/market scan, or any "what's the best X", "compare A vs B", or multi-source investigation — pairs with the Researcher charter and perplexity-research for the actual lookups. Not the lookup mechanism itself — that's perplexity-research; not evaluating an external skill/plugin/repo for adoption — that's skill-review.
 ---
 
 # Research Synthesis

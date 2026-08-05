@@ -1,6 +1,6 @@
 ---
 name: wrap
-description: Close out an orchestration session so the next one continues seamlessly — rewrite HANDOVER.md, land every ruling and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session or asked to hand over.
+description: Close out an orchestration session so the next one continues seamlessly — rewrite HANDOVER.md, land every ruling and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
 ---
 
 # Wrap
@@ -143,6 +143,24 @@ so anything mined lands in the same wrap commit, not a follow-up session.
 
 Pattern borrowed from headroom's `learn` step; the implementation here is the
 vault's own, no external dependency.
+
+### Mid-session checkpoint — don't let wrap be the only catch (2026-08-05)
+
+A long orchestration session can run for hours before wrap ever fires — a
+correction or insight that surfaces mid-session and isn't banked immediately
+is easy to misremember or drop by the time wrap finally reviews the whole
+session from scratch. So this same three-lane review (below) isn't only a
+wrap-time step: run it as a checkpoint roughly every 3rd resolved dispatch or
+completed task-batch during a long session, not just once at the end.
+
+The checkpoint is the same review, just earlier and more often — it does
+**not** create a separate log, file, or review cadence. If the mid-session
+pass finds something durable, write it immediately via `vault-write` (the
+same `fleet/lessons/` or `projects/<name>/decisions/` destination the
+end-of-wrap pass would use) — one banked lesson, whichever pass caught it
+first. If it finds nothing, there's nothing to write; move on. Running the
+checkpoint mid-session only shrinks what the end-of-wrap Learn pass still has
+to mine — it never adds a second place lessons live.
 
 Review the session across three lanes:
 

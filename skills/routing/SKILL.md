@@ -67,6 +67,7 @@ A dispatch made without all four loaded is malformed.
 | plan approved → tasks; "sort the tasks", "tidy the board", "triage" | **Project Manager** (dispatch automatically when a plan is approved, not on request) | issue-triage |
 | "quick concept", "explore the X approach", "v2 of Y to explore", state-machine / data-shape question | Engineer or UX Designer | prototype |
 | hard/intermittent bug, "still broken", "not picking up", second failed fix | Engineer | diagnosing-bugs |
+| "should we adopt this skill/plugin", "is this repo worth installing", external skill/plugin/MCP server up for adoption | Researcher | skill-review, perplexity-research |
 
 ## Domain-library table (which skills the brief must name)
 

@@ -1,6 +1,6 @@
 ---
 name: doc-formats
-description: Registry + canonical templates for keyed markdown documents (SCOPE, DOCUMENTATION). Trigger before writing ANY typed markdown artifact — a scope or documentation file — or when another skill needs the correct document shape. If a sibling skill owns the doc's structure, this registry says so; check here first, then write.
+description: Registry + canonical templates for keyed markdown documents (SCOPE, DOCUMENTATION). Trigger before writing ANY typed markdown artifact — a scope or documentation file — or when another skill needs the correct document shape. If a sibling skill owns the doc's structure, this registry says so; check here first, then write. Not for vault filing/placement rules — that's vault-write; not for shaping a scope's actual content — that's discover-scope/shape-stress.
 ---
 
 # Doc Formats

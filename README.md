@@ -20,7 +20,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 ## What's inside
 
-**39 skills** — craft and delivery discipline that any agent can draw on.
+**40 skills** — craft and delivery discipline that any agent can draw on.
 
 **Dispatch** — who does the work, on what model, in what brief:
 
@@ -37,7 +37,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 **Research & knowledge** — `perplexity-research` · `research-synthesis` · `vault-recall` · `vault-write`
 
-**Ops & meta** — `ops-inbox` · `summarise-meeting` · `brand-voice` · `agent-ops` · `wrap`
+**Ops & meta** — `ops-inbox` · `summarise-meeting` · `brand-voice` · `agent-ops` · `wrap` · `skill-review`
 
 **6 agents** — doer personas you can dispatch as Claude Code subagents (the orchestrator
 is the main session itself, not an agent):

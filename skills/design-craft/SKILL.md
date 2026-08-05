@@ -1,6 +1,6 @@
 ---
 name: design-craft
-description: How to apply ANY design system to produce best-in-class UI — the universal "how" beneath every project's own system. Reach for existing tokens/components first, match the system, verify visually. Pairs with each repo's own design system + usage guide.
+description: How to apply ANY design system to produce best-in-class UI — the universal "how" beneath every project's own system. Trigger on "make it look right", "make it feel premium", "polish this UI", or any UI build/review work where a design system already exists — reach for existing tokens/components first, match the system, verify visually. Pairs with each repo's own design system + usage guide. Not choosing or defining the design system itself — that's design-system; not motion/interaction feel — that's motion; not a from-scratch marketing surface with no design system yet — that's design-taste-frontend.
 ---
 
 # Design Craft
