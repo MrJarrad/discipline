@@ -26,6 +26,63 @@ function buildComponentSets(setSnapshots) {
   }));
 }
 
+// collections[].modeTable: a {modeId: name} lookup built from a collection's
+// own modes[] (collection.modes, {modeId, name} pairs) — pairs with
+// collections[].id so a raw modePins pin recorded elsewhere in this export
+// resolves back to the human mode name without a second Figma read (brief
+// pack "MODE-PIN CAPTURE").
+function buildModeTable(modes) {
+  const table = {};
+  for (const mode of modes || []) {
+    table[mode.modeId] = mode.name;
+  }
+  return table;
+}
+
+// modePins[]: resolves each raw {collectionId: modeId} pin snapshot (brief
+// pack "MODE-PIN CAPTURE") against THIS export's own collections[] (id +
+// modeTable, see buildModeTable above). A collection this export's
+// collections[] doesn't carry — a cross-file library collection, or an
+// older exporter that omitted ids/modeTables — still gets recorded, keyed
+// and valued by the raw collectionId/modeId; never dropped for being
+// unresolvable. Axes are sorted by resolved axis name (not Figma's own map
+// iteration order or explicitVariableModes insertion order) so the same
+// file state always produces the same key order.
+function resolveModePinAxis(collectionId, modeId, collections) {
+  const collection = (collections || []).find((c) => c.id === collectionId);
+  if (!collection) {
+    return { axis: collectionId, mode: modeId };
+  }
+  const modeTable = collection.modeTable || {};
+  const mode = Object.prototype.hasOwnProperty.call(modeTable, modeId) ? modeTable[modeId] : modeId;
+  return { axis: collection.name.toLowerCase(), mode: mode };
+}
+
+function buildModePins(pinSnapshots, collections) {
+  return (pinSnapshots || []).map((pin) => {
+    const explicitVariableModes = pin.explicitVariableModes || {};
+    const axisEntries = Object.keys(explicitVariableModes)
+      .map((collectionId) => resolveModePinAxis(collectionId, explicitVariableModes[collectionId], collections))
+      .sort((a, b) => a.axis.localeCompare(b.axis));
+    const modes = {};
+    for (const entry of axisEntries) modes[entry.axis] = entry.mode;
+    return { path: pin.path, modes: modes };
+  });
+}
+
+// copy[]: verbatim field selection off each text-node snapshot (brief pack
+// "COPY CAPTURE") — {path, text, id, componentContext?}. componentContext is
+// omitted entirely for a raw (directly-authored) text node — its presence,
+// not a null/undefined placeholder, is what marks a node's characters as
+// driven by an enclosing instance's TEXT component property.
+function buildCopyEntries(copySnapshots) {
+  return (copySnapshots || []).map((entry) => {
+    const out = { path: entry.path, text: entry.text, id: entry.id };
+    if (entry.componentContext) out.componentContext = entry.componentContext;
+    return out;
+  });
+}
+
 // exampleStructure[]: the Example page's section hierarchy, verbatim field
 // selection — {name, frames:[{id,name}]}. Sections are Figma SECTION nodes
 // on the page named "Example"; frames are their direct FRAME children, in
@@ -798,4 +855,7 @@ export {
   computeWarningsByType,
   buildSyncStoragePayload,
   buildRestoredSyncMessage,
+  buildModeTable,
+  buildModePins,
+  buildCopyEntries,
 };

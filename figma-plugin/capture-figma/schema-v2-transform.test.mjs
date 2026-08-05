@@ -24,6 +24,9 @@ import {
   computeWarningsByType,
   buildSyncStoragePayload,
   buildRestoredSyncMessage,
+  buildModeTable,
+  buildModePins,
+  buildCopyEntries,
 } from "./schema-v2-transform.mjs";
 
 // Extracts the text strictly between the "=== SCHEMA V2 TRANSFORM ..." and
@@ -1212,6 +1215,75 @@ test("buildRestoredSyncMessage: a pre-persistence-fix stored record (no summary/
     header: null,
     warningsByType: {},
   });
+});
+
+test("buildModeTable: maps a collection's modes[] to a {modeId: name} lookup, in no particular key order requirement", () => {
+  const modes = [
+    { modeId: "1:0", name: "Light" },
+    { modeId: "26:1", name: "Dark" },
+  ];
+
+  assert.deepEqual(buildModeTable(modes), { "1:0": "Light", "26:1": "Dark" });
+});
+
+test("buildModeTable: an empty/missing modes list produces an empty table, never throws", () => {
+  assert.deepEqual(buildModeTable([]), {});
+  assert.deepEqual(buildModeTable(undefined), {});
+});
+
+test("buildModePins: a pin whose collection IS in this export's collections[] resolves to the human mode name, keyed by the lowercased collection name", () => {
+  const collections = [{ id: "VariableCollectionId:8:496", name: "Color", modeTable: { "26:1": "Dark", "26:2": "Light" } }];
+  const pins = [{ path: "Landing/Hero", explicitVariableModes: { "VariableCollectionId:8:496": "26:1" } }];
+
+  assert.deepEqual(buildModePins(pins, collections), [{ path: "Landing/Hero", modes: { color: "Dark" } }]);
+});
+
+test("buildModePins: a pin whose collection is NOT in this export's collections[] falls back to the raw collectionId/modeId pair, never dropped", () => {
+  const collections = [{ id: "VariableCollectionId:1:1", name: "Layout", modeTable: { "1:0": "lg" } }];
+  const pins = [{ path: "Landing/Hero", explicitVariableModes: { "VariableCollectionId:8:496": "26:1" } }];
+
+  assert.deepEqual(buildModePins(pins, collections), [
+    { path: "Landing/Hero", modes: { "VariableCollectionId:8:496": "26:1" } },
+  ]);
+});
+
+test("buildModePins: multiple axes on one pin are ordered deterministically by resolved axis name, not object insertion/Figma map order", () => {
+  const collections = [
+    { id: "coll-color", name: "Color", modeTable: { m1: "Dark" } },
+    { id: "coll-layout", name: "Layout", modeTable: { m2: "lg" } },
+  ];
+  // Insertion order deliberately reversed (layout before color) to prove the
+  // output isn't just echoing whatever order explicitVariableModes iterates.
+  const pins = [{ path: "Landing/Hero", explicitVariableModes: { "coll-layout": "m2", "coll-color": "m1" } }];
+
+  const result = buildModePins(pins, collections);
+  assert.deepEqual(Object.keys(result[0].modes), ["color", "layout"]);
+});
+
+test("buildCopyEntries: a raw text node (no componentContext snapshot field) omits the componentContext key entirely, never emits it null/undefined", () => {
+  const snapshots = [{ path: "Landing/Hero/Title", text: "Welcome", id: "1:23" }];
+
+  assert.deepEqual(buildCopyEntries(snapshots), [{ path: "Landing/Hero/Title", text: "Welcome", id: "1:23" }]);
+});
+
+test("buildCopyEntries: a snapshot carrying componentContext passes it through verbatim", () => {
+  const snapshots = [
+    {
+      path: "Landing/NavigationHeader/Info",
+      text: "About",
+      id: "1:24",
+      componentContext: { component: "NavigationHeader", prop: "Label" },
+    },
+  ];
+
+  assert.deepEqual(buildCopyEntries(snapshots), [
+    {
+      path: "Landing/NavigationHeader/Info",
+      text: "About",
+      id: "1:24",
+      componentContext: { component: "NavigationHeader", prop: "Label" },
+    },
+  ]);
 });
 
 test("sync-check: code.js's duplicated SCHEMA V2 TRANSFORM block is byte-identical to this file's", () => {
