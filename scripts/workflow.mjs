@@ -117,6 +117,37 @@ export function classifyOutcome({ code, parsed, maxTurns }) {
   return OUTCOME.FAILED;
 }
 
+// parseVerdict(text) — pure, no I/O. Extracts a refuter's real verdict from
+// its free-text reply. Refuters are told to end with a literal last word,
+// but qa-acceptance-style prompts (VERDICT REASONS sections) naturally end
+// in prose instead, so a single "ends with CONFIRMED" regex miscounts a
+// clear structured PASS as a refutation. Tried in priority order:
+//   1. last-word CONFIRMED/REFUTED (the original, still-honored contract)
+//   2. a "VERDICT: PASS|BLOCK" line anywhere (qa-acceptance/reviewer style,
+//      tolerant of markdown bold markers around it)
+//   3. a PASS/BLOCK verdict formation in the trailing 1000 chars (last one
+//      wins, so a final restated verdict beats an earlier hedge)
+// Ambiguous or absent verdicts fail closed to REFUTED (unchanged posture)
+// but are tagged verdict:'unparsed' so the ambiguity is visible in the
+// journal instead of silently swallowed.
+export function parseVerdict(text) {
+  const str = String(text ?? "");
+  if (/CONFIRMED\s*$/.test(str)) return { confirmed: true, verdict: "CONFIRMED" };
+  if (/REFUTED\s*$/.test(str)) return { confirmed: false, verdict: "REFUTED" };
+  const lineMatch = str.match(/^\s*\**\s*VERDICT:\s*\**\s*(PASS|BLOCK)\s*\**\s*$/im);
+  if (lineMatch) {
+    const pass = lineMatch[1] === "PASS";
+    return { confirmed: pass, verdict: pass ? "CONFIRMED" : "REFUTED" };
+  }
+  const tail = str.slice(-1000);
+  const tailMatches = [...tail.matchAll(/\b(PASS|BLOCK)\b/g)];
+  if (tailMatches.length) {
+    const pass = tailMatches[tailMatches.length - 1][1] === "PASS";
+    return { confirmed: pass, verdict: pass ? "CONFIRMED" : "REFUTED" };
+  }
+  return { confirmed: false, verdict: "unparsed" };
+}
+
 // Fills in spend-guardrail defaults an agent didn't set itself. Pure and
 // additive: a key already present on `agent` (including an explicit `null`
 // opting out of a cap) is never touched.
@@ -399,10 +430,15 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
             allowedTools: v.allowedTools,
             permissionMode: v.permissionMode,
             maxTurns: v.maxTurns,
-          }), spec.name)));
-        const confirmed = votes.filter((vt) => /CONFIRMED\s*$/.test(String(vt.result))).length;
+          }), spec.name, { spawnImpl, timeoutMs: v.timeoutMs })));
+        const parsedVotes = votes.map((vt) => parseVerdict(vt.result));
+        const confirmed = parsedVotes.filter((p) => p.confirmed).length;
         const survives = confirmed > votes.length / 2;
-        log({ type: "verify", label: r.label, confirmed, of: votes.length, survives });
+        const result = votes.map((vt) => String(vt.result ?? "")).join("\n---\n").slice(0, 4000);
+        log({
+          type: "verify", label: r.label, confirmed, of: votes.length, survives,
+          verdicts: parsedVotes.map((p) => p.verdict), result,
+        });
         if (survives) survivors.push(r); else console.log(`  ✗ refuted: ${r.label}`);
       }
       kept = survivors;
