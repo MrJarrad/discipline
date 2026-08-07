@@ -14,6 +14,7 @@ import {
   loadPersona,
   buildSkillPreamble,
   resolveOAuthToken,
+  parseVerdict,
   DEFAULT_MAX_TURNS,
   DEFAULT_HAIKU_EFFORT,
   HEAVY_AGENT_THRESHOLD,
@@ -312,6 +313,171 @@ test("runWorkflow: a capped-only run (no failures) yields exitCode 2", async (t)
   assert.equal(exitCode, 2);
   assert.equal(totals.capped, 1);
   assert.equal(totals.failed, 0);
+});
+
+// ---- parseVerdict ---------------------------------------------------------
+//
+// The verify stage's refuters are told to end with a literal CONFIRMED/REFUTED
+// last word, but qa-acceptance-style reviewer prompts (VERDICT REASONS
+// sections) naturally end in prose instead. parseVerdict() extracts the real
+// verdict in priority order so a structured PASS/BLOCK isn't miscounted as a
+// refutation. Ambiguous/absent text still fails closed to REFUTED, but is
+// tagged 'unparsed' so it's visible rather than silently swallowed.
+
+// Real transcript excerpt (vault/orchestrator/specs/wild-r4-verdict.md): a
+// nine-ground qa-acceptance-style PASS whose prose tail previously got
+// miscounted as a refutation because it doesn't end in the literal word
+// CONFIRMED.
+const WILD_R4_VERDICT_TEXT = `
+
+---
+
+# Wild Round 2 Verdict — Reviewer Pass (2026-08-07)
+
+**Branch:** conform/wild · **Commit:** cb366fee28d9a591649adf49a3f54ca68fb4d387 (HEAD, matches claim) · not pushed, not merged.
+
+**VERDICT: PASS**
+
+## VERDICT REASONS
+
+1. **Tree state.** Confirmed clean.
+2. **Gates.** \`npx tsc --noEmit\` → exit 0. \`npm test\` → 194 passed (194).
+
+## Net
+
+Every re-derivable claim reproduced independently. No fabricated evidence found.
+`;
+
+test("parseVerdict: a qa-acceptance-style PASS report (VERDICT: line, prose tail) parses CONFIRMED", () => {
+  const v = parseVerdict(WILD_R4_VERDICT_TEXT);
+  assert.equal(v.confirmed, true);
+  assert.equal(v.verdict, "CONFIRMED");
+});
+
+const BLOCK_WITH_REASONS_TEXT = `
+# Review — Block
+
+**VERDICT: BLOCK**
+
+## VERDICT REASONS
+
+1. **Typecheck.** \`npx tsc --noEmit\` fails with 3 errors in src/lib/projects.ts.
+2. **Tests.** \`npm test\` → 2 failing, 192 passed.
+
+## Net
+
+Do not merge until the typecheck errors are resolved.
+`;
+
+test("parseVerdict: a qa-acceptance-style BLOCK report (VERDICT: line, prose tail) parses REFUTED", () => {
+  const v = parseVerdict(BLOCK_WITH_REASONS_TEXT);
+  assert.equal(v.confirmed, false);
+  assert.equal(v.verdict, "REFUTED");
+});
+
+test("parseVerdict: text with no recognizable verdict formation fails closed to REFUTED, tagged unparsed", () => {
+  const v = parseVerdict("I looked into this for a while and I'm honestly not sure what to make of it.");
+  assert.equal(v.confirmed, false);
+  assert.equal(v.verdict, "unparsed");
+});
+
+test("parseVerdict: empty/absent text fails closed to REFUTED, tagged unparsed", () => {
+  assert.equal(parseVerdict("").verdict, "unparsed");
+  assert.equal(parseVerdict(undefined).verdict, "unparsed");
+});
+
+test("parseVerdict: last-word CONFIRMED/REFUTED forms (original refuter contract) still work", () => {
+  assert.deepEqual(parseVerdict("Checked the claim, it holds up.\nCONFIRMED"), { confirmed: true, verdict: "CONFIRMED" });
+  assert.deepEqual(parseVerdict("Checked the claim, it does not hold up.\nREFUTED"), { confirmed: false, verdict: "REFUTED" });
+});
+
+test("parseVerdict: a trailing PASS/BLOCK formation within the last 1000 chars (no VERDICT: line, no last word) is used as a fallback", () => {
+  const noLineOrLastWord = "After reviewing everything in detail across many paragraphs of analysis, my overall call here is PASS given the evidence.";
+  assert.deepEqual(parseVerdict(noLineOrLastWord), { confirmed: true, verdict: "CONFIRMED" });
+  const blockTail = "After reviewing everything in detail across many paragraphs of analysis, my overall call here is BLOCK given the evidence.";
+  assert.deepEqual(parseVerdict(blockTail), { confirmed: false, verdict: "REFUTED" });
+});
+
+// ---- runWorkflow: verify stage uses parseVerdict + persists full result --
+
+test("runWorkflow: a verify-stage refuter's qa-acceptance-style PASS (prose tail, no last word) survives", async (t) => {
+  t.mock.method(console, "log", () => {});
+  let call = 0;
+  const spawnImpl = (cmd, args) => {
+    call += 1;
+    // First call is the doer; remaining calls are the verify-stage refuters.
+    const stdout = call === 1
+      ? '{"is_error":false,"result":"did the work","num_turns":3}'
+      : `{"is_error":false,"result":${JSON.stringify(WILD_R4_VERDICT_TEXT)},"num_turns":2}`;
+    return fakeSpawn({ stdout })();
+  };
+  const spec = {
+    name: "t",
+    phases: [{
+      title: "p",
+      agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }],
+      verify: { prompt: "Refute: {{RESULT}}", model: "haiku", votes: 1 },
+    }],
+  };
+  const logs = [];
+  const { totals } = await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  assert.equal(totals.survived, 1, "a structured PASS with a prose tail must not be miscounted as a refutation");
+  const verifyLog = logs.find((e) => e.type === "verify");
+  assert.equal(verifyLog.confirmed, 1);
+  assert.equal(verifyLog.survives, true);
+});
+
+test("runWorkflow: the verify-stage journal record persists the refuter's full output, capped at 4000 chars", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const longResult = "REFUTED reasoning ".repeat(500) + "\nREFUTED";
+  let call = 0;
+  const spawnImpl = (cmd, args) => {
+    call += 1;
+    const stdout = call === 1
+      ? '{"is_error":false,"result":"did the work","num_turns":3}'
+      : `{"is_error":false,"result":${JSON.stringify(longResult)},"num_turns":2}`;
+    return fakeSpawn({ stdout })();
+  };
+  const spec = {
+    name: "t",
+    phases: [{
+      title: "p",
+      agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }],
+      verify: { prompt: "Refute: {{RESULT}}", model: "haiku", votes: 1 },
+    }],
+  };
+  const logs = [];
+  await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  const verifyLog = logs.find((e) => e.type === "verify");
+  assert.ok(verifyLog.result, "verify journal record must persist the refuter's output");
+  assert.ok(verifyLog.result.length <= 4000);
+  assert.ok(verifyLog.result.includes("REFUTED"));
+});
+
+test("runWorkflow: an ambiguous refuter reply logs verdict:'unparsed' and still fails closed to refuted", async (t) => {
+  t.mock.method(console, "log", () => {});
+  let call = 0;
+  const spawnImpl = (cmd, args) => {
+    call += 1;
+    const stdout = call === 1
+      ? '{"is_error":false,"result":"did the work","num_turns":3}'
+      : '{"is_error":false,"result":"not sure what to make of this one","num_turns":2}';
+    return fakeSpawn({ stdout })();
+  };
+  const spec = {
+    name: "t",
+    phases: [{
+      title: "p",
+      agents: [{ label: "a", prompt: "x", model: "sonnet", maxTurns: 10 }],
+      verify: { prompt: "Refute: {{RESULT}}", model: "haiku", votes: 1 },
+    }],
+  };
+  const logs = [];
+  const { totals } = await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  assert.equal(totals.survived, 0);
+  const verifyLog = logs.find((e) => e.type === "verify");
+  assert.equal(verifyLog.confirmed, 0);
+  assert.deepEqual(verifyLog.verdicts, ["unparsed"]);
 });
 
 // ---- buildSkillPreamble / persona ordering -------------------------------
