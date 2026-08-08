@@ -81,7 +81,13 @@ Find stronger custom variants at easing.dev or easings.co rather than hand-rolli
 | Modals, drawers | 200-500ms |
 | Marketing/explanatory | Can be longer |
 
-**Rule: UI animations stay under 300ms.** Perceived performance rides on this — a 180ms select feels more responsive than a 400ms one at identical actual load time, a fast-spinning spinner makes loading feel faster, and skipping the delay (and animation) on subsequent tooltips once one is already open makes a whole toolbar feel faster. Easing amplifies the effect: `ease-out` at 200ms feels faster than `ease-in` at 200ms because the user sees immediate movement.
+**Rule: measure time-to-90%-of-distance (t90), not wall-clock duration.** Wall clock past t90 is a settle nobody consciously watches.
+- **Component scale** (hover, press, popover, dropdown, in-place state): **t90 ≤ 300ms.**
+- **View scale** (route/page transition, full-width reveal, scroll-entrance of a whole row): **t90 ≤ 400ms.**
+
+Worked examples: `cubic-bezier(0.19,1,0.22,1)` @ 750ms → t90 **231ms** → passes both. `cubic-bezier(0.23,1,0.32,1)` @ 750ms → 271ms → passes both. A measured view-scale reveal at **377ms** → passes view scale, fails component scale. `cubic-bezier(0.86,0,0.07,1)` @ 750ms → 470ms → fails both. Any `ease-in-out` @ 500ms → 390ms → fails component scale.
+
+Perceived performance rides on t90, not the declared number — a fast-spinning spinner makes loading feel faster, and skipping the delay (and animation) on subsequent tooltips once one is already open makes a whole toolbar feel faster. Easing amplifies the effect: `ease-out` at 200ms feels faster than `ease-in` at 200ms because the user sees immediate movement. (`vault/references/gil-craft-extraction-2026-08-08.md` §7, Finding 7.6)
 
 ### Springs
 
@@ -126,6 +132,17 @@ Don't wire visual changes directly to a continuously-changing input (e.g., mouse
 **Asymmetric timing for deliberate actions.** Slow where the user is deciding, fast where the system responds — e.g. a hold-to-delete press fills over 2s linear, but releasing (whether cancelling or completing) snaps back or confirms in ~200ms ease-out.
 
 **Stagger multi-element entrances.** A cascading small delay (30-80ms) between siblings feels more natural than everything appearing at once. Keep it decorative — never block interaction while stagger is still playing.
+
+### Sequencing grammar
+
+Content-agnostic rules for how movers relate to each other in time, measured off frame-level video and CSS across five sites — the actors are the leader, the follower, and what holds still, never "text" or "media."
+
+- **Duration is a function of the property; distance is a function of the element; velocity is derived, never authored.** Hold the animated property's duration constant regardless of travel distance — `transform` runs at one duration across a 24–101px range inside the same measured component — and set travel distance relative to the moving element's own size (default ≈1.0× its own box), not a fixed pixel offset. Effective velocity is whatever falls out (it can span 20×+ between a small and a large mover); if a move feels wrong, fix the distance or the curve, not the duration. (`vault/references/gil-craft-extraction-2026-08-08.md` §7, Findings 7.3–7.5)
+- **Different animations queue — never a gap, never a real overlap.** A follower that's a distinct animation from its leader starts within about one frame of the leader finishing: measured onset 0.64–1.29× the leader's duration, clustering at 1.0–1.2×, with the one declared (not measured) instance sitting at exactly 1.00×. Don't author a pause between a leader and its follower, and don't run them concurrently past a frame's slack. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.1)
+- **Identical siblings pile, they don't queue.** Copies of the same animation overlap heavily — the stagger step above is 4–20% of the item's own duration, most commonly ~75ms, never a full handoff. Queueing and piling are opposite behaviors for two different relationships; apply the one that matches. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.2)
+- **A shared slot empties to its floor before it refills — it never crossfades.** When incoming content lands where outgoing content was, drive that slot to zero/lowest exposure first, then bring the new content up from nothing. There should be no frame where old and new both show. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.3)
+- **What enters from nothing is last in, first out, and leaves 2–4× faster than it arrived.** An element with no on-screen predecessor (fades up from zero instead of traveling into place) should also be the first thing gone in reverse, and its exit duration should run a quarter to a half of its entry — not mirrored. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.4)
+- **Something always holds position and changes only exposure.** Every measured sequence has one element that never travels, it only dims or brightens — the outgoing view on a navigation, the static chrome on a load. It's what makes the movers around it legible; don't let everything in a sequence be in motion at once. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.5)
 
 ### Performance
 
@@ -181,7 +198,7 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 3. **Responsive easing.** Entering/exiting elements use `ease-out` or a strong custom curve. `ease-in` on UI is a block — it delays the moment the user watches most. Built-in CSS easings are too weak; expect custom cubic-beziers.
 
-4. **Sub-300ms UI.** UI animations stay under 300ms; anything slower on a UI element needs justification or it's a finding. Exact per-element duration budgets live in the **Build** section above — cite them rather than approximating.
+4. **Perceived-latency gate.** Measure time-to-90%-of-distance (t90) under the animation's declared curve, not wall-clock duration. Component-scale motion (hover, press, popover, dropdown, in-place state) needs t90 ≤ 300ms; view-scale motion (route/page transition, full-width reveal, whole-row scroll-entrance) needs t90 ≤ 400ms. A long declared duration on a strong ease-out curve can still pass — cite the **Build** section's t90 rule and worked examples rather than flagging on the raw duration number.
 
 5. **Origin & physical correctness.** Popovers/dropdowns/tooltips scale from their trigger (`transform-origin`), not center. Never animate from `scale(0)` — start from `scale(0.9–0.97)` + opacity. (Modals are exempt — they stay centered.)
 
@@ -203,7 +220,7 @@ Flag these on sight, hard:
 - `scale(0)` or pure-fade entrances with no initial transform
 - `ease-in` on any UI interaction; weak built-in easing on a deliberate animation
 - Animation on a keyboard shortcut, command-palette toggle, or 100+/day action
-- UI duration > 300ms with no stated reason
+- t90 exceeding its band with no stated reason (component-scale >300ms, view-scale >400ms)
 - `transform-origin: center` on a trigger-anchored popover/dropdown/tooltip
 - Keyframes on toasts, toggles, or anything added/triggered rapidly
 - Animating layout properties (`width`/`height`/`margin`/`padding`/`top`/`left`)
