@@ -72,13 +72,46 @@ in the brief, don't assume the doer infers it.
   name and new labels each round. Brief the continuation to treat whatever is sitting in
   the working tree as an untrusted draft to verify, not a trusted starting point.
 
+## Governing rulings are QUOTED, never cited
+
+**A name/path citation is not compliance.** Naming a ruling delegates its interpretation
+to the reader; the ruling's own sentences in the prompt constrain them. This is a measured
+failure, not a theory: a 2026-08-07 ingest brief named media §6 *and* gave its vault path,
+and the dispatched engineer and its reviewer both read it and both reproduced the
+forbidden pattern anyway. Operator, 2026-08-10: *"clearly decision notes alone aren't
+cutting it."*
+
+So every brief operating under a standing ruling carries the ruling's **operative
+sentences quoted verbatim**. In a headless spec that's the top-level `rulings` field —
+the runner injects it, clearly framed as binding, ahead of the brief body in every agent
+prompt *and* every verify prompt, and journals the ruling ids per dispatch:
+
+```json
+{ "name": "...",
+  "rulings": [{ "id": "media-§6",
+                "source": "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+                "text": "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. …" }],
+  "phases": [ … ] }
+```
+
+Quote, don't summarise — a paraphrase reintroduces exactly the interpretation gap the
+verbatim text closes. `node scripts/workflow-lint.mjs <spec>` hard-fails a placeholder
+`text`, and warns when a prompt cites a ruling, or reads as media/ingest/replacement
+work, with no `rulings` field behind it. For an Agent-tool dispatch there's no spec, so
+the same block goes in the prompt body by hand.
+
+The reviewer gets the rulings too. A gate that can't see the ruling can't catch a breach
+of it — that half is what failed in 2026-08-07.
+
 ## Evidence contract
 
 Every brief states what the agent must return as proof of done: a commit hash plus a
 clean `tsc`/build result for code, measured numbers for perf or content claims, cited
-URLs for research, file paths for anything touched. A surfaced failure beats a false
-"done" — the brief should say so explicitly, so the receiving agent knows an honest
-blocker is an acceptable outcome and a guessed pass is not.
+URLs for research, file paths for anything touched. Where a standing ruling governs the
+work, the brief also names what compliance with that ruling looks like as evidence. A
+surfaced failure beats a false "done" — the brief should say so explicitly, so the
+receiving agent knows an honest blocker is an acceptable outcome and a guessed pass is
+not.
 
 ## Scope fence
 
@@ -129,6 +162,8 @@ avoidable token cost.
 [ ] Question stated neutrally; any named candidate labeled a hypothesis, not an answer
 [ ] Label is persona-model; headless spec sets the persona field
 [ ] Required skills named per the work-type table above
+[ ] Governing rulings are QUOTED verbatim in the brief (the spec `rulings` field);
+    a name/path citation is not compliance — and the reviewer's prompt carries them too
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
 [ ] Existing agent resumed if one holds the domain; primer cited as first read where one exists
 [ ] Brief carries verified file:line loci, baselines (commit hash, version), and key-file hashes
