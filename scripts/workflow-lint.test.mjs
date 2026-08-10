@@ -611,3 +611,69 @@ test("lintSpec: a VERIFY prompt gets the same protected-port treatment", () => {
   assert.deepEqual(errors, []);
   assert.ok(warnings.some((w) => /3210/.test(w) && /verify/.test(w)), warnings.join("\n"));
 });
+
+// ---- worktree container convention ---------------------------------------
+//
+// Banked convention (memory sibling worktrees-live-in-container-folder):
+// worktrees live in a container — ~/JHD/worktrees/<repo>/<name> or
+// ~/JHD/<repo>-worktrees/<name> — never as loose <repo>-<name> siblings of the
+// repo, where the operator reads them as second repos and nobody prunes them.
+// A warning, not a failure: the strays are real, registered, and still get
+// dispatched into until the next prune.
+
+test("lintSpec: a loose <repo>-<name> sibling cwd warns and names the container convention", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-newthing" });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "the container convention warns, it does not block");
+  assert.ok(
+    warnings.some((w) => /portfolio-newthing/.test(w) && /worktrees/.test(w)),
+    warnings.join("\n"),
+  );
+});
+
+test("lintSpec: the ~/JHD/worktrees/<repo>/<name> container form is clean", () => {
+  const spec = serverSpec({ cwd: "~/JHD/worktrees/portfolio/newthing" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the <repo>-worktrees/<name> container form is clean", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/discipline-worktrees/rulings" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the four registered strays are grandfathered", () => {
+  for (const stray of ["portfolio-homeconcept", "portfolio-herotext-enter", "portfolio-transitions", "portfolio-adaptive"]) {
+    const { warnings } = lintSpec(serverSpec({ cwd: `/Users/jarradharvey/JHD/${stray}` }), { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], `${stray} should be grandfathered`);
+  }
+});
+
+test("lintSpec: a grandfathered stray's own subdirectory is grandfathered too", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-adaptive/src" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a real sibling repo that merely looks like <repo>-<name> is not flagged", () => {
+  // ~/JHD/claude-usage and ~/JHD/paperclip-lab are their own repos, not
+  // worktrees — the rule only fires when the prefix is a repo the fleet
+  // actually branches worktrees off.
+  for (const repo of ["claude-usage", "paperclip-lab", "vault-archive"]) {
+    const { warnings } = lintSpec(serverSpec({ cwd: `~/JHD/${repo}` }), { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], `${repo} is a repo, not a stray worktree`);
+  }
+});
+
+test("lintSpec: a cwd outside ~/JHD entirely is none of this rule's business", () => {
+  const spec = serverSpec({ cwd: "/private/tmp/claude-502/scratch" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the loose-sibling warning names both accepted container forms", () => {
+  const spec = serverSpec({ cwd: "~/JHD/discipline-spike" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /worktrees\/discipline\//.test(w) && /discipline-worktrees\//.test(w)), warnings.join("\n"));
+});

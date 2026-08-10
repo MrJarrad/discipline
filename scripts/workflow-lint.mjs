@@ -295,6 +295,58 @@ function sentences(text) {
   return text.split(/(?<=[.!?\n])\s+/);
 }
 
+/* ---- worktree container convention ---------------------------------------
+   Banked convention (memory sibling worktrees-live-in-container-folder): a
+   worktree lives in a container — ~/JHD/worktrees/<repo>/<name> or
+   ~/JHD/<repo>-worktrees/<name> — never as a loose <repo>-<name> sibling of
+   the repo itself. A loose sibling reads to the operator as a second repo (it
+   has happened), and nothing sweeps it, so it survives every prune.
+
+   A warning, not a failure: the strays below are real, registered, and still
+   dispatched into. This rule's job is to stop the population growing.        */
+
+// The prefix must be a repo the fleet actually branches worktrees off, or the
+// rule would fire on every hyphenated sibling repo — ~/JHD/claude-usage and
+// ~/JHD/paperclip-lab are their own repos, not strays.
+const WORKTREE_REPOS = ["portfolio", "discipline", "vault"];
+
+// Registered stray worktrees that predate this rule. THEY MOVE AT THE NEXT
+// PRUNE — when they do, delete the entry rather than letting the list grow;
+// an allowlist that accretes is just the convention repealed slowly.
+export const GRANDFATHERED_WORKTREE_STRAYS = [
+  "portfolio-homeconcept",
+  "portfolio-herotext-enter",
+  "portfolio-transitions",
+  "portfolio-adaptive",
+];
+
+// Siblings that match the loose shape but are permanent checkouts in their own
+// right, not worktrees — ~/JHD/vault-archive is the archived vault, and its
+// prefix collides with a real worktree repo. Distinct from the grandfather
+// list above: these never move, so they never leave this constant.
+const NON_WORKTREE_SIBLINGS = ["vault-archive"];
+
+// Every spelling of the ~/JHD root a spec might write, for the same
+// no-I/O-at-lint-time reason as PROTECTED_CHECKOUTS.
+const JHD_ROOTS = ["/Users/jarradharvey/JHD/", "~/JHD/", "$HOME/JHD/"];
+
+// looseWorktreeSibling(cwd) -> { dir, repo } for a cwd sitting in a loose
+// <repo>-<name> sibling, or null. Only the first path segment under ~/JHD
+// matters — a cwd deeper inside a stray is still inside that stray.
+export function looseWorktreeSibling(cwd) {
+  if (!isNonEmptyString(cwd)) return null;
+  const path = cwd.trim().replace(/\/+$/, "");
+  const root = JHD_ROOTS.find((r) => path.startsWith(r));
+  if (!root) return null;
+  const dir = path.slice(root.length).split("/")[0];
+  if (!dir || !dir.includes("-")) return null;
+  if (dir.endsWith("-worktrees")) return null;              // the container itself
+  if (GRANDFATHERED_WORKTREE_STRAYS.includes(dir) || NON_WORKTREE_SIBLINGS.includes(dir)) return null;
+  const repo = dir.slice(0, dir.indexOf("-"));
+  if (!WORKTREE_REPOS.includes(repo)) return null;
+  return { dir, repo };
+}
+
 // lintPromptServers(prompt, { locus, label }) -> { warnings }. Pure.
 export function lintPromptServers(prompt, { locus, label } = {}) {
   const warnings = [];
@@ -349,6 +401,11 @@ export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
   const protectedRoot = protectedCheckoutHit(agent.cwd);
   if (protectedRoot) {
     errors.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is inside the protected live checkout ${protectedRoot} — agents work in a git worktree, never the operator's live checkout, because a dispatched branch-switch clobbers the tree the operator is looking at. Point cwd at a worktree.`);
+  }
+
+  const stray = looseWorktreeSibling(agent.cwd);
+  if (stray) {
+    warnings.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is a loose ${stray.repo}-<name> sibling — worktrees live in a container folder, ~/JHD/worktrees/${stray.repo}/<name> or ~/JHD/${stray.repo}-worktrees/<name>, so the operator doesn't read "${stray.dir}" as a second repo and the prune sweep can find it.`);
   }
 
   const nonVault = findNonVaultPaths(agent.prompt, { cwd: agent.cwd });
