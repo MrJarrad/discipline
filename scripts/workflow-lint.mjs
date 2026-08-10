@@ -403,6 +403,17 @@ export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
     errors.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is inside the protected live checkout ${protectedRoot} — agents work in a git worktree, never the operator's live checkout, because a dispatched branch-switch clobbers the tree the operator is looking at. Point cwd at a worktree.`);
   }
 
+  // 2026-08-09: three turn-capped runs ended with the work sitting in the
+  // working tree and nothing committed. A turn cap is not something the doer
+  // gets to discover in its last turn — the brief has to have told it to
+  // commit as it goes. Warning, not error: an engineer can legitimately be
+  // dispatched to investigate rather than to build, and the bare token match
+  // is on purpose, since any phrasing that contains the word is a real
+  // instruction and the linter has no business grading how it's worded.
+  if (agent.persona === "engineer" && isNonEmptyString(agent.prompt) && !/commit/i.test(agent.prompt)) {
+    warnings.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" is a persona=engineer dispatch whose prompt never says "commit" — three turn-capped runs on 2026-08-09 ended with the work uncommitted in the working tree. Tell it to commit after each coherent slice, so a turn cap costs the last slice and not the run.`);
+  }
+
   const stray = looseWorktreeSibling(agent.cwd);
   if (stray) {
     warnings.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is a loose ${stray.repo}-<name> sibling — worktrees live in a container folder, ~/JHD/worktrees/${stray.repo}/<name> or ~/JHD/${stray.repo}-worktrees/<name>, so the operator doesn't read "${stray.dir}" as a second repo and the prune sweep can find it.`);

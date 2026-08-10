@@ -677,3 +677,49 @@ test("lintSpec: the loose-sibling warning names both accepted container forms", 
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.ok(warnings.some((w) => /worktrees\/discipline\//.test(w) && /discipline-worktrees\//.test(w)), warnings.join("\n"));
 });
+
+// ---- engineer commit instruction -----------------------------------------
+//
+// 2026-08-09: three turn-capped runs ended with the work only in the working
+// tree. A turn cap is not an exception the doer gets to discover — the brief
+// has to have told it to commit as it goes. Warning, not failure: a spec can
+// legitimately dispatch an engineer to investigate rather than to build.
+
+test("lintSpec: an engineer prompt with no commit instruction warns", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a missing commit instruction is a warning, not a block");
+  assert.ok(warnings.some((w) => /commit/i.test(w) && /engineer-sonnet:x/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: an engineer prompt that says commit does not warn", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression. Commit after each coherent slice." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the match is case-insensitive and catches inflections", () => {
+  for (const phrase of ["commit", "Commit", "committed", "commits"]) {
+    const spec = serverSpec({ persona: "engineer", prompt: `Do the work. Everything must be ${phrase} before you finish.` });
+    const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], phrase);
+  }
+});
+
+test("lintSpec: a non-engineer persona with no commit instruction does not warn", () => {
+  const spec = serverSpec({ persona: "reviewer", prompt: "Review the hero spacing change." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an agent with no persona at all does not warn", () => {
+  const spec = serverSpec({ prompt: "Fix the hero spacing regression." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the commit warning names the failure it comes from", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /turn.?cap/i.test(w)), warnings.join("\n"));
+});
