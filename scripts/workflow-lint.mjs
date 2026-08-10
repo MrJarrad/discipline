@@ -411,12 +411,12 @@ export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
   // is on purpose, since any phrasing that contains the word is a real
   // instruction and the linter has no business grading how it's worded.
   if (agent.persona === "engineer" && isNonEmptyString(agent.prompt) && !/commit/i.test(agent.prompt)) {
-    warnings.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" is a persona=engineer dispatch whose prompt never says "commit" — three turn-capped runs on 2026-08-09 ended with the work uncommitted in the working tree. Tell it to commit after each coherent slice, so a turn cap costs the last slice and not the run.`);
+    warnings.push(`spec-lint: ${locus} "${agent.label ?? "?"}" is a persona=engineer dispatch whose prompt never says "commit" — three turn-capped runs on 2026-08-09 ended with the work uncommitted in the working tree. Tell it to commit after each coherent slice, so a turn cap costs the last slice and not the run.`);
   }
 
   const stray = looseWorktreeSibling(agent.cwd);
   if (stray) {
-    warnings.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is a loose ${stray.repo}-<name> sibling — worktrees live in a container folder, ~/JHD/worktrees/${stray.repo}/<name> or ~/JHD/${stray.repo}-worktrees/<name>, so the operator doesn't read "${stray.dir}" as a second repo and the prune sweep can find it.`);
+    warnings.push(`spec-lint: ${locus} "${agent.label ?? "?"}" cwd "${agent.cwd}" is a loose ${stray.repo}-<name> sibling — worktrees live in a container folder, ~/JHD/worktrees/${stray.repo}/<name> or ~/JHD/${stray.repo}-worktrees/<name>, so the operator doesn't read "${stray.dir}" as a second repo and the prune sweep can find it.`);
   }
 
   const nonVault = findNonVaultPaths(agent.prompt, { cwd: agent.cwd });
