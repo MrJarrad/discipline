@@ -132,14 +132,41 @@ const RULING_PLACEHOLDER_RE = /\b(TODO|TBD|FIXME|TK|XXX|placeholder|paste .{0,20
 // never a real quote.
 const RULING_STUB_WRAP_RE = /^<[^>]*>$/;
 
-// lintRulings(rulings) -> { errors }. Pure. Absent field = no rulings to check
-// (rule (a)/(c) below are what notice a spec that should have had one).
+/* DO/DON'T contrast pair (operator ruling 2026-08-10,
+   vault/fleet/rulings/2026-08-10-do-dont-pairs.md): "every standing ruling and
+   every skill law carries at least one CONTRAST PAIR — a concrete DO (the
+   compliant behavior in a real scenario) and a concrete DON'T (the violating
+   behavior, ideally phrased as the exact reasoning a violator would use).
+   Abstractions state the rule; the pair makes it unmistakable to a model
+   mid-task."
+
+   The ruling sets this severity itself — "Spec-lint treats a rulings entry
+   without both pair fields as a warning" — and that is the right call: some
+   rulings genuinely resist pairing, and only the author can tell which. A
+   half pair warns about the half that's missing and nothing else, so a spec
+   fixing one warning doesn't inherit the other's noise.                     */
+function lintRulingPair(r, locus) {
+  const hasDo = isNonEmptyString(r.do);
+  const hasDont = isNonEmptyString(r.dont);
+  if (hasDo && hasDont) return [];
+  if (!hasDo && !hasDont) {
+    return [`spec-lint: ${locus} has no DO/DON'T contrast pair — add \`do\` (one concrete compliant scenario) and \`dont\` (the violating one, ideally the exact reasoning a violator used). Abstractions state the rule; the pair is what makes it unmistakable to a model mid-task.`];
+  }
+  if (!hasDo) {
+    return [`spec-lint: ${locus} has a \`dont\` but no \`do\` — half a pair leaves the compliant scenario to inference, which is the gap the pair exists to close. Add one concrete compliant scenario; the pair is what makes the rule unmistakable to a model mid-task.`];
+  }
+  return [`spec-lint: ${locus} has a \`do\` but no \`dont\` — the DON'T half is the one that catches a model mid-rationalisation, so make it the exact reasoning a violator used, not a restatement of the rule.`];
+}
+
+// lintRulings(rulings) -> { errors, warnings }. Pure. Absent field = no rulings
+// to check (rule (a)/(c) below are what notice a spec that should have had one).
 export function lintRulings(rulings) {
   const errors = [];
-  if (rulings == null) return { errors };
+  const warnings = [];
+  if (rulings == null) return { errors, warnings };
   if (!Array.isArray(rulings)) {
     errors.push("spec-lint: spec `rulings` must be an array of {id, source, text} entries");
-    return { errors };
+    return { errors, warnings };
   }
   rulings.forEach((r, i) => {
     const locus = `rulings[${i}]${r && isNonEmptyString(r.id) ? ` "${r.id}"` : ""}`;
@@ -149,6 +176,8 @@ export function lintRulings(rulings) {
     }
     if (!isNonEmptyString(r.id)) errors.push(`spec-lint: ${locus} missing non-empty id`);
     if (!isNonEmptyString(r.source)) errors.push(`spec-lint: ${locus} missing non-empty source`);
+
+    warnings.push(...lintRulingPair(r, locus));
 
     if (typeof r.text !== "string" || r.text.trim().length === 0) {
       errors.push(`spec-lint: ${locus} has empty text — \`text\` must be the ruling's operative sentences quoted verbatim, not a citation`);
@@ -163,7 +192,7 @@ export function lintRulings(rulings) {
       errors.push(`spec-lint: ${locus} text ("${text.slice(0, 60)}") is too short to be a verbatim quote — a name, path, or section number is a citation, and a citation is not compliance`);
     }
   });
-  return { errors };
+  return { errors, warnings };
 }
 
 // Rule (a) trigger: the prompt talks about a governing ruling — either a
@@ -275,8 +304,9 @@ export function lintSpec(spec, { personaExists } = {}) {
   }
   if (!isNonEmptyString(spec.name)) errors.push("spec-lint: spec missing non-empty name");
 
-  const { errors: rulingErrors } = lintRulings(spec.rulings);
+  const { errors: rulingErrors, warnings: rulingWarnings } = lintRulings(spec.rulings);
   errors.push(...rulingErrors);
+  warnings.push(...rulingWarnings);
 
   if (!Array.isArray(spec.phases) || spec.phases.length === 0) {
     errors.push("spec-lint: spec must have a non-empty phases array");

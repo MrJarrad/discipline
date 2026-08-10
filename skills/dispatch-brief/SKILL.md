@@ -72,7 +72,7 @@ in the brief, don't assume the doer infers it.
   name and new labels each round. Brief the continuation to treat whatever is sitting in
   the working tree as an untrusted draft to verify, not a trusted starting point.
 
-## Governing rulings are QUOTED, never cited
+## Governing rulings are QUOTED with a DO/DON'T pair, never cited
 
 **A name/path citation is not compliance.** Naming a ruling delegates its interpretation
 to the reader; the ruling's own sentences in the prompt constrain them. This is a measured
@@ -90,15 +90,35 @@ prompt *and* every verify prompt, and journals the ruling ids per dispatch:
 { "name": "...",
   "rulings": [{ "id": "media-§6",
                 "source": "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
-                "text": "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. …" }],
+                "text": "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. …",
+                "do": "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.",
+                "dont": "every drop file is byte-identical to what shipped, so there is nothing to do." }],
   "phases": [ … ] }
 ```
 
 Quote, don't summarise — a paraphrase reintroduces exactly the interpretation gap the
-verbatim text closes. `node scripts/workflow-lint.mjs <spec>` hard-fails a placeholder
-`text`, and warns when a prompt cites a ruling, or reads as media/ingest/replacement
-work, with no `rulings` field behind it. For an Agent-tool dispatch there's no spec, so
-the same block goes in the prompt body by hand.
+verbatim text closes. For an Agent-tool dispatch there's no spec, so the same block goes
+in the prompt body by hand.
+
+**The quote alone is not enough — every ruling ships a contrast pair.** Operator, after
+the abstract ruling above was read *and still breached*: *"every standing ruling and every
+skill law carries at least one CONTRAST PAIR — a concrete DO (the compliant behavior in a
+real scenario) and a concrete DON'T (the violating behavior, ideally phrased as the exact
+reasoning a violator would use). Abstractions state the rule; the pair makes it
+unmistakable to a model mid-task."*
+(`vault/fleet/rulings/2026-08-10-do-dont-pairs.md`)
+
+So write both fields, and write the `dont` as the violator's own sentence, not a negation
+of the rule. The DON'T above is verbatim the reasoning that produced the 2026-08-10 §6
+breach — an agent that catches itself thinking it recognises the breach before committing
+it. "Don't skip the copy" would not have done that. The runner renders the pair as
+`DO:` / `DON'T:` lines beneath the quoted text and journals pair presence per dispatch.
+
+`node scripts/workflow-lint.mjs <spec>` hard-fails a placeholder `text`; warns when a
+prompt cites a ruling, or reads as media/ingest/replacement work, with no `rulings` field
+behind it; and warns per entry when either pair half is missing. That last one is a
+warning, not a failure, because some rulings genuinely resist pairing — but the default
+is a pair, and "this one resists" is a judgement you make, not one you drift into.
 
 The reviewer gets the rulings too. A gate that can't see the ruling can't catch a breach
 of it — that half is what failed in 2026-08-07.
@@ -164,6 +184,8 @@ avoidable token cost.
 [ ] Required skills named per the work-type table above
 [ ] Governing rulings are QUOTED verbatim in the brief (the spec `rulings` field);
     a name/path citation is not compliance — and the reviewer's prompt carries them too
+[ ] Each ruling carries its DO/DON'T pair, the `dont` phrased as the violator's own
+    reasoning; a bare abstraction has already been read and breached once
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
 [ ] Existing agent resumed if one holds the domain; primer cited as first read where one exists
 [ ] Brief carries verified file:line loci, baselines (commit hash, version), and key-file hashes

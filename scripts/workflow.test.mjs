@@ -749,3 +749,92 @@ test("runWorkflow: a spec with no rulings journals no ruling ids and injects not
   assert.equal(prompts.some((p) => p.includes(RULINGS_HEADER)), false);
   assert.equal(logs.filter((e) => e.type === "agent").every((e) => e.rulings === undefined), true);
 });
+
+// ---- DO/DON'T contrast pairs ---------------------------------------------
+//
+// Operator ruling 2026-08-10 (vault/fleet/rulings/2026-08-10-do-dont-pairs.md):
+// "every standing ruling and every skill law carries at least one CONTRAST
+// PAIR — a concrete DO (the compliant behavior in a real scenario) and a
+// concrete DON'T (the violating behavior, ideally phrased as the exact
+// reasoning a violator would use). Abstractions state the rule; the pair makes
+// it unmistakable to a model mid-task." The §6 exemplar below is the operator's
+// own, quoted from that ruling — the DON'T is the verbatim reasoning of the
+// 2026-08-10 violation, which is the entire point of the field.
+
+const S6_DO = "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.";
+const S6_DONT = "every drop file is byte-identical to what shipped, so there is nothing to do.";
+const MEDIA_S6_PAIRED = { ...MEDIA_S6, do: S6_DO, dont: S6_DONT };
+
+test("buildRulingsBlock: renders the DO/DON'T pair beneath the verbatim text", () => {
+  const block = buildRulingsBlock([MEDIA_S6_PAIRED]);
+  assert.ok(block.includes(MEDIA_S6_TEXT), "the verbatim text must survive unchanged");
+  assert.ok(block.includes(`DO: ${S6_DO}`), "the DO line must appear verbatim");
+  assert.ok(block.includes(`DON'T: ${S6_DONT}`), "the DON'T line must appear verbatim");
+  assert.ok(
+    block.indexOf(MEDIA_S6_TEXT) < block.indexOf(`DO: ${S6_DO}`),
+    "the pair sits BENEATH the quoted ruling, never ahead of it",
+  );
+  assert.ok(
+    block.indexOf(`DO: ${S6_DO}`) < block.indexOf(`DON'T: ${S6_DONT}`),
+    "DO precedes DON'T",
+  );
+});
+
+test("buildRulingsBlock: a pair-less ruling renders exactly as it did before the pair fields existed", () => {
+  assert.equal(buildRulingsBlock([MEDIA_S6]).includes("DO:"), false);
+  assert.equal(buildRulingsBlock([MEDIA_S6]).includes("DON'T:"), false);
+});
+
+test("buildRulingsBlock: a half pair renders only the half that exists", () => {
+  const doOnly = buildRulingsBlock([{ ...MEDIA_S6, do: S6_DO }]);
+  assert.ok(doOnly.includes(`DO: ${S6_DO}`));
+  assert.equal(doOnly.includes("DON'T:"), false);
+
+  const dontOnly = buildRulingsBlock([{ ...MEDIA_S6, dont: S6_DONT }]);
+  assert.ok(dontOnly.includes(`DON'T: ${S6_DONT}`));
+  assert.equal(dontOnly.includes("DO:"), false);
+});
+
+test("buildRulingsBlock: the framing tells the reader what a DON'T line means for their own reasoning", () => {
+  const block = buildRulingsBlock([MEDIA_S6_PAIRED]);
+  assert.match(block, /DON'T line/i);
+});
+
+test("runClaude: the DO/DON'T pair reaches argv alongside the verbatim text", async () => {
+  const { prompts, spawnImpl } = capturingSpawn();
+  await runClaude({ prompt: "ingest the new media drop", rulings: [MEDIA_S6_PAIRED], label: "x" }, "spec", { spawnImpl });
+  assert.ok(prompts[0].includes(`DO: ${S6_DO}`), prompts[0]);
+  assert.ok(prompts[0].includes(`DON'T: ${S6_DONT}`), prompts[0]);
+});
+
+// Pair presence is journalled per dispatch so an audit of a finished run can
+// answer "was this agent shown the contrast pair, or only the abstraction?"
+// without re-deriving it from the spec — the spec may have moved on since.
+
+test("runWorkflow: the journal records pair presence per ruling on every dispatch", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const { spawnImpl } = capturingSpawn('{"is_error":false,"result":"ok CONFIRMED","num_turns":1}');
+  const spec = multiStageSpec();
+  spec.rulings = [MEDIA_S6_PAIRED, { ...MEDIA_S6, id: "half-§1", do: S6_DO }, { ...MEDIA_S6, id: "bare-§2" }];
+  const logs = [];
+  await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  const dispatches = logs.filter((e) => e.type === "agent" || e.type === "verify");
+  assert.equal(dispatches.length, 5);
+  for (const d of dispatches) {
+    assert.deepEqual(
+      d.rulingPairs,
+      { "media-§6": "both", "half-§1": "do-only", "bare-§2": "none" },
+      `${d.type} "${d.label}" did not record pair presence`,
+    );
+  }
+});
+
+test("runWorkflow: a spec with no rulings journals no pair presence either", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const { spawnImpl } = capturingSpawn();
+  const spec = multiStageSpec();
+  delete spec.rulings;
+  const logs = [];
+  await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  assert.equal(logs.filter((e) => e.type === "agent").every((e) => e.rulingPairs === undefined), true);
+});

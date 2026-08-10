@@ -8,7 +8,11 @@
    Spec:   { "name": "...",
              "rulings": [ { "id": "media-§6", "source": "vault/fleet/rulings/....md",
                "text": "the operative ruling QUOTED VERBATIM — not a summary, not a
-                 citation" } ]   (optional, top-level — see the rulings note below)
+                 citation",
+               "do": "one concrete compliant scenario (optional, warned-on if absent)",
+               "dont": "the violating scenario, ideally the exact reasoning a violator
+                 used (optional, warned-on if absent)" } ]
+                 (optional, top-level — see the rulings note below)
              "phases": [ { "title": "...",
              "agents": [{ "label": "...", "prompt": "...", "model": "haiku|sonnet|opus", "cwd": "...",
              "persona": "reviewer (optional — resolves <plugin root>/agents/<persona>.md, strips its
@@ -71,6 +75,16 @@
    ruling's operative sentences quoted verbatim; workflow-lint.mjs hard-fails
    a placeholder and warns when a prompt cites a ruling with no `rulings`
    field to back it. Specs without the field are entirely unaffected.
+
+   Each ruling also carries a CONTRAST PAIR — `do` and `dont` — rendered as
+   "DO: …" / "DON'T: …" lines beneath the quoted text, and journalled per
+   dispatch as `rulingPairs: { <id>: both|do-only|dont-only|none }`. Operator
+   ruling 2026-08-10 (vault/fleet/rulings/2026-08-10-do-dont-pairs.md):
+   "Abstractions state the rule; the pair makes it unmistakable to a model
+   mid-task." The `dont` is most useful when it quotes the exact reasoning a
+   previous violator used, so the next agent recognises its own thought before
+   acting on it. Both fields are optional and spec-lint only warns on a missing
+   half — some rulings genuinely resist pairing.
 
    Housekeeping note: dispatched-repo .claude/journal.jsonl files (session
    journals a doer's own tooling may write inside the target repo) should be
@@ -219,8 +233,8 @@ export function buildSkillPreamble(skills) {
 // re-typing the wording.
 export const RULINGS_HEADER = "STANDING RULINGS — verbatim, binding:";
 
-// buildRulingsBlock([{id, source, text}]) -> framed block string, or "" for an
-// empty/undefined list. Pure — no I/O, no persona/prompt knowledge.
+// buildRulingsBlock([{id, source, text, do?, dont?}]) -> framed block string,
+// or "" for an empty/undefined list. Pure — no I/O, no persona/prompt knowledge.
 //
 // Why the runner carries ruling TEXT and not a citation (operator, 2026-08-10,
 // after the media §6 hash-adjudication violation recurred): "clearly decision
@@ -230,14 +244,48 @@ export const RULINGS_HEADER = "STANDING RULINGS — verbatim, binding:";
 // ruling's own sentences in the prompt constrain it. So `text` is contractually
 // the operative ruling QUOTED verbatim — spec-lint hard-fails a placeholder —
 // and this function never summarises, truncates, or reflows it.
+//
+// `do` / `dont` are the ruling's CONTRAST PAIR (operator ruling 2026-08-10,
+// vault/fleet/rulings/2026-08-10-do-dont-pairs.md): "Abstractions state the
+// rule; the pair makes it unmistakable to a model mid-task." They render
+// BENEATH the quoted text — the quote is the ruling, the pair is how it cashes
+// out in a real scenario, and inverting that order would let a reader take the
+// example for the rule. Both are optional (spec-lint warns, never fails, on a
+// missing half: some rulings genuinely resist pairing), and a ruling with
+// neither renders byte-identically to how it did before these fields existed.
 export function buildRulingsBlock(rulings) {
   if (!Array.isArray(rulings) || rulings.length === 0) return "";
-  const entries = rulings.map((r) => `[${r.id}] source: ${r.source}\n${r.text}`).join("\n\n");
+  const entries = rulings.map((r) => {
+    const lines = [`[${r.id}] source: ${r.source}`, r.text];
+    if (isNonEmptyString(r.do)) lines.push(`DO: ${r.do.trim()}`);
+    if (isNonEmptyString(r.dont)) lines.push(`DON'T: ${r.dont.trim()}`);
+    return lines.join("\n");
+  }).join("\n\n");
   return `${RULINGS_HEADER}\n\n${entries}\n\n` +
     "The text above is quoted verbatim from standing operator rulings and binds this task " +
     "absolutely. Comply with it as written — a paraphrase, a \"materially similar\" outcome, " +
     "or your own judgement about when it applies is NOT compliance. If a ruling appears to " +
-    "conflict with the task below, STOP and surface the conflict; never resolve it yourself.";
+    "conflict with the task below, STOP and surface the conflict; never resolve it yourself. " +
+    "Any DO/DON'T lines are that ruling's concrete contrast pair: the DO is compliant " +
+    "behaviour in a real scenario, and the DON'T line is the actual reasoning a previous " +
+    "agent used to talk itself into the breach. If your own reasoning starts to sound like " +
+    "a DON'T line, you are already in breach — stop there.";
+}
+
+function isNonEmptyString(x) {
+  return typeof x === "string" && x.trim().length > 0;
+}
+
+// pairPresence(ruling) -> "both" | "do-only" | "dont-only" | "none". The
+// journal's record of how much of the contrast pair a dispatch actually
+// carried; kept next to buildRulingsBlock so the two read the same fields.
+export function pairPresence(ruling) {
+  const hasDo = isNonEmptyString(ruling?.do);
+  const hasDont = isNonEmptyString(ruling?.dont);
+  if (hasDo && hasDont) return "both";
+  if (hasDo) return "do-only";
+  if (hasDont) return "dont-only";
+  return "none";
 }
 
 // Persona -> skill mandate -> rulings -> task, in that order. Throws (via
@@ -445,6 +493,12 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
   // rulings is exactly the hole this closes.
   const rulings = Array.isArray(spec.rulings) && spec.rulings.length ? spec.rulings : undefined;
   const rulingIds = rulings?.map((r) => r.id);
+  // Pair presence, journalled per dispatch alongside the ids: an audit of a
+  // finished run can then answer "was this agent shown the ruling's contrast
+  // pair, or only its abstraction?" without re-reading a spec that may have
+  // moved on since. Recorded per ruling id rather than as a single boolean
+  // because a half pair is a real, distinct state that spec-lint warns about.
+  const rulingPairs = rulings && Object.fromEntries(rulings.map((r) => [r.id, pairPresence(r)]));
 
   const summary = [];
   let anyFailed = false;
@@ -461,7 +515,7 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
       log({
         type: "agent", label: a.label, ok: r.ok, outcome: r.outcome, sessionId: r.sessionId,
         numTurns: r.numTurns, maxTurns: a.maxTurns, costUsd: r.costUsd, durationMs: r.durationMs,
-        rulings: rulingIds, result: r.result?.slice?.(0, 4000),
+        rulings: rulingIds, rulingPairs, result: r.result?.slice?.(0, 4000),
       });
       return full;
     }));
@@ -498,7 +552,7 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
         const result = votes.map((vt) => String(vt.result ?? "")).join("\n---\n").slice(0, 4000);
         log({
           type: "verify", label: r.label, confirmed, of: votes.length, survives,
-          verdicts: parsedVotes.map((p) => p.verdict), rulings: rulingIds, result,
+          verdicts: parsedVotes.map((p) => p.verdict), rulings: rulingIds, rulingPairs, result,
         });
         if (survives) survivors.push(r); else console.log(`  ✗ refuted: ${r.label}`);
       }

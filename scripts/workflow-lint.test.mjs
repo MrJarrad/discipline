@@ -310,10 +310,16 @@ test("lintAgent: works standalone (not just through lintSpec)", () => {
 // author judge, exactly as the maxTurns floor lint distinguishes a real
 // violation from an explicitly-overridden one.
 
+// A fully-formed ruling entry: the verbatim quote AND the contrast pair the
+// 2026-08-10 do/dont ruling requires. Tests that assert "no warnings at all"
+// lean on this being complete, so a half-formed fixture would silently mask
+// the pair lint.
 const VALID_RULING = {
   id: "media-§6",
   source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
   text: "No hash/size/mtime adjudication ever decides whether to copy a delivered asset.",
+  do: "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.",
+  dont: "every drop file is byte-identical to what shipped, so there is nothing to do.",
 };
 
 function rulingsSpec(rulings, agentOverrides = {}) {
@@ -429,4 +435,53 @@ test("lintSpec: the same ingest prompt WITH a rulings field trips no heuristic w
   const spec = rulingsSpec([VALID_RULING], { prompt: "Ingest the latest Sakara batch into the deck." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
+});
+
+// ---- DO/DON'T contrast pairs ---------------------------------------------
+//
+// Operator ruling 2026-08-10 (vault/fleet/rulings/2026-08-10-do-dont-pairs.md):
+// "every standing ruling and every skill law carries at least one CONTRAST
+// PAIR — a concrete DO … and a concrete DON'T … Abstractions state the rule;
+// the pair makes it unmistakable to a model mid-task." The ruling itself sets
+// the severity: "Spec-lint treats a rulings entry without both pair fields as
+// a warning." A warning, not an error, because some rulings genuinely resist
+// pairing — the author, not the linter, is the one who can tell.
+
+test("lintSpec: a rulings entry with no DO and no DON'T warns, naming the entry", () => {
+  const bare = { id: "media-§6", source: VALID_RULING.source, text: VALID_RULING.text };
+  const { errors, warnings } = lintSpec(rulingsSpec([bare]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a missing pair is never a hard failure");
+  assert.ok(warnings.some((w) => /media-§6/.test(w) && /\bdo\b/i.test(w) && /don't/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a rulings entry with a DO but no DON'T warns about the missing half only", () => {
+  const half = { ...VALID_RULING, dont: undefined };
+  const { warnings } = lintSpec(rulingsSpec([half]), { personaExists: okPersonaExists });
+  assert.equal(warnings.length, 1, warnings.join("\n"));
+  assert.ok(/don't/i.test(warnings[0]), warnings[0]);
+});
+
+test("lintSpec: a rulings entry with a DON'T but no DO warns about the missing half only", () => {
+  const half = { ...VALID_RULING, do: undefined };
+  const { warnings } = lintSpec(rulingsSpec([half]), { personaExists: okPersonaExists });
+  assert.equal(warnings.length, 1, warnings.join("\n"));
+  assert.ok(/\bdo\b/i.test(warnings[0]) && !/don't/i.test(warnings[0]), warnings[0]);
+});
+
+test("lintSpec: a complete pair produces no pair warning", () => {
+  const { errors, warnings } = lintSpec(rulingsSpec([VALID_RULING]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a blank-string pair half counts as missing", () => {
+  const blank = { ...VALID_RULING, do: "   " };
+  const { warnings } = lintSpec(rulingsSpec([blank]), { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /\bdo\b/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the pair warning names why the pair exists, not just that it is absent", () => {
+  const bare = { id: "media-§6", source: VALID_RULING.source, text: VALID_RULING.text };
+  const { warnings } = lintSpec(rulingsSpec([bare]), { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /contrast pair|unmistakable|mid-task/i.test(w)), warnings.join("\n"));
 });
