@@ -299,3 +299,134 @@ test("lintAgent: works standalone (not just through lintSpec)", () => {
   const { errors } = lintAgent({ label: "a", prompt: "x", maxTurns: 100 }, { personaExists: okPersonaExists, locus: "test" });
   assert.deepEqual(errors, []);
 });
+
+// ---- standing rulings ----------------------------------------------------
+//
+// Three rules, matching the operator's 2026-08-10 verdict that a named
+// citation is not compliance. (b) is the only hard failure: a `rulings` entry
+// that doesn't actually carry the ruling's words is worse than no field at
+// all, because it looks like compliance. (a) and (c) are warnings — prose that
+// mentions a ruling is legitimate, so the lint names the prompt and lets the
+// author judge, exactly as the maxTurns floor lint distinguishes a real
+// violation from an explicitly-overridden one.
+
+const VALID_RULING = {
+  id: "media-§6",
+  source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+  text: "No hash/size/mtime adjudication ever decides whether to copy a delivered asset.",
+};
+
+function rulingsSpec(rulings, agentOverrides = {}) {
+  return {
+    name: "test-spec",
+    rulings,
+    phases: [{
+      title: "Build",
+      agents: [{ label: "engineer-sonnet:x", prompt: "do it", model: "sonnet", maxTurns: 100, ...agentOverrides }],
+    }],
+  };
+}
+
+// (b) placeholder / non-verbatim ruling text -> hard fail
+
+test("lintSpec: a rulings entry with a well-formed verbatim quote passes", () => {
+  const { errors } = lintSpec(rulingsSpec([VALID_RULING]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: a rulings entry with empty text is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "   " }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /rulings\[0\].*media-§6.*text/.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is a TODO placeholder is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "TODO: paste the §6 wording in here" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /placeholder/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is an angle-bracket stub is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "<quote the ruling here>" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /placeholder/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is a bare path (a citation, not a quote) is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "vault/fleet/rulings/2026-08-06-design-contract.md#6" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /verbatim quote/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry missing id or source is a hard failure", () => {
+  const { errors } = lintSpec(rulingsSpec([{ text: VALID_RULING.text }]), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /\bid\b/.test(e)), errors.join("\n"));
+  assert.ok(errors.some((e) => /\bsource\b/.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a non-array rulings field is a hard failure", () => {
+  const { errors } = lintSpec(rulingsSpec("media-§6"), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /rulings.*array/i.test(e)), errors.join("\n"));
+});
+
+// (a) a prompt that cites a ruling with no `rulings` field to back it -> warning
+
+test("lintSpec: a prompt citing a § section with no rulings field warns, naming the prompt", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Apply media §6 when copying the batch." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a prose citation is not a hard failure");
+  assert.ok(warnings.some((w) => /engineer-sonnet:x/.test(w) && /rulings/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a prompt using the token 'ruling' with no rulings field warns", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Honour the standing ruling on asset replacement." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /citation is not compliance|quote/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same citing prompt WITH a rulings field produces no citation warning", () => {
+  const spec = rulingsSpec([VALID_RULING], { prompt: "Apply media §6 when copying the batch." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an ordinary prompt with no citation and no rulings field warns about nothing", () => {
+  const { warnings } = lintSpec(rulingsSpec(undefined), { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a VERIFY prompt citing a ruling with no rulings field warns (the reviewer half of the breach)", () => {
+  const spec = rulingsSpec(undefined);
+  spec.phases[0].verify = { prompt: "Check media §6 compliance in: {{RESULT}}", model: "haiku", votes: 1 };
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /verify/.test(w)), warnings.join("\n"));
+});
+
+// (c) work-type heuristic: media/ingest/replacement work with no rulings field
+
+test("lintSpec: an ingest prompt with no rulings field warns, citing media §6 by name", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Ingest the latest Sakara batch into the deck." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "the heuristic is advisory, never a hard failure");
+  assert.ok(warnings.some((w) => /§6/.test(w) && /UNCONDITIONAL/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a 'replace' prompt with no rulings field trips the same heuristic", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Replace the hero assets with the new drop." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /§6/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a 'media drop' prompt with no rulings field trips the same heuristic", () => {
+  const spec = rulingsSpec(undefined, { prompt: "A new media drop landed — wire it up." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /§6/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same ingest prompt WITH a rulings field trips no heuristic warning", () => {
+  const spec = rulingsSpec([VALID_RULING], { prompt: "Ingest the latest Sakara batch into the deck." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});

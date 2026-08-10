@@ -100,7 +100,107 @@ function isNonEmptyString(x) {
   return typeof x === "string" && x.trim().length > 0;
 }
 
-export function lintAgent(agent, { personaExists, locus }) {
+/* ---- standing rulings ----------------------------------------------------
+   Operator ruling 2026-08-10, after the media §6 hash-adjudication breach
+   recurred despite the brief citing §6 by name AND vault path: "clearly
+   decision notes alone aren't cutting it." The runner injects a spec's
+   top-level `rulings` verbatim into every prompt (workflow.mjs
+   buildRulingsBlock); these rules are the static half — they make the
+   difference between quoting a ruling and merely naming one visible before
+   any agent is dispatched.
+
+   Severity split follows the maxTurns-floor lint's convention: a state that
+   is definitely wrong is an error, a state that is probably wrong but has
+   legitimate exceptions is a warning naming the exact locus so the author can
+   judge. A `rulings` entry that doesn't carry the ruling's words is the
+   former — it looks like compliance while delegating interpretation, which is
+   the precise failure mode being closed. A prompt that merely mentions a
+   ruling is the latter: prose mentions are legitimate.                     */
+
+// A verbatim operative ruling is prose. Fewer than this many words means the
+// author pasted a citation, a path, or a stub — not the ruling's own
+// sentences. Chosen as a shape test rather than a character count so short
+// but real rulings ("Replace all media, unconditionally.") still pass.
+export const RULING_MIN_WORDS = 3;
+
+// Stub markers that mean "text to be filled in later". Deliberately narrow —
+// these tokens have no place inside a quoted operator ruling, so a match is
+// unambiguous rather than a heuristic.
+const RULING_PLACEHOLDER_RE = /\b(TODO|TBD|FIXME|TK|XXX|placeholder|paste .{0,20}here|quote .{0,20}here)\b/i;
+
+// A whole text wrapped in angle brackets is a fill-me-in slot (<quote here>),
+// never a real quote.
+const RULING_STUB_WRAP_RE = /^<[^>]*>$/;
+
+// lintRulings(rulings) -> { errors }. Pure. Absent field = no rulings to check
+// (rule (a)/(c) below are what notice a spec that should have had one).
+export function lintRulings(rulings) {
+  const errors = [];
+  if (rulings == null) return { errors };
+  if (!Array.isArray(rulings)) {
+    errors.push("spec-lint: spec `rulings` must be an array of {id, source, text} entries");
+    return { errors };
+  }
+  rulings.forEach((r, i) => {
+    const locus = `rulings[${i}]${r && isNonEmptyString(r.id) ? ` "${r.id}"` : ""}`;
+    if (!r || typeof r !== "object") {
+      errors.push(`spec-lint: ${locus} must be an object with {id, source, text}`);
+      return;
+    }
+    if (!isNonEmptyString(r.id)) errors.push(`spec-lint: ${locus} missing non-empty id`);
+    if (!isNonEmptyString(r.source)) errors.push(`spec-lint: ${locus} missing non-empty source`);
+
+    if (typeof r.text !== "string" || r.text.trim().length === 0) {
+      errors.push(`spec-lint: ${locus} has empty text — \`text\` must be the ruling's operative sentences quoted verbatim, not a citation`);
+      return;
+    }
+    const text = r.text.trim();
+    if (RULING_PLACEHOLDER_RE.test(text) || RULING_STUB_WRAP_RE.test(text)) {
+      errors.push(`spec-lint: ${locus} text is a placeholder ("${text.slice(0, 40)}") — quote the ruling's operative sentences verbatim`);
+      return;
+    }
+    if (text.split(/\s+/).length < RULING_MIN_WORDS) {
+      errors.push(`spec-lint: ${locus} text ("${text.slice(0, 60)}") is too short to be a verbatim quote — a name, path, or section number is a citation, and a citation is not compliance`);
+    }
+  });
+  return { errors };
+}
+
+// Rule (a) trigger: the prompt talks about a governing ruling — either a
+// §-style section citation or the word itself. This is exactly the shape of
+// the brief that failed: it named "media §6" and gave the vault path.
+const RULING_CITATION_RE = /§|\brulings?\b/i;
+
+// Rule (c) trigger: work types the media-replacement ruling governs. Kept
+// literal and narrow so it flags the known-dangerous shapes rather than
+// guessing at work types no ruling covers.
+const MEDIA_WORK_RE = /ingest|media drop|replace/i;
+
+// The one ruling the (c) heuristic knows by name, so the warning tells the
+// author WHICH ruling to go quote instead of leaving them to search.
+const MEDIA_RULING_CITE =
+  'media §6 "Asset replacement is UNCONDITIONAL" (vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md)';
+
+// lintPromptRulings(prompt, { locus, label, specHasRulings }) -> { warnings }.
+// Pure. Warnings, never errors: a prompt may legitimately discuss a ruling in
+// prose, and the work-type match is a heuristic. Each warning names the exact
+// prompt so the author can dismiss it in one look.
+export function lintPromptRulings(prompt, { locus, label, specHasRulings }) {
+  const warnings = [];
+  if (specHasRulings || !isNonEmptyString(prompt)) return { warnings };
+  const who = `${locus}${label ? ` "${label}"` : ""}`;
+
+  if (RULING_CITATION_RE.test(prompt)) {
+    warnings.push(`spec-lint: ${who} prompt cites a ruling (§ or the word "ruling") but the spec has no \`rulings\` field — a name/path citation is not compliance; quote the ruling's operative sentences verbatim in spec.rulings so the runner injects them`);
+  }
+  const workMatch = prompt.match(MEDIA_WORK_RE);
+  if (workMatch) {
+    warnings.push(`spec-lint: ${who} prompt looks like media/replacement work (matched "${workMatch[0]}") and the spec has no \`rulings\` field — ${MEDIA_RULING_CITE} very likely binds it; quote it verbatim in spec.rulings`);
+  }
+  return { warnings };
+}
+
+export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
   const errors = [];
   const warnings = [];
 
@@ -128,6 +228,8 @@ export function lintAgent(agent, { personaExists, locus }) {
     if (!ok) errors.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" has invalid skills — must be an array of non-empty strings`);
   }
 
+  warnings.push(...lintPromptRulings(agent.prompt, { locus, label: agent.label, specHasRulings }).warnings);
+
   const nonVault = findNonVaultPaths(agent.prompt, { cwd: agent.cwd });
   for (const hit of nonVault) {
     errors.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" prompt references non-vault path "${hit}" (allowlist: ~/JHD/, or paths under the agent's own cwd)`);
@@ -143,16 +245,21 @@ export function lintAgent(agent, { personaExists, locus }) {
   return { errors, warnings };
 }
 
-function lintVerify(verify, locus) {
+function lintVerify(verify, locus, { specHasRulings } = {}) {
   const errors = [];
-  if (!verify) return { errors };
+  const warnings = [];
+  if (!verify) return { errors, warnings };
   if ("votes" in verify && !(Number.isInteger(verify.votes) && verify.votes > 0)) {
     errors.push(`spec-lint: ${locus} verify block has invalid votes "${verify.votes}" — must be a positive integer`);
   }
   if (!isNonEmptyString(verify.prompt) || !verify.prompt.includes("{{RESULT}}")) {
     errors.push(`spec-lint: ${locus} verify block prompt must be a non-empty string containing {{RESULT}}`);
   }
-  return { errors };
+  // The refuter half matters as much as the doer half: the 2026-08-07 §6
+  // breach was waved through by a reviewer whose own prompt named the ruling
+  // without carrying its text.
+  warnings.push(...lintPromptRulings(verify.prompt, { locus: `${locus} verify block`, specHasRulings }).warnings);
+  return { errors, warnings };
 }
 
 // lintSpec(spec, { personaExists }) -> { errors, warnings }. personaExists is
@@ -167,12 +274,19 @@ export function lintSpec(spec, { personaExists } = {}) {
     return { errors: ["spec-lint: spec must be a JSON object"], warnings };
   }
   if (!isNonEmptyString(spec.name)) errors.push("spec-lint: spec missing non-empty name");
+
+  const { errors: rulingErrors } = lintRulings(spec.rulings);
+  errors.push(...rulingErrors);
+
   if (!Array.isArray(spec.phases) || spec.phases.length === 0) {
     errors.push("spec-lint: spec must have a non-empty phases array");
     return { errors, warnings };
   }
 
   const seenLabels = new Map();
+  // "Has rulings" means "the runner will actually inject something" — an
+  // absent field and an empty array are the same thing to a dispatched agent.
+  const specHasRulings = Array.isArray(spec.rulings) && spec.rulings.length > 0;
 
   spec.phases.forEach((phase, pIdx) => {
     const phaseLocus = `phase[${pIdx}]${phase?.title ? ` "${phase.title}"` : ""}`;
@@ -182,7 +296,7 @@ export function lintSpec(spec, { personaExists } = {}) {
     }
     phase.agents.forEach((agent, aIdx) => {
       const locus = `${phaseLocus} agent[${aIdx}]`;
-      const { errors: agentErrors, warnings: agentWarnings } = lintAgent(agent, { personaExists, locus });
+      const { errors: agentErrors, warnings: agentWarnings } = lintAgent(agent, { personaExists, locus, specHasRulings });
       errors.push(...agentErrors);
       warnings.push(...agentWarnings);
 
@@ -200,8 +314,9 @@ export function lintSpec(spec, { personaExists } = {}) {
     });
 
     if (phase.verify) {
-      const { errors: verifyErrors } = lintVerify(phase.verify, phaseLocus);
+      const { errors: verifyErrors, warnings: verifyWarnings } = lintVerify(phase.verify, phaseLocus, { specHasRulings });
       errors.push(...verifyErrors);
+      warnings.push(...verifyWarnings);
     }
   });
 
