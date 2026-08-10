@@ -299,3 +299,427 @@ test("lintAgent: works standalone (not just through lintSpec)", () => {
   const { errors } = lintAgent({ label: "a", prompt: "x", maxTurns: 100 }, { personaExists: okPersonaExists, locus: "test" });
   assert.deepEqual(errors, []);
 });
+
+// ---- standing rulings ----------------------------------------------------
+//
+// Three rules, matching the operator's 2026-08-10 verdict that a named
+// citation is not compliance. (b) is the only hard failure: a `rulings` entry
+// that doesn't actually carry the ruling's words is worse than no field at
+// all, because it looks like compliance. (a) and (c) are warnings — prose that
+// mentions a ruling is legitimate, so the lint names the prompt and lets the
+// author judge, exactly as the maxTurns floor lint distinguishes a real
+// violation from an explicitly-overridden one.
+
+// A fully-formed ruling entry: the verbatim quote AND the contrast pair the
+// 2026-08-10 do/dont ruling requires. Tests that assert "no warnings at all"
+// lean on this being complete, so a half-formed fixture would silently mask
+// the pair lint.
+const VALID_RULING = {
+  id: "media-§6",
+  source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+  text: "No hash/size/mtime adjudication ever decides whether to copy a delivered asset.",
+  do: "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.",
+  dont: "every drop file is byte-identical to what shipped, so there is nothing to do.",
+};
+
+function rulingsSpec(rulings, agentOverrides = {}) {
+  return {
+    name: "test-spec",
+    rulings,
+    phases: [{
+      title: "Build",
+      agents: [{ label: "engineer-sonnet:x", prompt: "do it", model: "sonnet", maxTurns: 100, ...agentOverrides }],
+    }],
+  };
+}
+
+// (b) placeholder / non-verbatim ruling text -> hard fail
+
+test("lintSpec: a rulings entry with a well-formed verbatim quote passes", () => {
+  const { errors } = lintSpec(rulingsSpec([VALID_RULING]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: a rulings entry with empty text is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "   " }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /rulings\[0\].*media-§6.*text/.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is a TODO placeholder is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "TODO: paste the §6 wording in here" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /placeholder/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is an angle-bracket stub is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "<quote the ruling here>" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /placeholder/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry whose text is a bare path (a citation, not a quote) is a hard failure", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, text: "vault/fleet/rulings/2026-08-06-design-contract.md#6" }]);
+  const { errors } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /verbatim quote/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a rulings entry missing id or source is a hard failure", () => {
+  const { errors } = lintSpec(rulingsSpec([{ text: VALID_RULING.text }]), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /\bid\b/.test(e)), errors.join("\n"));
+  assert.ok(errors.some((e) => /\bsource\b/.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a non-array rulings field is a hard failure", () => {
+  const { errors } = lintSpec(rulingsSpec("media-§6"), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /rulings.*array/i.test(e)), errors.join("\n"));
+});
+
+// (a) a prompt that cites a ruling with no `rulings` field to back it -> warning
+
+test("lintSpec: a prompt citing a § section with no rulings field warns, naming the prompt", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Apply media §6 when copying the batch." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a prose citation is not a hard failure");
+  assert.ok(warnings.some((w) => /engineer-sonnet:x/.test(w) && /rulings/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a prompt using the token 'ruling' with no rulings field warns", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Honour the standing ruling on asset replacement." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /citation is not compliance|quote/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same citing prompt WITH a rulings field produces no citation warning", () => {
+  const spec = rulingsSpec([VALID_RULING], { prompt: "Apply media §6 when copying the batch." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an ordinary prompt with no citation and no rulings field warns about nothing", () => {
+  const { warnings } = lintSpec(rulingsSpec(undefined), { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a VERIFY prompt citing a ruling with no rulings field warns (the reviewer half of the breach)", () => {
+  const spec = rulingsSpec(undefined);
+  spec.phases[0].verify = { prompt: "Check media §6 compliance in: {{RESULT}}", model: "haiku", votes: 1 };
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /verify/.test(w)), warnings.join("\n"));
+});
+
+// (c) work-type heuristic: media/ingest/replacement work with no rulings field
+
+test("lintSpec: an ingest prompt with no rulings field warns, citing media §6 by name", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Ingest the latest Sakara batch into the deck." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "the heuristic is advisory, never a hard failure");
+  assert.ok(warnings.some((w) => /§6/.test(w) && /UNCONDITIONAL/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a 'replace' prompt with no rulings field trips the same heuristic", () => {
+  const spec = rulingsSpec(undefined, { prompt: "Replace the hero assets with the new drop." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /§6/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a 'media drop' prompt with no rulings field trips the same heuristic", () => {
+  const spec = rulingsSpec(undefined, { prompt: "A new media drop landed — wire it up." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /§6/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same ingest prompt WITH a rulings field trips no heuristic warning", () => {
+  const spec = rulingsSpec([VALID_RULING], { prompt: "Ingest the latest Sakara batch into the deck." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+// ---- DO/DON'T contrast pairs ---------------------------------------------
+//
+// Operator ruling 2026-08-10 (vault/fleet/rulings/2026-08-10-do-dont-pairs.md):
+// "every standing ruling and every skill law carries at least one CONTRAST
+// PAIR — a concrete DO … and a concrete DON'T … Abstractions state the rule;
+// the pair makes it unmistakable to a model mid-task." The ruling itself sets
+// the severity: "Spec-lint treats a rulings entry without both pair fields as
+// a warning." A warning, not an error, because some rulings genuinely resist
+// pairing — the author, not the linter, is the one who can tell.
+
+test("lintSpec: a rulings entry with no DO and no DON'T warns, naming the entry", () => {
+  const bare = { id: "media-§6", source: VALID_RULING.source, text: VALID_RULING.text };
+  const { errors, warnings } = lintSpec(rulingsSpec([bare]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a missing pair is never a hard failure");
+  assert.ok(warnings.some((w) => /media-§6/.test(w) && /\bdo\b/i.test(w) && /don't/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: a rulings entry with a DO but no DON'T warns about the missing half only", () => {
+  const half = { ...VALID_RULING, dont: undefined };
+  const { warnings } = lintSpec(rulingsSpec([half]), { personaExists: okPersonaExists });
+  assert.equal(warnings.length, 1, warnings.join("\n"));
+  assert.ok(/don't/i.test(warnings[0]), warnings[0]);
+});
+
+test("lintSpec: a rulings entry with a DON'T but no DO warns about the missing half only", () => {
+  const half = { ...VALID_RULING, do: undefined };
+  const { warnings } = lintSpec(rulingsSpec([half]), { personaExists: okPersonaExists });
+  assert.equal(warnings.length, 1, warnings.join("\n"));
+  assert.ok(/\bdo\b/i.test(warnings[0]) && !/don't/i.test(warnings[0]), warnings[0]);
+});
+
+test("lintSpec: a complete pair produces no pair warning", () => {
+  const { errors, warnings } = lintSpec(rulingsSpec([VALID_RULING]), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a blank-string pair half counts as missing", () => {
+  const blank = { ...VALID_RULING, do: "   " };
+  const { warnings } = lintSpec(rulingsSpec([blank]), { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /\bdo\b/i.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the pair warning names why the pair exists, not just that it is absent", () => {
+  const bare = { id: "media-§6", source: VALID_RULING.source, text: VALID_RULING.text };
+  const { warnings } = lintSpec(rulingsSpec([bare]), { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /contrast pair|unmistakable|mid-task/i.test(w)), warnings.join("\n"));
+});
+
+// ---- protected checkout / protected ports --------------------------------
+//
+// Two hazards the operator's structural-enforcement triage named. The first is
+// hard: an agent whose cwd IS the live portfolio checkout will branch-switch
+// and commit in the tree the operator is looking at. Agents work in worktrees;
+// there is no legitimate spec that dispatches into the live checkout, so this
+// blocks. The second is a heuristic about ports and therefore warns.
+
+function serverSpec(agentOverrides = {}) {
+  return {
+    name: "test-spec",
+    rulings: [VALID_RULING],
+    phases: [{
+      title: "Build",
+      agents: [{ label: "engineer-sonnet:x", prompt: "do it", model: "sonnet", maxTurns: 100, ...agentOverrides }],
+    }],
+  };
+}
+
+test("lintSpec: an agent cwd of the live portfolio checkout is a hard failure", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /live|protected/i.test(e) && /worktree/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a trailing slash does not get an agent out of the protected-checkout rule", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/" }), { personaExists: okPersonaExists });
+  assert.ok(errors.length > 0, "trailing slash must not evade the check");
+});
+
+test("lintSpec: the ~ form of the live checkout is a hard failure too", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "~/JHD/portfolio" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /protected|live/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a subdirectory of the live checkout is still the live checkout", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/src/components" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /protected|live/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a worktree INSIDE the live checkout is allowed (it is not the live tree)", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/.claude/worktrees/hero" }), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: a sibling checkout whose name merely STARTS with the protected path is not flagged", () => {
+  // "/Users/jarradharvey/JHD/portfolio-homeconcept" has the protected path as a
+  // raw string prefix — the check must respect path segment boundaries.
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-homeconcept" }), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: an agent with no cwd at all trips no protected-checkout error", () => {
+  const { errors } = lintSpec(serverSpec(), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+// dev server mentioned with no port named -> warning
+
+test("lintSpec: a prompt mentioning a dev server without naming a port warns", () => {
+  const spec = serverSpec({ prompt: "Start the dev server and screenshot the hero." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "an unnamed port is a heuristic, never a hard failure");
+  assert.ok(warnings.some((w) => /port/i.test(w) && /engineer-sonnet:x/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same prompt naming a port does not warn", () => {
+  const spec = serverSpec({ prompt: "Start the dev server on port 3211 and screenshot the hero." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a :NNNN form counts as naming a port", () => {
+  const spec = serverSpec({ prompt: "Run the dev server at localhost:3211 and screenshot the hero." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+// protected ports named for something other than leave-it-running -> warning
+
+test("lintSpec: a prompt telling an agent to use :3210 warns", () => {
+  const spec = serverSpec({ prompt: "Screenshot the hero at localhost:3210." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /3210/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: 'never' in the same sentence as :3210 is the leave-it-running exemption", () => {
+  const spec = serverSpec({ prompt: "Run your server on :3211 — never touch the operator's :3210." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: 'leave' in the same sentence as :3210 is the exemption", () => {
+  const spec = serverSpec({ prompt: "Use :3211 for verification. Leave :3210 running as it is." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: 'do not touch' in the same sentence as :3210 is the exemption", () => {
+  const spec = serverSpec({ prompt: "Verify on :3211 and do not touch :3210." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an exemption in a DIFFERENT sentence does not cover the offending one", () => {
+  const spec = serverSpec({ prompt: "Never restart a server you did not start. Rebuild and reload :3210 to check." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /3210/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: ports 3288 and 3260 are protected on the same terms", () => {
+  for (const port of ["3288", "3260"]) {
+    const spec = serverSpec({ prompt: `Restart the service on :${port} once you are done.` });
+    const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+    assert.ok(warnings.some((w) => w.includes(port)), `${port}: ${warnings.join("\n")}`);
+  }
+});
+
+test("lintSpec: a VERIFY prompt gets the same protected-port treatment", () => {
+  const spec = serverSpec();
+  spec.phases[0].verify = { prompt: "Reload :3210 and refute: {{RESULT}}", model: "haiku", votes: 1 };
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /3210/.test(w) && /verify/.test(w)), warnings.join("\n"));
+});
+
+// ---- worktree container convention ---------------------------------------
+//
+// Banked convention (memory sibling worktrees-live-in-container-folder):
+// worktrees live in a container — ~/JHD/worktrees/<repo>/<name> or
+// ~/JHD/<repo>-worktrees/<name> — never as loose <repo>-<name> siblings of the
+// repo, where the operator reads them as second repos and nobody prunes them.
+// A warning, not a failure: the strays are real, registered, and still get
+// dispatched into until the next prune.
+
+test("lintSpec: a loose <repo>-<name> sibling cwd warns and names the container convention", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-newthing" });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "the container convention warns, it does not block");
+  assert.ok(
+    warnings.some((w) => /portfolio-newthing/.test(w) && /worktrees/.test(w)),
+    warnings.join("\n"),
+  );
+});
+
+test("lintSpec: the ~/JHD/worktrees/<repo>/<name> container form is clean", () => {
+  const spec = serverSpec({ cwd: "~/JHD/worktrees/portfolio/newthing" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the <repo>-worktrees/<name> container form is clean", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/discipline-worktrees/rulings" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the four registered strays are grandfathered", () => {
+  for (const stray of ["portfolio-homeconcept", "portfolio-herotext-enter", "portfolio-transitions", "portfolio-adaptive"]) {
+    const { warnings } = lintSpec(serverSpec({ cwd: `/Users/jarradharvey/JHD/${stray}` }), { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], `${stray} should be grandfathered`);
+  }
+});
+
+test("lintSpec: a grandfathered stray's own subdirectory is grandfathered too", () => {
+  const spec = serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-adaptive/src" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a real sibling repo that merely looks like <repo>-<name> is not flagged", () => {
+  // ~/JHD/claude-usage and ~/JHD/paperclip-lab are their own repos, not
+  // worktrees — the rule only fires when the prefix is a repo the fleet
+  // actually branches worktrees off.
+  for (const repo of ["claude-usage", "paperclip-lab", "vault-archive"]) {
+    const { warnings } = lintSpec(serverSpec({ cwd: `~/JHD/${repo}` }), { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], `${repo} is a repo, not a stray worktree`);
+  }
+});
+
+test("lintSpec: a cwd outside ~/JHD entirely is none of this rule's business", () => {
+  const spec = serverSpec({ cwd: "/private/tmp/claude-502/scratch" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the loose-sibling warning names both accepted container forms", () => {
+  const spec = serverSpec({ cwd: "~/JHD/discipline-spike" });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /worktrees\/discipline\//.test(w) && /discipline-worktrees\//.test(w)), warnings.join("\n"));
+});
+
+// ---- engineer commit instruction -----------------------------------------
+//
+// 2026-08-09: three turn-capped runs ended with the work only in the working
+// tree. A turn cap is not an exception the doer gets to discover — the brief
+// has to have told it to commit as it goes. Warning, not failure: a spec can
+// legitimately dispatch an engineer to investigate rather than to build.
+
+test("lintSpec: an engineer prompt with no commit instruction warns", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "a missing commit instruction is a warning, not a block");
+  assert.ok(warnings.some((w) => /commit/i.test(w) && /engineer-sonnet:x/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: an engineer prompt that says commit does not warn", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression. Commit after each coherent slice." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the match is case-insensitive and catches inflections", () => {
+  for (const phrase of ["commit", "Commit", "committed", "commits"]) {
+    const spec = serverSpec({ persona: "engineer", prompt: `Do the work. Everything must be ${phrase} before you finish.` });
+    const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+    assert.deepEqual(warnings, [], phrase);
+  }
+});
+
+test("lintSpec: a non-engineer persona with no commit instruction does not warn", () => {
+  const spec = serverSpec({ persona: "reviewer", prompt: "Review the hero spacing change." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an agent with no persona at all does not warn", () => {
+  const spec = serverSpec({ prompt: "Fix the hero spacing regression." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: the commit warning names the failure it comes from", () => {
+  const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /turn.?cap/i.test(w)), warnings.join("\n"));
+});
