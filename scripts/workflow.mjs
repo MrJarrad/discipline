@@ -5,7 +5,11 @@
    are prompted to REFUTE. Journal written next to the spec.
 
    Usage:  node workflow.mjs <spec.json>
-   Spec:   { "name": "...", "phases": [ { "title": "...",
+   Spec:   { "name": "...",
+             "rulings": [ { "id": "media-§6", "source": "vault/fleet/rulings/....md",
+               "text": "the operative ruling QUOTED VERBATIM — not a summary, not a
+                 citation" } ]   (optional, top-level — see the rulings note below)
+             "phases": [ { "title": "...",
              "agents": [{ "label": "...", "prompt": "...", "model": "haiku|sonnet|opus", "cwd": "...",
              "persona": "reviewer (optional — resolves <plugin root>/agents/<persona>.md, strips its
                YAML front-matter, and prepends the remaining body to the prompt as discipline context)",
@@ -54,6 +58,19 @@
    and gives the runner dispatch-level permissions without a repo-local
    settings file. Per-agent `allowedTools` in the spec is additive on top of
    this file, never a replacement for it.
+
+   Standing rulings (operator ruling 2026-08-10): a spec's top-level `rulings`
+   array carries governing operator rulings by their OWN WORDS. The runner
+   prepends a "STANDING RULINGS — verbatim, binding:" block to EVERY agent
+   prompt and EVERY verify prompt in the spec, immediately ahead of the brief
+   body, and journals the ruling ids on every dispatch. The field exists
+   because citation demonstrably failed: a 2026-08-07 brief named media §6
+   and gave its vault path, and both the engineer and its reviewer still
+   reproduced the forbidden hash-adjudication pattern — "clearly decision
+   notes alone aren't cutting it." `text` is therefore contractually the
+   ruling's operative sentences quoted verbatim; workflow-lint.mjs hard-fails
+   a placeholder and warns when a prompt cites a ruling with no `rulings`
+   field to back it. Specs without the field are entirely unaffected.
 
    Housekeeping note: dispatched-repo .claude/journal.jsonl files (session
    journals a doer's own tooling may write inside the target repo) should be
@@ -197,14 +214,46 @@ export function buildSkillPreamble(skills) {
   return `MANDATORY SKILLS: Before starting work you MUST invoke the Skill tool for each of: ${list}. Do not begin the task until each has been loaded.`;
 }
 
-// Persona -> skill mandate -> task, in that order. Throws (via loadPersona)
-// when `persona` is set but its file is missing — spec-lint is meant to
-// catch this before dispatch; this throw is the backstop for a spec that
-// skipped lint, surfacing as a rejected runClaude() rather than a silently
-// degraded prompt.
-function applyPersona(prompt, persona, skills) {
+// Header framing for the standing-rulings block. Exported so spec-lint, the
+// tests, and any future consumer assert against one literal rather than
+// re-typing the wording.
+export const RULINGS_HEADER = "STANDING RULINGS — verbatim, binding:";
+
+// buildRulingsBlock([{id, source, text}]) -> framed block string, or "" for an
+// empty/undefined list. Pure — no I/O, no persona/prompt knowledge.
+//
+// Why the runner carries ruling TEXT and not a citation (operator, 2026-08-10,
+// after the media §6 hash-adjudication violation recurred): "clearly decision
+// notes alone aren't cutting it." The violated brief named §6 and gave its
+// vault path; the engineer AND its reviewer both read it and still reproduced
+// the forbidden pattern. A name delegates interpretation to the reader; the
+// ruling's own sentences in the prompt constrain it. So `text` is contractually
+// the operative ruling QUOTED verbatim — spec-lint hard-fails a placeholder —
+// and this function never summarises, truncates, or reflows it.
+export function buildRulingsBlock(rulings) {
+  if (!Array.isArray(rulings) || rulings.length === 0) return "";
+  const entries = rulings.map((r) => `[${r.id}] source: ${r.source}\n${r.text}`).join("\n\n");
+  return `${RULINGS_HEADER}\n\n${entries}\n\n` +
+    "The text above is quoted verbatim from standing operator rulings and binds this task " +
+    "absolutely. Comply with it as written — a paraphrase, a \"materially similar\" outcome, " +
+    "or your own judgement about when it applies is NOT compliance. If a ruling appears to " +
+    "conflict with the task below, STOP and surface the conflict; never resolve it yourself.";
+}
+
+// Persona -> skill mandate -> rulings -> task, in that order. Throws (via
+// loadPersona) when `persona` is set but its file is missing — spec-lint is
+// meant to catch this before dispatch; this throw is the backstop for a spec
+// that skipped lint, surfacing as a rejected runClaude() rather than a
+// silently degraded prompt.
+//
+// Rulings sit LAST before the brief body deliberately: they are the constraint
+// the brief is read under, so they get the position immediately adjacent to
+// the task rather than being buried above a long persona charter.
+function composePrompt(prompt, persona, skills, rulings) {
   const preamble = buildSkillPreamble(skills);
-  const taskBlock = `${preamble ? `${preamble}\n\n---\n` : ""}TASK:\n${prompt}`;
+  const rulingsBlock = buildRulingsBlock(rulings);
+  const taskBlock = `${preamble ? `${preamble}\n\n---\n` : ""}` +
+    `${rulingsBlock ? `${rulingsBlock}\n\n---\n` : ""}TASK:\n${prompt}`;
   if (!persona) return taskBlock;
   const body = loadPersona(persona);
   return `You are operating as the ${persona} persona. Your discipline:\n${body}\n\n---\n${taskBlock}`;
@@ -278,10 +327,10 @@ export const STDERR_TAIL_BYTES = 64 * 1024;
 export function runClaude({
   prompt, model = "sonnet", cwd = process.cwd(), allowedTools, disallowedTools, persona, skills,
   jsonSchema, effort, permissionMode = "bypassPermissions", maxTurns, maxBudgetUsd, fallbackModel,
-  sessionId, label, pluginDir, sessionSalt,
+  sessionId, label, pluginDir, sessionSalt, rulings,
 }, specName, { spawnImpl = spawn, timeoutMs } = {}) {
   return new Promise((resolve) => {
-    const finalPrompt = applyPersona(prompt, persona, skills);
+    const finalPrompt = composePrompt(prompt, persona, skills, rulings);
     // sessionSalt (optional, additive-only) lets a caller that dispatches the
     // same spec name + label across separate --live invocations (skill-eval's
     // candidate/baseline arms, run repeatedly) avoid colliding on the same
@@ -389,6 +438,14 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
     log({ type: "burn-warning", message: warning });
   }
 
+  // Spec-level standing rulings ride into every dispatch this run makes —
+  // doers and refuters alike. The refuter half is not an afterthought: the
+  // 2026-08-07 media §6 breach was waved through by a reviewer that had been
+  // dispatched without the ruling's text, so a verify stage blind to the
+  // rulings is exactly the hole this closes.
+  const rulings = Array.isArray(spec.rulings) && spec.rulings.length ? spec.rulings : undefined;
+  const rulingIds = rulings?.map((r) => r.id);
+
   const summary = [];
   let anyFailed = false;
   let anyCapped = false;
@@ -396,7 +453,7 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
     console.log(`▸ ${phase.title} (${phase.agents.length} agents)`);
     log({ type: "phase", title: phase.title });
     const results = await Promise.all(phase.agents.map(async (rawAgent) => {
-      const a = applyAgentDefaults(rawAgent);
+      const a = { ...applyAgentDefaults(rawAgent), rulings };
       logDispatch(a);
       const r = await runClaude(a, spec.name, { spawnImpl, timeoutMs: a.timeoutMs });
       const full = { ...a, ...r };
@@ -404,7 +461,7 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
       log({
         type: "agent", label: a.label, ok: r.ok, outcome: r.outcome, sessionId: r.sessionId,
         numTurns: r.numTurns, maxTurns: a.maxTurns, costUsd: r.costUsd, durationMs: r.durationMs,
-        result: r.result?.slice?.(0, 4000),
+        rulings: rulingIds, result: r.result?.slice?.(0, 4000),
       });
       return full;
     }));
@@ -430,6 +487,10 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
             allowedTools: v.allowedTools,
             permissionMode: v.permissionMode,
             maxTurns: v.maxTurns,
+            // Standing rulings are the one thing a refuter DOES inherit from
+            // the spec: they bind the whole run, and a refuter that can't see
+            // them can't refute a breach of them.
+            rulings,
           }), spec.name, { spawnImpl, timeoutMs: v.timeoutMs })));
         const parsedVotes = votes.map((vt) => parseVerdict(vt.result));
         const confirmed = parsedVotes.filter((p) => p.confirmed).length;
@@ -437,7 +498,7 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
         const result = votes.map((vt) => String(vt.result ?? "")).join("\n---\n").slice(0, 4000);
         log({
           type: "verify", label: r.label, confirmed, of: votes.length, survives,
-          verdicts: parsedVotes.map((p) => p.verdict), result,
+          verdicts: parsedVotes.map((p) => p.verdict), rulings: rulingIds, result,
         });
         if (survives) survivors.push(r); else console.log(`  ✗ refuted: ${r.label}`);
       }

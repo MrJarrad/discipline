@@ -13,6 +13,8 @@ import {
   runWorkflow,
   loadPersona,
   buildSkillPreamble,
+  buildRulingsBlock,
+  RULINGS_HEADER,
   resolveOAuthToken,
   parseVerdict,
   DEFAULT_MAX_TURNS,
@@ -606,4 +608,144 @@ test("resolveOAuthToken: returns null when both env and zshrc fallback are empty
   } finally {
     if (original !== undefined) process.env.CLAUDE_CODE_OAUTH_TOKEN = original;
   }
+});
+
+// ---- standing rulings: buildRulingsBlock ---------------------------------
+//
+// Operator ruling 2026-08-10 ("clearly decision notes alone aren't cutting
+// it"): a brief that cites a ruling by name+path delegates interpretation and
+// has been violated in practice. The runner therefore carries the ruling's
+// own words into every prompt it dispatches. These tests pin the verbatim
+// property specifically — the block must contain the operative text
+// character-for-character, not a summary of it.
+
+// The real §6 text (vault/fleet/rulings/2026-08-06-design-contract-and-media-
+// replacement.md §6) that was violated despite being cited by name — used as
+// the fixture so a regression here fails against the actual ruling wording.
+const MEDIA_S6_TEXT =
+  "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. " +
+  "On any new-assets statement: force-refresh the iCloud source folder (cloud copies may " +
+  "not be synced locally), copy EVERY batch file over its repo counterpart, re-run " +
+  "pipelines. Verification hashes exist only to prove the copy happened — never to skip it.";
+
+const MEDIA_S6 = {
+  id: "media-§6",
+  source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+  text: MEDIA_S6_TEXT,
+};
+
+test("buildRulingsBlock: no rulings produces an empty block (specs without rulings are unchanged)", () => {
+  assert.equal(buildRulingsBlock(undefined), "");
+  assert.equal(buildRulingsBlock([]), "");
+});
+
+test("buildRulingsBlock: frames the block as binding and carries the ruling text verbatim", () => {
+  const block = buildRulingsBlock([MEDIA_S6]);
+  assert.match(block, /STANDING RULINGS — verbatim, binding:/);
+  assert.ok(block.includes(MEDIA_S6_TEXT), "the operative ruling text must appear character-for-character");
+  assert.ok(block.includes(MEDIA_S6.id), "the ruling id must be named");
+  assert.ok(block.includes(MEDIA_S6.source), "the ruling source must be named");
+});
+
+// ---- standing rulings: injection into dispatched prompts -----------------
+
+// Captures the -p prompt of every spawn a run makes, so "reaches EVERY agent
+// prompt and EVERY verify prompt" is asserted against the actual argv the
+// runner would hand `claude`, not against an intermediate return value.
+function capturingSpawn(stdout = '{"is_error":false,"result":"ok","num_turns":1}') {
+  const prompts = [];
+  const spawnImpl = (cmd, args) => {
+    prompts.push(args[args.indexOf("-p") + 1]);
+    return fakeSpawn({ stdout })();
+  };
+  return { prompts, spawnImpl };
+}
+
+test("runClaude: the rulings block reaches argv, ahead of the brief body", async () => {
+  const { prompts, spawnImpl } = capturingSpawn();
+  await runClaude({ prompt: "ingest the new media drop", rulings: [MEDIA_S6], label: "x" }, "spec", { spawnImpl });
+  const prompt = prompts[0];
+  assert.ok(prompt.includes(MEDIA_S6_TEXT), "ruling text must survive into the dispatched prompt verbatim");
+  assert.ok(prompt.indexOf(RULINGS_HEADER) < prompt.indexOf("TASK:"), "rulings must precede the brief body");
+});
+
+test("runClaude: persona -> skills -> rulings -> task ordering (rulings sit last before the brief)", async () => {
+  const { prompts, spawnImpl } = capturingSpawn();
+  await runClaude(
+    { prompt: "do the thing", persona: "engineer", skills: ["quality"], rulings: [MEDIA_S6], label: "x" },
+    "spec", { spawnImpl },
+  );
+  const p = prompts[0];
+  const personaIdx = p.indexOf("engineer persona");
+  const skillIdx = p.indexOf("MANDATORY SKILLS");
+  const rulingsIdx = p.indexOf(RULINGS_HEADER);
+  const taskIdx = p.indexOf("TASK:");
+  assert.ok(personaIdx >= 0 && skillIdx > personaIdx && rulingsIdx > skillIdx && taskIdx > rulingsIdx,
+    `expected persona -> skills -> rulings -> task, got ${[personaIdx, skillIdx, rulingsIdx, taskIdx]}`);
+});
+
+test("runClaude: a dispatch with no rulings carries no rulings framing (unchanged for existing specs)", async () => {
+  const { prompts, spawnImpl } = capturingSpawn();
+  await runClaude({ prompt: "do the thing", label: "x" }, "spec", { spawnImpl });
+  assert.equal(prompts[0].includes(RULINGS_HEADER), false);
+});
+
+// Two phases, two agents in the first, and a verify stage — so "EVERY agent
+// prompt and EVERY verify prompt" has something to be every OF. The verify
+// stage is the half that was violated in practice: the reviewer who waved the
+// §6 breach through was itself dispatched without the ruling's text.
+function multiStageSpec() {
+  return {
+    name: "rulings-spec",
+    rulings: [MEDIA_S6],
+    phases: [
+      {
+        title: "Ingest",
+        agents: [
+          { label: "engineer-sonnet:copy", prompt: "copy the new media batch in", model: "sonnet", maxTurns: 100 },
+          { label: "engineer-sonnet:rewire", prompt: "rewire the deck rows", model: "sonnet", maxTurns: 100 },
+        ],
+        verify: { prompt: "Refute this ingest claim: {{RESULT}}", model: "haiku", votes: 1 },
+      },
+      {
+        title: "Review",
+        agents: [{ label: "reviewer-sonnet:gate", prompt: "gate the ingest", model: "sonnet", maxTurns: 100 }],
+      },
+    ],
+  };
+}
+
+test("runWorkflow: the rulings block reaches EVERY agent prompt and EVERY verify prompt", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const { prompts, spawnImpl } = capturingSpawn('{"is_error":false,"result":"ok CONFIRMED","num_turns":1}');
+  await runWorkflow(multiStageSpec(), () => {}, { spawnImpl });
+  // 3 doers + 2 refuters (one per surviving phase-1 agent, votes: 1).
+  assert.equal(prompts.length, 5, "expected 3 agent dispatches and 2 verify dispatches");
+  for (const [i, p] of prompts.entries()) {
+    assert.ok(p.includes(RULINGS_HEADER), `dispatch ${i} lost the rulings framing`);
+    assert.ok(p.includes(MEDIA_S6_TEXT), `dispatch ${i} lost the verbatim ruling text`);
+  }
+});
+
+test("runWorkflow: the journal records the ruling ids on every agent and verify dispatch", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const { spawnImpl } = capturingSpawn('{"is_error":false,"result":"ok CONFIRMED","num_turns":1}');
+  const logs = [];
+  await runWorkflow(multiStageSpec(), (e) => logs.push(e), { spawnImpl });
+  const dispatches = logs.filter((e) => e.type === "agent" || e.type === "verify");
+  assert.equal(dispatches.length, 5);
+  for (const d of dispatches) {
+    assert.deepEqual(d.rulings, ["media-§6"], `${d.type} "${d.label}" did not record the ruling ids`);
+  }
+});
+
+test("runWorkflow: a spec with no rulings journals no ruling ids and injects nothing", async (t) => {
+  t.mock.method(console, "log", () => {});
+  const { prompts, spawnImpl } = capturingSpawn();
+  const spec = multiStageSpec();
+  delete spec.rulings;
+  const logs = [];
+  await runWorkflow(spec, (e) => logs.push(e), { spawnImpl });
+  assert.equal(prompts.some((p) => p.includes(RULINGS_HEADER)), false);
+  assert.equal(logs.filter((e) => e.type === "agent").every((e) => e.rulings === undefined), true);
 });
