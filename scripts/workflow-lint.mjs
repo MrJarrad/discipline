@@ -229,6 +229,92 @@ export function lintPromptRulings(prompt, { locus, label, specHasRulings }) {
   return { warnings };
 }
 
+/* ---- protected checkouts and protected ports -----------------------------
+   Two hazards from the operator's 2026-08-10 structural-enforcement triage,
+   split on the same severity convention as everything above: the checkout rule
+   is definitely wrong so it blocks; the port rules are heuristics so they warn
+   and name the exact prompt.                                                */
+
+// Checkouts the operator works in live. A dispatched agent that lands here
+// will branch-switch and commit in the tree the operator is looking at —
+// exactly the failure the worktree convention exists to prevent — and no
+// legitimate spec needs it, so this one blocks rather than warns. Listed in
+// every form a spec might write, rather than expanding ~ at lint time, so
+// this module stays pure and its behaviour doesn't depend on whose $HOME
+// runs it.
+export const PROTECTED_CHECKOUTS = [
+  "/Users/jarradharvey/JHD/portfolio",
+  "~/JHD/portfolio",
+  "$HOME/JHD/portfolio",
+];
+
+// The one carve-out: a git worktree nested inside the protected checkout is
+// not the live tree, whichever container convention put it there.
+const NESTED_WORKTREE_RE = /(^|\/)worktrees\//;
+
+// protectedCheckoutHit(cwd) -> the protected root it lands in, or null.
+// Compares on path SEGMENT boundaries, so the sibling checkout
+// "~/JHD/portfolio-homeconcept" — which has a protected root as a raw string
+// prefix — is not a hit.
+export function protectedCheckoutHit(cwd) {
+  if (!isNonEmptyString(cwd)) return null;
+  const path = cwd.trim().replace(/\/+$/, "");
+  for (const root of PROTECTED_CHECKOUTS) {
+    if (path === root) return root;
+    if (path.startsWith(`${root}/`)) {
+      const rest = path.slice(root.length + 1);
+      if (NESTED_WORKTREE_RE.test(`/${rest}`)) return null;
+      return root;
+    }
+  }
+  return null;
+}
+
+// Ports the operator owns and keeps running. :3210 is the portfolio dev server
+// the fleet's own charters already fence off ("Verification servers you start
+// run on :3211 and up — never the operator's live :3210", agents/engineer.md);
+// :3288 and :3260 are the sibling live services named in the same triage.
+export const PROTECTED_PORTS = ["3210", "3288", "3260"];
+
+// The documented heuristic, deliberately crude: a protected port is fine to
+// NAME — briefs should name it, to fence it off — so the flag fires unless the
+// SAME SENTENCE also carries a leave-it-alone word. "Never touch :3210" reads
+// clean; "reload :3210 to check" does not. A sentence is the unit because an
+// exemption three sentences away doesn't govern the instruction that uses the
+// port. False positives are the intended failure direction: a warning naming
+// the prompt costs one look, and the miss it prevents costs the operator's
+// running server.
+const LEAVE_IT_RE = /\bnever\b|\bleave\b|\bdo not touch\b|\bdon'?t touch\b/i;
+
+// A dev-server instruction with no port named anywhere in the prompt leaves
+// the doer to pick one, and the one it picks is the one already running.
+const DEV_SERVER_RE = /\bdev(?:elopment)?[ -]server\b|\bnpm run dev\b|\b(?:pnpm|yarn) dev\b/i;
+const PORT_NAMED_RE = /\bport\s*:?\s*\d{2,5}\b|:\d{4}\b/;
+
+function sentences(text) {
+  return text.split(/(?<=[.!?\n])\s+/);
+}
+
+// lintPromptServers(prompt, { locus, label }) -> { warnings }. Pure.
+export function lintPromptServers(prompt, { locus, label } = {}) {
+  const warnings = [];
+  if (!isNonEmptyString(prompt)) return { warnings };
+  const who = `${locus}${label ? ` "${label}"` : ""}`;
+
+  if (DEV_SERVER_RE.test(prompt) && !PORT_NAMED_RE.test(prompt)) {
+    warnings.push(`spec-lint: ${who} prompt tells the agent about a dev server but names no port — a doer left to choose reuses the one already running. State the port: doers verify on :3211 and up, the operator's :3210 is never started, stopped, or reused.`);
+  }
+
+  for (const sentence of sentences(prompt)) {
+    if (LEAVE_IT_RE.test(sentence)) continue;
+    for (const port of PROTECTED_PORTS) {
+      if (!sentence.includes(port)) continue;
+      warnings.push(`spec-lint: ${who} prompt names protected port ${port} in a sentence that is not a leave-it-running instruction ("${sentence.trim().slice(0, 80)}") — that port is the operator's live server. Point the agent at :3211+ instead, or say "never"/"leave"/"do not touch" in the same sentence.`);
+    }
+  }
+  return { warnings };
+}
+
 export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
   const errors = [];
   const warnings = [];
@@ -258,6 +344,12 @@ export function lintAgent(agent, { personaExists, locus, specHasRulings }) {
   }
 
   warnings.push(...lintPromptRulings(agent.prompt, { locus, label: agent.label, specHasRulings }).warnings);
+  warnings.push(...lintPromptServers(agent.prompt, { locus, label: agent.label }).warnings);
+
+  const protectedRoot = protectedCheckoutHit(agent.cwd);
+  if (protectedRoot) {
+    errors.push(`spec-lint: ${locus} agent "${agent.label ?? "?"}" cwd "${agent.cwd}" is inside the protected live checkout ${protectedRoot} — agents work in a git worktree, never the operator's live checkout, because a dispatched branch-switch clobbers the tree the operator is looking at. Point cwd at a worktree.`);
+  }
 
   const nonVault = findNonVaultPaths(agent.prompt, { cwd: agent.cwd });
   for (const hit of nonVault) {
@@ -288,6 +380,9 @@ function lintVerify(verify, locus, { specHasRulings } = {}) {
   // breach was waved through by a reviewer whose own prompt named the ruling
   // without carrying its text.
   warnings.push(...lintPromptRulings(verify.prompt, { locus: `${locus} verify block`, specHasRulings }).warnings);
+  // A refuter that reloads the operator's live server does the same damage a
+  // doer would, so the server heuristics cover the verify prompt too.
+  warnings.push(...lintPromptServers(verify.prompt, { locus: `${locus} verify block` }).warnings);
   return { errors, warnings };
 }
 

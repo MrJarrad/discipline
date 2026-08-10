@@ -485,3 +485,129 @@ test("lintSpec: the pair warning names why the pair exists, not just that it is 
   const { warnings } = lintSpec(rulingsSpec([bare]), { personaExists: okPersonaExists });
   assert.ok(warnings.some((w) => /contrast pair|unmistakable|mid-task/i.test(w)), warnings.join("\n"));
 });
+
+// ---- protected checkout / protected ports --------------------------------
+//
+// Two hazards the operator's structural-enforcement triage named. The first is
+// hard: an agent whose cwd IS the live portfolio checkout will branch-switch
+// and commit in the tree the operator is looking at. Agents work in worktrees;
+// there is no legitimate spec that dispatches into the live checkout, so this
+// blocks. The second is a heuristic about ports and therefore warns.
+
+function serverSpec(agentOverrides = {}) {
+  return {
+    name: "test-spec",
+    rulings: [VALID_RULING],
+    phases: [{
+      title: "Build",
+      agents: [{ label: "engineer-sonnet:x", prompt: "do it", model: "sonnet", maxTurns: 100, ...agentOverrides }],
+    }],
+  };
+}
+
+test("lintSpec: an agent cwd of the live portfolio checkout is a hard failure", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /live|protected/i.test(e) && /worktree/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a trailing slash does not get an agent out of the protected-checkout rule", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/" }), { personaExists: okPersonaExists });
+  assert.ok(errors.length > 0, "trailing slash must not evade the check");
+});
+
+test("lintSpec: the ~ form of the live checkout is a hard failure too", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "~/JHD/portfolio" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /protected|live/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a subdirectory of the live checkout is still the live checkout", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/src/components" }), { personaExists: okPersonaExists });
+  assert.ok(errors.some((e) => /protected|live/i.test(e)), errors.join("\n"));
+});
+
+test("lintSpec: a worktree INSIDE the live checkout is allowed (it is not the live tree)", () => {
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio/.claude/worktrees/hero" }), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: a sibling checkout whose name merely STARTS with the protected path is not flagged", () => {
+  // "/Users/jarradharvey/JHD/portfolio-homeconcept" has the protected path as a
+  // raw string prefix — the check must respect path segment boundaries.
+  const { errors } = lintSpec(serverSpec({ cwd: "/Users/jarradharvey/JHD/portfolio-homeconcept" }), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+test("lintSpec: an agent with no cwd at all trips no protected-checkout error", () => {
+  const { errors } = lintSpec(serverSpec(), { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+});
+
+// dev server mentioned with no port named -> warning
+
+test("lintSpec: a prompt mentioning a dev server without naming a port warns", () => {
+  const spec = serverSpec({ prompt: "Start the dev server and screenshot the hero." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, [], "an unnamed port is a heuristic, never a hard failure");
+  assert.ok(warnings.some((w) => /port/i.test(w) && /engineer-sonnet:x/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: the same prompt naming a port does not warn", () => {
+  const spec = serverSpec({ prompt: "Start the dev server on port 3211 and screenshot the hero." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: a :NNNN form counts as naming a port", () => {
+  const spec = serverSpec({ prompt: "Run the dev server at localhost:3211 and screenshot the hero." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+// protected ports named for something other than leave-it-running -> warning
+
+test("lintSpec: a prompt telling an agent to use :3210 warns", () => {
+  const spec = serverSpec({ prompt: "Screenshot the hero at localhost:3210." });
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /3210/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: 'never' in the same sentence as :3210 is the leave-it-running exemption", () => {
+  const spec = serverSpec({ prompt: "Run your server on :3211 — never touch the operator's :3210." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: 'leave' in the same sentence as :3210 is the exemption", () => {
+  const spec = serverSpec({ prompt: "Use :3211 for verification. Leave :3210 running as it is." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: 'do not touch' in the same sentence as :3210 is the exemption", () => {
+  const spec = serverSpec({ prompt: "Verify on :3211 and do not touch :3210." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings, []);
+});
+
+test("lintSpec: an exemption in a DIFFERENT sentence does not cover the offending one", () => {
+  const spec = serverSpec({ prompt: "Never restart a server you did not start. Rebuild and reload :3210 to check." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /3210/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: ports 3288 and 3260 are protected on the same terms", () => {
+  for (const port of ["3288", "3260"]) {
+    const spec = serverSpec({ prompt: `Restart the service on :${port} once you are done.` });
+    const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+    assert.ok(warnings.some((w) => w.includes(port)), `${port}: ${warnings.join("\n")}`);
+  }
+});
+
+test("lintSpec: a VERIFY prompt gets the same protected-port treatment", () => {
+  const spec = serverSpec();
+  spec.phases[0].verify = { prompt: "Reload :3210 and refute: {{RESULT}}", model: "haiku", votes: 1 };
+  const { errors, warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(errors, []);
+  assert.ok(warnings.some((w) => /3210/.test(w) && /verify/.test(w)), warnings.join("\n"));
+});
