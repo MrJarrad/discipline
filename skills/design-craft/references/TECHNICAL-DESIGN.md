@@ -12,13 +12,6 @@ scroll-driven animation behind `@supports` with a complete no-support path, `wil
 scoping/reset, viewport-gated video autoplay, hydration determinism. A law below never
 overrides this fence.
 
-**Item 3 excluded — operator-call-pending, not a law.** Global `-webkit-font-smoothing:
-antialiased` (report §5, §6 row 3) is a contested aesthetic call — three sources argue the
-field moved away from it, one still recommends it, and the right answer depends on how the
-type ramp actually reads on macOS. The report's own verdict: *"Creative — operator's
-call... Not mine to decide."* Do not act on it, remove it, or scope it under `@supports`
-without the operator explicitly deciding. Surface it, don't resolve it.
-
 Each law below states the **acceptance criterion verbatim from the report** (measured, not
 eyeballed) plus a DO/DON'T pair in the `2026-08-10-do-dont-pairs.md` style: the DO is the
 compliant move in a real scenario, the DON'T is phrased as the reasoning that talks an
@@ -53,6 +46,28 @@ in DevTools Rendering — a ring is visible on all of them.
   zero visible focus indication for every keyboard user in Windows High Contrast mode.
 - **Grep-checkable:** presence of a `forced-colors: active` block. The outline-vs-shadow
   mechanism itself is a code-review call, not grep-able this round.
+
+### Law 3 — Font smoothing: RATIFIED-KEEP (§6 row 3, §5)
+
+**Status:** RATIFIED-KEEP, not operator-call-pending. Source: operator ruling
+`~/JHD/vault/fleet/rulings/2026-08-11-technical-design-craft-callout.md`, section
+"RULING — font smoothing STAYS" (2026-08-12). The report's original framing (§5, §6
+row 3) treated this as a contested aesthetic call for the operator to decide; the
+operator has since decided: "Operator: 'let's use font smoothing.' Spectrum report §6
+item 3 CLOSED — global `-webkit-font-smoothing: antialiased` (globals.css:2070-2071) is
+ratified design, kept as-is." The audience prior (designers/industry professionals ≈
+retina macOS) and the type ramp having been authored and judged *with* smoothing on
+informed the call; the field-canon counterargument (thin body copy on non-retina macOS)
+was named and accepted as a deliberate trade.
+
+- **DO:** keep the global declaration; audits treat its presence as ratified, never flag
+  it; re-judge only if real post-launch telemetry contradicts the retina-heavy audience
+  prior.
+- **DON'T:** *"the Vercel/industry checklists dropped font-smoothing so I removed it in a
+  cleanup"* — this is an operator aesthetic ruling; canon does not override it.
+- **Grep-checkable:** presence of `-webkit-font-smoothing: antialiased` is never a
+  warning — ratified-keep means the grep lane must never flag it, so no `forbid`/`require`
+  check exists for this row.
 
 ### Law 4 — Print stylesheet (§6 #4, §K)
 
