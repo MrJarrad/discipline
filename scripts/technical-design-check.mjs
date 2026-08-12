@@ -25,7 +25,10 @@
    or an ffprobe/ffmpeg pass respectively. None of that is grep-able from
    source text, so this module deliberately does not check them; see the
    "Runtime-lane TODO" section of TECHNICAL-DESIGN.md. Row #3 (font
-   smoothing) is excluded on purpose too — operator-call-pending, not a law.
+   smoothing) has no CHECKS entry on purpose too — RATIFIED-KEEP per operator
+   ruling (fleet/rulings/2026-08-11-technical-design-craft-callout.md,
+   2026-08-12), not a pending call; presence is never a warning, so there is
+   nothing to grep-check either way.
 
    Every check here is PRESENCE-based (a grep hit or its absence), not a
    correctness check on the value — e.g. the color-scheme check passes on
