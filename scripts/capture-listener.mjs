@@ -164,6 +164,18 @@
        initial:true reads as "nothing to report"; the truth is "nothing was
        examined".
 
+   COVERAGE: "0 defects" and "nobody looked at it" are the same output unless
+   coverage is reported alongside — the map covers 55 of the live capture's 580
+   variables, so a clean conformance run was saying nothing about 90% of the
+   captured surface while reading as reassurance. Every sync's response now
+   carries `coverage` ({ measured, total, mapped, unmapped, mappedPercent,
+   unmappedByCollection }, or { measured: false, reason } when no
+   CONFORMANCE_MAP_PATH is set — never a 100% that was never measured), and
+   every sync that runs the conformance lane appends the same record PLUS the
+   full unmappedPaths/mappedPathsMissingFromCapture name lists to
+   ~/JHD/captures/live/coverage.jsonl. The names are never truncated there: a
+   capped list would put the silence straight back.
+
    SCHEMA V2: header.schemaVersion=2 (OPTIONAL — absence means v1) marks a
    richer DS-documentation payload with five additive top-level buckets, all
    OPTIONAL and validated loosely (array shape only):
@@ -223,7 +235,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { runConformanceCheck } from "./conformance-check.mjs";
+import { runConformanceCheck, computeCoverage } from "./conformance-check.mjs";
 import { runBindingCheck } from "./binding-check.mjs";
 import { runPageTemplateCheck } from "./page-template-check.mjs";
 
@@ -236,6 +248,7 @@ const CAPTURES_DIR = process.env.CAPTURES_DIR ? resolve(process.env.CAPTURES_DIR
 const RECEIPTS_PATH = join(CAPTURES_DIR, "receipts.jsonl");
 const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
+const COVERAGE_PATH = join(CAPTURES_DIR, "coverage.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
 const TODO_QUEUE_PATH = join(CAPTURES_DIR, "todo-queue.json");
 const TODO_STATE_PATH = join(CAPTURES_DIR, "todo-state.json");
@@ -1482,6 +1495,42 @@ function handleCapture(req, res) {
       // the honest "not configured" state: CONFORMANCE_MAP_PATH is opt-in, and
       // "unset" must never render as "0 defects, all clean" in the plugin.
       let conformance = { ran: false, skipped: true };
+      // COVERAGE — computed on EVERY sync, from the body already in memory, so
+      // "0 defects" can never be read as "the whole capture is fine". Defaults
+      // to the honest not-measurable state for the same reason `conformance`
+      // does: with no map configured there is no coverage to claim, and
+      // rendering that as 100% would be the exact failure this reports on.
+      let coverage = { measured: false, reason: "no conformance map configured" };
+      // Full name lists go to coverage.jsonl only — 525 unmapped names on the
+      // live pipeline would bloat every sync response, and the response's job
+      // is the at-a-glance count. Never truncated in the file itself.
+      let coverageNames = {};
+      const writeCoverageRecord = () => {
+        if (!coverage.measured) return;
+        const { measured, ...body } = coverage;
+        appendFileSync(
+          COVERAGE_PATH,
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            fileName: parsed.header.fileName,
+            fileKey: fileKey || null,
+            ...body,
+            ...coverageNames,
+          }) + "\n",
+          "utf8"
+        );
+      };
+      if (mappingPath) {
+        try {
+          const full = computeCoverage(parsed, JSON.parse(readFileSync(mappingPath, "utf8")));
+          const { unmappedPaths, mappedPathsMissingFromCapture, ...counts } = full;
+          coverage = { measured: true, ...counts };
+          coverageNames = { unmappedPaths, mappedPathsMissingFromCapture };
+        } catch (err) {
+          console.error(`[capture-listener] coverage report failed: ${err.message}`);
+          coverage = { measured: false, reason: err.message };
+        }
+      }
       if (unchanged) {
         receipt = {
           ts: new Date().toISOString(),
@@ -1518,6 +1567,7 @@ function handleCapture(req, res) {
               "utf8"
             );
             conformance = summarizeConformance(result, binding, pageTemplate);
+            writeCoverageRecord();
             writeAtomic(sidecarPath, JSON.stringify({ hash, export: prevState.export, checkFingerprint: currentCheckFingerprint }) + "\n");
           } catch (err) {
             console.error(`[capture-listener] conformance check failed: ${err.message}`);
@@ -1702,6 +1752,10 @@ function handleCapture(req, res) {
             conformance = { ran: false, skipped: false, error: err.message };
           }
         }
+        // Outside the try: a broken map/capture must not swallow the coverage
+        // record. A failed check is exactly when "what was even examined?" is
+        // the question worth answering.
+        writeCoverageRecord();
 
         receipt = {
           ts: new Date().toISOString(),
@@ -1722,6 +1776,7 @@ function handleCapture(req, res) {
         receipt,
         warningCount: Array.isArray(parsed.warnings) ? parsed.warnings.length : 0,
         conformance,
+        coverage,
       };
       if (changeRecord && changeRecord.summary) {
         responseBody.summary = changeRecord.summary;

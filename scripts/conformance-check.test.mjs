@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { runConformanceCheck } from "./conformance-check.mjs";
+import { runConformanceCheck, runCoverageReport } from "./conformance-check.mjs";
 
 const CLI_PATH = join(import.meta.dirname, "conformance-check.mjs");
 
@@ -544,4 +544,79 @@ test("a :root override inside a breakpoint @media does not clobber the base :roo
   const result = runConformanceCheck({ capturePath, mappingPath });
 
   assert.deepEqual(result.defects, []);
+});
+
+// ---- coverage --------------------------------------------------------------
+// "0 defects" and "nobody looked" produce the same output unless coverage is
+// reported. On the live pipeline 55 of 580 captured variables are mapped, so
+// silence covered 90% of the surface.
+
+test("coverage: reports counts and the names of captured variables the map doesn't cover", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light"],
+        variables: [
+          { name: "content/primary", valuesByMode: { light: "#000000" } },
+          { name: "content/secondary", valuesByMode: { light: "#666666" } },
+        ],
+      },
+      { name: "motion", modes: ["default"], variables: [{ name: "duration/fast", valuesByMode: { default: 0.12 } }] },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.total, 3);
+  assert.equal(coverage.mapped, 1);
+  assert.equal(coverage.unmapped, 2);
+  assert.deepEqual(coverage.unmappedPaths, ["color/content/secondary", "motion/duration/fast"]);
+  assert.deepEqual(coverage.unmappedByCollection, { color: 1, motion: 1 });
+});
+
+test("coverage: a map entry pointing at a path the capture doesn't carry is reported, not counted as covered", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+        "color/content/long-gone": { codeLocation: "styles.css", tokenName: "--content-long-gone", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.total, 1);
+  assert.equal(coverage.mapped, 1);
+  assert.equal(coverage.unmapped, 0);
+  assert.deepEqual(coverage.mappedPathsMissingFromCapture, ["color/content/long-gone"]);
+});
+
+test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.unmapped, 0);
+  assert.deepEqual(coverage.unmappedPaths, []);
 });

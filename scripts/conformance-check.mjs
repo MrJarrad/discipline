@@ -440,6 +440,67 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
   return { ok, defects, summary: summaryLines.join("\n") };
 }
 
+// ---- Coverage --------------------------------------------------------------
+
+// "0 defects" and "nobody looked at it" are the same output unless coverage is
+// reported alongside. On the live pipeline the map covers 55 of 580 captured
+// variables, so a clean conformance run was saying nothing at all about 90% of
+// the captured surface — and reading as reassurance.
+//
+// Two directions, because they're different problems:
+//   unmappedPaths                captured but unexamined — the map needs to grow.
+//   mappedPathsMissingFromCapture the map points at a variable the capture no
+//                                 longer carries — a stale map entry (the value
+//                                 lane already reports this as a
+//                                 missing-figma-path defect; it's surfaced here
+//                                 too so one read answers "what is this map
+//                                 actually covering?").
+// Names are reported in full, never truncated: a capped list would put the
+// silence straight back.
+//
+// Split from the path-based wrapper deliberately: capture-listener already
+// holds the POSTed export in memory and runs this on every sync, so making it
+// re-read (and re-parse) the ~1.7MB artifact just to count names would put a
+// real cost on the no-op sync path.
+export function computeCoverage(capture, mapping) {
+  const mappedPaths = new Set(Object.keys(mapping.entries || {}));
+
+  const capturedPaths = [];
+  for (const col of capture.collections || []) {
+    for (const v of col.variables || []) capturedPaths.push(`${col.name}/${v.name}`);
+  }
+
+  const unmappedPaths = capturedPaths.filter((p) => !mappedPaths.has(p));
+  const unmappedByCollection = {};
+  for (const p of unmappedPaths) {
+    const collection = p.slice(0, p.indexOf("/"));
+    unmappedByCollection[collection] = (unmappedByCollection[collection] || 0) + 1;
+  }
+  const capturedSet = new Set(capturedPaths);
+  const mappedPathsMissingFromCapture = [...mappedPaths].filter((p) => !capturedSet.has(p));
+
+  const total = capturedPaths.length;
+  const unmapped = unmappedPaths.length;
+  const mapped = total - unmapped;
+  return {
+    total,
+    mapped,
+    unmapped,
+    // Integer percent, floored — 89.6% covered should never round up to "90%
+    // covered" in a report whose whole job is to not overstate what was checked.
+    mappedPercent: total === 0 ? 0 : Math.floor((mapped / total) * 100),
+    unmappedPaths,
+    unmappedByCollection,
+    mappedPathsMissingFromCapture,
+  };
+}
+
+export function runCoverageReport({ capturePath, mappingPath }) {
+  if (!existsSync(capturePath)) throw new Error(`capture file not found: ${capturePath}`);
+  if (!existsSync(mappingPath)) throw new Error(`mapping file not found: ${mappingPath}`);
+  return computeCoverage(JSON.parse(readFileSync(capturePath, "utf8")), JSON.parse(readFileSync(mappingPath, "utf8")));
+}
+
 // ---- CLI --------------------------------------------------------------
 
 function isMainModule() {

@@ -1656,3 +1656,76 @@ test("an ordinary diffed sync carries no baseline warning — the loud path stay
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+// ---- coverage reporting -----------------------------------------------------
+// A clean conformance run reads as reassurance. Without coverage alongside it,
+// "no defects" and "nobody looked" are indistinguishable — on the live pipeline
+// the map covered 55 of 580 captured variables.
+
+test("a changed sync writes a coverage.jsonl record naming every unmapped captured variable", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+  const twoVariables = {
+    collections: [
+      {
+        name: "color",
+        modes: ["light"],
+        variables: [
+          { name: "content/primary", valuesByMode: { light: "#000000" } },
+          { name: "content/nobody-mapped-me", valuesByMode: { light: "#123456" } },
+        ],
+      },
+    ],
+  };
+
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody(twoVariables)),
+    });
+    const body = await res.json();
+    // The sync result carries the counts, so the operator sees the gap without
+    // opening a file.
+    assert.equal(body.coverage.total, 2);
+    assert.equal(body.coverage.mapped, 1);
+    assert.equal(body.coverage.unmapped, 1);
+    assert.equal(body.coverage.mappedPercent, 50);
+  });
+
+  const record = JSON.parse(readFileSync(join(capturesDir, "coverage.jsonl"), "utf8").trim().split("\n")[0]);
+  assert.equal(record.fileName, "Test File");
+  assert.equal(record.total, 2);
+  assert.equal(record.unmapped, 1);
+  // The names, in full — a truncated list puts the silence straight back.
+  assert.deepEqual(record.unmappedPaths, ["color/content/nobody-mapped-me"]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("no conformance map configured: coverage reports that it could not be measured, never 'all covered'", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const body = await res.json();
+    assert.equal(body.coverage.measured, false);
+    assert.equal("mappedPercent" in body.coverage, false);
+  });
+
+  assert.equal(existsSync(join(capturesDir, "coverage.jsonl")), false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
