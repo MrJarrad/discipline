@@ -1570,3 +1570,89 @@ test("modePins: an exporter that omits `modePins` entirely (older plugin) diffs 
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+// ---- baseline durability + loud skip ---------------------------------------
+// The 2026-08-13 sync ran as initial:true because the .state baseline was lost
+// in the 2026-08-09 reorg. Nothing said so. Change flagging — half the point of
+// the pipeline — was silently off for a full sync. Two guarantees below:
+// the baseline rebuilds itself from the artifact that DID survive, and a sync
+// that genuinely has nothing to diff against says so loudly.
+
+const BASELINE_MISSING = "CHANGE FLAGGING SKIPPED — baseline missing";
+
+test("a lost .state baseline rebuilds from the surviving artifact — the next sync diffs for real", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+  });
+
+  // The reorg, reproduced: the artifact survives, the sidecar directory doesn't.
+  rmSync(join(capturesDir, ".state"), { recursive: true, force: true });
+  assert.equal(existsSync(join(capturesDir, "test-file-variables-styles.json")), true);
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    const body = await res.json();
+    assert.equal(body.baselineRebuilt, true);
+    // A real diff, not a quiet initial:true.
+    assert.equal(body.summary.modified, 1);
+    assert.equal("baselineMissing" in body, false);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const second = JSON.parse(lines[1]);
+  assert.equal(second.initial, undefined);
+  assert.equal(second.baselineRebuilt, true);
+  assert.deepEqual(second.changed.variables, [
+    { path: "color/content/primary", mode: "light", old: "#000000", new: "#111111" },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("a sync with no baseline at all is loud in changes.jsonl AND in the sync result", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const body = await res.json();
+    assert.equal(body.baselineMissing, true);
+    assert.equal(body.warning.startsWith(BASELINE_MISSING), true);
+  });
+
+  const record = JSON.parse(readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n")[0]);
+  assert.equal(record.initial, true);
+  assert.equal(record.baselineMissing, true);
+  assert.equal(record.warning.startsWith(BASELINE_MISSING), true);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("an ordinary diffed sync carries no baseline warning — the loud path stays rare", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    const body = await res.json();
+    assert.equal("baselineMissing" in body, false);
+    assert.equal("warning" in body, false);
+    assert.equal("baselineRebuilt" in body, false);
+  });
+
+  const second = JSON.parse(readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n")[1]);
+  assert.equal("baselineMissing" in second, false);
+  assert.equal("warning" in second, false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});

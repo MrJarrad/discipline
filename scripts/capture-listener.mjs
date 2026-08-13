@@ -148,6 +148,22 @@
    The first-ever sync for a file (no sidecar yet) logs { initial: true }
    with no diff (and no `summary`), since there's nothing to compare against.
 
+   BASELINE DURABILITY: a missing sidecar does NOT mean "first ever sync" —
+   it also means "the baseline was lost", which is what happened when the
+   2026-08-09 captures reorg left .state/ behind and the 2026-08-13 sync ran
+   as a silent initial:true with a full sync's drift unreported. Two rules
+   now hold:
+     - RECOVERY. The artifact on disk is a full copy of the last export, so
+       a missing sidecar is rebuilt from it (shape-validated first — a
+       corrupt artifact is not a baseline). The sync diffs for real and both
+       changes.jsonl and the response carry `baselineRebuilt: true`.
+     - LOUD SKIP. When there is genuinely nothing to diff against, the record
+       carries `baselineMissing: true` and a `warning` beginning "CHANGE
+       FLAGGING SKIPPED — baseline missing" ALONGSIDE `initial: true`, and
+       the POST /capture response carries the same two fields. A bare
+       initial:true reads as "nothing to report"; the truth is "nothing was
+       examined".
+
    SCHEMA V2: header.schemaVersion=2 (OPTIONAL — absence means v1) marks a
    richer DS-documentation payload with five additive top-level buckets, all
    OPTIONAL and validated loosely (array shape only):
@@ -349,6 +365,42 @@ function readState(path) {
     return null; // corrupt/partial sidecar — treat as no prior state
   }
 }
+
+// BASELINE DURABILITY — the sidecar under .state/ is the only thing that makes
+// change flagging possible, and on 2026-08-13 it turned out not to be durable:
+// the 2026-08-09 captures reorg moved the artifacts and left the dot-directory
+// behind, so the next sync had nothing to diff against and logged a quiet
+// `initial: true`. A full sync's worth of design drift went unreported and
+// nothing in the output said so.
+//
+// The artifact itself IS a copy of the last export (it's rewritten in full on
+// every changed sync), so a lost sidecar is recoverable without a second
+// git-tracked mirror: re-read the artifact, re-hash it, and that's the
+// baseline back. Shape-validated before use — a truncated or hand-edited
+// artifact is not a baseline, and silently diffing against one would be a
+// worse failure than admitting there isn't one.
+function rebuildStateFromArtifact(artifactPath) {
+  if (!existsSync(artifactPath)) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(artifactPath, "utf8"));
+  } catch {
+    return null;
+  }
+  if (validateExportShape(parsed)) return null;
+  // checkFingerprint is deliberately null: we know what the document was, not
+  // which checker/map produced the last cached result, so the conformance
+  // lanes re-run rather than trusting a fingerprint we can't reconstruct.
+  return { hash: exportHash(parsed), export: parsed, checkFingerprint: null };
+}
+
+// The literal the operator greps for. Kept as one exported-ish constant so
+// changes.jsonl and the POST /capture response can never drift apart on the
+// wording — both surfaces have to say the same thing for the warning to be
+// findable at all.
+const BASELINE_MISSING_WARNING =
+  "CHANGE FLAGGING SKIPPED — baseline missing: no prior export to diff against, so nothing in this sync was examined for drift. " +
+  "If this file has synced before, its baseline was lost (see rebuildStateFromArtifact) and this sync's changes are unreported.";
 
 function jsonEq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -1393,7 +1445,20 @@ function handleCapture(req, res) {
         ? join(CAPTURES_DIR, `${fileSlug}--${fileKey}-variables-styles.json`)
         : join(CAPTURES_DIR, `${fileSlug}-variables-styles.json`);
       const sidecarPath = statePath(fileSlug, fileKey);
-      const prevState = readState(sidecarPath);
+      // A missing sidecar is not automatically "first ever sync" — see
+      // rebuildStateFromArtifact. Recover the baseline from the artifact when
+      // one is on disk, and record that we had to, so a recurring rebuild
+      // reads as the state-durability problem it is rather than as normal.
+      let prevState = readState(sidecarPath);
+      let baselineRebuilt = false;
+      if (prevState === null) {
+        const rebuilt = rebuildStateFromArtifact(outPath);
+        if (rebuilt) {
+          prevState = rebuilt;
+          baselineRebuilt = true;
+          console.warn(`[capture-listener] sidecar missing — baseline rebuilt from ${outPath}`);
+        }
+      }
       const hash = exportHash(parsed);
       const unchanged = prevState !== null && prevState.hash === hash;
       // mappingPath/currentCheckFingerprint are computed once up front (they
@@ -1482,7 +1547,13 @@ function handleCapture(req, res) {
         };
         if (prevState === null) {
           changeRecord.initial = true;
+          // Loud, not quiet. `initial: true` alone reads as "nothing to report";
+          // what it actually means is "this sync was not examined for drift".
+          changeRecord.baselineMissing = true;
+          changeRecord.warning = BASELINE_MISSING_WARNING;
+          console.warn(`[capture-listener] ${BASELINE_MISSING_WARNING} (${parsed.header.fileName})`);
         } else {
+          if (baselineRebuilt) changeRecord.baselineRebuilt = true;
           const { variables, variablesAdded, variablesRemoved, variablesRenamed, aliasRepoints } = diffVariables(
             prevState.export.collections,
             parsed.collections
@@ -1654,6 +1725,14 @@ function handleCapture(req, res) {
       };
       if (changeRecord && changeRecord.summary) {
         responseBody.summary = changeRecord.summary;
+      }
+      // Both baseline facts ride the sync result too — the plugin's sync panel
+      // is where the operator actually looks, and a warning only in
+      // changes.jsonl is a warning nobody reads.
+      if (baselineRebuilt) responseBody.baselineRebuilt = true;
+      if (changeRecord && changeRecord.baselineMissing) {
+        responseBody.baselineMissing = true;
+        responseBody.warning = BASELINE_MISSING_WARNING;
       }
       res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
       res.end(JSON.stringify(responseBody));
