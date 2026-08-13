@@ -726,6 +726,121 @@ test("css-fluid: the real title-400 clamp cascade matches its capture at all ten
   assert.equal(result.modesEvaluated, 10);
 });
 
+test("css-fluid: size drift injected at the INTERIOR md mode flags, while sm/lg/xl stay green", () => {
+  // The 768 segment's floor moved 2rem -> 2.25rem: 36px where the capture says
+  // 32px. sm reads the base declaration, lg/xl read the 1280 block — all three
+  // are untouched, so only a check that evaluates md's own anchor catches this.
+  const driftedCss = TITLE_RAMP_CSS.replace(
+    "--title-style1-300-size: clamp(2rem, calc(1.5625vw + 1.25rem), 2.5rem);",
+    "--title-style1-300-size: clamp(2.25rem, calc(1.5625vw + 1.25rem), 2.5rem);"
+  );
+  assert.notEqual(driftedCss, TITLE_RAMP_CSS, "fixture drift must actually be injected");
+
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-300", valuesByMode: { ...TITLE_300_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-300": { codeLocation: "styles.css", tokenName: "--title-style1-300-size", extraction: "css-fluid" },
+      },
+    },
+    css: driftedCss,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 10);
+  assert.deepEqual(
+    result.defects.map((d) => d.mode),
+    ["md", "md-flush"]
+  );
+  assert.deepEqual(result.defects[0], {
+    path: "layout/text/title/font-size-300",
+    mode: "md",
+    old: 32,
+    new: 36,
+    atWidth: 768,
+    codeLocation: "styles.css",
+    tokenName: "--title-style1-300-size",
+    type: "value_mismatch",
+  });
+});
+
+test("css-fluid: the unperturbed title-300 ramp (md-distinct fluid segment) is green at all ten modes", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-300", valuesByMode: { ...TITLE_300_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-300": { codeLocation: "styles.css", tokenName: "--title-style1-300-size", extraction: "css-fluid" },
+      },
+    },
+    css: TITLE_RAMP_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+// A single fluid segment spanning sm -> xl, so md and lg anchors land STRICTLY
+// INSIDE the curve rather than on a breakpoint boundary. clamp(1.125rem,
+// calc(1.5625vw + 0.75rem), 2.5rem) resolves 18 / 24 / 32 / 40 at
+// 375 / 768 / 1280 / 1920 — the first and last from the clamp's own bounds, the
+// middle two from the interpolation.
+const INTERIOR_ANCHOR_VALUES = { sm: 18, md: 24, lg: 32, xl: 40 };
+const INTERIOR_VALUES_BY_MODE = Object.fromEntries(
+  LAYOUT_MODES.map((mode) => [mode, INTERIOR_ANCHOR_VALUES[mode.split("-")[0]]])
+);
+const INTERIOR_CSS = `:root {\n  --demo-size: clamp(1.125rem, calc(1.5625vw + 0.75rem), 2.5rem);\n}\n`;
+
+function interiorFixture(css) {
+  return makeFixture({
+    collections: [layoutCollection([{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }])],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css,
+  });
+}
+
+test("css-fluid: a fluid segment whose md/lg anchors fall inside the curve is green at every mode", () => {
+  const { capturePath, mappingPath } = interiorFixture(INTERIOR_CSS);
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: slope drift inside IDENTICAL clamp bounds flags the interior anchors — min/max alone would pass it", () => {
+  // Same lower (1.125rem) and upper (2.5rem) bounds, different preferred slope.
+  // sm still saturates at the floor (18) and xl at the ceiling (40), so a check
+  // that compared only the clamp's endpoints would call this conformant; md
+  // drifts 24 -> 21.44 and lg 32 -> 30.4.
+  const { capturePath, mappingPath } = interiorFixture(
+    INTERIOR_CSS.replace("calc(1.5625vw + 0.75rem)", "calc(1.75vw + 0.5rem)")
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 10);
+  assert.deepEqual(
+    result.defects.map((d) => d.mode).sort(),
+    ["lg", "lg-flush", "lg-sidebar-main", "lg-sidebar-main-flush", "md", "md-flush"]
+  );
+  const md = result.defects.find((d) => d.mode === "md");
+  assert.equal(md.old, 24);
+  assert.equal(Number(md.new.toFixed(2)), 21.44);
+  assert.equal(md.atWidth, 768);
+});
+
 test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
   const { capturePath, mappingPath } = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
