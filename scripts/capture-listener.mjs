@@ -148,6 +148,34 @@
    The first-ever sync for a file (no sidecar yet) logs { initial: true }
    with no diff (and no `summary`), since there's nothing to compare against.
 
+   BASELINE DURABILITY: a missing sidecar does NOT mean "first ever sync" —
+   it also means "the baseline was lost", which is what happened when the
+   2026-08-09 captures reorg left .state/ behind and the 2026-08-13 sync ran
+   as a silent initial:true with a full sync's drift unreported. Two rules
+   now hold:
+     - RECOVERY. The artifact on disk is a full copy of the last export, so
+       a missing sidecar is rebuilt from it (shape-validated first — a
+       corrupt artifact is not a baseline). The sync diffs for real and both
+       changes.jsonl and the response carry `baselineRebuilt: true`.
+     - LOUD SKIP. When there is genuinely nothing to diff against, the record
+       carries `baselineMissing: true` and a `warning` beginning "CHANGE
+       FLAGGING SKIPPED — baseline missing" ALONGSIDE `initial: true`, and
+       the POST /capture response carries the same two fields. A bare
+       initial:true reads as "nothing to report"; the truth is "nothing was
+       examined".
+
+   COVERAGE: "0 defects" and "nobody looked at it" are the same output unless
+   coverage is reported alongside — the map covers 55 of the live capture's 580
+   variables, so a clean conformance run was saying nothing about 90% of the
+   captured surface while reading as reassurance. Every sync's response now
+   carries `coverage` ({ measured, total, mapped, unmapped, mappedPercent,
+   unmappedByCollection }, or { measured: false, reason } when no
+   CONFORMANCE_MAP_PATH is set — never a 100% that was never measured), and
+   every sync that runs the conformance lane appends the same record PLUS the
+   full unmappedPaths/mappedPathsMissingFromCapture name lists to
+   ~/JHD/captures/live/coverage.jsonl. The names are never truncated there: a
+   capped list would put the silence straight back.
+
    SCHEMA V2: header.schemaVersion=2 (OPTIONAL — absence means v1) marks a
    richer DS-documentation payload with five additive top-level buckets, all
    OPTIONAL and validated loosely (array shape only):
@@ -207,7 +235,7 @@ import {
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { runConformanceCheck } from "./conformance-check.mjs";
+import { runConformanceCheck, computeCoverage } from "./conformance-check.mjs";
 import { runBindingCheck } from "./binding-check.mjs";
 import { runPageTemplateCheck } from "./page-template-check.mjs";
 
@@ -220,6 +248,7 @@ const CAPTURES_DIR = process.env.CAPTURES_DIR ? resolve(process.env.CAPTURES_DIR
 const RECEIPTS_PATH = join(CAPTURES_DIR, "receipts.jsonl");
 const CHANGES_PATH = join(CAPTURES_DIR, "changes.jsonl");
 const CONFORMANCE_PATH = join(CAPTURES_DIR, "conformance.jsonl");
+const COVERAGE_PATH = join(CAPTURES_DIR, "coverage.jsonl");
 const STATE_DIR = join(CAPTURES_DIR, ".state");
 const TODO_QUEUE_PATH = join(CAPTURES_DIR, "todo-queue.json");
 const TODO_STATE_PATH = join(CAPTURES_DIR, "todo-state.json");
@@ -349,6 +378,42 @@ function readState(path) {
     return null; // corrupt/partial sidecar — treat as no prior state
   }
 }
+
+// BASELINE DURABILITY — the sidecar under .state/ is the only thing that makes
+// change flagging possible, and on 2026-08-13 it turned out not to be durable:
+// the 2026-08-09 captures reorg moved the artifacts and left the dot-directory
+// behind, so the next sync had nothing to diff against and logged a quiet
+// `initial: true`. A full sync's worth of design drift went unreported and
+// nothing in the output said so.
+//
+// The artifact itself IS a copy of the last export (it's rewritten in full on
+// every changed sync), so a lost sidecar is recoverable without a second
+// git-tracked mirror: re-read the artifact, re-hash it, and that's the
+// baseline back. Shape-validated before use — a truncated or hand-edited
+// artifact is not a baseline, and silently diffing against one would be a
+// worse failure than admitting there isn't one.
+function rebuildStateFromArtifact(artifactPath) {
+  if (!existsSync(artifactPath)) return null;
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(artifactPath, "utf8"));
+  } catch {
+    return null;
+  }
+  if (validateExportShape(parsed)) return null;
+  // checkFingerprint is deliberately null: we know what the document was, not
+  // which checker/map produced the last cached result, so the conformance
+  // lanes re-run rather than trusting a fingerprint we can't reconstruct.
+  return { hash: exportHash(parsed), export: parsed, checkFingerprint: null };
+}
+
+// The literal the operator greps for. Kept as one exported-ish constant so
+// changes.jsonl and the POST /capture response can never drift apart on the
+// wording — both surfaces have to say the same thing for the warning to be
+// findable at all.
+const BASELINE_MISSING_WARNING =
+  "CHANGE FLAGGING SKIPPED — baseline missing: no prior export to diff against, so nothing in this sync was examined for drift. " +
+  "If this file has synced before, its baseline was lost (see rebuildStateFromArtifact) and this sync's changes are unreported.";
 
 function jsonEq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
@@ -1393,7 +1458,20 @@ function handleCapture(req, res) {
         ? join(CAPTURES_DIR, `${fileSlug}--${fileKey}-variables-styles.json`)
         : join(CAPTURES_DIR, `${fileSlug}-variables-styles.json`);
       const sidecarPath = statePath(fileSlug, fileKey);
-      const prevState = readState(sidecarPath);
+      // A missing sidecar is not automatically "first ever sync" — see
+      // rebuildStateFromArtifact. Recover the baseline from the artifact when
+      // one is on disk, and record that we had to, so a recurring rebuild
+      // reads as the state-durability problem it is rather than as normal.
+      let prevState = readState(sidecarPath);
+      let baselineRebuilt = false;
+      if (prevState === null) {
+        const rebuilt = rebuildStateFromArtifact(outPath);
+        if (rebuilt) {
+          prevState = rebuilt;
+          baselineRebuilt = true;
+          console.warn(`[capture-listener] sidecar missing — baseline rebuilt from ${outPath}`);
+        }
+      }
       const hash = exportHash(parsed);
       const unchanged = prevState !== null && prevState.hash === hash;
       // mappingPath/currentCheckFingerprint are computed once up front (they
@@ -1417,6 +1495,42 @@ function handleCapture(req, res) {
       // the honest "not configured" state: CONFORMANCE_MAP_PATH is opt-in, and
       // "unset" must never render as "0 defects, all clean" in the plugin.
       let conformance = { ran: false, skipped: true };
+      // COVERAGE — computed on EVERY sync, from the body already in memory, so
+      // "0 defects" can never be read as "the whole capture is fine". Defaults
+      // to the honest not-measurable state for the same reason `conformance`
+      // does: with no map configured there is no coverage to claim, and
+      // rendering that as 100% would be the exact failure this reports on.
+      let coverage = { measured: false, reason: "no conformance map configured" };
+      // Full name lists go to coverage.jsonl only — 525 unmapped names on the
+      // live pipeline would bloat every sync response, and the response's job
+      // is the at-a-glance count. Never truncated in the file itself.
+      let coverageNames = {};
+      const writeCoverageRecord = () => {
+        if (!coverage.measured) return;
+        const { measured, ...body } = coverage;
+        appendFileSync(
+          COVERAGE_PATH,
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            fileName: parsed.header.fileName,
+            fileKey: fileKey || null,
+            ...body,
+            ...coverageNames,
+          }) + "\n",
+          "utf8"
+        );
+      };
+      if (mappingPath) {
+        try {
+          const full = computeCoverage(parsed, JSON.parse(readFileSync(mappingPath, "utf8")));
+          const { unmappedPaths, mappedPathsMissingFromCapture, ...counts } = full;
+          coverage = { measured: true, ...counts };
+          coverageNames = { unmappedPaths, mappedPathsMissingFromCapture };
+        } catch (err) {
+          console.error(`[capture-listener] coverage report failed: ${err.message}`);
+          coverage = { measured: false, reason: err.message };
+        }
+      }
       if (unchanged) {
         receipt = {
           ts: new Date().toISOString(),
@@ -1453,6 +1567,7 @@ function handleCapture(req, res) {
               "utf8"
             );
             conformance = summarizeConformance(result, binding, pageTemplate);
+            writeCoverageRecord();
             writeAtomic(sidecarPath, JSON.stringify({ hash, export: prevState.export, checkFingerprint: currentCheckFingerprint }) + "\n");
           } catch (err) {
             console.error(`[capture-listener] conformance check failed: ${err.message}`);
@@ -1482,7 +1597,13 @@ function handleCapture(req, res) {
         };
         if (prevState === null) {
           changeRecord.initial = true;
+          // Loud, not quiet. `initial: true` alone reads as "nothing to report";
+          // what it actually means is "this sync was not examined for drift".
+          changeRecord.baselineMissing = true;
+          changeRecord.warning = BASELINE_MISSING_WARNING;
+          console.warn(`[capture-listener] ${BASELINE_MISSING_WARNING} (${parsed.header.fileName})`);
         } else {
+          if (baselineRebuilt) changeRecord.baselineRebuilt = true;
           const { variables, variablesAdded, variablesRemoved, variablesRenamed, aliasRepoints } = diffVariables(
             prevState.export.collections,
             parsed.collections
@@ -1631,6 +1752,10 @@ function handleCapture(req, res) {
             conformance = { ran: false, skipped: false, error: err.message };
           }
         }
+        // Outside the try: a broken map/capture must not swallow the coverage
+        // record. A failed check is exactly when "what was even examined?" is
+        // the question worth answering.
+        writeCoverageRecord();
 
         receipt = {
           ts: new Date().toISOString(),
@@ -1651,9 +1776,18 @@ function handleCapture(req, res) {
         receipt,
         warningCount: Array.isArray(parsed.warnings) ? parsed.warnings.length : 0,
         conformance,
+        coverage,
       };
       if (changeRecord && changeRecord.summary) {
         responseBody.summary = changeRecord.summary;
+      }
+      // Both baseline facts ride the sync result too — the plugin's sync panel
+      // is where the operator actually looks, and a warning only in
+      // changes.jsonl is a warning nobody reads.
+      if (baselineRebuilt) responseBody.baselineRebuilt = true;
+      if (changeRecord && changeRecord.baselineMissing) {
+        responseBody.baselineMissing = true;
+        responseBody.warning = BASELINE_MISSING_WARNING;
       }
       res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
       res.end(JSON.stringify(responseBody));

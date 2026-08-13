@@ -101,31 +101,56 @@ function resolveValue(path, mode, index) {
 // ---- CSS extraction -------------------------------------------------------
 
 // Minimal CSS custom-property scanner: tracks a selector stack through
-// arbitrary nesting (so `@media (...) { :root { --x: 1; } }` still attributes
-// `--x` to `:root`) and records the LAST declaration seen for each selector,
+// arbitrary nesting and records the LAST declaration seen for each selector,
 // since source order determines override. Only declarations directly inside
 // a `:root` or `.dark` block are collected — this file's other selectors
 // (`@theme inline`, component utilities, etc.) are walked over but ignored.
-function parseCssCustomProps(css) {
+//
+// @MEDIA SCOPING: a `:root`/`.dark` block nested anywhere inside an `@media`
+// block is a CONDITIONAL value, not the base one, and never contributes here.
+// This used to be the opposite — `@media (...) { :root { --x: 1 } }` was
+// attributed to `:root` — and under last-write-wins that made the print
+// stylesheet's paper overrides (`@media print { .dark { --background: #fff } }`
+// in portfolio's globals.css) read as THE dark-mode values, reporting six
+// dark-mode defects that were not defects on the 2026-08-13 sync. Breakpoint
+// re-declarations (`@media (min-width: 768px) { :root { ... } }`, the fluid
+// type ramp) are the same shape and the same mistake: Figma exports the base
+// value, so the base declaration is the one to compare against.
+// Only `@media` is excluded, deliberately — `@layer base { :root { ... } }`
+// and friends are unconditional and still count.
+function isMediaAtRule(selector) {
+  return /^@media\b/.test(selector);
+}
+
+// Comments are stripped WHOLESALE before the scan rather than skipped
+// inline, because a comment sitting in a selector prelude is swallowed by the
+// selector match (`[^{};]+` happily eats a brace-free comment) and the
+// resulting token no longer starts with "@media". portfolio's globals.css
+// puts a 19-line banner comment immediately above `@media print`, which is
+// exactly how the print block escaped the check below on the first pass.
+// Replaced with a space, not "", so a comment between two tokens can't fuse
+// them into one.
+function stripCssComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, " ");
+}
+
+function parseCssCustomProps(rawCss) {
+  const css = stripCssComments(rawCss);
   const root = {};
   const dark = {};
   const stack = [];
+  let mediaDepth = 0;
   let i = 0;
   const len = css.length;
   while (i < len) {
-    if (css[i] === "/" && css[i + 1] === "*") {
-      const end = css.indexOf("*/", i + 2);
-      i = end === -1 ? len : end + 2;
-      continue;
-    }
     if (css[i] === "}") {
-      stack.pop();
+      if (isMediaAtRule(stack.pop() || "")) mediaDepth--;
       i++;
       continue;
     }
     const declMatch = css.slice(i).match(/^--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/);
     const top = stack[stack.length - 1];
-    if (declMatch && (top === ":root" || top === ".dark")) {
+    if (declMatch && mediaDepth === 0 && (top === ":root" || top === ".dark")) {
       const target = top === ":root" ? root : dark;
       target[declMatch[1]] = declMatch[2].trim();
       i += declMatch[0].length;
@@ -133,7 +158,9 @@ function parseCssCustomProps(css) {
     }
     const selMatch = css.slice(i).match(/^([^{};]+)\{/);
     if (selMatch) {
-      stack.push(selMatch[1].trim());
+      const selector = selMatch[1].trim();
+      stack.push(selector);
+      if (isMediaAtRule(selector)) mediaDepth++;
       i += selMatch[0].length;
       continue;
     }
@@ -411,6 +438,67 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
     }
   }
   return { ok, defects, summary: summaryLines.join("\n") };
+}
+
+// ---- Coverage --------------------------------------------------------------
+
+// "0 defects" and "nobody looked at it" are the same output unless coverage is
+// reported alongside. On the live pipeline the map covers 55 of 580 captured
+// variables, so a clean conformance run was saying nothing at all about 90% of
+// the captured surface — and reading as reassurance.
+//
+// Two directions, because they're different problems:
+//   unmappedPaths                captured but unexamined — the map needs to grow.
+//   mappedPathsMissingFromCapture the map points at a variable the capture no
+//                                 longer carries — a stale map entry (the value
+//                                 lane already reports this as a
+//                                 missing-figma-path defect; it's surfaced here
+//                                 too so one read answers "what is this map
+//                                 actually covering?").
+// Names are reported in full, never truncated: a capped list would put the
+// silence straight back.
+//
+// Split from the path-based wrapper deliberately: capture-listener already
+// holds the POSTed export in memory and runs this on every sync, so making it
+// re-read (and re-parse) the ~1.7MB artifact just to count names would put a
+// real cost on the no-op sync path.
+export function computeCoverage(capture, mapping) {
+  const mappedPaths = new Set(Object.keys(mapping.entries || {}));
+
+  const capturedPaths = [];
+  for (const col of capture.collections || []) {
+    for (const v of col.variables || []) capturedPaths.push(`${col.name}/${v.name}`);
+  }
+
+  const unmappedPaths = capturedPaths.filter((p) => !mappedPaths.has(p));
+  const unmappedByCollection = {};
+  for (const p of unmappedPaths) {
+    const collection = p.slice(0, p.indexOf("/"));
+    unmappedByCollection[collection] = (unmappedByCollection[collection] || 0) + 1;
+  }
+  const capturedSet = new Set(capturedPaths);
+  const mappedPathsMissingFromCapture = [...mappedPaths].filter((p) => !capturedSet.has(p));
+
+  const total = capturedPaths.length;
+  const unmapped = unmappedPaths.length;
+  const mapped = total - unmapped;
+  return {
+    total,
+    mapped,
+    unmapped,
+    // Integer percent, floored — 89.6% covered should never round up to "90%
+    // covered" in a report whose whole job is to not overstate what was checked.
+    mappedPercent: total === 0 ? 0 : Math.floor((mapped / total) * 100),
+    unmappedPaths,
+    unmappedByCollection,
+    mappedPathsMissingFromCapture,
+  };
+}
+
+export function runCoverageReport({ capturePath, mappingPath }) {
+  if (!existsSync(capturePath)) throw new Error(`capture file not found: ${capturePath}`);
+  if (!existsSync(mappingPath)) throw new Error(`mapping file not found: ${mappingPath}`);
+  return computeCoverage(JSON.parse(readFileSync(capturePath, "utf8")), JSON.parse(readFileSync(mappingPath, "utf8")));
 }
 
 // ---- CLI --------------------------------------------------------------

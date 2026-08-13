@@ -1570,3 +1570,162 @@ test("modePins: an exporter that omits `modePins` entirely (older plugin) diffs 
 
   rmSync(capturesDir, { recursive: true, force: true });
 });
+
+// ---- baseline durability + loud skip ---------------------------------------
+// The 2026-08-13 sync ran as initial:true because the .state baseline was lost
+// in the 2026-08-09 reorg. Nothing said so. Change flagging — half the point of
+// the pipeline — was silently off for a full sync. Two guarantees below:
+// the baseline rebuilds itself from the artifact that DID survive, and a sync
+// that genuinely has nothing to diff against says so loudly.
+
+const BASELINE_MISSING = "CHANGE FLAGGING SKIPPED — baseline missing";
+
+test("a lost .state baseline rebuilds from the surviving artifact — the next sync diffs for real", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const first = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    assert.equal(first.status, 200);
+  });
+
+  // The reorg, reproduced: the artifact survives, the sidecar directory doesn't.
+  rmSync(join(capturesDir, ".state"), { recursive: true, force: true });
+  assert.equal(existsSync(join(capturesDir, "test-file-variables-styles.json")), true);
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    const body = await res.json();
+    assert.equal(body.baselineRebuilt, true);
+    // A real diff, not a quiet initial:true.
+    assert.equal(body.summary.modified, 1);
+    assert.equal("baselineMissing" in body, false);
+  });
+
+  const lines = readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n");
+  const second = JSON.parse(lines[1]);
+  assert.equal(second.initial, undefined);
+  assert.equal(second.baselineRebuilt, true);
+  assert.deepEqual(second.changed.variables, [
+    { path: "color/content/primary", mode: "light", old: "#000000", new: "#111111" },
+  ]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("a sync with no baseline at all is loud in changes.jsonl AND in the sync result", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const body = await res.json();
+    assert.equal(body.baselineMissing, true);
+    assert.equal(body.warning.startsWith(BASELINE_MISSING), true);
+  });
+
+  const record = JSON.parse(readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n")[0]);
+  assert.equal(record.initial, true);
+  assert.equal(record.baselineMissing, true);
+  assert.equal(record.warning.startsWith(BASELINE_MISSING), true);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+test("an ordinary diffed sync carries no baseline warning — the loud path stays rare", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody({ collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#111111" } }] }] })),
+    });
+    const body = await res.json();
+    assert.equal("baselineMissing" in body, false);
+    assert.equal("warning" in body, false);
+    assert.equal("baselineRebuilt" in body, false);
+  });
+
+  const second = JSON.parse(readFileSync(join(capturesDir, "changes.jsonl"), "utf8").trim().split("\n")[1]);
+  assert.equal("baselineMissing" in second, false);
+  assert.equal("warning" in second, false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});
+
+// ---- coverage reporting -----------------------------------------------------
+// A clean conformance run reads as reassurance. Without coverage alongside it,
+// "no defects" and "nobody looked" are indistinguishable — on the live pipeline
+// the map covered 55 of 580 captured variables.
+
+test("a changed sync writes a coverage.jsonl record naming every unmapped captured variable", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+  const repoRoot = mkdtempSync(join(tmpdir(), "conformance-repo-test-"));
+  mkdirSync(join(repoRoot, "design"), { recursive: true });
+  writeFileSync(join(repoRoot, "styles.css"), `:root {\n  --content-primary: #000000;\n}\n`, "utf8");
+  const mappingPath = join(repoRoot, "design", "figma-map.json");
+  writeFileSync(
+    mappingPath,
+    JSON.stringify({
+      $schema: "conformance-map/v1",
+      entries: { "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" } },
+    }),
+    "utf8"
+  );
+  const twoVariables = {
+    collections: [
+      {
+        name: "color",
+        modes: ["light"],
+        variables: [
+          { name: "content/primary", valuesByMode: { light: "#000000" } },
+          { name: "content/nobody-mapped-me", valuesByMode: { light: "#123456" } },
+        ],
+      },
+    ],
+  };
+
+  await withListener({ CAPTURES_DIR: capturesDir, CONFORMANCE_MAP_PATH: mappingPath }, async (base) => {
+    const res = await fetch(`${base}/capture`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(exportBody(twoVariables)),
+    });
+    const body = await res.json();
+    // The sync result carries the counts, so the operator sees the gap without
+    // opening a file.
+    assert.equal(body.coverage.total, 2);
+    assert.equal(body.coverage.mapped, 1);
+    assert.equal(body.coverage.unmapped, 1);
+    assert.equal(body.coverage.mappedPercent, 50);
+  });
+
+  const record = JSON.parse(readFileSync(join(capturesDir, "coverage.jsonl"), "utf8").trim().split("\n")[0]);
+  assert.equal(record.fileName, "Test File");
+  assert.equal(record.total, 2);
+  assert.equal(record.unmapped, 1);
+  // The names, in full — a truncated list puts the silence straight back.
+  assert.deepEqual(record.unmappedPaths, ["color/content/nobody-mapped-me"]);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+  rmSync(repoRoot, { recursive: true, force: true });
+});
+
+test("no conformance map configured: coverage reports that it could not be measured, never 'all covered'", async () => {
+  const capturesDir = mkdtempSync(join(tmpdir(), "capture-listener-test-"));
+
+  await withListener({ CAPTURES_DIR: capturesDir }, async (base) => {
+    const res = await fetch(`${base}/capture`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(exportBody()) });
+    const body = await res.json();
+    assert.equal(body.coverage.measured, false);
+    assert.equal("mappedPercent" in body.coverage, false);
+  });
+
+  assert.equal(existsSync(join(capturesDir, "coverage.jsonl")), false);
+
+  rmSync(capturesDir, { recursive: true, force: true });
+});

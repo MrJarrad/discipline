@@ -89,7 +89,7 @@ prompt *and* every verify prompt, and journals the ruling ids per dispatch:
 ```json
 { "name": "...",
   "rulings": [{ "id": "media-§6",
-                "source": "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+                "source": "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md (verified: §6 read directly)",
                 "text": "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. …",
                 "do": "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.",
                 "dont": "every drop file is byte-identical to what shipped, so there is nothing to do." }],
@@ -114,11 +114,38 @@ breach — an agent that catches itself thinking it recognises the breach before
 it. "Don't skip the copy" would not have done that. The runner renders the pair as
 `DO:` / `DON'T:` lines beneath the quoted text and journals pair presence per dispatch.
 
+## A ruling may only state facts you verified — or labelled UNVERIFIED
+
+A quoted ruling is read as ground truth. So a load-bearing fact inside one may only be
+there if **you opened the primary source and saw it**, or it carries the literal label
+`instrument-reported, UNVERIFIED — confirm before acting`. There is no third option, and
+"the instrument said so" is not the first one.
+
+Measured, not theoretical: a 2026-08-13 brief stated as fact that the conformance lane had
+found six dark-mode defects. Nobody had traced the run. The defects did not exist — the
+checker was reading a print stylesheet's `@media print { .dark { … } }` paper overrides as
+the screen dark-mode values — and an engineer was dispatched to fix code that was already
+correct.
+
+**DO:** the conformance run reports six dark-mode defects; you open `globals.css`, find
+the print block, and write *"conformance reports 6 dark-mode defects — instrument-reported,
+UNVERIFIED; the print block at globals.css:3508 is a likely false-positive source, confirm
+before changing any token."*
+
+**DON'T:** *"the check is the primary source — that's what an instrument is for."* An
+instrument reports what it measured; whether it measured the right thing is the claim, and
+that claim is the one you haven't checked.
+
+Provenance goes in the entry's `source` or `text` — either field, stated in that field.
+Naming a vault path is not provenance: it says where the ruling lives, not that you read it.
+
 `node scripts/workflow-lint.mjs <spec>` hard-fails a placeholder `text`; warns when a
 prompt cites a ruling, or reads as media/ingest/replacement work, with no `rulings` field
-behind it; and warns per entry when either pair half is missing. That last one is a
-warning, not a failure, because some rulings genuinely resist pairing — but the default
-is a pair, and "this one resists" is a judgement you make, not one you drift into.
+behind it; warns per entry when either pair half is missing; and warns per entry when
+neither a `verified`-claim-naming-a-source nor the literal `UNVERIFIED` appears. The last
+two are warnings, not failures, because some rulings genuinely resist pairing and only the
+author can tell a verified premise from a plausible one — but the default is both, and
+"this one's an exception" is a judgement you make, not one you drift into.
 
 The reviewer gets the rulings too. A gate that can't see the ruling can't catch a breach
 of it — that half is what failed in 2026-08-07.
@@ -186,6 +213,8 @@ avoidable token cost.
     a name/path citation is not compliance — and the reviewer's prompt carries them too
 [ ] Each ruling carries its DO/DON'T pair, the `dont` phrased as the violator's own
     reasoning; a bare abstraction has already been read and breached once
+[ ] Each ruling's load-bearing facts were verified against a primary source you opened
+    (named in `source`/`text`), or carry the literal "UNVERIFIED — confirm before acting"
 [ ] Evidence contract stated: what proof comes back, "failure beats false done"
 [ ] Existing agent resumed if one holds the domain; primer cited as first read where one exists
 [ ] Brief carries verified file:line loci, baselines (commit hash, version), and key-file hashes

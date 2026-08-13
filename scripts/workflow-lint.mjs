@@ -158,6 +158,56 @@ function lintRulingPair(r, locus) {
   return [`spec-lint: ${locus} has a \`do\` but no \`dont\` — the DON'T half is the one that catches a model mid-rationalisation, so make it the exact reasoning a violator used, not a restatement of the rule.`];
 }
 
+/* PROVENANCE (operator escalation 2026-08-13, on the auto-memory that tried to
+   cover this: "this doesn't seem like something that should be a memory update
+   only"). Ruling text in a dispatch brief may state a load-bearing fact only if
+   it was verified against a primary source the author opened, OR is explicitly
+   labelled "instrument-reported, UNVERIFIED — confirm before acting". The
+   incident behind it: a brief asserted six dark-mode defects as fact on the
+   strength of a conformance run nobody had traced; the defects weren't real
+   (the checker was mis-parsing @media), and the agent acted on them.
+
+   Enforcement is structural on purpose. Memory binds one author on a good day;
+   this lint binds every brief ever authored — which is exactly the argument the
+   operator made when rejecting the memory-only fix.
+
+   Two accepted markers, checked across the entry's `source` AND `text` (a brief
+   states provenance in either, and both are load-bearing fact fields):
+
+     (1) a `verified` claim that names what was opened. "verified" followed by
+         nothing is a claim, not provenance — same shape test as
+         RULING_MIN_WORDS above, applied to what trails the word.
+     (2) the literal, uppercase UNVERIFIED. Case-sensitive because the label's
+         job is to be greppable; "unverified" buried in a sentence is prose,
+         and prose is what this rule exists to stop counting as a source.
+
+   Warning, not error — only the author can tell a verified premise from a
+   plausible one, so the lint names the locus and hands them the judgement,
+   the same severity split the pair lint and the maxTurns floor use.        */
+export const VERIFIED_MIN_TRAILING_WORDS = 3;
+const UNVERIFIED_LABEL_RE = /\bUNVERIFIED\b/;
+const VERIFIED_CLAIM_RE = /\bverified\b/i;
+
+function hasProvenanceMarker(entryProse) {
+  if (UNVERIFIED_LABEL_RE.test(entryProse)) return true;
+  const match = VERIFIED_CLAIM_RE.exec(entryProse);
+  if (!match) return false;
+  const trailing = entryProse.slice(match.index + match[0].length).trim();
+  if (trailing === "") return false;
+  return trailing.split(/\s+/).filter(Boolean).length >= VERIFIED_MIN_TRAILING_WORDS;
+}
+
+// `source` and `text` are checked INDEPENDENTLY, never concatenated: a bare
+// "verified" in `source` would otherwise be rescued by whatever words happened
+// to follow it in `text`, and the ruling's own sentences are not a citation of
+// where the ruling came from. Provenance is a statement made inside one field.
+function lintRulingProvenance(r, locus) {
+  if ([r.source, r.text].filter(isNonEmptyString).some(hasProvenanceMarker)) return [];
+  return [
+    `spec-lint: ${locus} states a load-bearing fact with no provenance marker — say what primary source you opened ("verified: <source> read directly") or label it "instrument-reported, UNVERIFIED — confirm before acting". A brief that asserted six dark-mode defects on an untraced conformance run sent an agent after defects that did not exist.`,
+  ];
+}
+
 // lintRulings(rulings) -> { errors, warnings }. Pure. Absent field = no rulings
 // to check (rule (a)/(c) below are what notice a spec that should have had one).
 export function lintRulings(rulings) {
@@ -178,6 +228,7 @@ export function lintRulings(rulings) {
     if (!isNonEmptyString(r.source)) errors.push(`spec-lint: ${locus} missing non-empty source`);
 
     warnings.push(...lintRulingPair(r, locus));
+    warnings.push(...lintRulingProvenance(r, locus));
 
     if (typeof r.text !== "string" || r.text.trim().length === 0) {
       errors.push(`spec-lint: ${locus} has empty text — \`text\` must be the ruling's operative sentences quoted verbatim, not a citation`);

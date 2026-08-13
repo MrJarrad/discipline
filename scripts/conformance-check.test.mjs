@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { runConformanceCheck } from "./conformance-check.mjs";
+import { runConformanceCheck, runCoverageReport } from "./conformance-check.mjs";
 
 const CLI_PATH = join(import.meta.dirname, "conformance-check.mjs");
 
@@ -432,4 +432,191 @@ test("CLI exits 0 when ok:true, nonzero when ok:false", () => {
 
   const failRun = spawnSync("node", [CLI_PATH, "--capture", drifted.capturePath, "--map", drifted.mappingPath]);
   assert.notEqual(failRun.status, 0);
+});
+
+// ---- @media scoping -------------------------------------------------------
+// Regression: the 2026-08-13 sync reported six dark-mode "defects" that were
+// not defects. parseCssCustomProps walked the selector stack but ignored
+// at-rule ancestry, so the print stylesheet's `@media print { .dark { ... } }`
+// paper overrides (white ground, black ink) were recorded as THE .dark values
+// under last-write-wins and compared against Figma's screen dark mode. The
+// fixture below is that block verbatim from ~/JHD/portfolio/src/app/globals.css.
+
+// The six properties the print block re-declares, with their real screen-dark
+// values (what Figma exports) and the paper values that were clobbering them.
+const PRINT_BLOCK_TOKENS = [
+  { token: "--background-default-primary", screenDark: "#0a0a0a", paper: "#ffffff" },
+  { token: "--background-default-secondary", screenDark: "#141414", paper: "#f3efed" },
+  { token: "--background-default-tertiary", screenDark: "#1f1f1f", paper: "#e9e2df" },
+  { token: "--content-default-primary", screenDark: "#ffffff", paper: "#0a0a0a" },
+  { token: "--content-default-secondary", screenDark: "#a0a0a0", paper: "#696969" },
+  { token: "--content-action-primary", screenDark: "#ffffff", paper: "#0a0a0a" },
+];
+
+function printBlockFixture({ driftedToken } = {}) {
+  const decl = (list, pick) => list.map((t) => `  ${t.token}: ${pick(t)};`).join("\n");
+  return makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light", "dark"],
+        variables: PRINT_BLOCK_TOKENS.map((t) => ({
+          name: t.token.replace(/^--/, "").replace(/-/g, "/"),
+          valuesByMode: { light: "#ffffff", dark: t.screenDark },
+        })),
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: Object.fromEntries(
+        PRINT_BLOCK_TOKENS.map((t) => [
+          `color/${t.token.replace(/^--/, "").replace(/-/g, "/")}`,
+          { codeLocation: "styles.css", tokenName: t.token, extraction: "css-root-dark" },
+        ])
+      ),
+    },
+    css:
+      `:root {\n${decl(PRINT_BLOCK_TOKENS, () => "#ffffff")}\n}\n` +
+      `.dark {\n${decl(PRINT_BLOCK_TOKENS, (t) => (t.token === driftedToken ? "#cccccc" : t.screenDark))}\n}\n` +
+      // ...and the print stylesheet, verbatim in shape from globals.css —
+      // including the block comment that precedes `@media print` there. That
+      // comment is load-bearing for this regression: a comment sitting in a
+      // selector prelude gets swallowed into the selector token unless it's
+      // stripped first, which hid the `@media` marker from the scanner.
+      `/* ============================================================\n` +
+      `   12. PRINT (technical-design-spectrum-2026-08-11.md §6 item 4)\n` +
+      `   ============================================================\n` +
+      `   THE REAL RISK: dark-ground sections set white text on a dark\n` +
+      `   background via CSS custom properties. Printers default to\n` +
+      `   background graphics OFF, so a printed dark section would keep\n` +
+      `   white text with no dark fill behind it — invisible on paper. */\n` +
+      `@media print {\n` +
+      `  @page {\n    margin: 2cm;\n  }\n` +
+      `  .navigation-header,\n  .nav-mobile,\n  .control-media {\n    display: none !important;\n  }\n` +
+      `  .dark {\n${decl(PRINT_BLOCK_TOKENS, (t) => t.paper).replace(/^ {2}/gm, "    ")}\n  }\n` +
+      `  h1, h2, h3, h4, h5, h6 {\n    break-after: avoid;\n  }\n` +
+      `}\n`,
+  });
+}
+
+test("@media print's .dark paper overrides do not clobber the screen .dark values", () => {
+  const { capturePath, mappingPath } = printBlockFixture();
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.ok, true);
+});
+
+test("a real .dark screen drift still flags even with the print block present", () => {
+  const { capturePath, mappingPath } = printBlockFixture({ driftedToken: "--content-default-secondary" });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].tokenName, "--content-default-secondary");
+  assert.equal(result.defects[0].mode, "dark");
+  assert.equal(result.defects[0].old, "#a0a0a0");
+  assert.equal(result.defects[0].new, "#cccccc");
+});
+
+test("a :root override inside a breakpoint @media does not clobber the base :root value", () => {
+  // globals.css:244-256 — the type ramp's md breakpoint re-declares
+  // --title-style1-400-size inside `@media (min-width: 768px) { :root { } }`.
+  // Figma exports the BASE (mobile) value; the breakpoint value is a
+  // different fact, not an override of it.
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      { name: "type", modes: ["light"], variables: [{ name: "title/style1/400/size", valuesByMode: { light: "56px" } }] },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "type/title/style1/400/size": { codeLocation: "styles.css", tokenName: "--title-style1-400-size", extraction: "css-root-dark" },
+      },
+    },
+    css:
+      `:root {\n  --title-style1-400-size: 56px;\n}\n` +
+      `@media (min-width: 768px) {\n  :root {\n    --title-style1-400-size: clamp(3.5rem, calc(4.6875vw + 1.25rem), 5rem);\n  }\n}\n`,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+});
+
+// ---- coverage --------------------------------------------------------------
+// "0 defects" and "nobody looked" produce the same output unless coverage is
+// reported. On the live pipeline 55 of 580 captured variables are mapped, so
+// silence covered 90% of the surface.
+
+test("coverage: reports counts and the names of captured variables the map doesn't cover", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [
+      {
+        name: "color",
+        modes: ["light"],
+        variables: [
+          { name: "content/primary", valuesByMode: { light: "#000000" } },
+          { name: "content/secondary", valuesByMode: { light: "#666666" } },
+        ],
+      },
+      { name: "motion", modes: ["default"], variables: [{ name: "duration/fast", valuesByMode: { default: 0.12 } }] },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.total, 3);
+  assert.equal(coverage.mapped, 1);
+  assert.equal(coverage.unmapped, 2);
+  assert.deepEqual(coverage.unmappedPaths, ["color/content/secondary", "motion/duration/fast"]);
+  assert.deepEqual(coverage.unmappedByCollection, { color: 1, motion: 1 });
+});
+
+test("coverage: a map entry pointing at a path the capture doesn't carry is reported, not counted as covered", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+        "color/content/long-gone": { codeLocation: "styles.css", tokenName: "--content-long-gone", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.total, 1);
+  assert.equal(coverage.mapped, 1);
+  assert.equal(coverage.unmapped, 0);
+  assert.deepEqual(coverage.mappedPathsMissingFromCapture, ["color/content/long-gone"]);
+});
+
+test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "color/content/primary": { codeLocation: "styles.css", tokenName: "--content-primary", extraction: "css-root-dark" },
+      },
+    },
+    css: `:root {\n  --content-primary: #000000;\n}\n`,
+  });
+
+  const coverage = runCoverageReport({ capturePath, mappingPath });
+
+  assert.equal(coverage.unmapped, 0);
+  assert.deepEqual(coverage.unmappedPaths, []);
 });
