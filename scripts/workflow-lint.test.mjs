@@ -310,13 +310,13 @@ test("lintAgent: works standalone (not just through lintSpec)", () => {
 // author judge, exactly as the maxTurns floor lint distinguishes a real
 // violation from an explicitly-overridden one.
 
-// A fully-formed ruling entry: the verbatim quote AND the contrast pair the
-// 2026-08-10 do/dont ruling requires. Tests that assert "no warnings at all"
-// lean on this being complete, so a half-formed fixture would silently mask
-// the pair lint.
+// A fully-formed ruling entry: the verbatim quote, the contrast pair the
+// 2026-08-10 do/dont ruling requires, AND the provenance marker the 2026-08-13
+// escalation requires. Tests that assert "no warnings at all" lean on this
+// being complete, so a half-formed fixture would silently mask a lint.
 const VALID_RULING = {
   id: "media-§6",
-  source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md",
+  source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md (verified: §6 read directly)",
   text: "No hash/size/mtime adjudication ever decides whether to copy a delivered asset.",
   do: "the drop contains 10alt; nothing wires it; it lands in public/ anyway, noted unwired.",
   dont: "every drop file is byte-identical to what shipped, so there is nothing to do.",
@@ -722,4 +722,78 @@ test("lintSpec: the commit warning names the failure it comes from", () => {
   const spec = serverSpec({ persona: "engineer", prompt: "Fix the hero spacing regression." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.ok(warnings.some((w) => /turn.?cap/i.test(w)), warnings.join("\n"));
+});
+
+// ---- ruling provenance -----------------------------------------------------
+//
+// Operator escalation 2026-08-13, on the auto-memory that tried to cover this:
+// "this doesn't seem like something that should be a memory update only."
+// Ruling text in a dispatch brief may state a load-bearing fact only if it was
+// verified against a primary source the author opened, or is explicitly
+// labelled UNVERIFIED. Memory binds one author on a good day; this lint binds
+// every brief ever authored — which is the whole reason it lives here.
+// Warning, not error: only the author can tell a verified premise from a
+// plausible one, so the lint names the locus and hands them the judgement.
+
+test("lintSpec: a rulings entry whose source names what was verified passes clean", () => {
+  const spec = rulingsSpec([
+    {
+      ...VALID_RULING,
+      source: "orchestrator session 2026-08-13 (verified: .state dir read directly; changes.jsonl initial:true read directly)",
+    },
+  ]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings.filter((w) => /provenance|UNVERIFIED/.test(w)), []);
+});
+
+test("lintSpec: a rulings entry labelled UNVERIFIED passes clean — the label IS the compliance", () => {
+  const spec = rulingsSpec([
+    {
+      ...VALID_RULING,
+      source: "instrument-reported by the conformance lane, UNVERIFIED — confirm before acting",
+    },
+  ]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings.filter((w) => /provenance|UNVERIFIED/.test(w)), []);
+});
+
+test("lintSpec: a rulings entry with neither a verified claim nor the UNVERIFIED label warns", () => {
+  const spec = rulingsSpec([
+    { ...VALID_RULING, source: "vault/fleet/rulings/2026-08-06-design-contract-and-media-replacement.md" },
+  ]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(
+    warnings.some((w) => /rulings\[0\].*media-§6.*provenance/.test(w)),
+    warnings.join("\n")
+  );
+});
+
+test("lintSpec: a bare 'verified' with nothing named is not provenance — it warns", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, source: "verified" }]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(
+    warnings.some((w) => /rulings\[0\].*provenance/.test(w)),
+    warnings.join("\n")
+  );
+});
+
+test("lintSpec: provenance stated in the ruling's text counts, not only in source", () => {
+  const spec = rulingsSpec([
+    {
+      ...VALID_RULING,
+      source: "operator escalation 2026-08-13",
+      text: "No hash/size/mtime adjudication ever decides whether to copy a delivered asset. (verified against vault/fleet/rulings/2026-08-06-design-contract.md, opened directly.)",
+    },
+  ]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.deepEqual(warnings.filter((w) => /provenance/.test(w)), []);
+});
+
+test("lintSpec: lowercase 'unverified' is not the label — the literal is what a grep finds", () => {
+  const spec = rulingsSpec([{ ...VALID_RULING, source: "hearsay from a prior run, unverified" }]);
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(
+    warnings.some((w) => /rulings\[0\].*provenance/.test(w)),
+    warnings.join("\n")
+  );
 });
