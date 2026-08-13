@@ -524,6 +524,134 @@ test("buildWarnings: two same-named FRAME (non-instance) siblings keep the uncha
   ]);
 });
 
+// HOMOGENEOUS REPEATING RUNS (operator ruling 2026-08-13, fleet/rulings/
+// 2026-08-13-repeating-grid-names.md): live case — LayoutGrid's "feed"
+// wrapper (rootLevel: false — two boundary hops from whatever walk root
+// carries it, same shape as ~/JHD/captures/live/latest-warnings.json's real
+// "header" under "LayoutGrid/feed" survivors) contains two same-name,
+// same-type FRAME siblings with no component identity to interchange on.
+// Demoted to an ordinally-keyed INFO record instead of a WARNING.
+test("buildWarnings: same-named, same-type FRAME siblings OUTSIDE any boundary's own top-level surface (rootLevel: false) are a homogeneous repeating run — demoted to an ordinally-keyed INFO record, not a WARNING", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "header", type: "FRAME", mainComponentId: null, rootLevel: false, parentId: "feed-1", parentPath: "LayoutGrid/feed" },
+      { id: "n2", name: "header", type: "FRAME", mainComponentId: null, rootLevel: false, parentId: "feed-1", parentPath: "LayoutGrid/feed" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "homogeneous_sibling_sequence",
+      nodeId: "n2",
+      nodeName: "header",
+      context: "LayoutGrid/feed",
+      message: 'Sibling name "header" repeats 2× under LayoutGrid/feed as a regular structural run — keyed header#1, header#2 (informational, not a naming defect).',
+      sequence: ["header#1", "header#2"],
+    },
+  ]);
+});
+
+// The SAME name/type collision, but at a boundary's own top-level surface
+// (rootLevel: true — a component's own addressable layers, or an Example
+// frame's own top-level instances) stays a WARNING: "unknown/root-level" is
+// never treated as safe to demote, per the ruling's "keep WARNING inside
+// component subtrees" half.
+test("buildWarnings: the SAME same-named, same-type FRAME collision AT a boundary's own top-level surface (rootLevel: true) stays a WARNING — not eligible for the homogeneous-run demotion", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "content", type: "FRAME", mainComponentId: null, rootLevel: true, parentId: "navheader-1", parentPath: "NavigationHeader" },
+      { id: "n2", name: "content", type: "FRAME", mainComponentId: null, rootLevel: true, parentId: "navheader-1", parentPath: "NavigationHeader" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "content",
+      context: "NavigationHeader",
+      message: 'Duplicate sibling name "content" under NavigationHeader — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: null, componentSetId: null, mainComponentSetName: null },
+    },
+  ]);
+});
+
+// A group with mixed node types (heterogeneous) never counts as a
+// homogeneous run, no matter how deep it sits — "same name + node type" is
+// an AND, not an OR.
+test("buildWarnings: same-named siblings OUTSIDE a boundary's top-level surface but with DIFFERENT node types are heterogeneous — still a WARNING, never demoted", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "title", type: "TEXT", mainComponentId: null, rootLevel: false, parentId: "primary-1", parentPath: "NavigationHeader/content/primary" },
+      { id: "n2", name: "title", type: "GROUP", mainComponentId: null, rootLevel: false, parentId: "primary-1", parentPath: "NavigationHeader/content/primary" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "title",
+      context: "NavigationHeader/content/primary",
+      message: 'Duplicate sibling name "title" under NavigationHeader/content/primary — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: null, componentSetId: null, mainComponentSetName: null },
+    },
+  ]);
+});
+
+// RATIFIED SIBLING-NAME EXCEPTION (operator ruling 2026-08-01, vault
+// memories/token-rulings.md "NavigationHeader M/D split composition is
+// INTENDED" — folded into duplicate_sibling_name per the 2026-08-13 ruling):
+// live case — a mobile Example frame's two top-level "NavigationHeader"
+// instances (title-only + actions-only, a heterogeneous pair — different
+// main components, so never interchangeable and never a homogeneous run
+// either) downgrade to the SAME ratified_axis_exception type the axis-
+// ownership checker already emits for this exact composition decision — no
+// second exceptions table.
+test("buildWarnings: the mobile NavigationHeader two-instance split (root-level, heterogeneous instances) folds into the SAME ratified-axis-exception registry the axis-ownership checker uses — ratified_axis_exception, not a WARNING", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "NavigationHeader", type: "INSTANCE", mainComponentId: "comp-title-only", componentSetId: "set-navheader-title", mainComponentSetName: "NavigationHeader/title", rootLevel: true, parentId: "frame-1", parentPath: "M - Home - Gallery – Landing" },
+      { id: "n2", name: "NavigationHeader", type: "INSTANCE", mainComponentId: "comp-actions-only", componentSetId: "set-navheader-actions", mainComponentSetName: "NavigationHeader/actions", rootLevel: true, parentId: "frame-1", parentPath: "M - Home - Gallery – Landing" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "ratified_axis_exception",
+      nodeId: "n2",
+      nodeName: "NavigationHeader",
+      context: "M - Home - Gallery – Landing",
+      message: 'Duplicate sibling name "NavigationHeader" under M - Home - Gallery – Landing — ratified exception (operator ruling 2026-08-01, vault memories/token-rulings.md), not a violation.',
+    },
+  ]);
+});
+
+// SYNTHETIC HETEROGENEOUS FIXTURE (the ratified-exception mechanism must
+// stay a NAMED, cited allowlist — never generalize to "any root-level
+// heterogeneous duplicate is fine"): a two-instance split under an
+// UNRATIFIED component name is a real WARNING, exactly like NavigationHeader
+// would be without its citation.
+test("buildWarnings: a root-level heterogeneous instance split under an UNRATIFIED component name is still a genuine WARNING — the exception never generalizes past its cited registry", () => {
+  const result = buildWarnings({
+    nodeSnapshots: [
+      { id: "n1", name: "PromoBanner", type: "INSTANCE", mainComponentId: "comp-a", componentSetId: "set-promo", mainComponentSetName: "PromoBanner", rootLevel: true, parentId: "frame-1", parentPath: "M - Home - Gallery – Landing" },
+      { id: "n2", name: "PromoBanner", type: "INSTANCE", mainComponentId: "comp-b", componentSetId: "set-other", mainComponentSetName: "OtherSet", rootLevel: true, parentId: "frame-1", parentPath: "M - Home - Gallery – Landing" },
+    ],
+  });
+
+  assert.deepEqual(result, [
+    {
+      type: "duplicate_sibling_name",
+      nodeId: "n2",
+      nodeName: "PromoBanner",
+      context: "M - Home - Gallery – Landing",
+      message: 'Duplicate sibling name "PromoBanner" under M - Home - Gallery – Landing — layer names must be unique among siblings for stable id/name-fallback matching.',
+      resolution: { mainComponentId: "comp-b", componentSetId: "set-other", mainComponentSetName: "OtherSet" },
+    },
+  ]);
+});
+
 // DIAGNOSTIC FIELDS (operator's v1.26.1 syncs — the 48 duplicate_sibling_name
 // survivors are still flagging after the setId-only gate; instrumenting the
 // actual resolved values rather than hypothesizing further). Additive,

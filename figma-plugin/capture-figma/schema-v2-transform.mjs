@@ -382,6 +382,27 @@ function spacerSiblingGroupExempt(name, group) {
   });
 }
 
+// HOMOGENEOUS REPEATING RUNS (operator ruling 2026-08-13, fleet/rulings/
+// 2026-08-13-repeating-grid-names.md): a duplicate name among siblings that
+// are all the SAME node type AND sit outside any boundary's own top-level
+// override surface (node.rootLevel === false — see code.js's
+// createSubtreeWalk, which stamps this per-nodeSnapshot based on whether the
+// most recent recordHere-resetting boundary was the walk's own root, e.g. a
+// LayoutGrid component's own "feed" wrapper vs. LayoutGrid itself) is a
+// regular repeating structural run (a grid/list of matching rows), not the
+// id/name-fallback ambiguity this checker exists to catch — there is no
+// single addressable layer the name could be confused for. Detection is
+// structural (name + type + rootLevel), never a hardcoded page/component
+// allowlist, so it generalizes to any future repeating-grid shape. A group
+// with no rootLevel data at all (older snapshots, or a fixture that never
+// set it) conservatively stays a WARNING — unknown is not "safe to demote".
+function isHomogeneousRepeatingRun(group) {
+  const first = group[0];
+  return group.every(function (node) {
+    return node.rootLevel === false && node.type === first.type;
+  });
+}
+
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   const byParent = new Map();
   for (const node of nodeSnapshots || []) {
@@ -407,6 +428,42 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
       if (allInterchangeable) continue;
       const node = group[1];
       const context = node.parentPath || siblings[0].parentId || null;
+
+      // RATIFIED SIBLING-NAME EXCEPTIONS: the SAME cited registry the axis-
+      // ownership checker uses (RATIFIED_AXIS_EXCEPTIONS/
+      // findRatifiedAxisException, below) — the mobile NavigationHeader
+      // title/actions split is one ratified "layout" composition decision,
+      // whether it surfaces as a divergent variant axis (compareInstancePair)
+      // or, here, as two differently-typed siblings sharing the
+      // "NavigationHeader" name at an Example frame's own top level. No
+      // second table, no new citation: same exception, same axis key.
+      const ratified = findRatifiedAxisException(first.name, "layout");
+      if (ratified) {
+        warnings.push({
+          type: "ratified_axis_exception",
+          nodeId: node.id || null,
+          nodeName: node.name,
+          context: context,
+          message: `Duplicate sibling name "${node.name}" under ${context} — ratified exception (${ratified.citation}), not a violation.`,
+        });
+        continue;
+      }
+
+      if (isHomogeneousRepeatingRun(group)) {
+        const sequence = group.map(function (n, i) {
+          return `${n.name}#${i + 1}`;
+        });
+        warnings.push({
+          type: "homogeneous_sibling_sequence",
+          nodeId: node.id || null,
+          nodeName: node.name,
+          context: context,
+          message: `Sibling name "${node.name}" repeats ${group.length}× under ${context} as a regular structural run — keyed ${sequence.join(", ")} (informational, not a naming defect).`,
+          sequence: sequence,
+        });
+        continue;
+      }
+
       warnings.push({
         type: "duplicate_sibling_name",
         nodeId: node.id || null,
