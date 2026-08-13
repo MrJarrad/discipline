@@ -495,7 +495,7 @@ function reverseCompletionApi() {
 // proven output-identical to what it replaced.
 function createParallelSubtreeWalkBaseline(api) {
   return async function walkV2Subtree(root, variableById, out, collectBindings) {
-    async function visit(node, parent, recordHere, layer, startsChain) {
+    async function visit(node, parent, recordHere, layer, startsChain, boundaryDepth) {
       const result = {
         node: node,
         startsChain: startsChain,
@@ -522,6 +522,9 @@ function createParallelSubtreeWalkBaseline(api) {
           mainComponentSetName: instanceMainComponent ? api.resolveComponentSetName(instanceMainComponent) : null,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
+          // Mirrors code.js's rootLevel stamp (boundaryDepth === 1) so this
+          // differential baseline stays byte-comparable to the shipped walk.
+          rootLevel: boundaryDepth === 1,
         };
       }
 
@@ -554,15 +557,17 @@ function createParallelSubtreeWalkBaseline(api) {
 
       if (Array.isArray(node.children)) {
         const childRecordHere = api.nextRecordState(node, recordHere);
+        const isBoundary = node.type === "COMPONENT" || node.type === "FRAME";
+        const childBoundaryDepth = isBoundary ? boundaryDepth + 1 : boundaryDepth;
         result.children = await Promise.all(
           node.children.map(function (child) {
             if (collectBindings && node === root && child.type === "COMPONENT") {
-              return visit(child, node, childRecordHere, "", true);
+              return visit(child, node, childRecordHere, "", true, childBoundaryDepth);
             }
             if (layer !== null && node.type !== "INSTANCE") {
-              return visit(child, node, childRecordHere, layer ? layer + "/" + child.name : child.name, false);
+              return visit(child, node, childRecordHere, layer ? layer + "/" + child.name : child.name, false, childBoundaryDepth);
             }
-            return visit(child, node, childRecordHere, null, false);
+            return visit(child, node, childRecordHere, null, false, childBoundaryDepth);
           })
         );
       }
@@ -589,7 +594,7 @@ function createParallelSubtreeWalkBaseline(api) {
       for (const child of result.children) merge(child, chain);
     }
 
-    merge(await visit(root, null, false, null, false), null);
+    merge(await visit(root, null, false, null, false, 0), null);
   };
 }
 

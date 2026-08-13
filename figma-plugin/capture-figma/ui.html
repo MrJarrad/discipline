@@ -998,14 +998,17 @@
       }
       return Array.from(groups.values());
     }
-    // NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02):
-    // a ratified_axis_exception is a decision already made, not work — it
-    // leaves the section entirely (not rendered, excluded from both the
-    // group count and the occurrence count). The export's raw
-    // warnings[]/warningsByType stay untouched — this filters only the copy
-    // renderCounts feeds into warningSection, for both shapes it consumes:
-    // a live export-result's array and a restored {type: count} map.
-    const NON_ACTIONABLE_WARNING_TYPES = new Set(["ratified_axis_exception"]);
+    // NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02,
+    // extended 2026-08-13 to homogeneous_sibling_sequence): a
+    // ratified_axis_exception is a decision already made, not work, and a
+    // homogeneous_sibling_sequence is a regular repeating structural run,
+    // not a naming collision — both leave the section entirely (not
+    // rendered, excluded from both the group count and the occurrence
+    // count). The export's raw warnings[]/warningsByType stay untouched —
+    // this filters only the copy renderCounts feeds into warningSection, for
+    // both shapes it consumes: a live export-result's array and a restored
+    // {type: count} map.
+    const NON_ACTIONABLE_WARNING_TYPES = new Set(["ratified_axis_exception", "homogeneous_sibling_sequence"]);
 
     function filterActionableWarnings(warnings) {
       return (warnings || []).filter((w) => !NON_ACTIONABLE_WARNING_TYPES.has(w && w.type));
@@ -1161,6 +1164,24 @@
               '. Names are roles, never positions, so a suffix (with the " - " separator) only helps if it names another role.'
             : "Two layers here share a name but don't appear to be the same component. Rename one for the role it plays — e.g. primary / secondary. Use a role name, or the existing name plus a role suffix with the \" - \" separator. Never a position or a content type: position changes with the breakpoint, the role doesn't.",
         why: "Diffing correlates nodes by id first and by name among siblings as a fallback, so two different things sharing one name make that fallback ambiguous and a later rename or reorder reads as an unrelated change. Same-named instances of the SAME main component, or of different variants of the SAME component set (six ActionButton instances each on a different variant, say), never trigger this — they are interchangeable repeats and are suppressed.",
+      },
+      // code.js buildDuplicateSiblingNameWarnings()/isHomogeneousRepeatingRun():
+      // same condition as duplicate_sibling_name (a name collision that fails
+      // the interchangeability check), but the colliding siblings are all the
+      // SAME node type AND sit outside any boundary's own top-level override
+      // surface (node.rootLevel === false) — a regular repeating structural
+      // run (a grid/list of matching rows), not the id/name-fallback
+      // ambiguity duplicate_sibling_name exists to catch (operator ruling
+      // 2026-08-13, fleet/rulings/2026-08-13-repeating-grid-names.md).
+      homogeneous_sibling_sequence: {
+        headline: (group) =>
+          quoted(group.layerName) +
+          " repeats as a regular structural run in " +
+          rootCausePlace(group) +
+          rootCauseEcho(group),
+        fix: () =>
+          "Nothing to fix — same name, same node type, a regular repeating structural run (a grid/list of matching rows). The layers are addressed ordinally (#1, #2, ...) instead of by bare name, so the id/name-fallback ambiguity duplicate_sibling_name exists to catch doesn't apply.",
+        why: "Repeated sibling role names inside a homogeneous, regularly-repeating structural run (same name, same node type, outside a component's or Example frame's own top-level addressable layers) are structure, not a naming collision — there is no single addressable layer the name could be confused for.",
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
       // differs between the M- and D- frame of one Example pair.

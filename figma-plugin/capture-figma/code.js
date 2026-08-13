@@ -1024,6 +1024,27 @@ function spacerSiblingGroupExempt(name, group) {
   });
 }
 
+// HOMOGENEOUS REPEATING RUNS (operator ruling 2026-08-13, fleet/rulings/
+// 2026-08-13-repeating-grid-names.md): a duplicate name among siblings that
+// are all the SAME node type AND sit outside any boundary's own top-level
+// override surface (node.rootLevel === false — see code.js's
+// createSubtreeWalk, which stamps this per-nodeSnapshot based on whether the
+// most recent recordHere-resetting boundary was the walk's own root, e.g. a
+// LayoutGrid component's own "feed" wrapper vs. LayoutGrid itself) is a
+// regular repeating structural run (a grid/list of matching rows), not the
+// id/name-fallback ambiguity this checker exists to catch — there is no
+// single addressable layer the name could be confused for. Detection is
+// structural (name + type + rootLevel), never a hardcoded page/component
+// allowlist, so it generalizes to any future repeating-grid shape. A group
+// with no rootLevel data at all (older snapshots, or a fixture that never
+// set it) conservatively stays a WARNING — unknown is not "safe to demote".
+function isHomogeneousRepeatingRun(group) {
+  const first = group[0];
+  return group.every(function (node) {
+    return node.rootLevel === false && node.type === first.type;
+  });
+}
+
 function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
   const byParent = new Map();
   for (const node of nodeSnapshots || []) {
@@ -1049,6 +1070,42 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
       if (allInterchangeable) continue;
       const node = group[1];
       const context = node.parentPath || siblings[0].parentId || null;
+
+      // RATIFIED SIBLING-NAME EXCEPTIONS: the SAME cited registry the axis-
+      // ownership checker uses (RATIFIED_AXIS_EXCEPTIONS/
+      // findRatifiedAxisException, below) — the mobile NavigationHeader
+      // title/actions split is one ratified "layout" composition decision,
+      // whether it surfaces as a divergent variant axis (compareInstancePair)
+      // or, here, as two differently-typed siblings sharing the
+      // "NavigationHeader" name at an Example frame's own top level. No
+      // second table, no new citation: same exception, same axis key.
+      const ratified = findRatifiedAxisException(first.name, "layout");
+      if (ratified) {
+        warnings.push({
+          type: "ratified_axis_exception",
+          nodeId: node.id || null,
+          nodeName: node.name,
+          context: context,
+          message: `Duplicate sibling name "${node.name}" under ${context} — ratified exception (${ratified.citation}), not a violation.`,
+        });
+        continue;
+      }
+
+      if (isHomogeneousRepeatingRun(group)) {
+        const sequence = group.map(function (n, i) {
+          return `${n.name}#${i + 1}`;
+        });
+        warnings.push({
+          type: "homogeneous_sibling_sequence",
+          nodeId: node.id || null,
+          nodeName: node.name,
+          context: context,
+          message: `Sibling name "${node.name}" repeats ${group.length}× under ${context} as a regular structural run — keyed ${sequence.join(", ")} (informational, not a naming defect).`,
+          sequence: sequence,
+        });
+        continue;
+      }
+
       warnings.push({
         type: "duplicate_sibling_name",
         nodeId: node.id || null,
@@ -1748,7 +1805,7 @@ const collectLayerBindingEntries = createLayerBindingCollector({
 // the revert changes nothing observable.
 function createSubtreeWalk(api) {
   return async function walkV2Subtree(root, variableById, out, collectBindings) {
-    async function visit(node, parent, recordHere, bindingCtx) {
+    async function visit(node, parent, recordHere, bindingCtx, boundaryDepth) {
       // Resolved once, up front, so both the nodeSnapshot (duplicate-sibling
       // same-main-component/same-component-set check) and the spacer-instance
       // detection below share the same lookup — no second getMainComponentAsync
@@ -1775,6 +1832,23 @@ function createSubtreeWalk(api) {
           mainComponentSetName: instanceMainComponent ? api.resolveComponentSetName(instanceMainComponent) : null,
           parentId: parent ? parent.id : null,
           parentPath: parent ? api.nodeNamePath(parent, root) : null,
+          // ROOT-LEVEL (operator ruling 2026-08-13, homogeneous-repeating-run
+          // detection in buildDuplicateSiblingNameWarnings): true only when
+          // this node sits under the FIRST override-surface boundary reached
+          // from the walk's start (boundaryDepth === 1) — a component's own
+          // top-level layers, or an Example frame's own top-level instances.
+          // componentSetNodes are walked with the COMPONENT_SET itself as
+          // `root` (see buildExport), which is not itself a boundary
+          // (isOverrideSurfaceBoundary is COMPONENT/FRAME only) — so the
+          // first REAL boundary is each variant COMPONENT one level in, not
+          // `root` by reference identity; counting boundary resets (instead
+          // of comparing `node === root`) is what makes this land correctly
+          // whether the walk started on a boundary node (an Example frame)
+          // or one hop above one (a COMPONENT_SET). False for anything
+          // recorded under a DEEPER reset (e.g. a FRAME nested inside a
+          // component, like LayoutGrid's own "feed" wrapper) — still part of
+          // the override surface, but not its root-level addressable layers.
+          rootLevel: boundaryDepth === 1,
         });
       }
 
@@ -1827,6 +1901,14 @@ function createSubtreeWalk(api) {
 
       if (Array.isArray(node.children)) {
         const childRecordHere = api.nextRecordState(node, recordHere);
+        // Each real boundary (COMPONENT/FRAME — inlined rather than calling
+        // isOverrideSurfaceBoundary: this block is extracted and eval'd
+        // standalone by buildexport-perf.test.mjs, with no access to names
+        // declared outside the SUBTREE WALK markers) crossed increments the
+        // depth by one; a dot-prefixed pass-through continuation (still
+        // recording, but not itself a boundary) leaves it unchanged.
+        const isBoundary = node.type === "COMPONENT" || node.type === "FRAME";
+        const childBoundaryDepth = isBoundary ? boundaryDepth + 1 : boundaryDepth;
         for (const child of node.children) {
           let childBindingCtx = null;
           if (collectBindings && node === root && child.type === "COMPONENT") {
@@ -1845,11 +1927,11 @@ function createSubtreeWalk(api) {
               seen: bindingCtx.seen,
             };
           }
-          await visit(child, node, childRecordHere, childBindingCtx);
+          await visit(child, node, childRecordHere, childBindingCtx, childBoundaryDepth);
         }
       }
     }
-    await visit(root, null, false, null);
+    await visit(root, null, false, null, 0);
   };
 }
 // === END SUBTREE WALK ===
