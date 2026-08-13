@@ -134,38 +134,47 @@ function stripCssComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, " ");
 }
 
-function parseCssCustomProps(rawCss) {
+// Single pass over the stylesheet, calling `visit` for every custom-property
+// declaration with the selector/at-rule stack enclosing it. Consumers decide
+// which contexts count — parseCssCustomProps wants unconditional :root/.dark,
+// collectFluidDeclarations wants :root under @media width ranges — so the
+// walking (which is the fiddly part) lives here once.
+function walkCssDeclarations(rawCss, visit) {
   const css = stripCssComments(rawCss);
-  const root = {};
-  const dark = {};
   const stack = [];
-  let mediaDepth = 0;
   let i = 0;
   const len = css.length;
   while (i < len) {
     if (css[i] === "}") {
-      if (isMediaAtRule(stack.pop() || "")) mediaDepth--;
+      stack.pop();
       i++;
       continue;
     }
     const declMatch = css.slice(i).match(/^--([a-zA-Z0-9-]+)\s*:\s*([^;]+);/);
-    const top = stack[stack.length - 1];
-    if (declMatch && mediaDepth === 0 && (top === ":root" || top === ".dark")) {
-      const target = top === ":root" ? root : dark;
-      target[declMatch[1]] = declMatch[2].trim();
+    if (declMatch) {
+      visit({ prop: declMatch[1], value: declMatch[2].trim(), stack });
       i += declMatch[0].length;
       continue;
     }
     const selMatch = css.slice(i).match(/^([^{};]+)\{/);
     if (selMatch) {
-      const selector = selMatch[1].trim();
-      stack.push(selector);
-      if (isMediaAtRule(selector)) mediaDepth++;
+      stack.push(selMatch[1].trim());
       i += selMatch[0].length;
       continue;
     }
     i++;
   }
+}
+
+function parseCssCustomProps(rawCss) {
+  const root = {};
+  const dark = {};
+  walkCssDeclarations(rawCss, ({ prop, value, stack }) => {
+    if (stack.some(isMediaAtRule)) return;
+    const top = stack[stack.length - 1];
+    if (top === ":root") root[prop] = value;
+    else if (top === ".dark") dark[prop] = value;
+  });
   return { root, dark };
 }
 
@@ -232,10 +241,394 @@ function extractCssScale(cssText, tokenTemplate) {
   return result;
 }
 
+// ---- css-fluid: clamp-aware, evaluated at each mode's anchor viewport --------
+//
+// WHY THIS EXISTS: a fluid type ramp declares ONE custom property three times
+// across `:root` + two `@media (min-width: ...)` blocks, the last of which is a
+// `clamp(...)` expression. css-scalar's last-declaration-wins scan hands that
+// expression to the comparator as a STRING, so mapping
+// layout/text/title/font-size-400 -> --title-style1-400-size against
+// already-correct CSS flagged 10/10 modes value_mismatch (text-ramp verdict,
+// 2026-08-13). Filing the 8 font-size variables entriesUnmappable kept the lane
+// quiet but left it blind to real size drift.
+//
+// css-fluid closes that: for each Figma mode it takes that mode's ANCHOR
+// VIEWPORT WIDTH, replays the CSS cascade at that width (base declaration plus
+// every @media width range that admits it, source order deciding), evaluates the
+// winning clamp()/calc()/min()/max() expression at that width, and compares the
+// resolved px against the mode's own resolved Figma value.
+//
+// EVERY mode is evaluated, including interior ones. `md` sits between the `sm`
+// and `xl` anchors, and title-300's md-distinct 32px exists only because of the
+// ten-modes-are-the-contract ruling — comparing a clamp's min/max against the
+// ramp's endpoints would call that ramp conformant while its interior drifted.
+//
+// Assumptions, stated rather than hidden: 1rem = 16px (same as parseCssScalar);
+// 1vw = anchorWidth/100. Units that need a context this lane doesn't have (em,
+// %, vh, ch) are reported as unevaluable-expression, never guessed at.
+
+const ROOT_FONT_SIZE_PX = 16;
+
+// At an anchor the comparison is exact — 0.01px absorbs float noise only.
+const ANCHOR_TOLERANCE_PX = 0.01;
+// When the anchor width falls strictly INSIDE a fluid segment, the value is an
+// interpolation of the design's two endpoints and lands wherever the curve puts
+// it, so a sub-px allowance applies. Override per entry with `tolerancePx`.
+const INTERPOLATION_TOLERANCE_PX = 0.5;
+
+// Thrown by an extractor when the whole ENTRY can't be extracted (as opposed to
+// one mode failing); the main loop turns it into a single typed defect rather
+// than one defect per mode.
+class ExtractionError extends Error {
+  constructor(type, detail) {
+    super(detail ? `${type}: ${detail}` : type);
+    this.type = type;
+    this.detail = detail;
+  }
+}
+
+// A per-mode extraction result that carries its own comparison terms: the
+// resolved px, the width it was resolved at, and the tolerance that applies.
+// Distinguished from a plain scalar so the comparator knows to diff numerically
+// within tolerance instead of string-matching.
+function measured(px, atWidth, tolerancePx) {
+  return { __measured: true, px, atWidth, tolerancePx };
+}
+
+function isMeasured(v) {
+  return Boolean(v) && typeof v === "object" && v.__measured === true;
+}
+
+// A per-mode failure. Kept as a value (not a throw) so one bad mode doesn't
+// hide the other nine, and reported as a defect so a mode is never silently
+// dropped — "0 defects" must never mean "nobody evaluated it".
+function modeDefect(type, detail) {
+  return { __defect: { type, detail } };
+}
+
+function isModeDefect(v) {
+  return Boolean(v) && typeof v === "object" && v.__defect !== undefined;
+}
+
+// Parses an @media prelude into the viewport-width range it admits. Returns
+// null when the prelude carries ANY condition that isn't a width range
+// (`print`, `prefers-color-scheme`, `orientation`, ...) — such a block's
+// declarations are conditional on something this lane can't evaluate, so they
+// are excluded from the width cascade rather than misread as base values (the
+// same mistake the @media-scoping fix above corrects for :root/.dark).
+function parseWidthMedia(prelude) {
+  const conditions = prelude.replace(/^@media\s*/, "").split(/\band\b/);
+  let minWidth = 0;
+  let maxWidth = Infinity;
+  for (const raw of conditions) {
+    const cond = raw.trim();
+    if (cond === "" || cond === "screen" || cond === "all") continue;
+    const match = cond.match(/^\(\s*(min|max)-width\s*:\s*(-?[\d.]+)(px|rem)\s*\)$/);
+    if (!match) return null;
+    const px = match[3] === "rem" ? parseFloat(match[2]) * ROOT_FONT_SIZE_PX : parseFloat(match[2]);
+    if (match[1] === "min") minWidth = Math.max(minWidth, px);
+    else maxWidth = Math.min(maxWidth, px);
+  }
+  return { minWidth, maxWidth };
+}
+
+// Every `:root` declaration of `propName`, in source order, each tagged with
+// the viewport-width range it applies to. Declarations under a non-width media
+// query are skipped (see parseWidthMedia); declarations outside `:root` are
+// skipped because the fluid-ramp convention declares these on `:root` only.
+function collectFluidDeclarations(cssText, propName) {
+  const name = propName.replace(/^--/, "");
+  const declarations = [];
+  walkCssDeclarations(cssText, ({ prop, value, stack }) => {
+    if (prop !== name) return;
+    const top = stack[stack.length - 1];
+    if (top !== ":root") return;
+    let minWidth = 0;
+    let maxWidth = Infinity;
+    for (const selector of stack) {
+      if (!isMediaAtRule(selector)) continue;
+      const range = parseWidthMedia(selector);
+      if (!range) return; // not a width-conditional declaration
+      minWidth = Math.max(minWidth, range.minWidth);
+      maxWidth = Math.min(maxWidth, range.maxWidth);
+    }
+    declarations.push({ value, minWidth, maxWidth });
+  });
+  return declarations;
+}
+
+// The cascade at a given viewport width: last matching declaration wins, same
+// rule the rest of this file uses (equal specificity -> source order).
+function declarationAtWidth(declarations, width) {
+  let winner;
+  for (const decl of declarations) {
+    if (width >= decl.minWidth && width <= decl.maxWidth) winner = decl;
+  }
+  return winner;
+}
+
+// ---- CSS math evaluation ----------------------------------------------------
+//
+// A recursive-descent evaluator over the subset of CSS values a fluid ramp is
+// written in: clamp()/min()/max()/calc(), + - * /, parentheses, px/rem/vw
+// lengths, and var(--x) hops back into the same width-aware cascade. Anything
+// outside that subset throws EvalError, which surfaces as a defect — the lane
+// says "I could not evaluate this", never "it matches".
+//
+// `interpolated` rides along with the number: it is true when a clamp() landed
+// strictly between its own bounds at this width, which is exactly the case
+// where the fluid curve (not a designed endpoint) picked the value, and so the
+// case that earns the wider tolerance.
+
+class EvalError extends Error {}
+
+function tokenizeCssMath(input) {
+  const tokens = [];
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i];
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if ("(),".includes(ch)) {
+      tokens.push({ type: ch });
+      i++;
+      continue;
+    }
+    if ("+-*/".includes(ch)) {
+      // A sign directly attached to a number after '(' or an operator or a
+      // comma is part of the number, not a binary operator.
+      const prev = tokens[tokens.length - 1];
+      const isUnary = (ch === "+" || ch === "-") && (!prev || prev.type === "(" || prev.type === "," || prev.type === "op");
+      if (!isUnary || !/[\d.]/.test(input[i + 1] || "")) {
+        tokens.push({ type: "op", op: ch });
+        i++;
+        continue;
+      }
+    }
+    const numMatch = input.slice(i).match(/^[+-]?(?:\d+\.?\d*|\.\d+)([a-z%]*)/i);
+    if (numMatch) {
+      tokens.push({ type: "num", value: parseFloat(numMatch[0]), unit: numMatch[1].toLowerCase() });
+      i += numMatch[0].length;
+      continue;
+    }
+    const identMatch = input.slice(i).match(/^[a-zA-Z-][a-zA-Z0-9-]*/);
+    if (identMatch) {
+      tokens.push({ type: "ident", name: identMatch[0] });
+      i += identMatch[0].length;
+      continue;
+    }
+    throw new EvalError(`unexpected character '${ch}' in "${input}"`);
+  }
+  return tokens;
+}
+
+function lengthToPx(token, width) {
+  switch (token.unit) {
+    case "":
+      return token.value;
+    case "px":
+      return token.value;
+    case "rem":
+      return token.value * ROOT_FONT_SIZE_PX;
+    case "vw":
+      return (token.value * width) / 100;
+    default:
+      throw new EvalError(`unsupported unit '${token.unit}' (needs a context this lane does not have)`);
+  }
+}
+
+function createCssMathParser(tokens, ctx) {
+  let pos = 0;
+  const peek = () => tokens[pos];
+  const next = () => tokens[pos++];
+  const expect = (type) => {
+    const token = next();
+    if (!token || token.type !== type) throw new EvalError(`expected '${type}'`);
+    return token;
+  };
+
+  // Each parse step returns { px, interpolated }.
+  function parseArguments() {
+    expect("(");
+    const args = [];
+    if (peek() && peek().type === ")") {
+      next();
+      return args;
+    }
+    for (;;) {
+      args.push(parseExpression());
+      const token = next();
+      if (!token) throw new EvalError("unterminated argument list");
+      if (token.type === ")") return args;
+      if (token.type !== ",") throw new EvalError("expected ',' or ')'");
+    }
+  }
+
+  function parseFunction(name) {
+    const args = parseArguments();
+    const px = args.map((a) => a.px);
+    const interpolated = args.some((a) => a.interpolated);
+    switch (name.toLowerCase()) {
+      case "calc":
+        if (args.length !== 1) throw new EvalError("calc() takes one expression");
+        return args[0];
+      case "min":
+        if (args.length === 0) throw new EvalError("min() needs arguments");
+        return { px: Math.min(...px), interpolated };
+      case "max":
+        if (args.length === 0) throw new EvalError("max() needs arguments");
+        return { px: Math.max(...px), interpolated };
+      case "clamp": {
+        if (args.length !== 3) throw new EvalError("clamp() takes three arguments");
+        const [lower, preferred, upper] = px;
+        const value = Math.min(Math.max(lower, preferred), upper);
+        // Strictly inside its own bounds -> the fluid curve chose this value.
+        const inside = value > lower + ANCHOR_TOLERANCE_PX && value < upper - ANCHOR_TOLERANCE_PX;
+        return { px: value, interpolated: interpolated || inside };
+      }
+      case "var": {
+        throw new EvalError("var() must be the whole value, not part of an expression");
+      }
+      default:
+        throw new EvalError(`unsupported function '${name}()'`);
+    }
+  }
+
+  function parseFactor() {
+    const token = next();
+    if (!token) throw new EvalError("unexpected end of expression");
+    if (token.type === "num") return { px: lengthToPx(token, ctx.width), interpolated: false };
+    if (token.type === "(") {
+      const value = parseExpression();
+      expect(")");
+      return value;
+    }
+    if (token.type === "ident") {
+      if (peek() && peek().type === "(") return parseFunction(token.name);
+      throw new EvalError(`bare keyword '${token.name}'`);
+    }
+    if (token.type === "op" && (token.op === "-" || token.op === "+")) {
+      const operand = parseFactor();
+      return { px: token.op === "-" ? -operand.px : operand.px, interpolated: operand.interpolated };
+    }
+    throw new EvalError("unexpected token");
+  }
+
+  function parseTerm() {
+    let left = parseFactor();
+    while (peek() && peek().type === "op" && (peek().op === "*" || peek().op === "/")) {
+      const { op } = next();
+      const right = parseFactor();
+      if (op === "/" && right.px === 0) throw new EvalError("division by zero");
+      left = { px: op === "*" ? left.px * right.px : left.px / right.px, interpolated: left.interpolated || right.interpolated };
+    }
+    return left;
+  }
+
+  function parseExpression() {
+    let left = parseTerm();
+    while (peek() && peek().type === "op" && (peek().op === "+" || peek().op === "-")) {
+      const { op } = next();
+      const right = parseTerm();
+      left = { px: op === "+" ? left.px + right.px : left.px - right.px, interpolated: left.interpolated || right.interpolated };
+    }
+    return left;
+  }
+
+  return () => {
+    const value = parseExpression();
+    if (pos !== tokens.length) throw new EvalError("trailing tokens");
+    return value;
+  };
+}
+
+// Resolves a raw CSS value to px at `width`, following var(--x) hops through
+// the same width-aware cascade (so an indirected fluid token is evaluated, not
+// abandoned). Throws EvalError when the value leaves the supported subset.
+function evaluateFluidValue(rawValue, ctx) {
+  const varRef = rawValue.trim().match(/^var\(\s*(--[a-zA-Z0-9-]+)\s*\)$/);
+  if (varRef) {
+    if (ctx.depth >= 5) throw new EvalError("var() indirection too deep (cycle?)");
+    const declarations = collectFluidDeclarations(ctx.cssText, varRef[1]);
+    const decl = declarationAtWidth(declarations, ctx.width);
+    if (!decl) throw new EvalError(`var(${varRef[1]}) has no :root declaration applying at ${ctx.width}px`);
+    return evaluateFluidValue(decl.value, { ...ctx, depth: ctx.depth + 1 });
+  }
+  return createCssMathParser(tokenizeCssMath(rawValue), ctx)();
+}
+
+// tokenName is a single CSS custom property whose cascade is replayed per mode.
+// ctx: { modes, anchorWidths, tolerancePx }.
+function extractCssFluid(cssText, tokenName, ctx = {}) {
+  const { modes = [], anchorWidths = {}, tolerancePx } = ctx;
+  const declarations = collectFluidDeclarations(cssText, tokenName);
+  if (declarations.length === 0) {
+    throw new ExtractionError("missing-token-declaration", `no :root declaration of ${tokenName} found`);
+  }
+
+  const result = {};
+  for (const mode of modes) {
+    const width = anchorWidths[mode];
+    if (typeof width !== "number") {
+      result[mode] = modeDefect(
+        "missing-anchor-width",
+        `no anchor viewport width for mode '${mode}' — add it to the capture's ${ANCHOR_WIDTH_FIGMA_PATH} or to the map's anchorWidths.modes`
+      );
+      continue;
+    }
+    const decl = declarationAtWidth(declarations, width);
+    if (!decl) {
+      result[mode] = modeDefect("no-declaration-at-width", `no declaration of ${tokenName} applies at ${width}px`);
+      continue;
+    }
+    try {
+      const { px, interpolated } = evaluateFluidValue(decl.value, { cssText, width, depth: 0 });
+      const tolerance = interpolated ? (tolerancePx ?? INTERPOLATION_TOLERANCE_PX) : ANCHOR_TOLERANCE_PX;
+      result[mode] = measured(px, width, tolerance);
+    } catch (err) {
+      if (!(err instanceof EvalError)) throw err;
+      result[mode] = modeDefect("unevaluable-expression", `${decl.value} at ${width}px — ${err.message}`);
+    }
+  }
+  return result;
+}
+
+// ---- Anchor viewport widths -------------------------------------------------
+//
+// A mode's anchor width is the viewport the design was drawn at. It comes from
+// the capture itself — the `layout` collection's own device/width variable
+// (sm 375 / md 768 / lg 1280 / xl 1920 on the live file, with the -flush and
+// -sidebar-main variants mirroring their base mode) — so the widths are the
+// design's, not a number an engineer typed. A map may point at a different
+// variable (anchorWidths.figmaPath) or declare a table (anchorWidths.modes) for
+// modes the capture doesn't carry; the capture wins where both exist.
+const ANCHOR_WIDTH_FIGMA_PATH = "layout/device/width";
+
+function resolveAnchorWidths(mapping, index, modes) {
+  const config = mapping.anchorWidths || {};
+  const figmaPath = config.figmaPath || ANCHOR_WIDTH_FIGMA_PATH;
+  const declared = config.modes || {};
+  const byMode = {};
+  for (const mode of modes) {
+    if (index.has(figmaPath)) {
+      const resolved = resolveValue(figmaPath, mode, index);
+      if (!resolved.error && typeof resolved.value === "number") {
+        byMode[mode] = resolved.value;
+        continue;
+      }
+    }
+    if (typeof declared[mode] === "number") byMode[mode] = declared[mode];
+  }
+  return byMode;
+}
+
 const EXTRACTORS = {
   "css-root-dark": extractCssRootDark,
   "css-scalar": extractCssScalar,
   "css-scale": extractCssScale,
+  "css-fluid": extractCssFluid,
 };
 
 // ---- Core check ------------------------------------------------------------
@@ -379,6 +772,9 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
 
   const defects = [];
   let checkedCount = 0;
+  // Comparisons actually performed (entry x mode), so a run can distinguish
+  // "clean" from "examined nothing" — same reason coverage exists below.
+  let modesEvaluated = 0;
 
   for (const [figmaPath, entry] of Object.entries(mapping.entries || {})) {
     const { codeLocation, tokenName, extraction } = entry;
@@ -402,8 +798,20 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
       continue;
     }
 
-    const codeValues = extractor(readFileSync(codeFilePath, "utf8"), tokenName);
     const figmaModes = Object.keys(variable.valuesByMode);
+
+    let codeValues;
+    try {
+      codeValues = extractor(readFileSync(codeFilePath, "utf8"), tokenName, {
+        modes: figmaModes,
+        anchorWidths: extraction === "css-fluid" ? resolveAnchorWidths(mapping, index, figmaModes) : undefined,
+        tolerancePx: entry.tolerancePx,
+      });
+    } catch (err) {
+      if (!(err instanceof ExtractionError)) throw err;
+      defects.push({ path: figmaPath, codeLocation, tokenName, type: err.type, detail: err.detail });
+      continue;
+    }
 
     const codeValueKeys = Object.keys(codeValues);
 
@@ -415,6 +823,13 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
       const codeValue = mode in codeValues ? codeValues[mode] : codeValueKeys.length === 1 ? codeValues[codeValueKeys[0]] : undefined;
       if (codeValue === undefined) continue; // extraction has nothing for this mode — no code counterpart to compare
 
+      // A mode the extractor could not evaluate is reported, never dropped:
+      // an unexaminable mode and a conformant one must not look the same.
+      if (isModeDefect(codeValue)) {
+        defects.push({ path: figmaPath, mode, codeLocation, tokenName, type: codeValue.__defect.type, detail: codeValue.__defect.detail });
+        continue;
+      }
+
       const resolved = resolveValue(figmaPath, mode, index);
       if (resolved.error) {
         defects.push({ path: figmaPath, mode, codeLocation, tokenName, type: "unresolved-value", detail: resolved.error });
@@ -422,6 +837,29 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
       }
 
       const figmaValue = normalizeFigmaValue(resolved.value);
+      modesEvaluated++;
+
+      if (isMeasured(codeValue)) {
+        const figmaNumber = Number(figmaValue);
+        if (figmaValue === "" || Number.isNaN(figmaNumber)) {
+          defects.push({ path: figmaPath, mode, codeLocation, tokenName, type: "non-numeric-figma-value", detail: String(figmaValue) });
+          continue;
+        }
+        if (Math.abs(figmaNumber - codeValue.px) > codeValue.tolerancePx) {
+          defects.push({
+            path: figmaPath,
+            mode,
+            old: figmaNumber,
+            new: codeValue.px,
+            atWidth: codeValue.atWidth,
+            codeLocation,
+            tokenName,
+            type: "value_mismatch",
+          });
+        }
+        continue;
+      }
+
       if (!valuesMatch(figmaValue, codeValue)) {
         defects.push({ path: figmaPath, mode, old: figmaValue, new: codeValue, codeLocation, tokenName, type: "value_mismatch" });
       }
@@ -429,15 +867,17 @@ export function runConformanceCheck({ capturePath, mappingPath }) {
   }
 
   const ok = defects.length === 0;
-  const summaryLines = [`Conformance check: ${checkedCount} entries checked, ${defects.length} defects.`];
+  const summaryLines = [`Conformance check: ${checkedCount} entries checked, ${modesEvaluated} modes evaluated, ${defects.length} defects.`];
   for (const d of defects) {
     if (d.type === "value_mismatch") {
-      summaryLines.push(`  [value_mismatch] ${d.path} (${d.mode}): figma=${d.old} code=${d.new} (${d.codeLocation}:${d.tokenName})`);
+      const at = d.atWidth === undefined ? "" : ` @${d.atWidth}px`;
+      summaryLines.push(`  [value_mismatch] ${d.path} (${d.mode}${at}): figma=${d.old} code=${d.new} (${d.codeLocation}:${d.tokenName})`);
     } else {
-      summaryLines.push(`  [${d.type}] ${d.path} (${d.codeLocation}:${d.tokenName})`);
+      const where = d.mode === undefined ? "" : ` (${d.mode})`;
+      summaryLines.push(`  [${d.type}] ${d.path}${where} (${d.codeLocation}:${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
     }
   }
-  return { ok, defects, summary: summaryLines.join("\n") };
+  return { ok, defects, modesEvaluated, summary: summaryLines.join("\n") };
 }
 
 // ---- Coverage --------------------------------------------------------------

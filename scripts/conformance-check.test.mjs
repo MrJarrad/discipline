@@ -603,6 +603,129 @@ test("coverage: a map entry pointing at a path the capture doesn't carry is repo
   assert.deepEqual(coverage.mappedPathsMissingFromCapture, ["color/content/long-gone"]);
 });
 
+// ---- css-fluid (clamp-aware) ----------------------------------------------
+// Commissioned by the text-ramp verdict: mapping layout/text/title/font-size-400
+// as a checked `css-scalar` entry against ALREADY-CORRECT css produced 10/10
+// modes flagged value_mismatch (clamp() expression vs Figma's scalar) — a
+// guaranteed false positive — so all 8 font-size variables were filed
+// entriesUnmappable and the lane stayed blind to size drift. css-fluid resolves
+// the cascade at each mode's own anchor viewport width instead of string-
+// comparing the last declaration.
+//
+// The capture fixture below is the real one, values read from
+// ~/JHD/captures/live/jhd-spec-designsystem-variables-styles.json: the `layout`
+// collection's ten modes, `layout/device/width` (sm 375 / md 768 / lg 1280 /
+// xl 1920, mirrored by the -flush and -sidebar-main variants), and
+// layout/text/title/font-size-400's alias chain into text-primitives/size/*
+// (56 / 56 / 80 / 96 for sm/md/lg/xl).
+const LAYOUT_MODES = ["lg", "sm", "md", "xl", "lg-flush", "sm-flush", "md-flush", "xl-flush", "lg-sidebar-main", "lg-sidebar-main-flush"];
+
+const DEVICE_WIDTH_BY_MODE = {
+  lg: 1280,
+  sm: 375,
+  md: 768,
+  xl: 1920,
+  "lg-flush": 1280,
+  "sm-flush": 375,
+  "md-flush": 768,
+  "xl-flush": 1920,
+  "lg-sidebar-main": 1280,
+  "lg-sidebar-main-flush": 1280,
+};
+
+// layout/text/title/font-size-400's real per-mode aliases.
+const TITLE_400_ALIASES = {
+  lg: "→ text-primitives/size/1200",
+  sm: "→ text-primitives/size/1000",
+  md: "→ text-primitives/size/1000",
+  xl: "→ text-primitives/size/1400",
+  "lg-flush": "→ text-primitives/size/1200",
+  "sm-flush": "→ text-primitives/size/1000",
+  "md-flush": "→ text-primitives/size/1000",
+  "xl-flush": "→ text-primitives/size/1400",
+  "lg-sidebar-main": "→ text-primitives/size/1200",
+  "lg-sidebar-main-flush": "→ text-primitives/size/1200",
+};
+
+// layout/text/title/font-size-300: 28 / 32 / 40 / 48 (sm/md/lg/xl) — the step
+// whose md value only exists because the ten-modes ruling forced a md-distinct
+// fluid segment, and therefore the step an interior-mode check has to catch.
+const TITLE_300_ALIASES = {
+  lg: "→ text-primitives/size/800",
+  sm: "→ text-primitives/size/600",
+  md: "→ text-primitives/size/700",
+  xl: "→ text-primitives/size/900",
+  "lg-flush": "→ text-primitives/size/800",
+  "sm-flush": "→ text-primitives/size/600",
+  "md-flush": "→ text-primitives/size/700",
+  "xl-flush": "→ text-primitives/size/900",
+  "lg-sidebar-main": "→ text-primitives/size/800",
+  "lg-sidebar-main-flush": "→ text-primitives/size/800",
+};
+
+const TEXT_PRIMITIVES = {
+  name: "text-primitives",
+  modes: ["value"],
+  variables: [
+    { name: "size/600", valuesByMode: { value: 28 } },
+    { name: "size/700", valuesByMode: { value: 32 } },
+    { name: "size/800", valuesByMode: { value: 40 } },
+    { name: "size/900", valuesByMode: { value: 48 } },
+    { name: "size/1000", valuesByMode: { value: 56 } },
+    { name: "size/1200", valuesByMode: { value: 80 } },
+    { name: "size/1400", valuesByMode: { value: 96 } },
+  ],
+};
+
+function layoutCollection(extraVariables) {
+  return {
+    name: "layout",
+    modes: LAYOUT_MODES,
+    variables: [{ name: "device/width", valuesByMode: { ...DEVICE_WIDTH_BY_MODE } }, ...extraVariables],
+  };
+}
+
+// The title ramp verbatim from ~/JHD/portfolio/src/app/globals.css (:root:245,
+// @768:260-261, @1280:271-272) — unperturbed, already-correct code. This is the
+// exact CSS that produced 10/10 false positives under css-scalar.
+const TITLE_RAMP_CSS = `:root {
+  --title-style1-300-size: 1.75rem;  /* 28px, sm (size/600) */
+  --title-style1-400-size: 3.5rem;  /* 56px, sm/md (size/1000) */
+}
+@media (min-width: 768px) {
+  :root {
+    --title-style1-300-size: clamp(2rem, calc(1.5625vw + 1.25rem), 2.5rem);
+    --title-style1-400-size: clamp(3.5rem, calc(4.6875vw + 1.25rem), 5rem);
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --title-style1-300-size: clamp(2.5rem, calc(1.25vw + 1.5rem), 3rem);
+    --title-style1-400-size: clamp(5rem, calc(2.5vw + 3rem), 6rem);
+  }
+}
+`;
+
+test("css-fluid: the real title-400 clamp cascade matches its capture at all ten modes (the false-positive case, now green)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-400", valuesByMode: { ...TITLE_400_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-400": { codeLocation: "styles.css", tokenName: "--title-style1-400-size", extraction: "css-fluid" },
+      },
+    },
+    css: TITLE_RAMP_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.ok, true);
+  // Coverage, not silence: all ten modes were evaluated, not skipped.
+  assert.equal(result.modesEvaluated, 10);
+});
+
 test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
   const { capturePath, mappingPath } = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
