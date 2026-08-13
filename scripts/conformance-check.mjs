@@ -17,10 +17,27 @@
 
    Mapping schema (figma-map.json):
      { "$schema": "conformance-map/v1",
-       "entries": { "<figma variable path>": { codeLocation, tokenName, extraction } } }
+       "anchorWidths": { "figmaPath": "layout/device/width",
+                         "modes": { "sm": 375, "md": 768, ... } },
+       "entries": { "<figma variable path>": { codeLocation, tokenName,
+                                               extraction, tolerancePx? } } }
    codeLocation is relative to the mapping file's GRANDPARENT directory (the
    convention: a mapping lives at <repo>/design/figma-map.json, so
    codeLocation paths are repo-relative, e.g. "src/app/globals.css").
+
+   anchorWidths (optional, read only by the "css-fluid" extraction) says which
+   viewport width each Figma mode was designed at. Both keys are optional:
+     figmaPath — the capture variable carrying the per-mode width. Defaults to
+       "layout/device/width", which the live JHD-Spec file exports as
+       sm 375 / md 768 / lg 1280 / xl 1920, with the -flush and -sidebar-main
+       variants mirroring their base mode. Reading the widths from the capture
+       keeps them the design's numbers, not an engineer's guess.
+     modes — a declared table, used for any mode the capture can't supply
+       (a Figma file with no device-width variable). The capture wins where
+       both are present.
+   tolerancePx (optional, per entry, css-fluid only) overrides the allowance
+   used where a mode's anchor falls strictly inside a fluid segment; see the
+   css-fluid notes below for why the two tolerances differ.
 
    extraction enum (extend as new code shapes need support):
      "css-root-dark" — tokenName is a CSS custom property declared inside a
@@ -40,6 +57,29 @@
        using this extraction typically carry a single mode under any name
        ("default", "Mode 1", ...) — the main loop falls back to a extractor
        result's sole value when the exact mode name isn't present.
+     "css-fluid" — tokenName is a single CSS custom property whose value is a
+       FLUID EXPRESSION (clamp()/calc()/min()/max()), typically declared two or
+       three times across `:root` and `@media (min-width: ...)` blocks. Instead
+       of string-comparing the last declaration (which is what css-scalar does,
+       and why a clamp() reads as a mismatch against Figma's scalar), the
+       cascade is replayed at EACH MODE'S ANCHOR VIEWPORT WIDTH — base
+       declaration plus every @media width range admitting that width, source
+       order deciding — and the winning expression is evaluated there. The
+       resolved px is compared against that mode's resolved Figma value.
+       Anchor widths come from `anchorWidths` (see the mapping schema above).
+       Comparison is exact (0.01px, float noise) where the clamp saturates at
+       one of its own bounds, and allows 0.5px (override per entry with
+       tolerancePx) where the anchor lands strictly inside the fluid segment
+       and the value is an interpolation rather than a designed endpoint.
+       EVERY mode is evaluated, interior ones included: `md` between the `sm`
+       and `xl` anchors is exactly where title-300's md-distinct value lives,
+       so checking only a ramp's endpoints (or a clamp's min/max) would call a
+       ramp conformant while its middle drifted.
+       Known characteristic, not a bug: two modes sharing one anchor width but
+       carrying different Figma values (on the live file, `xl` and `xl-flush`
+       differ for title-100/200) cannot both be satisfied by width-keyed CSS,
+       so one of them will always flag — a real contract conflict for a human
+       to resolve, surfaced rather than hidden.
      "css-scale" — tokenName is a template string containing the literal
        "{mode}" placeholder (e.g. "--button-height-{mode}"), substituted with
        each Figma mode name to locate that mode's own CSS custom property
