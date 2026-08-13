@@ -603,6 +603,345 @@ test("coverage: a map entry pointing at a path the capture doesn't carry is repo
   assert.deepEqual(coverage.mappedPathsMissingFromCapture, ["color/content/long-gone"]);
 });
 
+// ---- css-fluid (clamp-aware) ----------------------------------------------
+// Commissioned by the text-ramp verdict: mapping layout/text/title/font-size-400
+// as a checked `css-scalar` entry against ALREADY-CORRECT css produced 10/10
+// modes flagged value_mismatch (clamp() expression vs Figma's scalar) — a
+// guaranteed false positive — so all 8 font-size variables were filed
+// entriesUnmappable and the lane stayed blind to size drift. css-fluid resolves
+// the cascade at each mode's own anchor viewport width instead of string-
+// comparing the last declaration.
+//
+// The capture fixture below is the real one, values read from
+// ~/JHD/captures/live/jhd-spec-designsystem-variables-styles.json: the `layout`
+// collection's ten modes, `layout/device/width` (sm 375 / md 768 / lg 1280 /
+// xl 1920, mirrored by the -flush and -sidebar-main variants), and
+// layout/text/title/font-size-400's alias chain into text-primitives/size/*
+// (56 / 56 / 80 / 96 for sm/md/lg/xl).
+const LAYOUT_MODES = ["lg", "sm", "md", "xl", "lg-flush", "sm-flush", "md-flush", "xl-flush", "lg-sidebar-main", "lg-sidebar-main-flush"];
+
+const DEVICE_WIDTH_BY_MODE = {
+  lg: 1280,
+  sm: 375,
+  md: 768,
+  xl: 1920,
+  "lg-flush": 1280,
+  "sm-flush": 375,
+  "md-flush": 768,
+  "xl-flush": 1920,
+  "lg-sidebar-main": 1280,
+  "lg-sidebar-main-flush": 1280,
+};
+
+// layout/text/title/font-size-400's real per-mode aliases.
+const TITLE_400_ALIASES = {
+  lg: "→ text-primitives/size/1200",
+  sm: "→ text-primitives/size/1000",
+  md: "→ text-primitives/size/1000",
+  xl: "→ text-primitives/size/1400",
+  "lg-flush": "→ text-primitives/size/1200",
+  "sm-flush": "→ text-primitives/size/1000",
+  "md-flush": "→ text-primitives/size/1000",
+  "xl-flush": "→ text-primitives/size/1400",
+  "lg-sidebar-main": "→ text-primitives/size/1200",
+  "lg-sidebar-main-flush": "→ text-primitives/size/1200",
+};
+
+// layout/text/title/font-size-300: 28 / 32 / 40 / 48 (sm/md/lg/xl) — the step
+// whose md value only exists because the ten-modes ruling forced a md-distinct
+// fluid segment, and therefore the step an interior-mode check has to catch.
+const TITLE_300_ALIASES = {
+  lg: "→ text-primitives/size/800",
+  sm: "→ text-primitives/size/600",
+  md: "→ text-primitives/size/700",
+  xl: "→ text-primitives/size/900",
+  "lg-flush": "→ text-primitives/size/800",
+  "sm-flush": "→ text-primitives/size/600",
+  "md-flush": "→ text-primitives/size/700",
+  "xl-flush": "→ text-primitives/size/900",
+  "lg-sidebar-main": "→ text-primitives/size/800",
+  "lg-sidebar-main-flush": "→ text-primitives/size/800",
+};
+
+const TEXT_PRIMITIVES = {
+  name: "text-primitives",
+  modes: ["value"],
+  variables: [
+    { name: "size/600", valuesByMode: { value: 28 } },
+    { name: "size/700", valuesByMode: { value: 32 } },
+    { name: "size/800", valuesByMode: { value: 40 } },
+    { name: "size/900", valuesByMode: { value: 48 } },
+    { name: "size/1000", valuesByMode: { value: 56 } },
+    { name: "size/1200", valuesByMode: { value: 80 } },
+    { name: "size/1400", valuesByMode: { value: 96 } },
+  ],
+};
+
+function layoutCollection(extraVariables) {
+  return {
+    name: "layout",
+    modes: LAYOUT_MODES,
+    variables: [{ name: "device/width", valuesByMode: { ...DEVICE_WIDTH_BY_MODE } }, ...extraVariables],
+  };
+}
+
+// The title ramp verbatim from ~/JHD/portfolio/src/app/globals.css (:root:245,
+// @768:260-261, @1280:271-272) — unperturbed, already-correct code. This is the
+// exact CSS that produced 10/10 false positives under css-scalar.
+const TITLE_RAMP_CSS = `:root {
+  --title-style1-300-size: 1.75rem;  /* 28px, sm (size/600) */
+  --title-style1-400-size: 3.5rem;  /* 56px, sm/md (size/1000) */
+}
+@media (min-width: 768px) {
+  :root {
+    --title-style1-300-size: clamp(2rem, calc(1.5625vw + 1.25rem), 2.5rem);
+    --title-style1-400-size: clamp(3.5rem, calc(4.6875vw + 1.25rem), 5rem);
+  }
+}
+@media (min-width: 1280px) {
+  :root {
+    --title-style1-300-size: clamp(2.5rem, calc(1.25vw + 1.5rem), 3rem);
+    --title-style1-400-size: clamp(5rem, calc(2.5vw + 3rem), 6rem);
+  }
+}
+`;
+
+test("css-fluid: the real title-400 clamp cascade matches its capture at all ten modes (the false-positive case, now green)", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-400", valuesByMode: { ...TITLE_400_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-400": { codeLocation: "styles.css", tokenName: "--title-style1-400-size", extraction: "css-fluid" },
+      },
+    },
+    css: TITLE_RAMP_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.ok, true);
+  // Coverage, not silence: all ten modes were evaluated, not skipped.
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: size drift injected at the INTERIOR md mode flags, while sm/lg/xl stay green", () => {
+  // The 768 segment's floor moved 2rem -> 2.25rem: 36px where the capture says
+  // 32px. sm reads the base declaration, lg/xl read the 1280 block — all three
+  // are untouched, so only a check that evaluates md's own anchor catches this.
+  const driftedCss = TITLE_RAMP_CSS.replace(
+    "--title-style1-300-size: clamp(2rem, calc(1.5625vw + 1.25rem), 2.5rem);",
+    "--title-style1-300-size: clamp(2.25rem, calc(1.5625vw + 1.25rem), 2.5rem);"
+  );
+  assert.notEqual(driftedCss, TITLE_RAMP_CSS, "fixture drift must actually be injected");
+
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-300", valuesByMode: { ...TITLE_300_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-300": { codeLocation: "styles.css", tokenName: "--title-style1-300-size", extraction: "css-fluid" },
+      },
+    },
+    css: driftedCss,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 10);
+  assert.deepEqual(
+    result.defects.map((d) => d.mode),
+    ["md", "md-flush"]
+  );
+  assert.deepEqual(result.defects[0], {
+    path: "layout/text/title/font-size-300",
+    mode: "md",
+    old: 32,
+    new: 36,
+    atWidth: 768,
+    codeLocation: "styles.css",
+    tokenName: "--title-style1-300-size",
+    type: "value_mismatch",
+  });
+});
+
+test("css-fluid: the unperturbed title-300 ramp (md-distinct fluid segment) is green at all ten modes", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/title/font-size-300", valuesByMode: { ...TITLE_300_ALIASES } }]), TEXT_PRIMITIVES],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/title/font-size-300": { codeLocation: "styles.css", tokenName: "--title-style1-300-size", extraction: "css-fluid" },
+      },
+    },
+    css: TITLE_RAMP_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+// A single fluid segment spanning sm -> xl, so md and lg anchors land STRICTLY
+// INSIDE the curve rather than on a breakpoint boundary. clamp(1.125rem,
+// calc(1.5625vw + 0.75rem), 2.5rem) resolves 18 / 24 / 32 / 40 at
+// 375 / 768 / 1280 / 1920 — the first and last from the clamp's own bounds, the
+// middle two from the interpolation.
+const INTERIOR_ANCHOR_VALUES = { sm: 18, md: 24, lg: 32, xl: 40 };
+const INTERIOR_VALUES_BY_MODE = Object.fromEntries(
+  LAYOUT_MODES.map((mode) => [mode, INTERIOR_ANCHOR_VALUES[mode.split("-")[0]]])
+);
+const INTERIOR_CSS = `:root {\n  --demo-size: clamp(1.125rem, calc(1.5625vw + 0.75rem), 2.5rem);\n}\n`;
+
+function interiorFixture(css) {
+  return makeFixture({
+    collections: [layoutCollection([{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }])],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css,
+  });
+}
+
+test("css-fluid: a fluid segment whose md/lg anchors fall inside the curve is green at every mode", () => {
+  const { capturePath, mappingPath } = interiorFixture(INTERIOR_CSS);
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: slope drift inside IDENTICAL clamp bounds flags the interior anchors — min/max alone would pass it", () => {
+  // Same lower (1.125rem) and upper (2.5rem) bounds, different preferred slope.
+  // sm still saturates at the floor (18) and xl at the ceiling (40), so a check
+  // that compared only the clamp's endpoints would call this conformant; md
+  // drifts 24 -> 21.44 and lg 32 -> 30.4.
+  const { capturePath, mappingPath } = interiorFixture(
+    INTERIOR_CSS.replace("calc(1.5625vw + 0.75rem)", "calc(1.75vw + 0.5rem)")
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 10);
+  assert.deepEqual(
+    result.defects.map((d) => d.mode).sort(),
+    ["lg", "lg-flush", "lg-sidebar-main", "lg-sidebar-main-flush", "md", "md-flush"]
+  );
+  const md = result.defects.find((d) => d.mode === "md");
+  assert.equal(md.old, 24);
+  assert.equal(Number(md.new.toFixed(2)), 21.44);
+  assert.equal(md.atWidth, 768);
+});
+
+test("css-fluid: anchor widths fall back to the map's declared table when the capture carries no device/width", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    // Same layout collection minus device/width — a capture whose Figma file
+    // has no device-width variable to read the anchors from.
+    collections: [{ name: "layout", modes: LAYOUT_MODES, variables: [{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      anchorWidths: { modes: DEVICE_WIDTH_BY_MODE },
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: a mode with no anchor width anywhere is reported, not silently skipped", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "layout", modes: ["sm", "md"], variables: [{ name: "text/demo/font-size", valuesByMode: { sm: 18, md: 24 } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      anchorWidths: { modes: { sm: 375 } }, // md deliberately absent
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 1); // sm compared; md was NOT counted as examined
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "missing-anchor-width");
+  assert.equal(result.defects[0].mode, "md");
+  assert.match(result.summary, /missing-anchor-width/);
+});
+
+test("css-fluid: an expression outside the supported subset is reported as unevaluable, never as a match", () => {
+  const { capturePath, mappingPath } = interiorFixture(
+    // em needs a parent font-size this lane does not have.
+    INTERIOR_CSS.replace("calc(1.5625vw + 0.75rem)", "calc(1.5625vw + 0.75em)")
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 0);
+  assert.equal(result.defects.length, 10);
+  assert.equal(result.defects[0].type, "unevaluable-expression");
+  assert.match(result.defects[0].detail, /unsupported unit 'em'/);
+});
+
+test("css-fluid: a token the stylesheet never declares is one entry-level defect, not one per mode", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }])],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--never-declared", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "missing-token-declaration");
+  assert.equal(result.defects[0].mode, undefined);
+});
+
+test("css-fluid: a @media print re-declaration does not enter the viewport-width cascade", () => {
+  // Same shape as the print-stylesheet bug that produced six phantom dark-mode
+  // defects: a conditional block, later in source order, that last-write-wins
+  // would otherwise hand to the comparator.
+  const { capturePath, mappingPath } = interiorFixture(`${INTERIOR_CSS}@media print {\n  :root {\n    --demo-size: 12px;\n  }\n}\n`);
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: var() indirection is followed through the width cascade, not abandoned", () => {
+  const { capturePath, mappingPath } = interiorFixture(
+    `:root {\n  --demo-raw: 1.125rem;\n  --demo-size: var(--demo-raw);\n}\n@media (min-width: 768px) {\n  :root {\n    --demo-raw: clamp(1.5rem, calc(1.5625vw + 0.75rem), 2.5rem);\n  }\n}\n`
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
 test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
   const { capturePath, mappingPath } = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
