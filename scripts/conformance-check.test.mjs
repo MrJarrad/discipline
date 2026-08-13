@@ -841,6 +841,107 @@ test("css-fluid: slope drift inside IDENTICAL clamp bounds flags the interior an
   assert.equal(md.atWidth, 768);
 });
 
+test("css-fluid: anchor widths fall back to the map's declared table when the capture carries no device/width", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    // Same layout collection minus device/width — a capture whose Figma file
+    // has no device-width variable to read the anchors from.
+    collections: [{ name: "layout", modes: LAYOUT_MODES, variables: [{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      anchorWidths: { modes: DEVICE_WIDTH_BY_MODE },
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: a mode with no anchor width anywhere is reported, not silently skipped", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [{ name: "layout", modes: ["sm", "md"], variables: [{ name: "text/demo/font-size", valuesByMode: { sm: 18, md: 24 } }] }],
+    mapping: {
+      $schema: "conformance-map/v1",
+      anchorWidths: { modes: { sm: 375 } }, // md deliberately absent
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--demo-size", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 1); // sm compared; md was NOT counted as examined
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "missing-anchor-width");
+  assert.equal(result.defects[0].mode, "md");
+  assert.match(result.summary, /missing-anchor-width/);
+});
+
+test("css-fluid: an expression outside the supported subset is reported as unevaluable, never as a match", () => {
+  const { capturePath, mappingPath } = interiorFixture(
+    // em needs a parent font-size this lane does not have.
+    INTERIOR_CSS.replace("calc(1.5625vw + 0.75rem)", "calc(1.5625vw + 0.75em)")
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.modesEvaluated, 0);
+  assert.equal(result.defects.length, 10);
+  assert.equal(result.defects[0].type, "unevaluable-expression");
+  assert.match(result.defects[0].detail, /unsupported unit 'em'/);
+});
+
+test("css-fluid: a token the stylesheet never declares is one entry-level defect, not one per mode", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    collections: [layoutCollection([{ name: "text/demo/font-size", valuesByMode: { ...INTERIOR_VALUES_BY_MODE } }])],
+    mapping: {
+      $schema: "conformance-map/v1",
+      entries: {
+        "layout/text/demo/font-size": { codeLocation: "styles.css", tokenName: "--never-declared", extraction: "css-fluid" },
+      },
+    },
+    css: INTERIOR_CSS,
+  });
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.equal(result.defects.length, 1);
+  assert.equal(result.defects[0].type, "missing-token-declaration");
+  assert.equal(result.defects[0].mode, undefined);
+});
+
+test("css-fluid: a @media print re-declaration does not enter the viewport-width cascade", () => {
+  // Same shape as the print-stylesheet bug that produced six phantom dark-mode
+  // defects: a conditional block, later in source order, that last-write-wins
+  // would otherwise hand to the comparator.
+  const { capturePath, mappingPath } = interiorFixture(`${INTERIOR_CSS}@media print {\n  :root {\n    --demo-size: 12px;\n  }\n}\n`);
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
+test("css-fluid: var() indirection is followed through the width cascade, not abandoned", () => {
+  const { capturePath, mappingPath } = interiorFixture(
+    `:root {\n  --demo-raw: 1.125rem;\n  --demo-size: var(--demo-raw);\n}\n@media (min-width: 768px) {\n  :root {\n    --demo-raw: clamp(1.5rem, calc(1.5625vw + 0.75rem), 2.5rem);\n  }\n}\n`
+  );
+
+  const result = runConformanceCheck({ capturePath, mappingPath });
+
+  assert.deepEqual(result.defects, []);
+  assert.equal(result.modesEvaluated, 10);
+});
+
 test("coverage: a fully covered capture reports zero unmapped and an empty name list", () => {
   const { capturePath, mappingPath } = makeFixture({
     collections: [{ name: "color", modes: ["light"], variables: [{ name: "content/primary", valuesByMode: { light: "#000000" } }] }],
