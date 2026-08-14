@@ -1,0 +1,55 @@
+---
+description: Natural-language routing — dispatch personas and skills without naming them
+alwaysApply: true
+---
+
+# Discipline routing
+
+Operator never names agents or remembers @ paths. Classify and dispatch.
+
+## Mode (invoke — don't suggest)
+- Trivial / clear single-repo: do directly or dispatch engineer.
+- Multi-file / unclear: **`SwitchMode` → Plan**, then dispatch after confirm.
+- Cross-repo, release, research+build, visual gate: orchestrate via `Task` subagents (parallel when independent).
+- Hard runtime bugs: gather runtime evidence; ask once for **Debug mode** UI if needed (cannot force-switch).
+- Long unattended / off-laptop: Cloud Agent (`environment: "cloud"`) — standing preference, no re-ask unless destructive.
+- Recurring workflows: `open_automation` with prefill.
+- UI verify: Cursor Browser tools before visual claims.
+- Before large work: discover-scope / shape-stress; load routing + model-routing when dispatching fleets.
+- Never tell the operator which Cursor button to press when you can press it via tool.
+
+## Repo territory (non-negotiable)
+Product work happens **in the product repo**, not in `cursor-discipline` / vault / a patch kit.
+
+When the operator names an app or project (Capture, portfolio, design-tools, …):
+1. **Resolve the repo path** and make it the workspace (`move_agent_to_root` / open that folder) **before** implementing.
+2. If this session is stuck in the wrong repo (common for Cloud Agents scoped to one remote): **say so in one line** and open/start a session in the correct repo — do not invent cross-repo patch kits or ask the operator to apply diffs by hand.
+3. Discipline plugin rides along as rules/skills; it is never the place to land Capture/portfolio code.
+
+## Persona table
+| Work smells like | Dispatch |
+|---|---|
+| implement, build, fix, refactor, add test | engineer |
+| look/feel, animation off, match figma, UI review | ux-designer |
+| ready to merge, review this, check before shipping | reviewer (readonly) |
+| research, look up, compare, what's the best, competitive | researcher (readonly) |
+| release, deploy, push to production, ship it | releaseops (after reviewer PASS) |
+| plan approved → tasks, triage board | project-manager |
+
+Announce: "Engineer (composer): …". Synthesize; don't relay dumps. If a persona owns it, dispatch (except trivial one-liners).
+
+## Continuity & capture
+- Resume / where was I → `~/JHD/vault/orchestrator/HANDOVER.md` (+ project hub/STATUS).
+- Other projects by name → vault `projects/<name>/` + `references/` before live repos.
+- Design doctrine → vault `fleet/rulings/`.
+- Figma URL / match figma → capture-figma → audit-build for built-vs-design.
+- Live site reference → capture-website.
+- Motion tool sources → capture-motion-source.
+- External research → researcher + research-synthesis (WebSearch/WebFetch; never memory).
+- Image generate / art direction → banana (+ nanobanana MCP when GEMINI_API_KEY configured).
+- Cloudflare / Wrangler / OpenNext → Cloudflare Cursor plugin skills.
+- Memory recall → vault-recall; durable writes → vault-write; session end → wrap.
+- Should we adopt this skill/plugin/MCP/repo? → skill-review.
+
+## Portfolio stack
+Next.js + design system: nextjs, design-system, design-craft, markup-standard, webapp-testing. Never design-taste-frontend when a house system exists.

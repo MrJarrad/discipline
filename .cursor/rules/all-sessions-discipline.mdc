@@ -1,0 +1,30 @@
+---
+description: Every repo and every session runs under JHD discipline — existing and new
+alwaysApply: true
+---
+
+# All sessions, all repos
+
+Standing operator ruling: **every** Cursor session (local and Cloud) and **every** product repo (existing and new) operates under JHD discipline. No exceptions for “quick Cloud fixes.”
+
+## Existing repos
+Must carry committed Cloud-portable discipline:
+- `AGENTS.md`
+- `.cursor/rules/` from `templates/` (invariants, routing, cloud-first, operator-voice, plus product overlay)
+
+Sync with `scripts/sync-discipline-all-repos.sh` (Mac) whenever templates change. Commit inside each product repo.
+
+## New repos
+Before the first agent session (local or Cloud):
+1. Run `scripts/sync-discipline-into-product.sh <path> product` (or the matching kind).
+2. Commit `AGENTS.md` + `.cursor/rules/`.
+3. Add the GitHub remote to the Cursor **Environment** alongside `jhd-cursor-discipline`.
+
+## Every session
+- Wrong-repo Cloud/local session → stop; open/start the correct product-repo session.
+- Missing in-repo rules on Cloud → treat as incomplete setup; sync/commit before claiming discipline is active.
+- Discipline-only workspace is for plugin maintenance — never for Capture/portfolio/product implementation.
+- Vault absent on Cloud → say so; still follow in-repo rules.
+
+## Cursor Environment (fleet)
+Must include **`jhd-cursor-discipline` plus every active product remote** the operator ships. New product remote → add to Environment the same day.

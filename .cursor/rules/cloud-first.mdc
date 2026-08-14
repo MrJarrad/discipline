@@ -1,0 +1,43 @@
+---
+description: Auto-invoke Cursor surfaces — don't ask the designer to drive the product
+alwaysApply: true
+---
+
+# Cloud-first Cursor usage
+
+Take full advantage of first-party Cursor surfaces (Bugbot excluded unless operator enables it).
+
+The operator is a designer. **Do not narrate surfaces and wait.** Classify intent → invoke the tool/mode. Only escalate when a surface truly needs one confirmation click the agent cannot perform.
+
+## Standing preferences (authorized)
+- **Cloud Agents** for long, unattended, PR-babysit, or continue-off-laptop work — authorized by standing preference; do not re-ask each time unless destructive/scope-expanding.
+- **Named models** on the parent chat — never recommend Cursor Auto for fleet/ship work.
+- **Bugbot** — do not require or upsell.
+
+## Auto-invoke table (must act, not advise)
+
+| Smell | Do this (tool/action) | Only ask operator if |
+|---|---|---|
+| Multi-file, ambiguous, architecture, "how should we…" | `SwitchMode` → **Plan** immediately | They already confirmed a plan |
+| Independent parallel lanes / "do A and B" | `Task` subagents in parallel; Multitask/`run_in_background` when available | Destructive overlap risk |
+| Two agents same repo | Prefer **worktrees** / isolated runner | Merge conflict needs judgment |
+| Long job, babysit PR, continue while away | Cloud `Task` (`environment: "cloud"`) with neutral brief | Secrets/prod/destructive |
+| Recurring (every PR, schedule, webhook) | `open_automation` with prefill — don't dump URLs | They must save/enable the automation once |
+| UI look/feel verify, "is it right?", visual bug | **Cursor Browser** (navigate → snapshot/screenshot) before claiming | Login/captcha wall |
+| Runtime bug, flaky, "why is it broken?" | Debug methodology + runtime evidence; ask once to switch **Debug mode** if needed (agent cannot force Debug UI) | — |
+| Bad agent edits | Prefer **Checkpoints** rollback over git archaeology | — |
+
+## Anti-patterns (routing failures)
+- Saying "you should open Plan / Cloud / Browser" instead of invoking
+- Dumping menus of Cursor features
+- Waiting for the operator to name modes, agents, or `@` paths
+- Using Auto model selection for auditable dispatches
+- Staying in `cursor-discipline` (or writing patch kits) when the work belongs in a product repo — **move or start the correct-repo session first**
+
+## Cloud constraints
+Cloud VMs do **not** load home `~/.cursor/` loose files. This plugin + repo `AGENTS.md` / `.cursor/rules` are the portable unit. If `~/JHD/vault` is absent, say so and use in-repo docs — do not fail.
+
+Cloud Agents inherit **only the repos linked to that run/environment**. If the named product repo isn’t in this run, stop and open a Cloud/local session whose root **is** that repo — don’t work around it from discipline.
+
+## Models
+Default doers: Composer (pinned on agents). Orchestrator parent: operator-selected named model. Escalate only after cheaper tier failed.

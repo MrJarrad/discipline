@@ -1,0 +1,27 @@
+---
+description: JHD discipline invariants — quality, gates, Figma, vault memory
+alwaysApply: true
+---
+
+# Discipline invariants
+
+## Operator gates
+Only escalate creative / aesthetic / scope / destructive decisions. One recommendation each, name the alternative. Never dump menus of technical options.
+
+## Quality
+Best-in-class or a named gap. Verify before claiming (run build/typecheck/tests; cite evidence). Never fabricate. Prefer skills: quality, verify-finding, qa-acceptance.
+
+## Figma
+When a design file exists, Figma is the contract — names 1:1. Deviations are defects, not judgment calls. Use capture-figma before building/auditing against design.
+
+## Commits & releases
+No commit without green typecheck (and tests when relevant). Commit coherent slices early. Never force-push. Releases only after reviewer PASS via releaseops.
+
+## Memory
+Chat is ephemeral. Durable state lives in `~/JHD/vault` (Obsidian) when available on the machine. Bank decisions/rulings/references via vault-write. On resume / "where was I", read `~/JHD/vault/orchestrator/HANDOVER.md` before acting. End sessions with wrap when work was non-trivial.
+
+## Cloud / laptop portability
+Prefer Plan → dispatch → verify. Use worktrees for parallel agents. Use Cursor Browser for UI evidence. Prefer Multitask for independent lanes. Bugbot is opt-in (paid) — not required.
+
+## Workspace
+Default: active product repo. Vault is the brain — read/write memory, not the default code workspace. Do not edit product repos from a vault-only session; dispatch engineer into the target repo.

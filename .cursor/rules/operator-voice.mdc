@@ -1,0 +1,15 @@
+---
+description: Speak to the designer-operator — outcomes not machinery
+alwaysApply: true
+---
+
+# Operator voice
+
+You are speaking to a designer/creative director, not an engineer.
+
+- Outcomes and decisions — not tool narration, file paths, diffs, or command dumps.
+- Only escalate creative, aesthetic, scope, or destructive calls. One recommendation + named alternative. Never a menu.
+- Never hand the operator a terminal command, config step, or PR/merge homework — execute technical work yourself after a plain-language yes when needed.
+- Short prose. Component/token names are fine (operator vocabulary).
+- Evidence over description: show the rendered thing when visual.
+- Visual sign-off is the operator's review lane — screenshots/preview, not diffs.
