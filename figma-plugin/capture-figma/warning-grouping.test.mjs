@@ -27,12 +27,12 @@ function extractBlock(marker, returns) {
 const {
   groupWarningsByRootCause,
   createVariantOwnerResolver,
-  filterActionableWarnings,
-  filterActionableWarningsByType,
+  splitWarningsByAction,
+  splitWarningsByTypeByAction,
   disambiguateOccurrencePaths,
 } = extractBlock(
   "WARNING ROOT CAUSES",
-  "{ groupWarningsByRootCause, createVariantOwnerResolver, filterActionableWarnings, filterActionableWarningsByType, disambiguateOccurrencePaths }"
+  "{ groupWarningsByRootCause, createVariantOwnerResolver, splitWarningsByAction, splitWarningsByTypeByAction, disambiguateOccurrencePaths }"
 );
 
 // Two component sets shaped like the real ones: SplitContent is identified by
@@ -190,17 +190,26 @@ test("root causes: a warning with no context at all still gets a row", () => {
 // six template pairs produce six rows of the SAME finding under the old
 // per-path grouping. They must collapse to ONE row per (component, axis),
 // independent of which template it was seen on.
+// ANNOTATED, NOT RETYPED (operator ruling 2026-08-14): the divergence is an
+// ordinary axis_ownership_violation carrying an annotation; the collapse now
+// keys on that annotation instead of a separate type.
 function ratified(templateBase, axis, nodeName) {
   return {
-    type: "ratified_axis_exception",
+    type: "axis_ownership_violation",
     nodeId: "N:" + templateBase + "/" + axis,
     nodeName: nodeName,
     context: templateBase + "/" + axis,
-    message: `${templateBase}: instance "${nodeName}" has divergent ${axis} — ratified exception.`,
+    classification: "ratified-exception",
+    annotation: {
+      id: "navigationheader-mobile-layout-split",
+      ruling: "operator ruling 2026-08-01, vault memories/token-rulings.md",
+      state: "active",
+    },
+    message: `${templateBase}: instance "${nodeName}" has divergent ${axis} — annotated.`,
   };
 }
 
-test("root causes: ratified_axis_exception rows for the SAME component+axis collapse to ONE row across templates", () => {
+test("root causes: annotated axis rows for the SAME component+axis collapse to ONE row across templates", () => {
   const warnings = [
     ratified("Home", "layout", "NavigationHeader"),
     ratified("Home", "layout", "NavigationHeader"),
@@ -219,7 +228,9 @@ test("root causes: ratified_axis_exception rows for the SAME component+axis coll
   const groups = groupWarningsByRootCause(warnings, resolver());
 
   assert.equal(groups.length, 1, "six templates x 2 occurrences must collapse to one row, not six");
-  assert.equal(groups[0].type, "ratified_axis_exception");
+  assert.equal(groups[0].type, "axis_ownership_violation");
+  assert.equal(groups[0].classification, "ratified-exception");
+  assert.equal(groups[0].annotation.id, "navigationheader-mobile-layout-split", "the ruling rides on the row so ANNOTATED can state why");
   assert.equal(groups[0].componentName, "NavigationHeader");
   assert.equal(groups[0].container, "layout");
   assert.equal(groups[0].count, 12, "every occurrence is kept — 12 places");
@@ -278,48 +289,58 @@ test("root causes: orphaned_component_instance rows for DIFFERENT orphaned compo
   assert.equal(groups.length, 2);
 });
 
-// NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02): a
-// ratified_axis_exception is a decision already made, not work — it must
-// leave the hygiene section entirely, excluded from both the array-shaped
-// live-export path and the persisted-count restore path.
-test("filterActionableWarnings: drops ratified_axis_exception entries, keeps everything else, in order", () => {
+// NEEDS-ACTION vs ANNOTATED (operator ruling 2026-08-14, annotate-never-
+// suppress). These replace the filterActionableWarnings tests that stood
+// here, which asserted that a ratified row LEFT the panel entirely. Nothing
+// leaves now: the panel splits, and the annotated half renders one level
+// down.
+test("splitWarningsByAction: an annotated warning goes to annotated, everything else needs action, order kept", () => {
   const warnings = [
     { type: "duplicate_sibling_name", nodeName: "a" },
     ratified("Home", "layout", "NavigationHeader"),
     { type: "axis_ownership_violation", nodeName: "b" },
   ];
-  const result = filterActionableWarnings(warnings);
+
+  const result = splitWarningsByAction(warnings);
+
   assert.deepEqual(
-    result.map((w) => w.type),
+    result.needsAction.map((w) => w.type),
     ["duplicate_sibling_name", "axis_ownership_violation"]
   );
+  assert.equal(result.annotated.length, 1, "the annotated row is kept, not dropped");
+  assert.equal(result.annotated[0].annotation.id, "navigationheader-mobile-layout-split");
 });
 
-test("filterActionableWarnings: an all-ratified array filters down to empty (0 FIGMA HYGIENE, not hidden)", () => {
-  assert.deepEqual(filterActionableWarnings([ratified("Home", "layout", "NavigationHeader")]), []);
+test("splitWarningsByAction: an all-annotated array yields 0 needing action and N annotated — visible, not hidden", () => {
+  const result = splitWarningsByAction([ratified("Home", "layout", "NavigationHeader")]);
+  assert.deepEqual(result.needsAction, []);
+  assert.equal(result.annotated.length, 1);
 });
 
-test("filterActionableWarnings: no warnings and undefined both filter to an empty array", () => {
-  assert.deepEqual(filterActionableWarnings([]), []);
-  assert.deepEqual(filterActionableWarnings(undefined), []);
+test("splitWarningsByAction: an informational repeating-run row is annotated, not dropped", () => {
+  const result = splitWarningsByAction([{ type: "homogeneous_sibling_sequence", nodeName: "row" }]);
+  assert.deepEqual(result.needsAction, []);
+  assert.equal(result.annotated.length, 1);
 });
 
-test("filterActionableWarningsByType: drops the ratified_axis_exception key from a restored {type:count} map, keeps the rest", () => {
-  const result = filterActionableWarningsByType({
+test("splitWarningsByAction: no warnings and undefined both split to two empty arrays", () => {
+  assert.deepEqual(splitWarningsByAction([]), { needsAction: [], annotated: [] });
+  assert.deepEqual(splitWarningsByAction(undefined), { needsAction: [], annotated: [] });
+});
+
+test("splitWarningsByTypeByAction: a restored {type:count} map splits instead of dropping keys", () => {
+  const result = splitWarningsByTypeByAction({
     duplicate_sibling_name: 6,
-    ratified_axis_exception: 12,
+    homogeneous_sibling_sequence: 12,
     axis_ownership_violation: 3,
   });
-  assert.deepEqual(result, { duplicate_sibling_name: 6, axis_ownership_violation: 3 });
+  assert.deepEqual(result.needsAction, { duplicate_sibling_name: 6, axis_ownership_violation: 3 });
+  assert.deepEqual(result.annotated, { homogeneous_sibling_sequence: 12 }, "the restored count is shown, never discarded");
 });
 
-test("filterActionableWarningsByType: an all-ratified map filters down to an empty object", () => {
-  assert.deepEqual(filterActionableWarningsByType({ ratified_axis_exception: 12 }), {});
-});
-
-test("filterActionableWarningsByType: no map and undefined both filter to an empty object", () => {
-  assert.deepEqual(filterActionableWarningsByType({}), {});
-  assert.deepEqual(filterActionableWarningsByType(undefined), {});
+test("splitWarningsByTypeByAction: no map and undefined both split to two empty objects", () => {
+  assert.deepEqual(splitWarningsByTypeByAction({}), { needsAction: {}, annotated: {} });
+  assert.deepEqual(splitWarningsByTypeByAction(undefined), { needsAction: {}, annotated: {} });
 });
 
 // DISTINGUISHABLE LOCATIONS (operator ruling 2026-08-02): a root-cause row's

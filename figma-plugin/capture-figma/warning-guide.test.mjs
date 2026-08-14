@@ -151,9 +151,13 @@ test("warning guide: orphaned-component-instance's fix suggests the current Spac
   assert.match(genericFix, /current component/);
 });
 
-test("warning guide: ratified-axis-exception's fix uses the approved second-person copy", () => {
-  const fix = warningGuideFor("ratified_axis_exception").fix(group({ type: "ratified_axis_exception" }));
-  assert.match(fix, /Ratified — nothing to fix\. You approved this mobile\/desktop difference; it disappears if the ruling changes\./);
+// The ratified_axis_exception TYPE is retired (operator ruling 2026-08-14,
+// annotate-never-suppress): a ruling annotates the ordinary
+// axis_ownership_violation rather than retyping it, so there is no separate
+// guide entry to write copy for — the ANNOTATED section states the ruling
+// itself, verbatim, which is more honest than a paraphrase.
+test("warning guide: the retired ratified-axis-exception type has no guide entry", () => {
+  assert.equal(Object.prototype.hasOwnProperty.call(WARNING_GUIDE, "ratified_axis_exception"), false);
 });
 
 test("warning guide: no guide entry addresses the reader in the third person as 'the operator'", () => {
@@ -187,10 +191,7 @@ test("warning guide: malformed-spacer-name leads with the offending name and whe
   assert.match(headline, /8/, "the eight echoes are one rename, and the count says so");
 });
 
-test("warning guide: ratified-axis-exception is described as policy, not as something to fix in the file", () => {
-  const entry = warningGuideFor("ratified_axis_exception");
-  assert.match(entry.fix(group({ type: "ratified_axis_exception" })), /nothing to fix|no action|ratified/i);
-});
+
 
 test("warning guide: the diff-correlation rationale is available but never the leading line", () => {
   const entry = warningGuideFor("duplicate_sibling_name");
@@ -284,9 +285,9 @@ test("warning guide: an axis divergence names the axis and the template, not a p
 // the axisPlace/template shape ratified_axis_exception used to share with
 // axis_ownership_violation no longer applies), and `templates` carries the
 // distinct template names the finding was seen on.
-test("warning guide: a collapsed ratified-axis-exception row states the component, the axis, and both counts (templates and places)", () => {
+test("warning guide: a collapsed ANNOTATED axis row states the component, the axis, and both counts (templates and places)", () => {
   const g = group({
-    type: "ratified_axis_exception",
+    type: "axis_ownership_violation",
     componentName: "NavigationHeader",
     container: "layout",
     layerName: "NavigationHeader",
@@ -294,7 +295,7 @@ test("warning guide: a collapsed ratified-axis-exception row states the componen
     variants: [],
     templates: ["Home", "Projects", "Projects - Landing", "About", "Contact", "Blog"],
   });
-  const headline = warningGuideFor("ratified_axis_exception").headline(g);
+  const headline = warningGuideFor("axis_ownership_violation").headline(g);
   assert.match(headline, /NavigationHeader/);
   assert.match(headline, /layout axis/);
   assert.match(headline, /6 templates/);

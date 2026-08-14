@@ -429,23 +429,24 @@ function buildDuplicateSiblingNameWarnings(nodeSnapshots) {
       const node = group[1];
       const context = node.parentPath || siblings[0].parentId || null;
 
-      // RATIFIED SIBLING-NAME EXCEPTIONS: the SAME cited registry the axis-
-      // ownership checker uses (RATIFIED_AXIS_EXCEPTIONS/
-      // findRatifiedAxisException, below) — the mobile NavigationHeader
-      // title/actions split is one ratified "layout" composition decision,
-      // whether it surfaces as a divergent variant axis (compareInstancePair)
-      // or, here, as two differently-typed siblings sharing the
-      // "NavigationHeader" name at an Example frame's own top level. No
-      // second table, no new citation: same exception, same axis key.
-      const ratified = findRatifiedAxisException(first.name, "layout");
-      if (ratified) {
-        warnings.push({
-          type: "ratified_axis_exception",
+      // ANNOTATED SIBLING NAMES: the SAME registry the axis-ownership
+      // checker reads (AXIS_ANNOTATIONS/findAxisAnnotation, below) — the
+      // mobile NavigationHeader title/actions split is one ruling, whether it
+      // surfaces as a divergent variant axis (compareInstancePair) or, here,
+      // as two differently-typed siblings sharing the "NavigationHeader" name
+      // at an Example frame's own top level. Same ruling, same axis key, and
+      // (since 2026-08-14) the same treatment: the duplicate_sibling_name
+      // finding is EMITTED and annotated, never retyped into a class the
+      // panel drops.
+      const siblingAnnotation = findAxisAnnotation(first.name, "layout");
+      if (siblingAnnotation) {
+        warnings.push(Object.assign({
+          type: "duplicate_sibling_name",
           nodeId: node.id || null,
           nodeName: node.name,
           context: context,
-          message: `Duplicate sibling name "${node.name}" under ${context} — ratified exception (${ratified.citation}), not a violation.`,
-        });
+          message: `Duplicate sibling name "${node.name}" under ${context} — annotated: ${siblingAnnotation.ruling}.`,
+        }, annotationFields(siblingAnnotation)));
         continue;
       }
 
@@ -533,48 +534,66 @@ function groupInstancesByName(instances) {
   return groups;
 }
 
-// RATIFIED AXIS EXCEPTIONS (operator ruling 2026-08-01, vault
-// memories/token-rulings.md "NavigationHeader M/D split composition is
-// INTENDED"): a documented, cited exception to the axis-ownership rule —
-// NavigationHeader's mobile split into title/actions instances vs desktop's
-// single title+actions instance is a ratified multi-instance composition,
-// not divergence. Keyed by the instance/component name (mInst.name — the
-// same identity groupInstancesByName groups on), with an optional `axis`
-// restriction so a future exception can scope to one axis without opening
-// every axis on that component. A match downgrades the would-be violation
-// to the distinct `ratified_axis_exception` informational type instead of
-// silently dropping it — the suppression stays visible and auditable.
-const RATIFIED_AXIS_EXCEPTIONS = {
-  NavigationHeader: {
+// AXIS ANNOTATIONS (operator ruling 2026-08-14, vault fleet/rulings/
+// 2026-08-14-rulings-annotate-never-suppress.md) — the plugin-side mirror of
+// scripts/annotations-registry.json's `axis` lane. Held in sync by
+// scripts/annotations-registry.test.mjs; the plugin cannot read files, so the
+// axis entries are inlined here rather than loaded.
+//
+// This replaces the two tables that stood here:
+//   RATIFIED_AXIS_EXCEPTIONS — downgraded a divergence to a distinct
+//     `ratified_axis_exception` type, which ui.html then dropped from the
+//     panel entirely (NON_ACTIONABLE_WARNING_TYPES): visible in the export,
+//     invisible to the operator.
+//   DEVICE_OWNED_AXES — produced NO warning of either type, silently. The
+//     hardest suppression in the lanes, and squarely intent-shaped (a
+//     judgement about which axis a device may own), so under the 2026-08-14
+//     law it is an annotation, not an equality rule.
+//
+// Now: the divergence is ALWAYS emitted as an axis_ownership_violation, and a
+// matching annotation rides on it as `classification` + `annotation` (id,
+// ruling). The presentation layer splits needs-action from annotated; nothing
+// removes the item.
+const AXIS_ANNOTATIONS = [
+  {
+    id: "navigationheader-mobile-layout-split",
     axis: "layout",
-    citation: "operator ruling 2026-08-01, vault memories/token-rulings.md",
+    component: "NavigationHeader",
+    classification: "ratified-exception",
+    ruling:
+      'operator ruling 2026-08-01, vault memories/token-rulings.md: "NavigationHeader M/D split composition is INTENDED" — mobile splits title/actions into two instances where desktop carries one combined instance',
   },
-};
+  {
+    id: "layoutgrid-columns-device-owned",
+    axis: "columns",
+    component: "LayoutGrid",
+    classification: "ratified-exception",
+    ruling:
+      'operator ruling 2026-08-01, vault memories/token-rulings.md: "LayoutGrid `columns` is a device-owned axis" — a grid legitimately holds a different column count per device',
+  },
+];
 
-function findRatifiedAxisException(name, axis) {
-  const exception = RATIFIED_AXIS_EXCEPTIONS[name];
-  if (!exception) return null;
-  if (exception.axis && exception.axis !== axis) return null;
-  return exception;
+// Returns the annotation covering (component, axis), or null. An entry with
+// no `axis` covers every axis on that component.
+function findAxisAnnotation(name, axis) {
+  for (const entry of AXIS_ANNOTATIONS) {
+    if (entry.component !== name) continue;
+    if (entry.axis && entry.axis !== axis) continue;
+    return entry;
+  }
+  return null;
 }
 
-// DEVICE-OWNED AXES (operator ruling 2026-08-01, vault memories/token-
-// rulings.md "LayoutGrid `columns` is a device-owned axis"): distinct from a
-// RATIFIED_AXIS_EXCEPTION — an exception downgrades a genuine divergence to
-// a visible, auditable informational record; a device-owned axis is proper
-// axis ownership (like the built-in `device` axis itself,
-// AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) and produces NO warning of
-// either type, silently, exactly like `device`. Keyed by COMPONENT (the
-// instance/component name — same identity RATIFIED_AXIS_EXCEPTIONS keys
-// on) to a list of its device-owned axis names, so a future ruling is a
-// one-line addition here, never a new special case in the loop below.
-const DEVICE_OWNED_AXES = {
-  LayoutGrid: ["columns"],
-};
-
-function isDeviceOwnedAxis(name, axis) {
-  const axes = DEVICE_OWNED_AXES[name];
-  return !!axes && axes.includes(axis);
+// The two fields an annotation contributes to a warning. Kept in one place so
+// every emitter attaches the identical shape, and an unannotated warning
+// carries `classification: "drift"` rather than nothing — the classification
+// is part of every item, not a marker on special ones.
+function annotationFields(annotation) {
+  if (!annotation) return { classification: "drift" };
+  return {
+    classification: annotation.classification,
+    annotation: { id: annotation.id, ruling: annotation.ruling, state: "active" },
+  };
 }
 
 function compareInstancePair(base, mInst, dInst) {
@@ -583,27 +602,23 @@ function compareInstancePair(base, mInst, dInst) {
   const dVariant = dInst.variantProps || {};
   const axes = new Set([...Object.keys(mVariant), ...Object.keys(dVariant)]);
   for (const axis of axes) {
+    // The `device` axis itself is the PAIRING KEY, not a difference: an
+    // M-frame instance is device=sm and its D-frame counterpart device=md+ by
+    // construction, so comparing the two on that axis compares the diff's own
+    // left and right columns. Every OTHER axis divergence is emitted, whatever
+    // ruling covers it.
     if (axis === AXIS_OWNERSHIP_DEFAULT_BLOCK_OWNED_AXIS) continue;
-    if (isDeviceOwnedAxis(mInst.name, axis)) continue;
     if (JSON.stringify(mVariant[axis]) === JSON.stringify(dVariant[axis])) continue;
-    const exception = findRatifiedAxisException(mInst.name, axis);
-    if (exception) {
-      warnings.push({
-        type: "ratified_axis_exception",
-        nodeId: mInst.id || null,
-        nodeName: mInst.name,
-        context: `${base}/${axis}`,
-        message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — ratified exception (${exception.citation}), not a violation.`,
-      });
-      continue;
-    }
-    warnings.push({
+    const annotation = findAxisAnnotation(mInst.name, axis);
+    warnings.push(Object.assign({
       type: "axis_ownership_violation",
       nodeId: mInst.id || null,
       nodeName: mInst.name,
       context: `${base}/${axis}`,
-      message: `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`,
-    });
+      message: annotation
+        ? `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — annotated: ${annotation.ruling}.`
+        : `${base}: instance "${mInst.name}" has divergent ${axis} between M-${base} (${JSON.stringify(mVariant[axis])}) and D-${base} (${JSON.stringify(dVariant[axis])}) — a layout holds one opinion per non-device axis.`,
+    }, annotationFields(annotation)));
   }
   return warnings;
 }
@@ -858,6 +873,38 @@ function computeWarningsByType(warnings) {
   return byType;
 }
 
+// NEEDS-ACTION vs ANNOTATED (operator ruling 2026-08-14, vault fleet/rulings/
+// 2026-08-14-rulings-annotate-never-suppress.md): "Presentation separates
+// NEEDS-ACTION from ANNOTATED; annotated is visible one level down, never
+// gone." A warning carrying an annotation whose state still holds is
+// annotated; everything else needs action. This is the ONLY place the split
+// is decided, for both the export payload and the panel — there is no filter
+// anywhere that drops a warning from the run.
+function splitWarningsByAction(warnings) {
+  const needsAction = [];
+  const annotated = [];
+  for (const w of warnings || []) {
+    const state = w && w.annotation ? w.annotation.state : null;
+    if (state === "active") annotated.push(w);
+    else needsAction.push(w);
+  }
+  return { needsAction: needsAction, annotated: annotated };
+}
+
+// warningsByClassification: the same {key: count} shape as
+// computeWarningsByType, keyed by the ruling classification an item carries
+// ("drift" when none does) — so a ratified exception and a genuine violation
+// of the SAME type stay countable apart now that a ruling no longer changes
+// an item's type.
+function computeWarningsByClassification(warnings) {
+  const byClass = {};
+  for (const w of warnings || []) {
+    const key = (w && w.classification) || "drift";
+    byClass[key] = (byClass[key] || 0) + 1;
+  }
+  return byClass;
+}
+
 // The clientStorage payload shape written by code.js's saveLastSyncToStorage
 // and read back by loadLastSyncFromStorage — see LAST_SYNC_STORAGE_KEY's
 // comment for the persisted-shape contract and what's deliberately excluded.
@@ -910,6 +957,10 @@ export {
   serializeColor,
   buildHeaderPropskitField,
   computeWarningsByType,
+  computeWarningsByClassification,
+  splitWarningsByAction,
+  AXIS_ANNOTATIONS,
+  findAxisAnnotation,
   buildSyncStoragePayload,
   buildRestoredSyncMessage,
   buildModeTable,

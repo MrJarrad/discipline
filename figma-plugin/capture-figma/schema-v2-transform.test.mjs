@@ -22,6 +22,8 @@ import {
   serializeColor,
   buildHeaderPropskitField,
   computeWarningsByType,
+  computeWarningsByClassification,
+  splitWarningsByAction,
   buildSyncStoragePayload,
   buildRestoredSyncMessage,
   buildModeTable,
@@ -608,7 +610,7 @@ test("buildWarnings: same-named siblings OUTSIDE a boundary's top-level surface 
 // either) downgrade to the SAME ratified_axis_exception type the axis-
 // ownership checker already emits for this exact composition decision — no
 // second exceptions table.
-test("buildWarnings: the mobile NavigationHeader two-instance split (root-level, heterogeneous instances) folds into the SAME ratified-axis-exception registry the axis-ownership checker uses — ratified_axis_exception, not a WARNING", () => {
+test("buildWarnings: the mobile NavigationHeader two-instance split is EMITTED as a duplicate_sibling_name, annotated with its ruling (annotate-never-suppress, 2026-08-14)", () => {
   const result = buildWarnings({
     nodeSnapshots: [
       { id: "n1", name: "NavigationHeader", type: "INSTANCE", mainComponentId: "comp-title-only", componentSetId: "set-navheader-title", mainComponentSetName: "NavigationHeader/title", rootLevel: true, parentId: "frame-1", parentPath: "M - Home - Gallery – Landing" },
@@ -616,15 +618,12 @@ test("buildWarnings: the mobile NavigationHeader two-instance split (root-level,
     ],
   });
 
-  assert.deepEqual(result, [
-    {
-      type: "ratified_axis_exception",
-      nodeId: "n2",
-      nodeName: "NavigationHeader",
-      context: "M - Home - Gallery – Landing",
-      message: 'Duplicate sibling name "NavigationHeader" under M - Home - Gallery – Landing — ratified exception (operator ruling 2026-08-01, vault memories/token-rulings.md), not a violation.',
-    },
-  ]);
+  assert.equal(result.length, 1, "the finding is emitted, not retyped away");
+  assert.equal(result[0].type, "duplicate_sibling_name");
+  assert.equal(result[0].nodeId, "n2");
+  assert.equal(result[0].classification, "ratified-exception");
+  assert.equal(result[0].annotation.id, "navigationheader-mobile-layout-split");
+  assert.match(result[0].annotation.ruling, /operator ruling 2026-08-01/);
 });
 
 // SYNTHETIC HETEROGENEOUS FIXTURE (the ratified-exception mechanism must
@@ -788,11 +787,12 @@ test("buildWarnings: flags a non-device axis that diverges between an M-/D-Examp
       nodeName: "Hero",
       context: "Homepage/height",
       message: 'Homepage: instance "Hero" has divergent height between M-Homepage ("L") and D-Homepage ("M") — a layout holds one opinion per non-device axis.',
+      classification: "drift",
     },
   ]);
 });
 
-test("buildWarnings: a NavigationHeader layout divergence between M-/D- is a ratified_axis_exception, not an axis_ownership_violation (operator ruling 2026-08-01)", () => {
+test("REGRESSION (annotate-never-suppress): a NavigationHeader layout divergence is EMITTED as an axis_ownership_violation, annotated with its ruling — never retyped out of the panel", () => {
   const result = buildWarnings({
     templateFrames: [
       {
@@ -813,22 +813,29 @@ test("buildWarnings: a NavigationHeader layout divergence between M-/D- is a rat
     ],
   });
 
-  assert.deepEqual(
-    result.filter((w) => w.type === "axis_ownership_violation"),
-    [],
-    "no axis_ownership_violation for the ratified NavigationHeader split"
+  assert.equal(
+    result.filter((w) => w.type === "ratified_axis_exception").length,
+    0,
+    "the downgrade type is gone — a ruling annotates the difference, it does not retype it"
   );
-  const exceptions = result.filter((w) => w.type === "ratified_axis_exception");
-  assert.equal(exceptions.length, 2, "one exception per M-side instance compared against the single D-side opinion");
-  for (const w of exceptions) {
+  const divergences = result.filter((w) => w.type === "axis_ownership_violation");
+  assert.equal(divergences.length, 2, "one item per M-side instance compared against the single D-side opinion");
+  for (const w of divergences) {
     assert.equal(w.nodeName, "NavigationHeader");
     assert.equal(w.context, "Home/layout");
-    assert.match(w.message, /ratified/i);
-    assert.match(w.message, /operator ruling 2026-08-01/);
+    assert.equal(w.classification, "ratified-exception");
+    assert.equal(w.annotation.id, "navigationheader-mobile-layout-split");
+    assert.match(w.annotation.ruling, /operator ruling 2026-08-01/);
   }
 });
 
-test("buildWarnings: LayoutGrid's `columns` axis diverging between M-/D- is silent — neither an axis_ownership_violation nor a ratified_axis_exception (operator ruling 2026-08-01, DEVICE_OWNED_AXES)", () => {
+// THE HARDEST SUPPRESSION IN THE LANES, INVERTED (operator ruling 2026-08-14,
+// annotate-never-suppress). This test used to assert SILENCE: LayoutGrid's
+// columns divergence produced no warning of any type, so nothing in any
+// artifact said the M and D grids disagreed. "Device-owned axis" is a
+// component-intent judgement, not a representation mapping, so under the new
+// law it annotates — the difference is reported every sync.
+test("REGRESSION (annotate-never-suppress): LayoutGrid's `columns` divergence is EMITTED and annotated — it was previously silent", () => {
   const result = buildWarnings({
     templateFrames: [
       {
@@ -844,7 +851,13 @@ test("buildWarnings: LayoutGrid's `columns` axis diverging between M-/D- is sile
     ],
   });
 
-  assert.deepEqual(result, [], "LayoutGrid.columns divergence produces NO warning of any type");
+  assert.equal(result.length, 1, "the divergence reaches the output");
+  assert.equal(result[0].type, "axis_ownership_violation");
+  assert.equal(result[0].nodeName, "LayoutGrid");
+  assert.equal(result[0].context, "Projects/columns");
+  assert.equal(result[0].classification, "ratified-exception");
+  assert.equal(result[0].annotation.id, "layoutgrid-columns-device-owned");
+  assert.match(result[0].annotation.ruling, /device-owned axis/);
 });
 
 test("buildWarnings: a NON-columns axis on LayoutGrid still flags a genuine axis-ownership violation", () => {
@@ -870,6 +883,7 @@ test("buildWarnings: a NON-columns axis on LayoutGrid still flags a genuine axis
       nodeName: "LayoutGrid",
       context: "Projects/gap",
       message: 'Projects: instance "LayoutGrid" has divergent gap between M-Projects ("8") and D-Projects ("16") — a layout holds one opinion per non-device axis.',
+      classification: "drift",
     },
   ]);
 });
@@ -897,11 +911,12 @@ test("buildWarnings: a DIFFERENT component's `columns` axis is NOT device-owned 
       nodeName: "DataTable",
       context: "Table/columns",
       message: 'Table: instance "DataTable" has divergent columns between M-Table ("1") and D-Table ("3") — a layout holds one opinion per non-device axis.',
+      classification: "drift",
     },
   ]);
 });
 
-test("buildWarnings + computeWarningsByType: a ratified NavigationHeader exception and a genuine Hero violation in the same run count separately, never merged", () => {
+test("buildWarnings + computeWarningsByClassification: an annotated NavigationHeader divergence and a genuine Hero violation count separately — same type, different classification", () => {
   const result = buildWarnings({
     templateFrames: [
       {
@@ -924,7 +939,11 @@ test("buildWarnings + computeWarningsByType: a ratified NavigationHeader excepti
   });
 
   const byType = computeWarningsByType(result);
-  assert.deepEqual(byType, { ratified_axis_exception: 1, axis_ownership_violation: 1 });
+  assert.deepEqual(byType, { axis_ownership_violation: 2 }, "a ruling no longer changes an item's type");
+  assert.deepEqual(computeWarningsByClassification(result), { "ratified-exception": 1, drift: 1 });
+  const split = splitWarningsByAction(result);
+  assert.equal(split.needsAction.length, 1, "the genuine violation needs action");
+  assert.equal(split.annotated.length, 1, "the annotated one is visible one level down, never gone");
 });
 
 test("buildWarnings: does not flag the device axis itself diverging between an M-/D-Example frame pair", () => {
