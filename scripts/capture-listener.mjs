@@ -1390,15 +1390,43 @@ const CONFORMANCE_SAMPLE_LIMIT = 3;
 // lanes (CONFORMANCE_MAP_PATH) and the page-template lane
 // (PAGE_TEMPLATE_MAP_PATH) are independently opt-in.
 export function summarizeConformance(valueResult, bindingResult, pageTemplateResult) {
+  // NEEDS-ACTION vs ANNOTATED (operator ruling 2026-08-14, annotate-never-
+  // suppress): a lane that classifies its items reports `needs_action` and
+  // `annotated`; the value lane still reports a plain `defects` list. The
+  // summary carries BOTH sides — `defects` keeps its established meaning
+  // (what the operator has to act on) and `annotated` rides alongside so the
+  // panel can show the annotated set one level down instead of dropping it.
   const lane = (result, label) => {
-    const defects = Array.isArray(result && result.defects) ? result.defects : [];
+    const needsAction = Array.isArray(result && result.needs_action)
+      ? result.needs_action
+      : Array.isArray(result && result.defects)
+        ? result.defects
+        : [];
+    const annotated = Array.isArray(result && result.annotated) ? result.annotated : [];
+    const sample = (item) => ({
+      type: item.type,
+      label: label(item),
+      codeLocation: item.codeLocation || null,
+      ...(item.classification ? { classification: item.classification } : {}),
+      ...(item.annotation
+        ? {
+            annotation: {
+              id: item.annotation.id,
+              ruling: item.annotation.ruling,
+              state: item.annotation.state,
+              ...(item.annotation.reason ? { reason: item.annotation.reason } : {}),
+              ...(item.annotation.closure
+                ? { closure: { description: item.annotation.closure.description, state: item.annotation.closure.state, detail: item.annotation.closure.detail } }
+                : {}),
+            },
+          }
+        : {}),
+    });
     return {
-      defects: defects.length,
-      samples: defects.slice(0, CONFORMANCE_SAMPLE_LIMIT).map((d) => ({
-        type: d.type,
-        label: label(d),
-        codeLocation: d.codeLocation || null,
-      })),
+      defects: needsAction.length,
+      samples: needsAction.slice(0, CONFORMANCE_SAMPLE_LIMIT).map(sample),
+      annotated: annotated.length,
+      annotatedSamples: annotated.slice(0, CONFORMANCE_SAMPLE_LIMIT).map(sample),
     };
   };
   const summary = { ran: true, skipped: false };

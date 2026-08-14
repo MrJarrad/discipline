@@ -80,6 +80,8 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { applyAnnotations, loadAnnotationRegistry, summarizeAnnotations } from "./annotations.mjs";
+
 function buildFrameIndex(templateFrames) {
   const index = new Map(); // name -> frame (only READY_FOR_DEV frames)
   const allNames = new Set();
@@ -111,27 +113,35 @@ function resolveInstanceProp(instance, prop) {
   return { found: false, value: undefined };
 }
 
-// Map-lint: every ratifiedVariants item must carry a non-empty citation.
-// Runs before any check so a missing citation is an authoring error, never
-// silently accepted — same discipline as binding-check.mjs's
-// validateRatifications.
-function validateRatifications(entries) {
+// Map-lint for the RETIRED ratifiedVariants field (operator ruling
+// 2026-08-14, annotate-never-suppress). It no longer diverts anything out of
+// the comparison; a map still carrying it is carrying a ruling in the wrong
+// place, reported as an item rather than thrown so the lane still runs. Same
+// discipline as binding-check.mjs's retiredMapFieldItems.
+function retiredMapFieldItems(entries) {
+  const items = [];
   for (const entry of entries) {
     for (const rv of entry.ratifiedVariants || []) {
-      if (typeof rv.citation !== "string" || rv.citation.trim() === "") {
-        throw new Error(
-          `[page-template-check] ratifiedVariants entry for ${entry.template} ${entry.instance}.${entry.prop} is missing a citation — every ratification must cite the ruling it came from.`
-        );
-      }
+      items.push({
+        lane: "map-lint",
+        type: "retired_map_field",
+        template: entry.template,
+        instance: entry.instance,
+        prop: entry.prop,
+        detail: `ratifiedVariants is retired (operator ruling 2026-08-14, annotate-never-suppress) and no longer suppresses anything — move "${rv.citation}" into scripts/annotations-registry.json as an annotation and delete the field from the map.`,
+      });
     }
   }
+  return items;
 }
+
+const DEFAULT_ANNOTATIONS_PATH = new URL("./annotations-registry.json", import.meta.url).pathname;
 
 function valuesEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export function runPageTemplateCheck({ capturePath, mappingPath }) {
+export function runPageTemplateCheck({ capturePath, mappingPath, annotationsPath = DEFAULT_ANNOTATIONS_PATH }) {
   if (!existsSync(capturePath)) throw new Error(`capture file not found: ${capturePath}`);
   if (!existsSync(mappingPath)) throw new Error(`mapping file not found: ${mappingPath}`);
 
@@ -140,11 +150,12 @@ export function runPageTemplateCheck({ capturePath, mappingPath }) {
   const { index: readyFrames, allNames } = buildFrameIndex(capture.templateFrames);
 
   const entries = mapping.entries || [];
-  validateRatifications(entries);
+  const annotationEntries = loadAnnotationRegistry(annotationsPath);
 
-  const defects = [];
-  const ratified = [];
+  // Every difference this lane finds, before any ruling is consulted.
+  const defects = retiredMapFieldItems(entries);
   let checkedCount = 0;
+  let notReadyCount = 0;
 
   for (const entry of entries) {
     const { template, instance, prop, expect } = entry;
@@ -152,9 +163,11 @@ export function runPageTemplateCheck({ capturePath, mappingPath }) {
     const frame = readyFrames.get(template);
     if (!frame) {
       if (allNames.has(template)) {
-        // Exists in the capture but not READY_FOR_DEV — exempt per the
-        // scope rule, not a defect. A work-in-progress design isn't a
-        // contract yet.
+        // Exists in the capture but not READY_FOR_DEV — out of this lane's
+        // scope, not a suppressed difference: a work-in-progress design isn't
+        // a contract yet, so there is nothing to compare against. Counted and
+        // stated in the summary rather than passed over in silence.
+        notReadyCount++;
         continue;
       }
       defects.push({ template, instance, prop, type: "missing-figma-template" });
@@ -175,41 +188,50 @@ export function runPageTemplateCheck({ capturePath, mappingPath }) {
       continue;
     }
 
-    const ratifiedRule = (entry.ratifiedVariants || []).find((rv) => valuesEqual(rv.value, value));
-    if (ratifiedRule) {
-      ratified.push({ template, instance, prop, value, citation: ratifiedRule.citation });
-      continue;
-    }
-
+    // EVERY mismatch is emitted (operator ruling 2026-08-14): the previous
+    // implementation matched entry.ratifiedVariants HERE and `continue`d, so
+    // a ratified value never reached the defect list at all. Rulings are
+    // applied once, after the comparison, through applyAnnotations.
     if (!valuesEqual(value, expect)) {
-      const hadRatification = (entry.ratifiedVariants || []).length > 0;
       defects.push({
         template,
         instance,
         prop,
         old: expect,
         new: value,
+        value,
         nodeId: inst.id || null,
-        type: hadRatification ? "ratified-mismatch" : "page_template_mismatch",
+        type: "page_template_mismatch",
       });
     }
   }
 
-  const ok = defects.length === 0;
-  const summaryLines = [`Page-template check: ${checkedCount} entries checked, ${defects.length} defects, ${ratified.length} ratified.`];
-  for (const d of defects) {
+  const { items, needs_action, annotated } = applyAnnotations({
+    items: defects.map((d) => ({ lane: "page-template", ...d })),
+    entries: annotationEntries,
+    lane: "page-template",
+    capture,
+  });
+
+  const ok = needs_action.length === 0;
+  const summaryLines = [
+    `Page-template check: ${checkedCount} entries checked, ${needs_action.length} needing action, ${annotated.length} annotated, ${notReadyCount} entries skipped (template not READY_FOR_DEV).`,
+    ...(needs_action.length ? ["NEEDS ACTION:"] : []),
+  ];
+  for (const d of needs_action) {
     if (d.type === "page_template_mismatch") {
       summaryLines.push(`  [page_template_mismatch] ${d.template} ${d.instance}.${d.prop}: page expects "${d.old}" but the template resolves "${d.new}" (${d.nodeId})`);
-    } else if (d.type === "ratified-mismatch") {
-      summaryLines.push(`  [ratified-mismatch] ${d.template} ${d.instance}.${d.prop}: ratified value no longer matches — template now resolves "${d.new}" (${d.nodeId})`);
+    } else if (d.annotation) {
+      summaryLines.push(`  [${d.classification}] ${d.type} ${d.template} ${d.instance ?? ""}.${d.prop ?? ""} — ${d.annotation.reason} (${d.annotation.ruling})`);
     } else {
-      summaryLines.push(`  [${d.type}] ${d.template} ${d.instance ?? ""}.${d.prop ?? ""}`);
+      summaryLines.push(`  [${d.type}] ${d.template} ${d.instance ?? ""}.${d.prop ?? ""}${d.detail ? ` — ${d.detail}` : ""}`);
     }
   }
-  for (const r of ratified) {
-    summaryLines.push(`  [ratified] ${r.template} ${r.instance}.${r.prop}: "${r.value}" — ${r.citation}`);
+  if (annotated.length) {
+    summaryLines.push("ANNOTATED (reported every sync, no action while the ruling holds):");
+    summaryLines.push(...summarizeAnnotations(annotated));
   }
-  return { ok, defects, ratified, summary: summaryLines.join("\n") };
+  return { ok, items, needs_action, annotated, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------
@@ -231,7 +253,7 @@ if (isMainModule()) {
   const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio", "design", "page-template-map.json"));
 
   try {
-    const result = runPageTemplateCheck({ capturePath, mappingPath });
+    const result = runPageTemplateCheck({ capturePath, mappingPath, annotationsPath: getArg("--annotations", DEFAULT_ANNOTATIONS_PATH) });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   } catch (err) {

@@ -162,8 +162,11 @@ test("CONFORMANCE_MAP_PATH set with a components section: binding drift appears 
   const conformancePath = join(capturesDir, "conformance.jsonl");
   const record = JSON.parse(readFileSync(conformancePath, "utf8").trim().split("\n")[0]);
   assert.equal(record.binding.ok, false);
-  assert.equal(record.binding.defects.length, 1);
-  assert.equal(record.binding.defects[0].type, "binding_mismatch");
+  // NEEDS-ACTION vs ANNOTATED (operator ruling 2026-08-14): the jsonl record
+  // carries both sides of the split, never a filtered list.
+  assert.equal(record.binding.needs_action.length, 1);
+  assert.equal(record.binding.needs_action[0].type, "binding_mismatch");
+  assert.ok(Array.isArray(record.binding.annotated), "the annotated set is written to the jsonl too");
 
   rmSync(capturesDir, { recursive: true, force: true });
   rmSync(repoRoot, { recursive: true, force: true });
@@ -197,8 +200,9 @@ test("PAGE_TEMPLATE_MAP_PATH set, CONFORMANCE_MAP_PATH unset: the page-template 
 
   const conformancePath = join(capturesDir, "conformance.jsonl");
   const record = JSON.parse(readFileSync(conformancePath, "utf8").trim().split("\n")[0]);
-  assert.equal(record.pageTemplate.defects.length, 1);
-  assert.equal(record.pageTemplate.defects[0].type, "page_template_mismatch");
+  assert.equal(record.pageTemplate.needs_action.length, 1);
+  assert.equal(record.pageTemplate.needs_action[0].type, "page_template_mismatch");
+  assert.ok(Array.isArray(record.pageTemplate.annotated), "the annotated set is written to the jsonl too");
   assert.equal("binding" in record, false);
 
   rmSync(capturesDir, { recursive: true, force: true });

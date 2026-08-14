@@ -316,25 +316,37 @@ export function applyAnnotations({ items, entries, lane, capture }) {
 
   const unmatched = laneEntries
     .filter((entry) => !matchedIds.has(entry.id))
-    .map((entry) => ({
-      lane,
-      type: "annotation_unmatched",
-      classification: entry.classification,
-      annotation: {
-        id: entry.id,
-        ruling: entry.ruling,
-        state: "unmatched",
-        reason: "matched no difference this sync — the difference it covers is gone; retire the annotation or check why the lane stopped seeing it",
-        ...(entry.closure ? { closure: evaluateClosure(entry.closure, capture) } : {}),
-      },
-    }));
+    .map((entry) => {
+      const closure = evaluateClosure(entry.closure, capture);
+      // A CLOSURE THAT CLOSES ON A RESOLVED DIFFERENCE STILL ANNOUNCES
+      // ITSELF. When the awaited update lands, the difference it explained
+      // usually disappears with it — so the item is gone and only the
+      // annotation is left to speak. If that row stayed quiet under
+      // "annotated", the file would have caught up with nothing saying so:
+      // the precise failure this ruling exists to prevent. Closure met ->
+      // needs action, item or no item.
+      const met = closure?.state === "met";
+      return {
+        lane,
+        type: "annotation_unmatched",
+        classification: entry.classification,
+        annotation: {
+          id: entry.id,
+          ruling: entry.ruling,
+          state: met ? "closure-condition-met" : "unmatched",
+          reason: met
+            ? `closure condition met — reconcile now (${closure.detail}); the difference it covered is no longer reported, so confirm the reconcile and retire this annotation`
+            : "matched no difference this sync — the difference it covers is gone; retire the annotation or check why the lane stopped seeing it",
+          ...(closure ? { closure } : {}),
+        },
+      };
+    });
 
-  const split = splitByAction(annotatedItems);
-  return {
-    items: annotatedItems,
-    needs_action: split.needs_action,
-    annotated: [...split.annotated, ...unmatched],
-  };
+  // Unmatched rows run through the SAME split as everything else — a
+  // closure-condition-met row belongs in front of the operator, not filed
+  // one level down.
+  const split = splitByAction([...annotatedItems, ...unmatched]);
+  return { items: annotatedItems, needs_action: split.needs_action, annotated: split.annotated };
 }
 
 // Display lines for an annotated item — every annotated item prints every
