@@ -889,3 +889,83 @@ test("variant filter narrows to the matching variant only", () => {
   assert.equal(result.ok, true);
   assert.deepEqual(result.needs_action, []);
 });
+
+// ---- REPRESENTATION MAPPING: name projection ---------------------------
+// The one class of rule allowed to make this lane read two forms as EQUAL
+// (operator ruling 2026-08-14, scope-sharpening section): Figma's "/" step
+// separator and the CSS class "-" convention are the SAME name in two media.
+// Audited in references/representation-mappings-audit-2026-08-14.md (A1);
+// this is that row's fixture, stated as a two-way mapping rather than a
+// one-off assertion.
+
+test("REPRESENTATION MAPPING (name projection): figma \"a/b\" and code \"a-b\" are the same name, in both directions", () => {
+  const cases = [
+    { figma: "title-style1/300", code: "title-style1-300" },
+    { figma: "body-style1/200", code: "body-style1-200" },
+    { figma: "layout/grid/gap-lg", code: "layout-grid-gap-lg" },
+  ];
+
+  for (const { figma, code } of cases) {
+    const { capturePath, mappingPath } = makeFixture({
+      sets: [
+        {
+          name: "HeroText",
+          key: "abc",
+          variants: [{ name: "device=sm", key: "v1", bindings: [{ layer: "title", property: "textStyle", value: figma }] }],
+        },
+      ],
+      mapping: {
+        $schema: "conformance-map/v1",
+        components: {
+          entries: [
+            {
+              component: "HeroText",
+              layer: "title",
+              property: "textStyle",
+              codeLocation: "src/app/page.tsx",
+              assertion: { kind: "css-class" },
+            },
+          ],
+        },
+      },
+      code: { "src/app/page.tsx": `<HeroText className="${code}" />` },
+    });
+
+    const result = runBindingCheck({ capturePath, mappingPath, annotationsPath: null });
+    assert.deepEqual(result.needs_action, [], `${figma} should read equal to ${code}`);
+  }
+});
+
+test("REPRESENTATION MAPPING (name projection): it maps the separator and NOTHING else — a different step is still a difference", () => {
+  const { capturePath, mappingPath } = makeFixture({
+    sets: [
+      {
+        name: "HeroText",
+        key: "abc",
+        variants: [{ name: "device=sm", key: "v1", bindings: [{ layer: "title", property: "textStyle", value: "title-style1/300" }] }],
+      },
+    ],
+    mapping: {
+      $schema: "conformance-map/v1",
+      components: {
+        entries: [
+          {
+            component: "HeroText",
+            layer: "title",
+            property: "textStyle",
+            codeLocation: "src/app/page.tsx",
+            assertion: { kind: "css-class" },
+          },
+        ],
+      },
+    },
+    // Same name, different STEP — a real binding difference, not a
+    // representation of the same truth.
+    code: { "src/app/page.tsx": `<HeroText className="title-style1-500" />` },
+  });
+
+  const result = runBindingCheck({ capturePath, mappingPath, annotationsPath: null });
+
+  assert.equal(result.needs_action.length, 1);
+  assert.equal(result.needs_action[0].type, "binding_mismatch");
+});
