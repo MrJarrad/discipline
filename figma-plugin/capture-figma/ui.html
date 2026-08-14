@@ -925,18 +925,20 @@
 
         let variant = null;
         let componentName = null;
-        // RATIFIED AXIS COLLAPSE (operator-approved presentation change,
-        // 2026-08-01): compareInstancePair's context for a ratified
-        // exception is always "<template>/<axis>" — one row per M-/D-
-        // template pair under the normal path-segment grouping below, even
-        // though the ratified (component, axis) pair is the SAME finding
-        // restated per template. Collapse across templates by grouping on
-        // the axis alone (the layer/component IS the finding's identity;
-        // which template it happened to be seen on isn't) — the template
-        // name is kept per occurrence instead, so the expandable "where it
-        // shows up" list still names every place, just under one row.
+        // ANNOTATED AXIS COLLAPSE (operator-approved presentation change,
+        // 2026-08-01; re-keyed 2026-08-14 when the ratified_axis_exception
+        // TYPE was retired in favour of an annotation riding on the ordinary
+        // axis_ownership_violation): compareInstancePair's context is always
+        // "<template>/<axis>" — one row per M-/D- template pair under the
+        // normal path-segment grouping below, even though the annotated
+        // (component, axis) pair is the SAME finding restated per template.
+        // Collapse across templates by grouping on the axis alone (the
+        // layer/component IS the finding's identity; which template it
+        // happened to be seen on isn't) — the template name is kept per
+        // occurrence instead, so the expandable "where it shows up" list
+        // still names every place, just under one row.
         let templateName = null;
-        if (type === "ratified_axis_exception" && segments.length >= 2) {
+        if (type === "axis_ownership_violation" && warning && warning.annotation && segments.length >= 2) {
           templateName = segments.slice(0, -1).join("/");
           componentName = layerName;
           segments = [segments[segments.length - 1]];
@@ -984,9 +986,15 @@
             variants: [],
             templates: [],
             occurrences: [],
+            // The ruling covering this root cause, when one does — carried
+            // through so the ANNOTATED section can state WHY the row is not
+            // work (operator ruling 2026-08-14, annotate-never-suppress).
+            annotation: (warning && warning.annotation) || null,
+            classification: (warning && warning.classification) || "drift",
           };
           groups.set(key, group);
         }
+        if (!group.annotation && warning && warning.annotation) group.annotation = warning.annotation;
         group.count++;
         if (variant && group.variants.indexOf(variant) < 0) group.variants.push(variant);
         if (templateName && group.templates.indexOf(templateName) < 0) group.templates.push(templateName);
@@ -998,20 +1006,34 @@
       }
       return Array.from(groups.values());
     }
-    // NOTHING NON-ACTIONABLE IN FIGMA HYGIENE (operator ruling 2026-08-02,
-    // extended 2026-08-13 to homogeneous_sibling_sequence): a
-    // ratified_axis_exception is a decision already made, not work, and a
-    // homogeneous_sibling_sequence is a regular repeating structural run,
-    // not a naming collision — both leave the section entirely (not
-    // rendered, excluded from both the group count and the occurrence
-    // count). The export's raw warnings[]/warningsByType stay untouched —
-    // this filters only the copy renderCounts feeds into warningSection, for
-    // both shapes it consumes: a live export-result's array and a restored
-    // {type: count} map.
-    const NON_ACTIONABLE_WARNING_TYPES = new Set(["ratified_axis_exception", "homogeneous_sibling_sequence"]);
+    // NEEDS-ACTION vs ANNOTATED (operator ruling 2026-08-14, vault
+    // fleet/rulings/2026-08-14-rulings-annotate-never-suppress.md, verbatim:
+    // "Presentation separates NEEDS-ACTION from ANNOTATED; annotated is
+    // visible one level down, never gone").
+    //
+    // This REPLACES the NON_ACTIONABLE_WARNING_TYPES filter that stood here,
+    // which dropped ratified_axis_exception and homogeneous_sibling_sequence
+    // out of the panel entirely — the plugin's whole purpose is to surface
+    // differences, and a row that never renders is a difference the operator
+    // never sees. Nothing is filtered now: every warning renders, in one of
+    // two sections.
+    //
+    // A warning is ANNOTATED when a ruling covers it (warning.annotation,
+    // attached by the emitters via findAxisAnnotation) or when it is
+    // informational by construction (a homogeneous_sibling_sequence is a
+    // regular repeating structural run, not a naming collision). Everything
+    // else needs action.
+    const INFORMATIONAL_WARNING_TYPES = new Set(["homogeneous_sibling_sequence"]);
 
-    function filterActionableWarnings(warnings) {
-      return (warnings || []).filter((w) => !NON_ACTIONABLE_WARNING_TYPES.has(w && w.type));
+    function splitWarningsByAction(warnings) {
+      const needsAction = [];
+      const annotated = [];
+      for (const w of warnings || []) {
+        const isAnnotated = !!(w && w.annotation && w.annotation.state === "active");
+        if (isAnnotated || INFORMATIONAL_WARNING_TYPES.has(w && w.type)) annotated.push(w);
+        else needsAction.push(w);
+      }
+      return { needsAction: needsAction, annotated: annotated };
     }
 
     // DISTINGUISHABLE LOCATIONS (operator ruling 2026-08-02): a root-cause
@@ -1040,13 +1062,19 @@
       }));
     }
 
-    function filterActionableWarningsByType(warningsByType) {
-      const result = {};
+    // A RESTORED sync has only per-type counts (the raw warnings[] is not
+    // persisted), so annotation state is unavailable — the informational
+    // types are all that can be told apart. Splitting the restored map the
+    // same way keeps the two sections consistent between a live sync and a
+    // reload instead of a type vanishing on restore.
+    function splitWarningsByTypeByAction(warningsByType) {
+      const needsAction = {};
+      const annotated = {};
       for (const [type, count] of Object.entries(warningsByType || {})) {
-        if (NON_ACTIONABLE_WARNING_TYPES.has(type)) continue;
-        result[type] = count;
+        if (INFORMATIONAL_WARNING_TYPES.has(type)) annotated[type] = count;
+        else needsAction[type] = count;
       }
-      return result;
+      return { needsAction: needsAction, annotated: annotated };
     }
     // === END WARNING ROOT CAUSES ===
 
@@ -1185,36 +1213,26 @@
       },
       // code.js compareInstancePair(): a non-device variant axis whose value
       // differs between the M- and D- frame of one Example pair.
+      // ONE ENTRY, BOTH HALVES (operator ruling 2026-08-14): an annotated
+      // divergence is the same finding as an unannotated one — same type,
+      // same copy — so the guide no longer keeps a second entry for the
+      // ratified case. The row's ANNOTATED placement and the ruling text it
+      // carries say the rest, verbatim, instead of a paraphrase. An annotated
+      // row collapses across templates (see groupWarningsByRootCause), so its
+      // headline states both counts the collapse folds together.
       axis_ownership_violation: {
-        headline: (group) =>
-          quoted(group.layerName) + " is set differently on mobile and desktop on the " + axisPlace(group) + rootCauseEcho(group),
-        fix: () =>
-          "Decide which value is intended and set it on the instance in BOTH the M- and D- frame. If the two really are meant to differ, flag it for a ratified exception rather than leaving it flagged.",
-        why: "A layout holds one opinion per axis; only the device axis is allowed to differ between the M- and D- frame of an Example pair. A divergence on any other axis is a machine-detectable inconsistency, not a design decision the capture can see.",
-      },
-      // code.js findRatifiedAxisException()/RATIFIED_AXIS_EXCEPTIONS: the same
-      // condition as above, downgraded (not dropped) for a cited exception.
-      // groupWarningsByRootCause collapses this type to ONE row per
-      // (component, axis) across every template pair it fires on
-      // (operator-approved presentation change, 2026-08-01) — the headline
-      // states both counts the collapse folds together: how many templates
-      // carried the exception, and how many individual places that adds up
-      // to (`group.templates`/`group.count` — never the generic
-      // axisPlace/rootCauseEcho pair the still-per-template
-      // axis_ownership_violation uses above).
-      ratified_axis_exception: {
-        headline: (group) =>
-          quoted(group.componentName || group.layerName) +
-          " holds a ratified mobile/desktop difference on the " +
-          (group.container || "a variant") +
-          " axis — " +
-          (group.templates ? group.templates.length : 1) +
-          " templates, " +
-          group.count +
-          " places",
-        fix: () =>
-          "Ratified — nothing to fix. You approved this mobile/desktop difference; it disappears if the ruling changes.",
-        why: "The same M/D axis divergence as an axis-ownership violation, on a component you've ratified as intended (currently NavigationHeader's layout axis). One row covers every template pair it fires on — expand it for the per-template list.",
+        headline: (group) => {
+          const collapsed = group.templates && group.templates.length > 1;
+          const echo = collapsed
+            ? " — " + group.templates.length + " templates, " + group.count + " places"
+            : rootCauseEcho(group);
+          return quoted(group.layerName) + " is set differently on mobile and desktop on the " + axisPlace(group) + echo;
+        },
+        fix: (group) =>
+          group.annotation
+            ? "Nothing to fix while this ruling holds — it is reported every sync so the difference stays visible: " + group.annotation.ruling
+            : "Decide which value is intended and set it on the instance in BOTH the M- and D- frame. If the two really are meant to differ, annotate it in the annotations registry with a ruling and (if it is waiting on a file update) a closure condition.",
+        why: "A layout holds one opinion per axis; only the device axis is allowed to differ between the M- and D- frame of an Example pair — that axis is the pairing key, not a difference. A divergence on any other axis is a machine-detectable inconsistency; a ruling may annotate it, but never removes it from the report.",
       },
       // code.js buildOrphanedComponentInstanceWarnings(): an INSTANCE whose
       // resolved main component still exists as a node but is detached from
@@ -1405,7 +1423,13 @@
     // echoes), then one sentence saying what to do, then — folded away — the
     // rationale, then the individual paths LAST for anyone who wants to go
     // and look.
-    function warningSection(groups, occurrenceTotal) {
+    // The annotated half of the split: same rows, its own heading, and a
+    // ruling line per row so the operator can see WHY it is not work.
+    function annotatedSection(groups, occurrenceTotal) {
+      return warningSection(groups, occurrenceTotal, "ANNOTATED");
+    }
+
+    function warningSection(groups, occurrenceTotal, headingLabel) {
       const section = document.createElement("div");
       section.className = "row count-section";
 
@@ -1416,7 +1440,7 @@
       num.textContent = groups.length.toLocaleString();
       const lab = document.createElement("span");
       lab.className = "count-label";
-      lab.textContent = "FIGMA HYGIENE";
+      lab.textContent = headingLabel || "FIGMA HYGIENE";
       heading.appendChild(num);
       heading.appendChild(lab);
       // The raw number stays visible — it is what the export contains and what
@@ -1550,18 +1574,8 @@
       // section at all) — kept here, in the same VARIABLES/STYLES/COMPONENTS
       // visual language, as a stated assumption rather than a silent
       // invention; flagged for the operator to veto.
-      let warningGroups;
-      let warningsTotal;
-      if (Array.isArray(data.warnings)) {
-        const actionableWarnings = filterActionableWarnings(data.warnings);
-        warningGroups = groupWarningsByRootCause(
-          actionableWarnings,
-          createVariantOwnerResolver(data.componentSets)
-        );
-        warningsTotal = actionableWarnings.length;
-      } else {
-        const actionableByType = filterActionableWarningsByType(data.warningsByType);
-        warningGroups = Object.entries(actionableByType).map(([type, n]) => ({
+      const countsFromTypeMap = (byType) =>
+        Object.entries(byType).map(([type, n]) => ({
           type: type,
           componentName: null,
           container: null,
@@ -1570,10 +1584,35 @@
           variants: [],
           occurrences: [],
         }));
-        warningsTotal = Object.values(actionableByType).reduce((sum, n) => sum + n, 0);
+
+      let warningGroups;
+      let warningsTotal;
+      let annotatedGroups;
+      let annotatedTotal;
+      if (Array.isArray(data.warnings)) {
+        const split = splitWarningsByAction(data.warnings);
+        const resolver = createVariantOwnerResolver(data.componentSets);
+        warningGroups = groupWarningsByRootCause(split.needsAction, resolver);
+        warningsTotal = split.needsAction.length;
+        annotatedGroups = groupWarningsByRootCause(split.annotated, resolver);
+        annotatedTotal = split.annotated.length;
+      } else {
+        const split = splitWarningsByTypeByAction(data.warningsByType);
+        warningGroups = countsFromTypeMap(split.needsAction);
+        warningsTotal = Object.values(split.needsAction).reduce((sum, n) => sum + n, 0);
+        annotatedGroups = countsFromTypeMap(split.annotated);
+        annotatedTotal = Object.values(split.annotated).reduce((sum, n) => sum + n, 0);
       }
       warningGroups.sort((a, b) => b.count - a.count);
+      annotatedGroups.sort((a, b) => b.count - a.count);
       countsEl.appendChild(warningSection(warningGroups, warningsTotal));
+      // ANNOTATED, one level down — rendered whenever anything is annotated,
+      // never dropped (operator ruling 2026-08-14). Same row machinery, its
+      // own heading, so an operator scanning NEEDS ACTION is not reading
+      // decisions that are already made, but can still see every one of them.
+      if (annotatedGroups.length) {
+        countsEl.appendChild(annotatedSection(annotatedGroups, annotatedTotal));
+      }
       scheduleResize();
     }
 

@@ -95,24 +95,25 @@
      `figmaExpected: true` alongside its literal code check, so either side
      drifting — Figma's default OR the code string — flags on its own
      terms, `figma-value-mismatch` vs `binding_mismatch`).
-   entries[].ratifiedVariants — OPTIONAL array of { variant, value, citation }
-     carving an operator-ratified divergence out of the defect surface,
-     mirroring the plugin's RATIFIED_AXIS_EXCEPTIONS pattern (code.js
-     ~1055). `variant` is a substring filter (same matching rule as
-     entries[].variant); `value` is the exact binding value the ratification
-     covers; `citation` is a MANDATORY, non-empty string naming the ruling —
-     an entry with a ratifiedVariants item missing a citation is a map-lint
-     error (thrown before any check runs), never silently accepted. Matches
-     narrowed to a ratifiedVariants filter are pulled out of the ordinary
-     variant-divergence/binding_mismatch comparison before it runs: a
-     binding whose value equals the ratified `value` is downgraded to an
-     informational `ratified[]` row (excluded from `defects`, kept in the
-     summary); a binding narrowed to the same filter but carrying a
-     DIFFERENT value is reported as a real `ratified-mismatch` defect —
-     reality changed again, the ratification no longer holds, re-ratify or
-     fix it. This keeps the actionable surface honest without deleting the
-     check (capture-figma-primer.md §3's actionable-only-panel rule, same
-     spirit applied to this checker's own output).
+   entries[].ratifiedVariants — RETIRED (operator ruling 2026-08-14, vault
+     fleet/rulings/2026-08-14-rulings-annotate-never-suppress.md). It used to
+     carve an operator-ratified divergence out of the defect surface: matches
+     narrowed to its filter were pulled OUT of the ordinary comparison before
+     it ran, so the difference never reached the output at all. That is the
+     suppression the ruling outlaws — "the main purpose of the plugin is to
+     surface differences". A map still carrying the field no longer suppresses
+     anything; the field is reported as a `retired_map_field` item pointing at
+     scripts/annotations-registry.json, where the same ruling now lives as an
+     ANNOTATION that rides on the emitted difference.
+
+   OUTPUT (operator ruling 2026-08-14): every difference this lane finds is
+   emitted, every run. The result splits them by what the operator has to do,
+   never by whether a ruling exists:
+     { ok, items, needs_action, annotated, summary }
+   `items` is every difference, annotated; `needs_action` and `annotated` are
+   that same list split (see scripts/annotations.mjs); `ok` is
+   needs_action.length === 0 — an annotated-only run still passes the gate,
+   and still prints every annotation with its ruling and closure condition.
 
    THIRD LANE: this is the BINDING lane. There are two siblings —
    conformance-check.mjs (does a mapped token's resolved VALUE match?) and
@@ -123,6 +124,8 @@
 */
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+
+import { applyAnnotations, loadAnnotationRegistry, summarizeAnnotations } from "./annotations.mjs";
 
 // Property-key format Figma uses for a component-SET's own properties (a
 // BOOLEAN/TEXT/VARIANT default, not a per-variant layer binding) —
@@ -286,46 +289,36 @@ function resolveCodeLocation(mappingPath, codeLocation) {
   return join(repoRoot, codeLocation);
 }
 
-// Map-lint: every ratifiedVariants item must carry a non-empty citation.
-// Runs before any check so a missing citation is caught as an authoring
-// error, not silently accepted as an uncited exception.
-function validateRatifications(entries) {
+// Map-lint for the RETIRED ratifiedVariants field. It is not honoured —
+// nothing it names is pulled out of the comparison any more — but a map still
+// carrying it is carrying a ruling in the wrong place, so say so in the
+// output instead of ignoring it silently. Reported as an item (needs action),
+// never thrown: a stale map field must not stop the lane from running.
+function retiredMapFieldItems(entries) {
+  const items = [];
   for (const entry of entries) {
     for (const rv of entry.ratifiedVariants || []) {
-      if (typeof rv.citation !== "string" || rv.citation.trim() === "") {
-        throw new Error(
-          `[binding-check] ratifiedVariants entry for ${entry.component} ${entry.layer}.${entry.property} (variant "${rv.variant}") is missing a citation — every ratification must cite the ruling it came from.`
-        );
-      }
+      items.push({
+        // lane "map-lint", not "binding": this is an authoring defect in the
+        // map, not a Figma-vs-code difference. It must never be quieted by
+        // the very annotation it is being migrated into.
+        lane: "map-lint",
+        type: "retired_map_field",
+        component: entry.component,
+        layer: entry.layer,
+        property: entry.property,
+        variant: rv.variant,
+        codeLocation: entry.codeLocation,
+        detail: `ratifiedVariants is retired (operator ruling 2026-08-14, annotate-never-suppress) and no longer suppresses anything — move "${rv.citation}" into scripts/annotations-registry.json as an annotation and delete the field from the map.`,
+      });
     }
   }
+  return items;
 }
 
-// Splits a layer+property's variant matches into ratified vs. ordinary,
-// per entry.ratifiedVariants. Ratified matches whose value equals the
-// ratification's expected value are pulled out entirely (reported via
-// `ratified`, never `defects`); ratified matches whose value has since
-// diverged are reported as a `ratified-mismatch` defect (the ratification
-// no longer describes reality) and also excluded from the ordinary
-// divergence comparison, since they're already flagged on their own terms.
-function splitRatifiedMatches(matches, ratifiedVariants) {
-  const ordinary = [];
-  const ratified = [];
-  const mismatched = [];
-  for (const match of matches) {
-    const rule = (ratifiedVariants || []).find((rv) => match.variantName.includes(rv.variant));
-    if (!rule) {
-      ordinary.push(match);
-    } else if (JSON.stringify(match.value) === JSON.stringify(rule.value)) {
-      ratified.push({ ...match, citation: rule.citation });
-    } else {
-      mismatched.push({ ...match, citation: rule.citation, expected: rule.value });
-    }
-  }
-  return { ordinary, ratified, mismatched };
-}
+const DEFAULT_ANNOTATIONS_PATH = new URL("./annotations-registry.json", import.meta.url).pathname;
 
-export function runBindingCheck({ capturePath, mappingPath }) {
+export function runBindingCheck({ capturePath, mappingPath, annotationsPath = DEFAULT_ANNOTATIONS_PATH }) {
   if (!existsSync(capturePath)) throw new Error(`capture file not found: ${capturePath}`);
   if (!existsSync(mappingPath)) throw new Error(`mapping file not found: ${mappingPath}`);
 
@@ -334,10 +327,12 @@ export function runBindingCheck({ capturePath, mappingPath }) {
   const index = buildComponentIndex(capture.components);
 
   const entries = mapping.components?.entries || [];
-  validateRatifications(entries);
+  const annotationEntries = loadAnnotationRegistry(annotationsPath);
 
-  const defects = [];
-  const ratified = [];
+  // `defects` is this lane's raw difference list — everything it finds,
+  // before any ruling is consulted. Rulings are applied once, at the end,
+  // through applyAnnotations; nothing is ever removed from this array.
+  const defects = retiredMapFieldItems(entries);
   let checkedCount = 0;
 
   for (const entry of entries) {
@@ -366,6 +361,8 @@ export function runBindingCheck({ capturePath, mappingPath }) {
           codeLocation,
           old: expectedId,
           new: matches.map((m) => `${m.variantName}:${m.value}`).join(", "),
+          variants: matches.map((m) => m.variantName),
+          value: matches[0].value,
           type: "binding_mismatch",
         });
       }
@@ -393,38 +390,15 @@ export function runBindingCheck({ capturePath, mappingPath }) {
       continue;
     }
 
-    const allMatches = collectBindingValues(comp, layer, property, variant);
-    if (allMatches.length === 0) {
-      defects.push({ component, layer, property, variant, codeLocation, type: "missing-figma-binding" });
-      continue;
-    }
-
-    const { ordinary: matches, ratified: ratifiedMatches, mismatched } = splitRatifiedMatches(
-      allMatches,
-      entry.ratifiedVariants
-    );
-
-    for (const m of ratifiedMatches) {
-      ratified.push({ component, layer, property, variant: m.variantName, value: m.value, citation: m.citation });
-    }
-    for (const m of mismatched) {
-      defects.push({
-        component,
-        layer,
-        property,
-        variant: m.variantName,
-        codeLocation,
-        old: m.expected,
-        new: m.value,
-        citation: m.citation,
-        type: "ratified-mismatch",
-      });
-    }
-
+    // EVERY variant match is compared (operator ruling 2026-08-14): the
+    // previous implementation pulled ratifiedVariants-narrowed matches out
+    // HERE, before the divergence comparison ran, so a ratified divergence
+    // never became an item at all. Rulings no longer touch this stage — the
+    // comparison runs as if none existed, and annotation happens once, after
+    // every difference is on the list.
+    const matches = collectBindingValues(comp, layer, property, variant);
     if (matches.length === 0) {
-      // Every match for this (layer, property) was covered by a
-      // ratification (matched or mismatched) — nothing ordinary left to
-      // check against code.
+      defects.push({ component, layer, property, variant, codeLocation, type: "missing-figma-binding" });
       continue;
     }
 
@@ -435,6 +409,7 @@ export function runBindingCheck({ capturePath, mappingPath }) {
         layer,
         property,
         variant,
+        variants: matches.map((m) => m.variantName),
         codeLocation,
         type: "variant-divergence",
         detail: matches.map((m) => `${m.variantName}=${m.value}`).join(", "),
@@ -448,23 +423,37 @@ export function runBindingCheck({ capturePath, mappingPath }) {
     if (defect) defects.push(defect);
   }
 
-  const ok = defects.length === 0;
-  const summaryLines = [`Binding check: ${checkedCount} entries checked, ${defects.length} defects, ${ratified.length} ratified.`];
-  for (const d of defects) {
+  // One annotation pass over the complete difference list — classify and
+  // split; never filter. `items` is what the lane saw; needs_action and
+  // annotated are the same items sorted by what the operator must do.
+  const { items, needs_action, annotated } = applyAnnotations({
+    items: defects.map((d) => ({ lane: "binding", ...d })), // d.lane wins where set (map-lint)
+    entries: annotationEntries,
+    lane: "binding",
+    capture,
+  });
+
+  const ok = needs_action.length === 0;
+  const summaryLines = [
+    `Binding check: ${checkedCount} entries checked, ${needs_action.length} needing action, ${annotated.length} annotated.`,
+    ...(needs_action.length ? ["NEEDS ACTION:"] : []),
+  ];
+  for (const d of needs_action) {
     if (d.type === "binding_mismatch") {
       summaryLines.push(`  [binding_mismatch] ${d.component} ${d.layer}.${d.property}: figma expects "${d.old}" ("${d.new}") missing from ${d.codeLocation}`);
     } else if (d.type === "figma-value-mismatch") {
       summaryLines.push(`  [figma-value-mismatch] ${d.component} ${d.layer}.${d.property}: map expects figma default "${d.old}" but the capture now says "${d.new}" — Figma-side drift`);
-    } else if (d.type === "ratified-mismatch") {
-      summaryLines.push(`  [ratified-mismatch] ${d.component} ${d.layer}.${d.property} (${d.variant}): ratified "${d.old}" (${d.citation}) but figma now says "${d.new}" — ratification no longer holds`);
+    } else if (d.annotation) {
+      summaryLines.push(`  [${d.classification}] ${d.type} ${d.component} ${d.layer ?? ""}.${d.property ?? ""} — ${d.annotation.reason} (${d.annotation.ruling})`);
     } else {
-      summaryLines.push(`  [${d.type}] ${d.component} ${d.layer ?? ""}.${d.property ?? ""} (${d.codeLocation})`);
+      summaryLines.push(`  [${d.type}] ${d.component} ${d.layer ?? ""}.${d.property ?? ""} (${d.codeLocation})${d.detail ? ` — ${d.detail}` : ""}`);
     }
   }
-  for (const r of ratified) {
-    summaryLines.push(`  [ratified] ${r.component} ${r.layer}.${r.property} (${r.variant}): "${r.value}" — ${r.citation}`);
+  if (annotated.length) {
+    summaryLines.push("ANNOTATED (reported every sync, no action while the ruling holds):");
+    summaryLines.push(...summarizeAnnotations(annotated));
   }
-  return { ok, defects, ratified, summary: summaryLines.join("\n") };
+  return { ok, items, needs_action, annotated, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------
@@ -484,9 +473,10 @@ if (isMainModule()) {
     join(process.env.HOME, "JHD", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
   );
   const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio", "design", "figma-map.json"));
+  const annotationsPath = getArg("--annotations", DEFAULT_ANNOTATIONS_PATH);
 
   try {
-    const result = runBindingCheck({ capturePath, mappingPath });
+    const result = runBindingCheck({ capturePath, mappingPath, annotationsPath });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   } catch (err) {

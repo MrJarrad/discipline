@@ -1,0 +1,60 @@
+{
+  "$schema": "annotations-registry/v1",
+  "$note": "The fleet's annotation registry, read by every conformance/drift lane through scripts/annotations.mjs. LAW (operator ruling 2026-08-14, vault fleet/rulings/2026-08-14-rulings-annotate-never-suppress.md): nothing in this file removes an item from a lane's output — an entry ATTACHES a classification and its ruling citation to a difference that is reported either way, and (for anticipated updates) a CLOSURE CONDITION the lane evaluates mechanically every sync. Entries live here, in the checkers' own repo, rather than in a project's figma-map.json: the maps say what code claims, the rulings say how the fleet reads a difference, and mixing the two is what let a ratification quietly edit the defect surface. See scripts/annotations.mjs's header for the entry schema and the closure-predicate kinds; the axis-lane entries are mirrored into the Figma plugin (which cannot read files) and held in sync by scripts/annotations-registry.test.mjs.",
+  "annotations": [
+    {
+      "id": "splitcontent-split-text-row-gap",
+      "lane": "binding",
+      "classification": "ratified-exception",
+      "ruling": "operator ruling 2026-08-02 (capture-discrepancy-reconcile): \"device=sm, layout=split-text = gap-lg is correct, it's 2 text blocks stacked so they need a bit more space\" — vault memories/figma-side-verdicts-need-second-source.md lineage, documents/portfolio-drift-primer.md §2",
+      "$note": "PERMANENT annotation — no closure condition. The operator ratified the divergence itself (mobile split-text rows carry a larger gap than the other layouts), not a value pending an update, so there is nothing for it to close on. It rides on whatever SplitContent content.itemSpacing difference the binding lane finds and is always visible under ANNOTATED. If the lane stops finding one, the entry surfaces as `annotation_unmatched` rather than disappearing — which is what a spent ratification looks like.",
+      "match": {
+        "component": "SplitContent",
+        "layer": "content",
+        "property": "itemSpacing",
+        "variantIncludes": "device=sm, layout=split-text"
+      }
+    },
+    {
+      "id": "paginationpage-sm-height-screen-height-500",
+      "lane": "binding",
+      "classification": "anticipated-update",
+      "ruling": "portfolio figma-map.json PaginationPage entry (token-drift-sync 2026-08-04): code's pagination-page-link CSS already states sm height = --screen-height-500 (568 @ 375) and the alias repoint 163:91 -> 163:90 is what makes the file agree with code — code leads, the file is expected to catch up. This is the very ruling that produced the 2026-08-14 annotate-never-suppress law.",
+      "$note": "The closure condition is the whole point of this entry: the previous mechanism classified this divergence and said nothing further, so when the file DID move, no instrument announced it. Now every sync evaluates the predicate below and the item flips to closure-condition-met the moment an sm-mode PaginationPage instance binds height to VariableID:163:90.",
+      "match": {
+        "component": "PaginationPage",
+        "property": "boundVariables.height"
+      },
+      "closure": {
+        "kind": "instance_bound_variable",
+        "description": "closes when a device=sm PaginationPage instance binds height to VariableID:163:90 (device/screen-height/500)",
+        "component": "PaginationPage",
+        "variantIncludes": "device=sm",
+        "subProperty": "height",
+        "variableId": "VariableID:163:90"
+      }
+    },
+    {
+      "id": "navigationheader-mobile-layout-split",
+      "lane": "axis",
+      "classification": "ratified-exception",
+      "ruling": "operator ruling 2026-08-01, vault memories/token-rulings.md: \"NavigationHeader M/D split composition is INTENDED\" — mobile splits title/actions into two instances where desktop carries one combined instance",
+      "$note": "MIGRATED from the plugin's RATIFIED_AXIS_EXCEPTIONS table (schema-v2-transform.mjs / code.js). Same ruling, same citation, opposite mechanism: the axis-ownership divergence and the duplicate-sibling-name finding are now both EMITTED and annotated, where before the plugin panel dropped ratified_axis_exception rows entirely (ui.html NON_ACTIONABLE_WARNING_TYPES).",
+      "match": {
+        "component": "NavigationHeader",
+        "axis": "layout"
+      }
+    },
+    {
+      "id": "layoutgrid-columns-device-owned",
+      "lane": "axis",
+      "classification": "ratified-exception",
+      "ruling": "operator ruling 2026-08-01, vault memories/token-rulings.md: \"LayoutGrid `columns` is a device-owned axis\" — a grid legitimately holds a different column count per device",
+      "$note": "MIGRATED from the plugin's DEVICE_OWNED_AXES table, which produced NO warning of either type, silently — the single hardest suppression in the lanes and squarely intent-shaped (a component-level judgement about which axis a device may own), so under the 2026-08-14 law it is an annotation, not an equality rule. The M/D columns divergence now surfaces every sync, annotated with this ruling.",
+      "match": {
+        "component": "LayoutGrid",
+        "axis": "columns"
+      }
+    }
+  ]
+}
