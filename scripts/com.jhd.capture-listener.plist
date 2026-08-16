@@ -21,6 +21,7 @@
   The conformance-check hook is on by default under launchd (CONFORMANCE_MAP_PATH
   below, pointed at portfolio's figma-map.json) — edit or remove the
   EnvironmentVariables entry to point elsewhere or opt back out.
+  CAPTURE_AUTO_PUBLISH=1 runs vault/estate/publish-captures.sh after each sync (Mac fallback when remote ingest is unused).
 -->
 <plist version="1.0">
 <dict>
@@ -30,7 +31,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/node</string>
-    <string>/Users/jarradharvey/.claude/plugins/marketplaces/discipline/scripts/capture-listener.mjs</string>
+    <string>/Users/jarradharvey/JHD/discipline/scripts/capture-listener.mjs</string>
   </array>
 
   <key>RunAtLoad</key>
@@ -47,6 +48,8 @@
   <dict>
     <key>CONFORMANCE_MAP_PATH</key>
     <string>/Users/jarradharvey/JHD/portfolio/design/figma-map.json</string>
+    <key>CAPTURE_AUTO_PUBLISH</key>
+    <string>1</string>
   </dict>
 </dict>
 </plist>
