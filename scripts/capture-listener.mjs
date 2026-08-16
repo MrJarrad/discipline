@@ -2,7 +2,7 @@
 /* capture-listener — local HTTP receiver for the capture-figma plugin's live
    sync mode. Single-file, no deps, style-matched to figma-capture.mjs.
 
-   The plugin (figma-plugin/capture-figma/) POSTs its full variables+styles
+   The plugin (design-tools capture/figma-sync/, or legacy figma-plugin/capture-figma/) POSTs its full variables+styles
    export JSON here on every debounced document change while sync is on.
    This script never talks to Figma or the network — it only accepts
    localhost connections and writes what it's given.
@@ -10,6 +10,7 @@
    Usage:
      node capture-listener.mjs &
      CAPTURE_LISTENER_PORT=5000 node capture-listener.mjs   (override port)
+     CAPTURE_AUTO_PUBLISH=1 node capture-listener.mjs       (after each sync, run publish-captures.sh)
 
    Endpoints:
      POST /capture   body = the plugin's export JSON (header.fileName,
@@ -233,6 +234,7 @@ import {
   existsSync,
 } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { runConformanceCheck, computeCoverage } from "./conformance-check.mjs";
@@ -1319,6 +1321,33 @@ export function writeAtomic(path, contents) {
   renameSync(tmp, path);
 }
 
+
+// Optional Mac fallback publish: when CAPTURE_AUTO_PUBLISH=1, after a successful
+// /capture write, fire-and-forget vault/estate/publish-captures.sh so Cloud sees
+// the tip without waiting for wrap. Failures are logged; they never fail the POST.
+function maybeAutoPublishCaptures() {
+  if (process.env.CAPTURE_AUTO_PUBLISH !== "1") return;
+  const script =
+    process.env.CAPTURE_PUBLISH_SCRIPT ||
+    `${process.env.HOME}/JHD/vault/estate/publish-captures.sh`;
+  if (!existsSync(script)) {
+    console.warn(`[capture-listener] CAPTURE_AUTO_PUBLISH=1 but missing ${script}`);
+    return;
+  }
+  try {
+    const child = spawn(script, [], {
+      detached: true,
+      stdio: "ignore",
+      env: process.env,
+    });
+    child.unref();
+    console.log(`[capture-listener] CAPTURE_AUTO_PUBLISH spawned ${script}`);
+  } catch (e) {
+    console.warn(`[capture-listener] CAPTURE_AUTO_PUBLISH spawn failed: ${e && e.message ? e.message : e}`);
+  }
+}
+
+
 function readBody(req, onDone, onError) {
   const chunks = [];
   let total = 0;
@@ -1817,6 +1846,7 @@ function handleCapture(req, res) {
         responseBody.baselineMissing = true;
         responseBody.warning = BASELINE_MISSING_WARNING;
       }
+      maybeAutoPublishCaptures();
       res.writeHead(200, { "Content-Type": "application/json", ...CORS_HEADERS });
       res.end(JSON.stringify(responseBody));
     },
