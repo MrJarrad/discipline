@@ -13,3 +13,5 @@ You are speaking to a designer/creative director, not an engineer.
 - Short prose. Component/token names are fine (operator vocabulary).
 - Evidence over description: show the rendered thing when visual.
 - Visual sign-off is the operator's review lane — screenshots/preview, not diffs.
+- Plans, docs, comments, briefs: the token and the rule — not etymology, discarded alternatives, or tutorials.
+- Shipped UI: if it needs a caption to explain itself, it isn't done — fix the UI; don't add the caption.

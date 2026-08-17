@@ -14,11 +14,51 @@ Best-in-class or a named gap. Verify before claiming (run build/typecheck/tests;
 ## Figma
 When a design file exists, Figma is the contract — names 1:1. Deviations are defects, not judgment calls. Use capture-figma before building/auditing against design.
 
-## Commits & releases
-No commit without green typecheck (and tests when relevant). Commit coherent slices early. Never force-push. Releases only after reviewer PASS via releaseops.
+## House system
+Every product that is not Figma-specific wears the JHD design system. Figma plugins stay Figma.
+
+- **Web products** consume `MrJarrad/jhd-design-system` (`~/JHD/design-system/main`). **Do not vendor a copy.**
+- **Native products** that stay native bind the same Figma variables in Swift (Capture.app).
+- A raw colour, type size, radius, or space is a defect.
+- **Skillz** (`MrJarrad/skillz`) ≠ parked **`MrJarrad/skills`** shared skills pack.
+
+Load `skills/design-system` when starting or reviewing JHD web UI.
+
+## Commits, PRs & releases
+No commit without green typecheck (and tests when relevant). Commit coherent slices early. Never force-push.
+
+**Merges are agent remittance.** After verify is green, open the PR and merge it (`gh pr merge`) — do not ask the operator to click Merge. Close obsolete/superseded drafts the same way.
+
+Product **releases** (deploy/production) still require reviewer PASS then releaseops. Routine discipline/docs/vault/tooling PRs merge after verify without an operator merge step.
 
 ## Memory
-Chat is ephemeral. Durable state lives in `~/JHD/vault` (Obsidian) when available on the machine. Bank decisions/rulings/references via vault-write. On resume / "where was I", read `~/JHD/vault/orchestrator/HANDOVER.md` before acting. End sessions with wrap when work was non-trivial.
+Chat is ephemeral. Durable state lives in the **vault working tree** when the machine has it. Bank via vault-write. On resume / "where was I": infer the project from the workspace, read that `projects/<name>/<name>-handover.md` first (else the hub), then the cockpit `orchestrator/cockpit.md`. Rulings: handover-trays, unique-note-names. End sessions with wrap when work was non-trivial.
+
+Vault working tree: `~/JHD/vault/main` if it has `.git`, else `~/JHD/vault` (Cloud/flat). Never treat the container root (`.bare`) as the vault.
+
+## Disk
+Each GitHub remote is a container: `~/JHD/<name>/.bare` + `main/` + `worktrees/`. **Open and edit `~/JHD/<name>/main`**, not the container root. If this session's workspace *is* the container root (has `.bare`, files live in `main/`), move to `main/` before editing. Never convert-in-place the checkout you are sitting in.
+
+Cloud may still be a flat clone at `~/JHD/<name>` — if `main/.git` is missing, use that flat root.
+
+| Smell | Repo (working tree) |
+|---|---|
+| Orbit Grid / Text / Color, Orbit Core | `orbit-tools` |
+| Capture.app, helper | `capture` — product **capture-app** |
+| Capture Figma plugin, ingest | `capture` — product **capture-figma** |
+| Leftover Figma plugins | `figma-labs` |
+| Site | `portfolio` (`MrJarrad/jhd-portfolio`) |
+| Skillz daily practice | `skillz` (`MrJarrad/skillz`) |
+| House web tokens / Action primitives | `design-system` (`MrJarrad/jhd-design-system`) |
+| Plugin / fleet SoT | `cursor-discipline` (`MrJarrad/jhd-cursor-discipline`) |
+
+`MrJarrad/design-tools` is an **archive README**, not a daily checkout. Obsidian: `~/JHD/vault/main`.
+
+**Do not mix these names:** plugin **`jhd-discipline`** ≠ GitHub `jhd-cursor-discipline` ≠ parked Claude source `discipline` ≠ empty GitHub `jhd-discipline` (do not open). Old GitHub `portfolio` is parked `portfolio-classic`. **capture-app** ≠ **capture-figma** (two products). **Skillz** (`MrJarrad/skillz`) ≠ parked **`MrJarrad/skills`** shared skills pack. **`~/JHD/capture/main`** = their source remote; **`~/JHD/captures`** = Figma JSON dump (not git).
+
+Long-lived extra branches: `~/JHD/<name>/worktrees/<slug>`. Cursor ephemeral worktrees stay at `~/.cursor/worktrees`. Never nest a git worktree inside `main/` — that is why containers exist.
+
+`~/.cursor/plans` is Mac scratch. Distill approved plans into vault artifacts; do not treat the plan file as hive memory. Parked remotes (flux*, paperclip*, squish, …) stay cloned — no LaunchAgents unless asked.
 
 ## Cloud / laptop portability
 Prefer Plan → dispatch → verify. Use worktrees for parallel agents. Use Cursor Browser for UI evidence. Prefer Multitask for independent lanes. Bugbot is opt-in (paid) — not required.
