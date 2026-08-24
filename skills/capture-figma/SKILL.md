@@ -464,6 +464,35 @@ Only for what numbers can't carry: composition, art direction, copy (extract **v
 never paraphrase), and layout relationships. By now you have real dimensions, so annotate
 what you see with them instead of estimating.
 
+### Dual read — bank a render beside the structured capture
+
+The structured capture (JSON — variables, metadata, bindings) is never the whole evidence
+record. Every capture also banks a **PNG render** of the captured target in the same
+capture folder as its JSON, taken at the same point in the sequence as Step 4's
+screenshots (after variables/styles/metadata, once real dimensions are in hand).
+
+- **Scope — top-level frame plus named components, never an exhaustive sweep.** Render the
+  page's top-level frame, and any component the dispatch brief names explicitly by name or
+  node id. This is NOT a per-component sweep of every instance on the page — rendering
+  everything wastes calls and buries the evidence that matters under scenery nobody asked
+  to verify.
+- **Render path, in preference order:**
+  1. **Figma MCP `get_screenshot`** when the session has it (Mac desktop MCP bridge) — the
+     same tool Step 4 already uses for composition/copy reads.
+  2. **Figma REST images endpoint** when `FIGMA_TOKEN` is available (Cloud Environment
+     secret) and the MCP tool isn't: `GET https://api.figma.com/v1/images/:file_key?ids=<node-id>&format=png&scale=2` —
+     equivalent to `scripts/figma-node.mjs image <fileKey> <nodeId>` (see the REST node
+     lane above).
+- **Naming — same stem as the JSON, `.png` suffix.** `<frame-slug>.json` →
+  `<frame-slug>.png`. A brief-named component's render appends the component slug:
+  `<frame-slug>--<component-slug>.png`.
+- **Evidence contract — both channels, always.** Reviewer and UX Designer read BOTH the
+  JSON and the render: the JSON carries name/prop/token parity, the render carries visual
+  parity. A visual-parity claim citing only the JSON is incomplete evidence — treat it the
+  same as an unverified claim under the Verification rule above. Doers producing capture
+  output must bank the render before handing the capture off; consumers checking visual
+  parity must open the render, not infer it from the JSON.
+
 ### Component anatomy
 
 A COMPONENT_SET is a container holding two things, never mixed:
