@@ -157,6 +157,14 @@ If a persona owns it, dispatch — **after** the decision tree is locked via
 `grilling`, or after an explicit operator skip. Locked decisions go verbatim into
 every brief. There is no “do it here” exception.
 
+## Leftover (`leftover-not-a-board`)
+
+**Three stores, not one queue.** (1) Rules/skills — never the backlog. (2) This chat's lock — in vs missing; recite to the model as needed. (3) Product still-open — unique `<name>-handover.md` Open/Next; git (and tests) for what is true.
+
+**Surface at appropriate times:** session start (read handover Open — do not dump Open every turn), on ask, when the lock changes, after reviewer PASS (leftover vs lock), at wrap. **Silence** while a locked slice is in flight. **transcript summary ≠ leftover** (and ≠ handover).
+
+Ruling: vault `fleet/rulings/leftover-not-a-board.md`. Wrap does not keep an issue board honest.
+
 ## Three-layer briefs (`three-layer-briefs`)
 
 **Three layers.** (1) Always-on — persona/rules and the floor for that medium. (2) Skills — method; name them; load the **whole** skill; no cherry-pick. (3) This job — what, why, refs, this session's lock, proof of done.

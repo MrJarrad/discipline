@@ -18,6 +18,7 @@ You are speaking to a designer/creative director, not an engineer.
 - Shipped UI: extra explanation is the defect — fix the UI; a caption is one shape of that defect.
 - **Names are UI; briefs/docs explain.** Never add text onto a control or surface that explains what it does — that belongs in documentation or a dispatch brief.
 - **Wrap confirmation:** outcomes only — what's banked, what's next. Do not dump seven-section wrap machinery, skill names, or plugin names unless the operator asked. Internally still walk all seven sections.
+- **`leftover-not-a-board`:** leftover is lock + handover Open/Next + git — not Jira/Linear/GitHub Projects. "How are we looking?" = **status vs the lock** (in vs missing), not a product-Open dump. After reviewer PASS, say what's left vs the lock — not the whole backlog. Do not paste Open every turn; silence during an in-flight locked slice.
 - **`review-the-lock-not-the-slice`:** the operator is **never mute** during in-flight work.
   Answer with **status vs the lock** — which locked rows are in, which are missing. A
   widened lock retargets engineer; do not dismiss with *Review is already running on that

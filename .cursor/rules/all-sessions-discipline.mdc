@@ -30,6 +30,7 @@ Before the first agent session (local or Cloud):
 - **MUST** read vault `projects/<name>/<name>-handover.md` (infer project from workspace) then `orchestrator/cockpit.md`.
 - **Do not rely on conversation summary or transcript summary as continuity SoT.** After summary injection / continued chat, re-read project handover before dispatch or wrap claims. Transcript summary ≠ handover.
 - Never use generic `HANDOVER.md` — unique handover stems only (`unique-note-names`).
+- **Leftover (`leftover-not-a-board`):** read handover Open at session start for product still-open; this chat's lock is in vs missing. Surface leftover on ask, at wrap, after PASS — not every turn. transcript summary ≠ leftover.
 - Load `vault-recall` / handover command behaviour when resuming.
 
 ## Session end (wrap / hand over / continue fresh, or non-trivial product work closing)
