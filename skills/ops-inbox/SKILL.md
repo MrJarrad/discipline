@@ -61,7 +61,5 @@ better evidence if visible), then refresh the artifact.
 - Server: `https://ops-inbox.jh-229.workers.dev` (Cloudflare Worker + D1
   `rotate-ops`); source in `~/JHD/claude-global-snapshot/_setup-pack/ops-inbox-mcp/`;
   deploy = `npx wrangler deploy` on his Mac.
-- Scheduled tasks (claude.ai): morning sweep 07:45 UTC weekdays (standup draft +
-  per-meeting notes tasks at end+5min + artifact refresh); hourly Granola catch-up
-  8-17 weekdays.
+- Schedules: prefer Claude scheduled tasks (cron / `/schedule`) for recurring sweeps.
 - Pending hardening: OPS_TOKEN → wrangler secret (currently in wrangler.toml).

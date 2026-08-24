@@ -6,7 +6,7 @@ description: >-
   that works. Use when implementing, refactoring, or reviewing code: deciding whether a
   helper/class/abstraction should exist, or when a change is growing more code than the task
   needs. This is the coding-lane token lever (fewer lines per task); it is NOT model routing —
-  that is model-efficiency — and NOT for non-coding work. Adapted from Ponytail
+  that is model-routing — and NOT for non-coding work. Adapted from Ponytail
   (github.com/DietrichGebert/ponytail).
 ---
 
@@ -19,7 +19,7 @@ solution, never about reading:** understand the problem fully first, *then* pick
 rung. Skipping comprehension to ship a small diff is the failure mode, not the goal.
 
 This is the **coding lane** — the code an Engineer *writes*. It is a different lever from
-[`model-efficiency`](../model-efficiency/SKILL.md) (which *model* runs the task, fewer tokens
+[`model-routing`](../model-routing/SKILL.md) (which *model* runs the task, fewer tokens
 because the tier is cheaper) and from [`quality`](../quality/SKILL.md) (is the output
 best-in-class). It composes with both. Adapted from the **Ponytail** plugin
 ([github.com/DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)), whose
@@ -99,7 +99,7 @@ Behavioral quick-reference for auditing a diff: [references/DOS-AND-DONTS.md](re
 ## Anti-triggers
 
 - **Not model routing.** "Which model / how do I cut token cost by running cheaper?" is
-  [`model-efficiency`](../model-efficiency/SKILL.md), not this. This skill only shapes the code
+  [`model-routing`](../model-routing/SKILL.md), not this. This skill only shapes the code
   content, not the tier that writes it. Defer, don't answer it here.
 - **Not for non-coding work.** Prose, research, board hygiene, design copy — the ladder is
   about code. Don't apply it to a doc or a plan.

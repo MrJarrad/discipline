@@ -19,6 +19,40 @@ Tests should verify behavior through public interfaces, not implementation detai
 
 Mock only at system boundaries — external APIs, databases, time/randomness, filesystem. Never mock your own classes, internal collaborators, or anything you control. Design for this with dependency injection and SDK-style per-operation interfaces rather than one generic fetcher with conditional mock logic.
 
+## Seams — agree before the first test
+
+A **seam** is the public boundary you test at. Before writing any test, write down the
+seams under test and confirm them (brief, operator, or locked decisions). No test at an
+unconfirmed seam. You can't test everything — agreeing seams up front lands effort on
+critical paths.
+
+Ask: "What's the public interface, and which seams should we test?"
+
+## Tautological tests (forbidden)
+
+A **tautological** test recomputes the expected value the same way the code does —
+`expect(add(a,b)).toBe(a+b)`, hand-derived snapshots, constants asserted equal to
+themselves. It passes by construction and can never disagree with the code.
+
+Expected values must come from an **independent source of truth**: a known-good literal,
+a worked example, the spec, locked decisions, or fixture data — not a re-implementation
+of the production logic.
+
+## Wide refactors — expand–contract, not fake vertical slices
+
+A **wide refactor** is one mechanical change whose blast radius fans across the codebase
+(rename a shared symbol, retype a column) so no vertical slice can land green alone.
+
+Sequence as **expand–contract**:
+
+1. **Expand** — add the new form beside the old; nothing breaks.
+2. **Migrate** — batches sized by blast radius (per package/directory); CI green batch to batch because the old form still exists.
+3. **Contract** — delete the old form once no caller remains.
+
+Don't force a wide refactor into a tracer bullet. When batches can't stay green alone,
+they may share an integration branch with a final integrate-and-verify step — green is
+promised only there.
+
 ## The discipline this skill adds: vertical slices, not horizontal
 
 **Never write all the tests first, then all the implementation.** That's horizontal slicing — treating "red" as "write every test" and "green" as "write all the code." It produces tests for *imagined* behavior instead of *actual* behavior: they test the shape of data structures and function signatures rather than what a caller observes, and they go insensitive — passing when behavior breaks, failing when it's fine. It also commits you to a test structure before you've learned anything from writing the code.
@@ -43,6 +77,7 @@ Each test responds to what the previous cycle taught you. Because you just wrote
 
 Before writing any code, confirm with the user (or state plainly, in an autonomous run):
 - What the public interface should look like.
+- **Which seams** are under test — written down and confirmed before the first red.
 - Which behaviors matter most — you can't test everything, so name what you'll cover and what you're deferring.
 
 Match test names and vocabulary to the project's own domain language (check for a CONTEXT.md or equivalent, and respect existing architectural decisions in the area you're touching).
@@ -64,8 +99,10 @@ Once the relevant tests pass, look for duplication to extract, shallow modules t
 ## Checklist per cycle
 
 ```
+[ ] Seams under test named and confirmed before first red
 [ ] Test describes behavior, not implementation
 [ ] Test uses the public interface only
+[ ] Expected value from independent source — not tautological
 [ ] Test would survive an internal refactor
 [ ] Code is minimal for this test — nothing speculative
 [ ] Refactor (if any) happened only after green, with tests re-run

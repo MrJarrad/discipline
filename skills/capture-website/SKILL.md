@@ -24,17 +24,20 @@ Values captured against no skeleton are noise.
 ```
 node scripts/capture.mjs <url> <out-dir>          # screenshots, tokens, geometry, scroll video
 node scripts/capture-code.mjs <url> <out-dir>     # page.html, styles/, scripts.json, design-system.json
-node scripts/capture-motion.mjs <url> <out-dir>   # motion-samples.json — real getAnimations()/rAF sampling
+node scripts/capture-motion.mjs <url> <out-dir>   # motion-samples.json + motion-environment.json
 ```
 
 Requires `playwright` (`npm i -D playwright` anywhere; scripts resolve it from cwd).
 `capture-motion.mjs` is mandatory, not optional, whenever the reference has any hover
 state, entrance choreography, or scroll-linked effect — this is capture-website's one
 axis capture-figma structurally cannot see (Figma has no runtime): it drives real
-load/hover/press/scroll interactions and samples `document.getAnimations()` via CDP/rAF,
-so duration/easing/stagger in the sidecar are *measured*, not read off a stylesheet and
-assumed to fire. Skip it only for a reference with zero observed motion (rare — record
-that absence explicitly rather than omitting the file silently).
+load/hover/press/scroll interactions and samples `document.getAnimations()` (CSS/WAAPI) and
+**GSAP tweens when `gsap` is on the page** via rAF polling. Also writes
+`motion-environment.json` — canvas/WebGL detection and whether **tape is required** before
+motion law can be marked complete. CSS-only sampling misreads canvas/GSAP sites (hard cut,
+wrong overlap); Stage 2 must not finish motion law from clocks alone when
+`tapeRequired: true`. Skip capture-motion only for zero observed motion (rare — record
+that absence explicitly).
 What Stage 1 banks:
 
 - **Screenshots** — desktop 1440 + mobile 390, every viewport-height scroll position
@@ -54,12 +57,12 @@ What Stage 1 banks:
 - **Geometry** (`geometry.json`) — bounding rects of key modules. A dozen rects describe
   a grid better than a paragraph. Serialize in a stable order (see "Re-capture — diff by
   layer" below).
-- **Motion** (`scroll.webm` + `motion-samples.json`) — `scroll.webm` is the recorded
-  scroll-through for human eyes; `motion-samples.json` (from `capture-motion.mjs`) is the
-  same motion as *data* — one row per observed animation: `property`, `trigger`
-  (load/hover/press/scroll), measured `duration`, measured `curve` (easing), `stagger`
-  (delay between choreographed siblings), and the `target` selector it fired on. Without
-  either, motion gets invented or reduced to adjectives ("smooth", "snappy").
+- **Motion** (`scroll.webm` + `motion-samples.json` + `motion-environment.json`) —
+  `scroll.webm` is the scroll-through for human eyes and **required tape** when
+  `motion-environment.json` reports `tapeRequired: true` (canvas/WebGL). `motion-samples.json`
+  holds measured clocks — one row per observed animation: `construction` (`css` | `gsap`),
+  `property`, `trigger`, `duration`, `curve`, `stagger`, `target`. Without samples **and**
+  tape where required, motion gets invented or reduced to adjectives ("smooth", "snappy").
 - **Code** — full rendered `page.html`, all stylesheets in `styles/`, script inventory
   `scripts.json`, and `design-system.json` (custom properties, breakpoints, keyframes,
   easings, font faces). The markup and CSS *are* the design system; the stack is legible
@@ -69,21 +72,22 @@ What Stage 1 banks:
 
 **Stage 2 — interpretation (you, with the evidence open):**
 
-**Classify the reference before writing analysis.md**: MARKETING (hero-led, heavy art
+**Classify the reference before writing `<slug>-analysis.md`**: MARKETING (hero-led, heavy art
 direction/copy-voice, sparse interaction states) vs APP/PRODUCT (dense components,
 interaction states matter, thin art-direction) vs DOCS/CONTENT (typography-led, low
 component variety, navigation structure matters most). Record the classification — it
 decides which of the 11 layers gets the deepest read, not which layers are skipped.
 
-Write `analysis.md` covering the 11-layer decision stack. A reference is understood only
+Write `<slug>-analysis.md` (never `analysis.md` — ruling unique-note-names) covering the 11-layer decision stack. A reference is understood only
 when every layer is read or explicitly marked *unobserved*:
 
 1. Typography · 2. Color/surfaces (record the mode vector — `viewport: desktop|mobile,
 theme: light|dark|no-toggle-observed` — each color/surface row was captured under) ·
 3. Spacing · 4. Radius (observe theirs as data; we hold radius 0) · 5. Motion/transitions
-(durations + easings as measured data from `motion-samples.json`/`style-roles.json`'s
-`motionVocabulary`, not adjectives — property, duration, curve, trigger, stagger, per
-entry) · 6. Primitives ·
+(clocks from `motion-samples.json`/`style-roles.json`'s `motionVocabulary` **plus**
+**motion law** in `motion-law.md` — sequencing grammar, overlap/pile, raster, type enter;
+not adjectives — property, duration, curve, trigger, stagger, per entry; cite
+`motion-environment.json` for engine and tape gate) · 6. Primitives ·
 7. Components · 8. Patterns · 9. Blocks/sections · 10. Layout/grid (cite geometry.json
 rects) · 11. Stack — framework/meta-framework/animation-library/scroll-tech, recorded as
 `style-roles.json`'s `stack` object (from scripts.json bundle URLs + design-system.json),
@@ -113,10 +117,17 @@ actually caught it firing, `declared: true` when the cascade merely states it, b
 proven), and `stack` (framework/meta-framework/animation-library/scroll-tech detection from
 `scripts.json`'s bundle URLs — Next/Nuxt/Astro, React/Vue, GSAP/Framer Motion/Lenis/
 ScrollMagick, or a plain CMS stack — another axis capture-figma has no equivalent of, since
-it never sees a runtime or a script tag). `analysis.md`'s prose still carries the narrative
+it never sees a runtime or a script tag). `<slug>-analysis.md`'s prose still carries the narrative
 (why it matters, the honest gaps, the soft layers) — `style-roles.json` is what lets a
 script gap-compare this reference against another token set without an LLM re-reading that
 prose. A capture without a `style-roles.json` sidecar is not Stage-2-complete.
+
+**Bank `motion-law.md` — mandatory for Stage 2 when motion exists or is inferred.** Use
+[references/motion-law-template.md](references/motion-law-template.md) — same shape as
+[`motion`](../motion/references/LAW.md). This is **the site's design law for motion**,
+not house law. Do not score the reference against JHD house motion law unless the brief
+is an adopt/adapt decision. When `motion-environment.json` has `tapeRequired: true`, law
+rows must cite tape; CSS-only law on a canvas site is a **defect**.
 
 To compare a reference against JHD's own tokens (or against another reference) once both
 sides have a `style-roles.json`:
@@ -153,17 +164,17 @@ Plus the two soft layers, as data not vibes:
   (who's talking to whom, written-like vs speech-like), case register, and 2–3 verbatim
   exemplar lines.
 
-**Stage 3 — verify:** every claim in `analysis.md` cites an artifact (screenshot name,
+**Stage 3 — verify:** every claim in `<slug>-analysis.md` cites an artifact (screenshot name,
 geometry rect, token row, CSS line). Mark each value `observed` or `inferred`; never
 promote an inferred value into a system decision silently.
 
 **Stage 4 — package:** `vault/references/<name>/` = the artifacts + `style-roles.json` +
-`analysis.md`; a sibling `<name>.md` vault reference note whose "Why it's here" cites the
+`motion-law.md` + `<name>-analysis.md`; a sibling `<name>.md` vault reference note whose "Why it's here" cites the
 folder. Brief downstream agents with the **folder path** — never a URL.
 
 ## Re-capture — diff by layer
 
-When re-capturing a previously captured reference, diff against the banked folder rather than starting fresh. Classify each delta by the same layer logic: token value moved / role re-mapped / component re-bound / anatomy changed / one-off. A redesign and a token tweak look identical in a screenshot but demand different analysis depth. Supersede the prior analysis.md, don't overwrite it silently.
+When re-capturing a previously captured reference, diff against the banked folder rather than starting fresh. Classify each delta by the same layer logic: token value moved / role re-mapped / component re-bound / anatomy changed / one-off. A redesign and a token tweak look identical in a screenshot but demand different analysis depth. Supersede the prior `<slug>-analysis.md`, don't overwrite it silently.
 
 Scripted artifacts (`tokens.json`, `geometry.json`) must serialize in a stable order —
 sort by selector/DOM-path, not walk order — so `git diff` on a recapture shows only real

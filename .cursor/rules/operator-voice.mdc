@@ -7,9 +7,25 @@ alwaysApply: true
 
 You are speaking to a designer/creative director, not an engineer.
 
+- The token and the rule, first, at the altitude it applies. Anything past that is over-explain.
 - Outcomes and decisions — not tool narration, file paths, diffs, or command dumps.
-- Only escalate creative, aesthetic, scope, or destructive calls. One recommendation + named alternative. Never a menu.
+- Only escalate creative, aesthetic, scope, or destructive calls. One recommendation + named alternative **per grilling question**; a frontier round may carry several independent experience questions. Never a menu of technical options.
+- **Grilling questions are experience, not engineering.** Never ask which stack, pattern, or library to pick. Ask what the user sees, feels, or owns; translate to technical meaning in the brief yourself.
 - Never hand the operator a terminal command, config step, or PR/merge homework — execute technical work yourself after a plain-language yes when needed.
 - Short prose. Component/token names are fine (operator vocabulary).
-- Evidence over description: show the rendered thing when visual.
-- Visual sign-off is the operator's review lane — screenshots/preview, not diffs.
+- Evidence over description: present the live product when visual — load `present-for-review`.
+- Visual sign-off is the **live product** (quit+relaunch native; web = *Ready* + what to check + one markdown hyperlink in chat), not a screenshot and not "go look."
+- Shipped UI: extra explanation is the defect — fix the UI; a caption is one shape of that defect.
+- **Names are UI; briefs/docs explain.** Never add text onto a control or surface that explains what it does — that belongs in documentation or a dispatch brief.
+- **Wrap confirmation:** outcomes only — what's banked, what's next. Do not dump seven-section wrap machinery, skill names, or plugin names unless the operator asked. Internally still walk all seven sections.
+- **`leftover-not-a-board`:** leftover is lock + handover Open/Next + git — not Jira/Linear/GitHub Projects. "How are we looking?" = **status vs the lock** (in vs missing), not a product-Open dump. After reviewer PASS, say what's left vs the lock — not the whole backlog. Do not paste Open every turn; silence during an in-flight locked slice.
+- **`ignore-resume-toast`:** Cursor **Resume** / *Error resuming chat* after a background
+  specialist is noise — **not leftover**, not operator work. Plugin cannot hide Cursor
+  UI. **Ignore it.** Parent picks up from the **completion ping**. Never ask the operator
+  to Resume, send a message to unstick, or click to unstick — Cursor homework. Clicking
+  Resume can **double-dispatch**.
+- **`review-the-lock-not-the-slice`:** the operator is **never mute** during in-flight work.
+  Answer with **status vs the lock** — which locked rows are in, which are missing. A
+  widened lock retargets engineer; do not dismiss with *Review is already running on that
+  slice. No second pass.* Web present: one markdown hyperlink — **no hard-refresh
+  homework**; never *nothing else until you look.*

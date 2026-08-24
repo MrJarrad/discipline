@@ -1,6 +1,6 @@
 ---
 name: nextjs
-description: Build, review, or deploy a Next.js (App Router) app — Cache Components, "use cache", revalidateTag/updateTag/refresh, Server Actions, proxy.ts, or Cloudflare via @opennextjs/cloudflare. Use when the operator names Next.js, App Router, RSC, "use cache", proxy.ts, middleware.ts, OpenNext, ISR, PPR, or a .tsx under app/. Not Workers post-deploy — workers-best-practices/wrangler; not UI tokens — design-system/markup-standard; not test/perf — webapp-testing/performance; not SEO — the seo-* family.
+description: Build, review, or deploy a Next.js (App Router) app — Cache Components, "use cache", revalidateTag/updateTag/refresh, Server Actions, proxy.ts, or Cloudflare via @opennextjs/cloudflare. Use when the operator names Next.js, App Router, RSC, "use cache", proxy.ts, middleware.ts, OpenNext, ISR, PPR, or a .tsx under app/. Not Workers post-deploy — workers-best-practices/wrangler; not UI tokens — design-system/markup-standard; not test mechanics — webapp-testing; not CWV bar — Law 9 in design-craft/references/TECHNICAL-DESIGN.md; not SEO — the seo-* family.
 ---
 
 # Next.js
@@ -12,8 +12,9 @@ code is running on a Worker, `workers-best-practices` and `wrangler` own the Wor
 production bar; the token/markup bar for anything this skill renders
 is [`design-system`](../design-system/SKILL.md) and
 [`markup-standard`](../markup-standard/SKILL.md); test and perf mechanics are
-[`webapp-testing`](../webapp-testing/SKILL.md) and `performance`. Cross-link to those rather
-than duplicating them — see §9, §10, §12.
+[`webapp-testing`](../webapp-testing/SKILL.md); Core Web Vitals bar is **Law 9** in
+[`design-craft/references/TECHNICAL-DESIGN.md`](../design-craft/references/TECHNICAL-DESIGN.md).
+Cross-link to those rather than duplicating them — see §9, §10, §12.
 
 **Not a v16 upgrade guide.** This skill assumes a Next.js 16 App Router project already
 targeting Cloudflare. For migration/codemod help on an older project, use
@@ -134,8 +135,10 @@ default format/quality table or a `remotePatterns` shape, because neither was in
 sourced. Read them from the installed version's own docs or `next-devtools-mcp`'s knowledge
 base (§11) at implementation time, not from memory. Two things this skill does own the
 pointer for, not the content: the numeric Core Web Vitals bar an image choice is judged
-against (CLS included) is `performance`'s; the alt-text/markup bar any `next/image` usage
-ships against is [`markup-standard`](../markup-standard/SKILL.md)'s.
+against (CLS included) is **Law 9** in
+[`design-craft/references/TECHNICAL-DESIGN.md`](../design-craft/references/TECHNICAL-DESIGN.md);
+the alt-text/markup bar any `next/image` usage ships against is
+[`markup-standard`](../markup-standard/SKILL.md)'s.
 
 ## 8. Env and config
 
@@ -202,8 +205,10 @@ Don't duplicate mechanics this skill doesn't own:
 - **Playwright E2E** (locators, web-first assertions, visual regression, Page Object Model)
   is [`webapp-testing`](../webapp-testing/SKILL.md)'s — apply it to Next.js routes exactly as
   you would any web app; nothing Next.js-specific changes the mechanics.
-- **Core Web Vitals and perf measurement** (the numeric bar, profiling method) is
-  `performance`'s.
+- **Core Web Vitals and perf measurement** (the numeric bar, lab evidence on UI work) is
+  **Law 9** in
+  [`design-craft/references/TECHNICAL-DESIGN.md`](../design-craft/references/TECHNICAL-DESIGN.md)
+  — engineer/reviewer duty on UI diffs; field CrUX stays release-only.
 - The one Next.js-specific wrinkle: `next-devtools-mcp` (§11) bundles a Playwright MCP
   integration, so RSC/hydration-specific failures can be correlated back to a route or a
   specific `get_server_action_by_id` result — prefer that pairing over a bare Playwright run

@@ -25,7 +25,7 @@ This is the operator's standing lesson: **narrow for execution, wide for strateg
 Grounded in Anthropic's prompt-engineering guidance (see [references/RESEARCH.md](references/RESEARCH.md) for full sourcing):
 
 1. **Colleague test — the golden rule.** Would a minimally-briefed teammate execute this without asking a question? If they'd be confused, the model will be too. First line = a one-sentence *job to be done*.
-2. **Give context *and motivation*, then stop.** 1–3 sentences of "why this matters" targets the output. Don't bury actionable lines inside a stakeholder narrative — the agent can't reliably tell inspirational from actionable.
+2. **Give context *and motivation*, then stop.** 1–3 sentences of "why this matters" targets the output. Don't bury actionable lines inside a stakeholder narrative — the agent can't reliably tell inspirational from actionable. Constraints stay token + rule, first, at the altitude they apply — anything past that is over-explain (`state-the-rule`).
 3. **Examples lock format and decisions.** 3–5 relevant, *diverse* examples beat prose — include one happy path, one edge case, and one counter-example ("bad output looks like…"). Near-duplicate examples cause overfitting.
 4. **Separate the sections.** Keep instructions, context, inputs, and criteria in distinct blocks (headings or XML tags) so data isn't read as a constraint and vice-versa.
 5. **Assign a role** = expertise + priorities + boundaries (not just "you are an expert").
@@ -36,7 +36,7 @@ Grounded in Anthropic's prompt-engineering guidance (see [references/RESEARCH.md
 Make the doer's behavior unambiguous, verifiable, scoped, and hard to creatively misinterpret. Required components:
 
 - **Deliverable + output format** — the exact artifact ("a single PR + patch list", "JSON matching schema X"). Not "write up your findings."
-- **Acceptance criteria as pass/fail checks** — observable and, where possible, command-level: `npm test` green, typecheck clean, edge cases A/B/C covered. Not "make sure it works." *Tell:* if you can't write the ACs without inventing new requirements, the task isn't ready.
+- **Acceptance criteria as pass/fail checks** — observable and, where possible, command-level: `npm test` green, typecheck clean, edge cases A/B/C covered. Not "make sure it works." *Tell:* if you can't write the ACs without inventing new requirements, load **`grilling`** — the task isn't ready for dispatch.
 - **Scope boundaries — Always / Ask-first / Never** — allowed actions, approval gates (schema/API/dep changes), and forbidden actions (force-push, delete, add deps). Agents over-act without this.
 - **Operational facts it can't guess** — stack, versions, paths, and **house conventions** (point at the repo's own patterns; match the surrounding code). Vague references force guessing.
 - **Phase it when steps depend on each other** — foundation → core → interface → polish; agents execute sequentially and fail if a dependency isn't laid first.
@@ -58,6 +58,10 @@ Invite high-quality exploration without pre-deciding the answer. The shape the o
 Do **not** paste execution-style acceptance tests into a strategy brief — they force shallow compliance instead of exploration.
 
 ## Brief to skills, not around them
+
+**Three-layer briefs:** always-on holds the floor; skills hold method (load **whole**, no
+cherry-pick); the brief is this job only — what, why, refs, lock table, skill **names**,
+three footnotes. Never paste skill bodies into a dispatch.
 
 The doer's skills are part of the brief's context — a skilled doer already carries the
 *method*. The brief's job is to supply what the skills cannot know: the question, the
@@ -106,6 +110,8 @@ Before writing the brief, decide how many dispatches the plan becomes and what e
 
 **Horizontal slice** — one layer across the whole feature ("all the schema," then "all the UI"). Avoid: it produces no shippable increment (nothing a reviewer can exercise) and parallel horizontal slices collide on shared surfaces.
 
-How to slice: (1) find the user-observable capabilities, not the technical layers; (2) draft each slice as a tracer bullet touching only what makes that one capability real and checkable; (3) sequence, don't parallelize collisions — foundation/prefactor slices go first and blockers are named explicitly (a prefactor slice may ship no user-facing behavior, but must say so rather than disguising a horizontal layer as "foundation"); (4) every slice gets the full brief (acceptance criteria, evidence contract, scope fence); (5) don't over-split — an already-atomic demoable change needs no further slicing.
+How to slice: (1) find the user-observable capabilities, not the technical layers; (2) draft each slice as a tracer bullet touching only what makes that one capability real and checkable; (3) sequence, don't parallelize collisions — foundation/prefactor slices go first and blockers are named explicitly (a prefactor slice may ship no user-facing behavior, but must say so rather than disguising a horizontal layer as "foundation"); (4) every slice gets the full brief (acceptance criteria, evidence contract, scope fence, locked decisions); (5) don't over-split — an already-atomic demoable change needs no further slicing.
+
+**Wide refactors** are the exception: one mechanical change whose blast radius breaks every vertical slice at once (rename a shared export, retype a column). Brief as **expand–contract** — expand ticket adds new form beside old; migrate tickets batch by package/directory; contract ticket removes old form last. See `test-first`. Don't disguise a horizontal layer change as a tracer bullet.
 
 Same doctrine as `test-first`, two altitudes: test-first slices a single implementation session; this slices a plan into dispatches.

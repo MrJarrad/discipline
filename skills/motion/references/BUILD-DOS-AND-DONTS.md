@@ -8,7 +8,7 @@
 |----|-----|
 | Apply the **should-it-animate** frequency check before writing any motion | Frequency drives the decision, not aesthetics |
 | Use **`ease-out`** (custom curve) for entering/exiting UI | Starts fast, reads as responsive |
-| Keep UI animation durations **under 300ms** (see table below) | Perceived performance |
+| Keep UI animation durations **under 300ms** t90 for component scale (see table below) | Perceived performance |
 | Start entrances from **`scale(0.9)`+ with `opacity: 0`** | Nothing appears from nothing |
 | Make popovers **origin-aware** (`transform-origin` at the trigger) | Modals are the only centered exception |
 | Add **`:active` press feedback** (`scale(0.97)`) to pressable elements | Confirms the interface heard the user |
@@ -18,6 +18,11 @@
 | Respect **`prefers-reduced-motion`** (keep opacity/color, drop movement) | Accessibility — reduced, not zero |
 | Use the **Before/After/Why** markdown table when reviewing UI motion | Required format, see below |
 | Use **springs** for interruptible gestures and "alive" elements | Maintain velocity when interrupted; CSS keyframes don't |
+| **Load motion law** before sequencing work — [LAW.md](LAW.md) | House: `design-system` → `motion-law.md`; capture: folder `motion-law.md`; brief path first |
+| **Flash-before-enter:** paint **from-state on first frame** | Craft Block — always |
+| **Hidden-complete:** hold **from-state while hidden**; play **full travel** once visible | Craft Block — always |
+| **Implement law rows** — overlap, raster, type-enter, clocks — from the loaded instance | Numbers come from law + tokens, not this skill |
+| Wire the **live DOM mount path** to the same recipe constants/tests assert | Recipe-not-live: motion in code, absent on screen |
 
 ---
 
@@ -34,10 +39,28 @@
 | Ship a hover animation with **no pointer-capability gate** | Touch devices fire hover on tap |
 | Animate purely because "**it looks cool**" on a frequently-seen element | Purpose test fails — no valid reason to animate |
 | Use a vertical "Before: / After:" list format on review | Wrong format — must be a table |
+| Let **rest paint** before hide, then animate, or unhide onto rest | **Flash-before-enter** — craft Block |
+| Run animation to **`to` behind `visibility: hidden`** then unhide | **Hidden-complete** — craft Block |
+| **`animation-play-state: paused`** through hide/unhide without resetting delay | **Pause-stack** — craft Block |
+| Ship a wipe/fade recipe that **tests pin but live DOM never mounts** | **Recipe-not-live** — craft Block |
+| **Hardcode site clocks** in this skill or components when a law + token path exists | Law lives in design-system / capture / product tempo |
+| **Invent overlap, raster, or type-enter** when no law is loaded | Say law unobserved; apply craft only |
 
 ---
 
 ## Branch-specific
+
+### When a motion law is loaded
+
+**Do:** Read [LAW.md](LAW.md); implement every locked row; map clocks to design-system tokens when house law applies.
+
+**Don't:** Default to craft sequencing when the law specifies overlap, pile, raster, or a type-enter recipe.
+
+### When no motion law is loaded
+
+**Do:** Apply craft (frequency, easing, t90, GPU, accessibility).
+
+**Don't:** Block or implement site-specific overlap, clip-wipe, or nav chrome — law unobserved.
 
 ### When asked to add or review motion on a command palette / keyboard-triggered toggle
 

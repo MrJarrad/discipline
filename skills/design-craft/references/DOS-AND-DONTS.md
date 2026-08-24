@@ -14,6 +14,7 @@
 | Propose a **new token/component** with rationale when the system is missing one | System changes are deliberate, not silent |
 | **Render at real viewports** (desktop + mobile) before calling UI done | Visual truth — a code diff isn't verification |
 | Name the **surface + viewport** checked | Evidence travels with the claim |
+| Make shipped UI **self-explanatory** — extra explanation is the defect; fix the UI (caption is one shape) | Token + rule at the UI altitude; anything past self-explanatory is over-explain |
 
 ---
 
@@ -27,6 +28,7 @@
 | Preserve an old system's **quirk** (corner radius, shadow, spacing) as "load-bearing" without checking first | Usually inherited drift, not a real constraint |
 | **Quietly inline** a one-off instead of proposing a system change | Hides the decision from the next person who hits the same need |
 | Approve UI from a **code diff alone** | Must render and verify at real viewports |
+| Add **extra explanation** to shipped UI that doesn't read on its own (caption is one shape) | Fix the UI — anything past self-explanatory is over-explain |
 
 ---
 

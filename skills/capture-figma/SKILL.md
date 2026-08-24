@@ -5,6 +5,12 @@ description: Read a Figma file into buildable truth before anything gets built o
 
 # Figma Extraction
 
+**Who runs this:** Engineer or UX Designer on the dispatched Agent run — not the parent
+orchestrator reading instance props on their behalf. Parent names file key + node id; the
+doer loads this skill and reads via REST when the node id is known
+(`scripts/figma-node.mjs`) precisely because desktop Figma MCP binds to the parent session
+only.
+
 ## Rule zero — operator-supplied Figma renders are 2x retina, always ÷2
 
 Any PNG the operator hands you as a design contract (a screenshot exported from Figma,
@@ -33,6 +39,16 @@ read as "5:4" that was actually screen-height stops, a tracking value eyeballed 
 subtitle size inferred a step too large. Each misread costs a full correction round in the
 build. The fix is an order of operations: **numbers before pictures.**
 
+## Cloud vs Mac (plugin sync)
+
+- **Mac** runs the Figma Capture plugin + `capture-listener` → writes `~/JHD/captures/live/`.
+- After each sync (or when Cloud must see the tip), run
+  `~/JHD/vault/main/estate/publish-captures.sh` (or flat `~/JHD/vault/estate/…`)
+  which banks + pushes `estate/captures`.
+- **Cloud** fleet install symlinks `~/JHD/captures` → `vault/estate/captures`. Pull vault
+  before reading if a mid-session publish just landed. Taxonomy: vault `estate/capture-tools.md`.
+- Live Figma without local JSON needs Environment secret **`FIGMA_TOKEN`** (REST lane).
+
 ## Lane choice — three lanes, one hierarchy
 
 MCP, REST, and the live listener are correct at different layers — pick by what's
@@ -54,18 +70,17 @@ available and what you're reading, not by habit:
    `projects/capture-figma/decisions/`). Use this lane for anything that needs to be
    pinned to a specific version id and diffed structurally later (`figma-capture.mjs
    versions` / `snapshot --version <id>` / `delta`).
-3. **Active variables/styles/components lane — the Figma-agent-built exporter, live
-   sync.** For variables, styles, and component/layer-binding exports with full mode
-   coverage, the ACTIVE exporter (operator ruling 2026-07-26) is the Figma-in-app-agent-
-   built "Variable & style exporter" plugin, built to the contract in
-   `references/figma-agent-plugin-brief.md` — read that file, it IS the current contract,
-   not this skill's paraphrase of it. It streams its export to the local **capture
-   listener** (`scripts/capture-listener.mjs`, `POST /capture` on `localhost:4411`),
-   which writes the artifact and computes change records (see "Export shape" and "Change
-   taxonomy" below). The repo's own `figma-plugin/capture-figma` (v1.2.0) is RETIRED from
-   active use — kept solely as the contract's reference source, never dispatched as the
-   live exporter. Improvements flow brief → Figma agent → adopted into the contract, not
-   hand-edited into the retired plugin.
+3. **Active variables/styles/components lane — Capture Figma sync plugin.** For variables,
+   styles, and component/layer-binding exports with full mode coverage, the ACTIVE exporter
+   lives in **`MrJarrad/capture`** at `figma-sync/` (import
+   `~/JHD/capture/main/figma-sync/manifest.json` in Figma Development). Contract:
+   `references/figma-agent-plugin-brief.md`. Each **Sync** POSTs the same payload to
+   **both** the **capture-ingest** Worker (`capture/ingest-worker` → R2 + `jhd-vault`
+   `estate/captures/live/`) when a Bearer is saved, and the local **capture listener**
+   (`~/JHD/discipline/main/scripts/capture-listener.mjs`, `POST /capture` on
+   `localhost:4411`) when it is up. Optional `CAPTURE_AUTO_PUBLISH=1` →
+   `publish-captures.sh`. No Local/Remote toggle. The Claude-era
+   `discipline/figma-plugin/capture-figma` tree is a stub — do not import it.
 
 Ad-hoc/live-lookup: even when the REST or listener lane is the default for a file, MCP
 remains the right tool for a quick live check against whatever's on screen right now —
