@@ -5,14 +5,24 @@ get invariants / routing / operator voice **without** the Mac home plugin.
 
 ## Cloud Environment (jhd-fleet)
 Repo-file `.cursor/environment.json` auto-applies when you start Cloud from **this**
-repo (or any other Phase-1 Fleet remote). Install places vault + discipline +
-portfolio + orbit-tools + capture under `~/JHD/` (containers when the helper exists;
-flat `/workspace` for the primary). No Environment picker required.
+repo (or any other Phase-1 Fleet remote). **One repo on disk** — install links
+discipline (when needed), clones vault, symlinks captures when present; it does
+**not** clone sibling products. No Environment picker required.
 
 On resume: this project's `projects/<name>/<name>-handover.md` (infer from workspace), then
 `~/JHD/vault/main/orchestrator/cockpit.md` or `~/JHD/vault/orchestrator/cockpit.md`.
-If vault is **missing** on Cloud → **Environment misconfigured** — do not invent
+**After transcript summary / continued chat, re-read project handover before dispatch or wrap** — summary ≠ handover.
+If vault is **missing** on Cloud → warn and use in-repo docs; do not invent
 HANDOVER or pretend in-repo docs are the full brain.
+
+## Orchestrator self-check
+Before ending a turn where a product was touched:
+```
+[ ] Handover current?
+[ ] If closing: wrap skill complete (not handover-only)?
+[ ] No parent product edits?
+[ ] Vault writes went through vault-write?
+```
 
 Cross-repo edits are expected (discipline improvements from product work) — PR the
 correct GitHub remote (`jhd-cursor-discipline` for rails/skills).

@@ -9,7 +9,7 @@ alwaysApply: true
 Only escalate creative / aesthetic / scope / destructive decisions. One recommendation each, name the alternative. Never dump menus of technical options.
 
 ## Quality
-Best-in-class or a named gap. Verify before claiming (run build/typecheck/tests; cite evidence). Never fabricate. Prefer skills: quality, verify-finding, qa-acceptance.
+Best-in-class or a named gap. **Verify before claiming** means reviewer **PASS** for product and discipline/plugin behaviour changes — engineer self-report is not verify. Run build/typecheck/tests; cite evidence. Never fabricate. Prefer skills: quality, verify-finding, qa-acceptance. Claiming done without reviewer PASS is a quality failure (narrow skip: typo/comment-only with no behaviour change).
 
 ## Figma
 When a design file exists, Figma is the contract — names 1:1. Deviations are defects, not judgment calls. Use capture-figma before building/auditing against design.
@@ -27,9 +27,9 @@ Load `skills/design-system` when starting or reviewing JHD web UI.
 ## Commits, PRs & releases
 No commit without green typecheck (and tests when relevant). Commit coherent slices early. Never force-push.
 
-**Merges are agent remittance.** After verify is green, open the PR and merge it (`gh pr merge`) — do not ask the operator to click Merge. Close obsolete/superseded drafts the same way.
+**Merges are agent remittance.** After verify is green (**reviewer PASS** — not engineer self-report), open the PR and merge it (`gh pr merge`) — do not ask the operator to click Merge. Close obsolete/superseded drafts the same way.
 
-Product **releases** (deploy/production) still require reviewer PASS then releaseops. Routine discipline/docs/vault/tooling PRs merge after verify without an operator merge step.
+Product **releases** (deploy/production) still require reviewer PASS then releaseops. Routine discipline/docs/vault/tooling PRs merge after **reviewer PASS** without an **operator merge click** — reviewer is not optional because the PR is routine.
 
 ## Memory
 Chat is ephemeral. Durable state lives in the **vault working tree** when the machine has it. Bank via vault-write. On resume / "where was I": infer the project from the workspace, read that `projects/<name>/<name>-handover.md` first (else the hub), then the cockpit `orchestrator/cockpit.md`. Rulings: handover-trays, unique-note-names. End sessions with wrap when work was non-trivial.

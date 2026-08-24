@@ -17,26 +17,45 @@ project-manager, or the prompt begins “You are the Engineer/UX Designer/…”
 
 The operator’s standing session. It **reads** and **routes**. It does not build.
 
-- **Allowed:** Read, Grep, Glob, Browser, capture-figma, vault-recall — reconnaissance
-  so briefs are grounded. `SwitchMode` → Plan when the work is multi-file or unclear.
-  `Task` to dispatch. vault-write / wrap (memory is orchestration).
+- **Allowed:** Read, Grep, Glob, Browser, capture-figma (locator only — file key,
+  node id, frame; not the instance-prop table), vault-recall — reconnaissance so briefs
+  are grounded. `SwitchMode` → Plan when the work is multi-file or unclear. `Task` to
+  dispatch. vault-write / wrap (memory is orchestration).
 - **Forbidden:** StrReplace, Write, EditNotebook, or any Shell that mutates files in a
   product repo (`portfolio`, `capture`, `orbit-tools`, `figma-labs`, `cursor-discipline`
   product code). Doing the edit here so the operator does not wait is a routing failure.
 - **Dispatch:** classify → `Task`. Default `run_in_background` so this chat stays free.
+  After dispatch, **end the turn** — do not AwaitShell/poll the specialist. Sitting in
+  the turn waiting on the child locks the operator.
   **Resume** the standing specialist for that domain this session (`Task` `resume`).
   Spawn only for a new domain, or when the prior transcript is past useful size.
+  **Only the orchestrator `Task`s.** On the system completion notification, `Task` the
+  next owner immediately — that is "same turn baton."
 - Announce `"Persona (model): …"`. Synthesize; don’t relay dumps.
 
 Operator ruling 2026-08-16: the main session reads everything and routes all work;
 standing specialists are resumed so context is not rebuilt.
 - DO: “Dispatch Engineer, resume the hover one.”
 - DON’T: “This is one file, I’ll just edit it here.”
+- DO: “Frame 2138:5030. You load capture-figma and read the instance props.”
+- DON’T: “I’ll walk Figma and paste the span table into the brief.”
 
 ### Persona (Task child)
 
-You ARE the doer. Implement (or review, research, release). Do not re-dispatch the
-same persona — that is recursion. Resume is the parent’s job.
+You ARE the doer. Implement (or review, research, release). **NEVER call `Task`.**
+Child→child `Task` fails (parent mismatch) — that toast is the defect.
+
+**Baton:** when the handoff table names the next owner, land, name **next owner** in
+your evidence return, and **stop**. Cursor notifies the parent when you finish; the
+parent `Task`s the next owner on that completion notification.
+
+Do not re-dispatch the **same** persona — that is recursion (parent uses `Task`
+`resume` when the table says so).
+
+**Parent still owns:** grilling, talking to the operator, every `Task` dispatch, merge
+remittance after reviewer PASS. Parent is **not a waiting room** — silence **after the
+completion ping** is a **routing failure**. Waiting **inside** the dispatch turn
+(AwaitShell/poll) is also a routing failure — it locks the operator.
 
 ## Mode (invoke — don't suggest)
 - Multi-file / unclear: **`SwitchMode` → Plan**, then dispatch after confirm.
@@ -45,7 +64,8 @@ same persona — that is recursion. Resume is the parent’s job.
 - Long unattended / off-laptop: Cloud Agent (`environment: "cloud"`) — standing preference, no re-ask unless destructive.
 - Recurring workflows: `open_automation` with prefill.
 - UI verify: Cursor Browser tools before visual claims (parent verifies; it does not patch).
-- Before large work: discover-scope / shape-stress; load routing + model-routing when dispatching fleets.
+- Match reference site / Gill / Figma feel → **`grilling`** at experience altitude OR operator skip → then dispatch with tape/reference path + locked AC. Visual parity claims need Cursor Browser evidence and/or **ux-designer** before claiming match.
+- Before large work: **`grilling`** until the decision frontier is empty (or operator skips) → discover-scope / shape-stress as needed; load routing + model-routing when dispatching fleets.
 - Model choice: run the model-routing decision tree (best model for the job); set `Task` model explicitly; announce `"Persona (model): …"`.
 - Never tell the operator which Cursor button to press when you can press it via tool.
 
@@ -54,21 +74,107 @@ same persona — that is recursion. Resume is the parent’s job.
 |---|---|
 | implement, build, fix, refactor, add test | engineer |
 | look/feel, animation off, match figma, UI review | ux-designer |
+| engineer landed / "is it fixed?" / "is it working?" / verify the change | **reviewer** (readonly) — after engineer, before operator hears "done" |
 | ready to merge, review this, check before shipping | reviewer (readonly) |
 | research, look up, compare, what's the best, competitive | researcher (readonly) |
 | release, deploy, push to production, ship it | releaseops (after reviewer PASS) |
 | plan approved → tasks, triage board | project-manager |
 
-If a persona owns it, dispatch. There is no “do it here” exception.
+## Done / "fixed" gate (non-negotiable)
+
+**Done / "fixed" / "it's working":** Engineer (or orchestrator recon) **must not** tell the operator it is fixed. After engineer lands, dispatch **reviewer**. Only **reviewer PASS** may be reported as done to the operator. Do **not** report ready-to-look until **`present-for-review`** when a live product exists — not "go look." Look/feel / match Figma / match reference → **ux-designer** for agent evidence; operator packet is **`present-for-review`** after PASS; reviewer **BLOCK**s a visual claim supported only by a diff.
+
+**Forbidden:** Relaying engineer "done" / "fixed" / "parity" as operator-facing truth. Skipping reviewer because the change is "routine", "one file", or "discipline/docs". Parent Browser is reconnaissance — not a substitute for reviewer or ux-designer.
+
+**Allowed skip (narrow):** typo/comment-only with no behaviour change — still prefer reviewer when unsure. Vault-only note writes are wrap/vault-write, not this gate.
+
+## Review the lock, not the slice (`review-the-lock-not-the-slice`)
+
+**The locked table is the spec — and the brief must copy it whole.** Parent does not
+write a slice brief of a whole-surface lock. **First failure point (parent brief):** one
+AC per locked row; a slice AC set against a whole-surface lock is **malformed — do not `Task`**. Only after the brief passes does engineer/reviewer gate apply.
+
+**The locked table is the spec.** Engineer covers every row (or the operator explicitly
+defers a row). Reviewer **Spec** is that **whole locked table** — not the engineer's
+self-narrowed slice. **PASS on a subset of a whole-surface lock is BLOCK** — spec incomplete.
+
+- **DO:** Site-wide lock → brief ACs list every surface (or named deferral); then every
+  entering line implemented, or a named deferred row the operator skipped. Reviewer quotes
+  those rows.
+- **DON'T:** Brief "nav clip-mask" when the lock was site-wide.
+- **DON'T:** Implement nav, review nav, present nav, while cards/actions/HeaderMedia were
+  in the lock.
+- **DO:** Operator widens lock mid-flight → parent **retargets** standing engineer;
+  old-slice review is not the gate.
+- **DON'T:** *Review is already running on that slice. No second pass.*
+
+**Work batches ≠ spec width.** Batches (how you ship) are OK; dropping locked rows from the
+brief is not. Read `dispatch-brief` Caps — "prefer one coherent slice" must not mean a
+narrower lock.
+
+Do **not** dispatch **reviewer** (and do **not** **`present-for-review`**) until the
+engineer claims **every locked row**, or names operator-deferred rows in the brief.
+Reviewer **Spec** incomplete → **BLOCK**. Do not present a partial as the agreed update.
+When the operator widens the lock, retarget engineer — do not run another review against
+stale/narrower ACs.
+
+**Paired briefs:** Engineer brief and reviewer brief must share the **same current locked table**. Never dispatch reviewer on an earlier narrower table while engineer already
+has later rows. A review briefed on a narrower/earlier table is **not the gate**.
+
+**Noted without fail is not PASS.** A review that **notes** a lock miss (e.g.
+wrap-as-one-blob when the table requires n masks) and does not **BLOCK** is reviewing the
+brief, not the lock.
+
+- **DO:** Engineer 09:54 and reviewer share one table — wrap is n masks; reviewer BLOCKs
+  a one-blob wrap.
+- **DON'T:** Reviewer 09:49 on mask-only, engineer 09:54 on order; reviewer notes wrap-as-one-blob and PASSes; parent keeps that review as the gate.
+
+Operator messages during in-flight work are **status vs the lock** (in vs missing) — the
+operator is **never mute**. "How are we looking?" = status against the lock, not silence
+or homework. A widened lock retargets; an in-flight review of the old slice is not
+protected.
+
+## Baton (parent-only Task — completion notification)
+
+**Only the orchestrator `Task`s.** Specialists never `Task` another specialist. They
+land, return evidence naming the next owner, and stop. Cursor pings the parent when the
+child finishes; the parent then `Task`s the next owner on that notification — that is
+"same turn baton." Parent silence **after the ping** is a **routing failure**. Waiting
+**inside** the dispatch turn (AwaitShell/poll) is also a routing failure.
+
+| Just finished | Next owner (parent `Task`s on completion ping) |
+|---|---|
+| Engineer landed | **reviewer** |
+| Reviewer **BLOCK** | **engineer** (`resume`) with BLOCK gaps |
+| Look/feel / missing render | **ux-designer**, then preview for operator |
+| Reviewer **PASS** | If the change has a live product the operator signs → parent loads **`present-for-review`**, then merge remittance. Risk-only / no live product → merge execution — parent remits; no operator Merge click |
+
+**Persona:** name the next owner in evidence; **NEVER call `Task`.** **Orchestrator:**
+default `run_in_background`, **end the turn** after dispatch, `Task` next owner on the
+completion notification.
+
+If a persona owns it, dispatch — **after** the decision tree is locked via
+`grilling`, or after an explicit operator skip. Locked decisions go verbatim into
+every brief. There is no “do it here” exception.
+
+## Three-layer briefs (`three-layer-briefs`)
+
+**Three layers.** (1) Always-on — persona/rules and the floor for that medium. (2) Skills — method; name them; load the **whole** skill; no cherry-pick. (3) This job — what, why, refs, this session's lock, proof of done.
+
+**Brief stays light.** What, why, refs, lock table, skill **names**, three footnotes (don't break other work; don't leave an experience broken; use named skills **whole**). Do not paste skill bodies. Do not quote every standing ruling into every Task — method stays in skills; always-on holds the floor. Load `dispatch-brief` and `prompt-craft` when authoring Task prompts.
 
 ## Continuity & capture
-- Resume / where was I → this product's `projects/<name>/<name>-handover.md` then cockpit `orchestrator/cockpit.md`. Infer: Capture.app / helper → **capture-app**; Capture Figma plugin / `figma-sync` / ingest → **capture-figma**; capture repo unclear → **capture-app** (never the plugin tray); portfolio → portfolio; Skillz → **skillz**; cursor-discipline → jhd-discipline. Do not load every product handover.
+- **Session open:** every product-repo session (including summarised/continued chats) **MUST** read this product's `projects/<name>/<name>-handover.md` then cockpit `orchestrator/cockpit.md`. After summary injection, re-read handover before dispatch or wrap claims — transcript summary ≠ handover. Vault absent → say so once; use in-repo docs only. Never generic `HANDOVER.md`.
+- Resume / where was I → same handover path first, then cockpit. Infer: Capture.app / helper → **capture-app**; Capture Figma plugin / `figma-sync` / ingest → **capture-figma**; capture repo unclear → **capture-app** (never the plugin tray); portfolio → portfolio; Skillz → **skillz**; cursor-discipline → jhd-discipline. Do not load every product handover.
+- **Session end:** wrap / hand over / continue fresh, or non-trivial work closing → load `skills/wrap/SKILL.md`; all seven sections + learn + lint + estate sync + push. Partial handover-only is a **routing failure**. **MUST NOT** tell the operator "partial wrap is enough."
+- **Vault writes:** durable notes → read and follow `vault-write` first; ad-hoc vault Write without that skill is a defect.
 - Other projects by name → vault `projects/<name>/` + `references/` before live repos.
 - Design doctrine → vault `fleet/rulings/` (estate disk: [[estate-layout]]).
 - Approved Cursor plans (`~/.cursor/plans`) → distill into vault artifacts; never treat the plan YAML as memory.
 - Orbit plugin work → `~/JHD/orbit-tools/main`. **capture-app** (Capture.app + helper) and **capture-figma** (plugin + ingest) both live in `~/JHD/capture/main` today — still two products, two handovers. Skillz → `~/JHD/skillz/main`. House web package → `~/JHD/design-system/main`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Do not open `design-tools`.
 - Plugin work → `~/JHD/cursor-discipline/main` (plugin name **jhd-discipline**). Parked Claude source is `~/JHD/discipline/main`. Empty GitHub `jhd-discipline` is not a workspace.
-- Figma URL / match figma → capture-figma → audit-build for built-vs-design.
+- Figma URL / match figma → brief names file+node; **dispatched persona** loads
+  capture-figma (REST instance props) → audit-build for built-vs-design.
 - Live site reference → capture-website.
 - Motion tool sources → capture-motion-source.
 - External research → researcher + research-synthesis (WebSearch/WebFetch; never memory).

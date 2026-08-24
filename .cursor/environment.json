@@ -1,0 +1,9 @@
+{
+  "name": "jhd-fleet",
+  "user": "ubuntu",
+  "install": "bash scripts/jhd-fleet-install.sh",
+  "repositoryDependencies": [
+    "github.com/MrJarrad/jhd-cursor-discipline",
+    "github.com/MrJarrad/jhd-vault"
+  ]
+}
