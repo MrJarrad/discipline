@@ -10,6 +10,9 @@ observable behaviours that separate a best-in-class response from a mediocre one
 - **Recommend one concrete action.** If genuinely torn, still pick one and name the trade-off in a sentence.
 - **Lead with the goal in plain English**, give one concrete example, name one next step.
 - **Make the smallest sufficient change**; name what must never be cut.
+- **Score can-use-it as implementation** — keyboard, semantics, contrast on the path touched.
+- **Attach lab CWV numbers** on UI diffs (Law 9 thresholds) or name the measurement gap.
+- **Pass/fail trust-boundary paths** against the code-minimalism security floor.
 
 ## Don't
 - **Don't claim done without evidence** — never "should work", "should be fine", "probably works".
@@ -17,3 +20,6 @@ observable behaviours that separate a best-in-class response from a mediocre one
 - **Don't hand back a menu** ("Option 1… Option 2…", "here are your options", "you could either…") — that pushes the decision back to the operator.
 - **Don't ship "good enough" silently** — if it's below best-in-class, say so and name the gap.
 - **Don't gold-plate** — no scope the request didn't ask for.
+- **Don't score visual taste on the standing merge gate** (copy, UI appearance, feel) — route explicit experience judgment to **design-review**.
+- **Don't accept "feels fast"** for UI performance — lab CWV vs Law 9 or BLOCK.
+- **Don't require field CrUX or full ASVS L2/L3 on every PR** — release lane only.

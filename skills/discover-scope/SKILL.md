@@ -74,9 +74,8 @@ than one serial lookup — parallel research subagents work well here. Follow
 `quality`'s never-fabricate bar: **source every finding, or flag it as
 still open** — never invent a fact, a file path, or a number to fill a gap. For
 the research method itself (decompose, fan out, source-or-stop, adversarially
-verify, synthesize with confidence), use `research-synthesis`; for external
-lookups specifically, use `perplexity-research`. Don't restate either method
-here — just apply it.
+verify, synthesize with confidence), use `research-synthesis` (WebSearch +
+WebFetch). Don't restate the method here — just apply it.
 
 Merge findings into the SCOPE doc yourself; don't paste raw research dumps in.
 

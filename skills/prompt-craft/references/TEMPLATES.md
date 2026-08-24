@@ -12,6 +12,13 @@ Why this matters: {1–3 sentences — the point of the change}.
 Repo/stack facts: {languages, frameworks, versions, paths, the conventions to match}.
 </context>
 
+<locked_decisions>
+<!-- From grilling — operator verbatim, not paraphrase. Parent translates experience → technical once. -->
+| # | Operator said (verbatim) | Means technically (one line) |
+| - | --- | --- |
+| 1 | "…" | … |
+</locked_decisions>
+
 <task>
 Job to be done (one sentence): {…}
 Deliverable: {exact artifact — e.g. "one PR + patch list"}.
@@ -54,6 +61,13 @@ Before finishing: run the checks; if failing, iterate; then re-verify against th
 > Never: add a dependency or alter the API.
 
 Two implementers now converge; "done" is a pass/fail check.
+
+**Bad (ACs invented — should have grilled first):**
+> Make the nav feel better and handle edge cases.
+
+**Good (ACs trace to locked decisions):**
+> Locked: "If I'm mid-scroll and tap Home, I land at the top — not where I was."
+> Done when: Home tap resets scroll to 0 on `/` and `/work`; `webapp-testing` spec passes.
 
 ## 2) STRATEGY / design brief (open exploration)
 

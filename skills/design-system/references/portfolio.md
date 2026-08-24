@@ -1,84 +1,61 @@
 # Reference instance — the portfolio site
 
-The portfolio site (`~/JHD/portfolio`, dev server on :3210) is the living,
-production instance of the house design system. When you need a worked example
-of the system used well, read the real source there rather than inventing a
-pattern.
+The portfolio site (`~/JHD/portfolio/main`, dev server on :3210) is the living
+**composition** example for JHD web UI — how house tokens and Action look in
+production. It is **not** the token source of truth once `@jhd/design-system`
+ships CSS; until then, its stylesheet is the interim contract.
 
 ## Where things live
 
 ```
 src/
-  index.css                    ← the token contract (the source of truth)
+  app/globals.css              ← interim token contract (sections 1–11 + action-base/badge-base)
   lib/utils.ts                 ← cn()
   components/
-    ui/                        ← shadcn primitives (owned source)
+    ui/                        ← site primitives aligned to house Action/Badge
     theme-provider.tsx         ← light/dark/system, class on <html>
-    <block>.tsx                ← site blocks (composed sections)
-  ...                          ← page-level compositions built from blocks
-components.json                ← shadcn config (baseColor: neutral)
+    <block>.tsx                ← site blocks (composed sections — NOT the system)
+  ...
+components.json                ← shadcn config where still used
 ```
 
-Read the actual tree — it is the source of truth; this sketch is only the shape
-to expect.
+Read the actual tree — this sketch is only the shape to expect.
 
-## Blocks — the reusable rung above primitives
+**Package vs site:** `MrJarrad/jhd-design-system` (`~/JHD/design-system/main`)
+owns tokens + Action/Badge/`cn()` once extract lands. Portfolio owns **site
+compositions** — NavigationHeader, list feed, case-study panels, print layouts.
+Do not copy those blocks into new apps as if they were the system.
 
-The site's own composed sections are what "pages are built from blocks, not raw
-markup" looks like in practice — study the existing blocks before building a new
-one. House block patterns proven in production:
+## Interim contract (until package CSS lands)
 
-- **EmptyState** — the house "nothing here yet" shape (icon in a soft circle,
-  title, optional description, optional action), reused so every empty surface
-  reads as one system. Reach for this, don't hand-roll a per-screen empty
-  message.
-- **Shell/header blocks** — a consistent page/section header + content
-  container, used everywhere rather than per-page markup.
+`src/app/globals.css` sections 1–11 define:
 
-## States are part of the system
+- Figma-named surfaces: `background-default-*`, `content-default-*`
+- Type roles: `title-style1-*`, `body-style1-*`, caption utilities
+- Action radii and `action-base` / `badge-base`
+- Dark swap via token overrides — not per-component `dark:` colour fixes
 
-Empty / loading / error / disabled aren't afterthoughts — they get the same care
-as the happy path (design-craft's visual bar). The house patterns: **empty →
-`EmptyState`** (above); **loading → `Skeleton`** (matching the shape of the
-content it replaces); **disabled → the shared
-`disabled:opacity-50 disabled:pointer-events-none`** every primitive already
-carries; **error/invalid → `aria-invalid` + the `destructive` token pair**. Build
-these states when you build the happy path, not after.
+When the package publishes CSS, new web products import it and portfolio
+migrates off duplicated sections — still **no vendoring** into other repos.
 
-## Layout patterns
+## Blocks — composition, not primitives
 
-- **Container queries** (`@container`) on content sections so responsive
-  behaviour is driven by container width, not viewport — the composition-ladder
-  "responsive by construction" done right.
-- **Responsive collapse** — labels collapse to icons when narrow rather than
-  wrapping or truncating arbitrarily.
+Site blocks (EmptyState, shell/header patterns) show how design-craft's
+composition ladder works in production. Study before building a new block;
+**do not** treat them as copy-paste kit for other products.
 
-## Motion conventions (see also the `motion` skill)
+## States
 
-No Framer Motion — Tailwind `tw-animate-css` + CSS transitions only.
+Empty / loading / error / disabled follow house patterns: EmptyState, Skeleton,
+shared disabled opacity, `aria-invalid` + destructive pair. Build with the happy
+path.
 
-- **Dialogs/modals:** `data-open:animate-in fade-in-0 zoom-in-95` /
-  `data-closed:animate-out fade-out-0 zoom-out-95` (~100ms).
-- **Nav:** slide + custom easing `cubic-bezier(0.22, 1, 0.36, 1)`, ~300ms.
+## Motion
 
-Match the `motion` skill's decision framework when adding motion — most repeated
-actions (keyboard toggles) get **no** animation.
+Tailwind `tw-animate-css` + CSS transitions — see [`motion`](../../motion/SKILL.md).
+Portfolio often inlines durations; promote to motion tokens when patterns repeat.
 
-*Seam note:* durations/easings are often inlined per component (Tailwind
-`duration-100`, one-off cubic-beziers), not yet promoted to `--ease-*` /
-`--duration-*` tokens. The `motion` skill prescribes named easing curves — promote
-them into the token contract when motion grows beyond a handful of one-offs.
+## Design docs
 
-## House additions this instance proves out
-
-The starter's labelled additions are all load-bearing here: `success`/`warning`
-tokens (status badges, toasts), the `--chart-1..8` palette (shared by charts
-*and* the tag/label palette so both read as one system), and the multiplier
-radius scale (button sizes clamp radius with `rounded-[min(var(--radius-md),12px)]`).
-
-## Design docs in the repo
-
-Check the repo's own docs (`README`/handover notes) for the design philosophy
-and open threads. House rule: *"nothing raw; compose from shadcn primitives"*
-and the operator ethos — *simple is the harder, better answer; design is how it
-works (no affordances that lie)*.
+Vault ruling: `fleet/rulings/jhd-design-system.md`. Repo handover:
+`projects/portfolio/portfolio-handover.md`.

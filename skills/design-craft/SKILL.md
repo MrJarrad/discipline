@@ -40,13 +40,18 @@ When you move UI onto a design system, adopt its **conventions and real componen
 1. **Find the system.** Locate this project's design system + usage guide (check the repo: `AGENTS.md`, a tokens/design dir, a `shared/` foundation). Read it before touching UI.
 2. **Reach for what exists first.** Use the project's tokens, components, and patterns. "Almost the same but slightly different" is the enemy — use the system as-is or extend it; invent only with a stated reason.
 
-## The visual bar (applies everywhere)
+## The visual bar (design-review / explicit look-right)
+
+Applies on **design-review** or when the brief explicitly asks to look right / match feel —
+**not** the standing engineer/reviewer merge gate. Standing build still enforces **nothing raw,
+ever** (tokens/components only).
 - **Hierarchy is visible** — a stranger can tell primary/secondary/tertiary in two seconds.
 - **Spacing is intentional** — from the scale; no stray gaps, nothing crammed.
 - **Alignment is ruthless** — everything to a grid / baseline / shared edge.
 - **Type has a system** — sizes/weights/line-heights from the scale, not per-component.
 - **Density matches context** — dashboards dense, marketing breathes, forms have room.
 - **Polish the defaults** — empty / loading / error states get the same care as the happy path.
+- **Self-explanatory UI** — extra explanation on shipped UI is the defect; fix the UI (a caption is one shape of that defect).
 
 ## Verify before done (visual-truth)
 Render the surface at real viewports (desktop + mobile) — don't approve UI from a code diff alone. Name the surface + viewport you checked.

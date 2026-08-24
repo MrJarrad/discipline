@@ -109,7 +109,7 @@ ratios, not checked after:
 
 ### The house tool — Orbit
 
-We have this in-house: **Orbit Color Manager** (`MrJarrad/design-tools/color-manager`),
+We have this in-house: **Orbit Color Manager** (`MrJarrad/orbit-tools/color-manager`),
 a Figma plugin that *is* a working best-in-class implementation of everything above.
 Use it to generate and validate brand ramps rather than reinventing the math.
 
@@ -156,7 +156,7 @@ Boilerplate now, not novel work:
   (scrollbars, form widgets) theme too (partial mitigation, not a content fix). — [css-tricks FART](https://css-tricks.com/flash-of-inaccurate-color-theme-fart/)
 - **Persist** in `localStorage`; default first-time visitors to `prefers-color-scheme`.
 
-The portfolio site's `theme-provider.tsx` (`~/JHD/portfolio`)
+The portfolio site's `theme-provider.tsx` (`~/JHD/portfolio/main`)
 already does the light/dark/system + class-on-`<html>` half; a brand axis adds a
 second `data-brand` attribute alongside.
 

@@ -7,8 +7,9 @@
 | Do | Why |
 |----|-----|
 | **Vertical slices** — one test, one minimal implementation, repeat | Tracer bullets; tests match actual behavior |
-| **Confirm** the public interface and priority behaviors before coding | Can't test everything; focus on critical paths |
+| **Confirm seams** before first red | Unconfirmed seams produce imaginary coverage |
 | Test through **public interfaces** only | Survives refactors |
+| **Independent expected values** — spec, fixture, literal | Tautological tests never fail |
 | Match test names to the project's own domain vocabulary | Aligns with project language |
 | **Run tests** after each refactor step | Refactor only when green |
 | Mock only at **system boundaries** (external APIs, DB, time, filesystem) | Keeps tests behavior-focused |
@@ -22,7 +23,9 @@
 | **Horizontal slice** — all tests then all code | Produces tests for imagined, not actual, behavior |
 | Refactor while **red** | Get to green first |
 | Mock **internal** collaborators | Tests implementation, not behavior |
+| Write **tautological** assertions | Passes by construction; never catches regressions |
 | Test **private** methods | Couples tests to structure |
+| Force a **wide refactor** into one tracer bullet | Use expand–contract instead |
 | Add **speculative** features beyond the current failing test | One behavior per cycle |
 | Force red-green ceremony on **trivial**, non-behavioral edits | Wrong tool for typo/format fixes |
 
@@ -73,6 +76,11 @@ Next: test checkout with one item
 ```
 
 **Bad:**
+
+```
+expect(total(items)).toBe(items.reduce((s,i)=>s+i.price,0))
+-> Tautological; recomputes like the code
+```
 
 ```
 I'll write tests for all 12 endpoints first, then implement.

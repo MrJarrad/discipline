@@ -1,132 +1,82 @@
 ---
 name: design-system
-description: The house web design system — the concrete WHAT (token contract + shadcn/Radix components on Tailwind v4) that design-craft's HOW applies. Trigger when starting a new web UI project, wiring tokens or theme, reaching for a colour/spacing/radius/shadow value, adding or extending a component, or reviewing UI for system conformance. Not for iOS/macOS UI, and not the composition rules themselves — that's design-craft.
+description: The JHD house web design system — Figma-named tokens, Action/Badge primitives, and consumption of @jhd/design-system. Trigger when starting or reviewing JHD web UI, wiring tokens or theme, reaching for a colour/spacing/radius/type value, or reviewing UI for system conformance. Not for iOS/macOS UI (Swift binds the same Figma variables), not Figma plugins, and not site compositions — that's design-craft.
 ---
 
-# Design System
+# Design System — JHD house web
 
-A design system has two halves: **what exists** (the tokens, the components) and **how you wield it** (the composition ladder, the visual bar). This skill is the **what** for house web UI. [`design-craft`](../design-craft/SKILL.md) is the **how**, [`motion`](../motion/SKILL.md) is motion/feel, and all three sit under [`quality`](../quality/SKILL.md) (the bar). Don't re-derive the composition ladder here; don't ignore the token contract there.
+The **what** for JHD web UI: Figma-named tokens 1:1, Action/Badge/`cn()` primitives, and the shared package. [`design-craft`](../design-craft/SKILL.md) is the **how** (composition ladder, visual bar); [`motion`](../motion/SKILL.md) is motion/feel. All three sit under [`quality`](../quality/SKILL.md).
 
-**The stack — one house standard for web UI:**
-
-| Layer | Choice |
-|---|---|
-| Framework | React 19 + TypeScript + Vite |
-| Styling | Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first `@theme`) |
-| Components | shadcn/ui on Radix primitives — `style: radix-nova`, `baseColor: neutral`, CSS variables on |
-| Variants | `class-variance-authority` (CVA) |
-| Class merge | `cn()` = `clsx` + `tailwind-merge` |
-| Colour space | OKLCH (perceptual — lightness math is predictable) |
-| Icons | `lucide-react` · Toasts `sonner` · Charts `recharts` · Font `Geist Variable` |
+**This is not a generic Vite + Geist + shadcn starter.** JHD web products consume the house package — they do not scaffold a parallel token contract.
 
 ## When to use
 
-- Bootstrapping a new web project → start from the portable baseline, don't hand-assemble tokens.
-- Wiring theme / dark mode, or reaching for a colour, spacing, radius, or shadow value.
-- Adding a component (install from shadcn first — see below) or extending one with a new variant.
-- Reviewing UI for conformance: is every value a token? is dark handled by variable swap, not per-component overrides? Run the grep-able [conformance checklist](references/conformance.md).
-- Shipping **visual work** for sign-off: don't just eyeball it — **produce a conformance report as evidence** (per-dimension on-system/flag with the nearest token for any raw value, plus an a11y read and an overall verdict), attach it to the issue, and let the operator approve it. This is what proves the system was *applied correctly*, not merely that it looks nice. Procedure + report contract: [conformance-report.md](references/conformance-report.md).
-- Reskinning for a new brand/style, or making a system multi-brand → [theming.md](references/theming.md).
+- Starting or reviewing **JHD web UI** (portfolio, Skillz, any future web product).
+- Wiring theme / dark mode, or reaching for a colour, spacing, radius, or type value.
+- Adding or extending a primitive (Action, Badge) or checking conformance.
+- Shipping visual work for sign-off → produce a [conformance report](references/conformance-report.md).
 
-## The token contract — the heart of it
+## The contract — Figma names 1:1
 
-Every colour is a **semantic token**, never a literal. You don't write `bg-white` or `text-zinc-900`; you write `bg-background` and `text-foreground`. The token's *value* differs between light and dark; the *name* you reference never changes. That single indirection is what makes theming, contrast, and rebranding free.
+Token names mirror Figma variables and styles exactly. Deviations are defects.
 
-**Foreground pairs with background.** Tokens come in `X` / `X-foreground` pairs — `primary`/`primary-foreground`, `card`/`card-foreground`, `destructive`/`destructive-foreground`. Put `X` on a surface, `X-foreground` on the text/icons over it. The pair gives you one reusable *place* to guarantee contrast — but it doesn't make contrast automatic: **verify each pair against WCAG 2.x AA** (4.5:1 text, 3:1 large text / UI) in both themes; that's the legal floor. (APCA is a useful extra perceptual check but is *not* a ratified standard yet — see [foundations](references/foundations.md).) Never mix a foreground from one pair onto another pair's surface.
+**Surfaces & content:** `background-default-*`, `content-default-*` (primary / secondary / tertiary and their pairs).
 
-**The semantic set** (full copy-paste values live in [references/starter/index.css](references/starter/index.css)):
+**Type roles:** `title-style1-*`, `body-style1-*`, caption roles — bind the **style**, not ad-hoc `text-lg`.
 
-- **Surfaces:** `background`, `card`, `popover`, `sidebar` (+ their `-foreground`)
-- **Intent:** `primary` (the one high-emphasis action / brand) · `secondary`
-  (lower-emphasis solid) · `muted` (quiet backgrounds + `muted-foreground` for
-  secondary text) · `accent` (hover/selected wash on neutral items) — each with a
-  paired `-foreground`. Reach down this emphasis ladder: most surfaces are neutral,
-  `primary` is scarce by design.
-- **Status:** `destructive`, `success`, `warning` — semantic, used at low-alpha for backgrounds (`bg-destructive/10`) and full-strength for text/icons
-- **Lines & focus:** `border`, `input`, `ring`
-- **Categorical:** `--chart-1..8` — a fixed 8-hue palette for charts *and* tags/labels, so both read as one system. Extend in-pattern (evenly-spaced hues) past 8.
+**Action & motion:** Action radii, motion tokens — same names in CSS and Figma. **Motion law** (sequencing grammar, type enter, token-bound clocks): [references/motion-law.md](references/motion-law.md). The [`motion`](../motion/SKILL.md) skill reads and implements law; it does not own it.
 
-**Dark mode is a value swap, not a restyle.** Tokens are declared once in `:root` and overridden wholesale in `.dark`; a `dark` class on `<html>` flips them. Components never carry `dark:` colour overrides for their base look — they reference tokens and inherit the swap. (The only legit `dark:` uses are the rare structural tweak, e.g. a translucent input fill.) If you're writing `dark:bg-…` to fix a colour, that's the tell you skipped a token.
+**The one rule:** a raw colour, type size, radius, or space is a bug. Need something the contract lacks? Add the token in the **package** (or propose it), then reference it — never inline around it.
 
-**Theming is the payoff — a whole reskin from swapping values.** Because nothing references a raw value, changing the primitives (colours, radius, font) reflows through semantics → components → screens: a new brand or style, no component edits. The dark swap is just the first proof of it. To reskin *by brand* (not only by mode) you add the primitive ramp layer the collapsed baseline lacks, generate ramps perceptually with the house **Orbit** tool, and re-point the semantic aliases. Full architecture, mechanisms, and the reskin recipe: [references/theming.md](references/theming.md).
+**Dark mode is a token swap**, not per-component `dark:` colour overrides. Tokens are declared once; a theme class flips values. Components reference stable names.
 
-**Radius scales from one root.** `--radius: 0.625rem` (10px) drives a multiplier scale — `--radius-sm` (×0.6) through `--radius-4xl` (×2.6). Use `rounded-md`/`rounded-lg`/`rounded-xl`, never a raw `rounded-[7px]`.
+**Consumers supply Suisse** via `--font-suisse`. Font files stay with each app — do not vendor font copies into the package.
 
-**Tiers — where the baseline sits, and when to grow it.** The industry standard at scale is three tiers: **primitive** (raw values, named by value — `blue.500`) → **semantic** (roles, named by purpose — `primary`) → **component** (per-component overrides). The house starter is deliberately *two-tier and collapsed*: raw OKLCH values live directly inside the semantic names. That's the right default for an app — dark mode already works, fewer moving parts. Grow deliberately when you feel the pain: add a **primitive palette** once you're generating tint scales or a second brand; add **component tokens** once one component needs an isolated override you don't want rippling through the semantic tier. Rationale + sources: [foundations](references/foundations.md).
+## Where the system lives
 
-**The one rule (from design-craft, restated in tokens):** a raw value is a bug. Need something the contract lacks? Add the token, then reference it — see *Extending the system* below.
-
-## Beyond colour — type, space, elevation, z-index
-
-Colour is the richest axis but not the only one. A system that only tokenises
-colour leaves the rest to drift. The house positions:
-
-**Type.** One family (Geist Variable), and a small set of **semantic roles**, not
-per-component sizing:
-
-| Role | Class |
+| Layer | Source |
 |---|---|
-| Page / section title | `text-lg`/`text-xl` · `font-semibold` |
-| Body (the default) | `text-sm` · `font-medium` |
-| Secondary / meta / caption | `text-xs` · `text-muted-foreground` |
-| Label (form / eyebrow) | `text-xs` · `font-medium` |
+| **Package (SoT once extract lands)** | `@jhd/design-system` from `~/JHD/design-system/main` (`MrJarrad/jhd-design-system`) |
+| **Interim contract (until package ships CSS)** | `~/JHD/portfolio/main/src/app/globals.css` sections 1–11 + `action-base` / `badge-base` |
+| **Composition example (not the system)** | Portfolio site blocks — NavigationHeader, list feed, case-study, print layouts |
 
-Sizes/weights come from this set, not invented per component (design-craft: "type
-has a system"). *Known thin spot:* `leading-*`/`tracking-*` are still applied
-ad-hoc in the reference instance — treat line-height/letter-spacing as part of the
-role (set them with the role, don't sprinkle) until a formal ramp is promoted.
+**Do not vendor.** Import the package. Two web products on copied tokens is drift from day one.
 
-**Space.** The 4px Tailwind scale, used from the scale — `gap-2`, `p-4`, never a
-raw `mt-[7px]`. Density is contextual (dense app surfaces, roomier forms) but
-always a scale step.
+**Site compositions are not the system.** Do not copy portfolio blocks into new apps as if they were primitives. Compose new screens from package tokens + Action/Badge; study portfolio for patterns, not for copy-paste markup.
 
-**Elevation.** Three named depths, picked by **role** not raw step:
-`shadow-raised` (cards/inputs) · `shadow-overlay` (popovers/menus) · `shadow-modal`
-(dialogs/sheets). Most surfaces stay flat. Reach for the role token, not
-`shadow-md`. (Defined in [starter/index.css](references/starter/index.css).)
+## Principles (portable, still true)
 
-**Z-index.** A named stacking scale — `z-dropdown` < `z-sticky` < `z-overlay` <
-`z-modal` < `z-toast` — so layers compose predictably. A raw `z-50` is the same
-bug as a raw hex; the scale exists to stop that drift.
+1. **Name by role, not by value** — `--content-default-primary`, not `#333`. Full convention: [naming.md](references/naming.md).
+2. **Pair foreground with background** — verify WCAG 2.x AA per pair in both themes.
+3. **One source per axis** — one radius root, one spacing scale, one type ramp.
+4. **Theme by swapping values behind stable names.**
+5. **Extend the system, never inline around it.**
 
-## Principles that hold for ANY token-based system
+Generic token-tier theory and citations: [foundations.md](references/foundations.md). Do/don't summary: [DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
 
-Portable truths, not shadcn-specific — apply them even on a project that uses a different system:
+## Components
 
-1. **Name by role, not by value** (for semantic tokens). `--danger`, not `--red-500` — the name survives a rebrand; the hex doesn't. Keep names homogeneous within a class, distinct between classes, and free of homonyms. Full naming convention (token + code): [references/naming.md](references/naming.md).
-2. **Pair foreground with background** so contrast lives in one reusable place — then verify that pair against WCAG 2.x AA (the floor), rather than eyeballing it per screen.
-3. **One source per axis.** One radius root, one spacing scale, one type ramp — derive the rest by formula, don't hand-pick siblings.
-4. **Theme by swapping values behind stable names**, so a component written once works in every theme.
-5. **Status is semantic and consistent** — the same success green everywhere, expressed as a token, at low-alpha for fills and full-strength for text.
-6. **Categorical ≠ semantic.** Chart/tag hues are an ordered palette chosen for distinguishability; don't reuse `primary`/`destructive` as "chart colour 1."
-7. **Extend the system, never inline around it.** A one-off value on a page is the same defect as a hardcoded hex in a component.
+House primitives: **Action**, **Badge**, **`cn()`** — owned in the package once extract lands. Until then, portfolio's `action-base` / `badge-base` in `globals.css` are the living contract.
 
-## Components — never hand-roll a primitive
+Before hand-rolling a primitive, check the package (or portfolio interim). Compose screens from system parts; build custom only when the system genuinely lacks it and the operator agrees.
 
-Before building any component, install it from the system: `npx shadcn@latest add <name>`. The house set already includes ~47 primitives (Button, Dialog, Sidebar, Command, Table, Chart, …). Compose screens *out of* these; build custom **only** when the system genuinely lacks it *and* the operator has agreed — surface that decision, don't quietly hand-roll (design-craft's hard rule).
+Component conventions (CVA, `data-slot`, focus ring): [components.md](references/components.md), [building-components.md](references/building-components.md).
 
-House conventions every component follows — **CVA** for variants, **`cn()`** for merge, **`data-slot`** for style hooks, **`asChild`** (Radix `Slot`) for polymorphism, and a shared **`focus-visible` ring** pattern. Full inventory, the conventions with code, and how to add/extend are in [references/components.md](references/components.md).
+## Starting a JHD web product
 
-**A component is a whole unit, not just markup.** Structure + tokenised style +
-variants + *every* state (hover/focus/active/disabled/invalid/loading/empty) +
-motion + accessibility + behaviour. Motion is authored *with* the component, not
-bolted on later. Some components are **shells** — mostly structure + a `children`
-slot that holds other components (PaneShell, Card). For the ground-up mental model
-— the primitive→semantic→component→block ladder, the styles/utils layer, shells &
-slots, and the build recipe — read [references/building-components.md](references/building-components.md).
+Follow [references/setup.md](references/setup.md): add `@jhd/design-system` as a dependency from `~/JHD/design-system/main`, wire `--font-suisse`, import package CSS — **do not** scaffold Vite+Geist+shadcn as the JHD path.
 
-## Starting a new project
+## Reference instance — portfolio
 
-Don't assemble this by hand. Follow [references/setup.md](references/setup.md): scaffold Vite+React+TS, add Tailwind v4 + the Vite plugin, drop in the three starter files ([index.css](references/starter/index.css), [components.json](references/starter/components.json), [utils.ts](references/starter/utils.ts)), `shadcn init`, then add primitives as needed. You get the full token contract and theming for free on line one.
+`~/JHD/portfolio/main` is the living **composition** example: how tokens and Action look in production. Token **source of truth** moves to the package when CSS lands; until then read `src/app/globals.css` sections 1–11. Details: [references/portfolio.md](references/portfolio.md).
 
-## The reference instance — the portfolio site
+## Conformance & review
 
-The portfolio site (`~/JHD/portfolio`) is the living, best-in-class instance of this system: the concrete token values, the site-specific blocks built on the primitives, the layout patterns, and the motion conventions. When you need a worked example of the system in production, read [references/portfolio.md](references/portfolio.md).
+Run the [conformance checklist](references/conformance.md). For sign-off, attach a [conformance report](references/conformance-report.md) — per-dimension on-system/flag, a11y read, verdict.
 
-## Extending the system
+Multi-brand / reskin (Orbit ramps): [theming.md](references/theming.md) — only when a second brand is real, not for one-off pages.
 
-Need a new token or component? It's a **deliberate system change**, not an inline: propose it with a rationale and where else it's reused, add it to the contract (`index.css`) or install/compose the component, *then* reference it. A value that appears once still goes in the system — the next screen will want it too.
+## Native & Figma
 
-Reach for the **correct** token, not the nearest-looking one. "A token was used" isn't the bar — the right *semantic* token is (a `muted-foreground` that happens to match isn't a substitute for a real `warning`). Mature teams find that policing usage without policing correctness backfires. And the system earns adoption by being good enough to trust, not by mandate — quality is the lever. Sourced rationale + citations: [references/foundations.md](references/foundations.md).
-
-The quick do/don't summary — tokens vs raw values, and the conformance-report obligations — is in [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
+- **Native products** (Capture.app) bind the same Figma variables in Swift — not a CSS copy. See vault ruling `fleet/rulings/jhd-design-system.md`.
+- **Figma plugins** stay Figma — this skill does not apply.

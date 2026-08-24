@@ -7,7 +7,11 @@ description: Procedure for writing any note, process log, or reference to ~/JHD/
 
 **Trigger:** Use when writing any note, process log, or reference to `~/JHD/vault`.
 
-**Anti-trigger:** Reading or recalling from the vault; any write outside `~/JHD/vault`.
+**Anti-trigger:** Reading or recalling from the vault; any write outside the vault working tree.
+
+## Working tree (estate-layout 2026-08-16)
+
+The vault git working tree is `~/JHD/vault/main` when that path has `.git`, else `~/JHD/vault` (Cloud/flat). All `~/JHD/vault/...` paths below mean **inside that working tree**, never the container root (`.bare`).
 
 ---
 
@@ -22,13 +26,16 @@ for the ruling.
 
 ## Step 1 — which thing
 
-- **Scoped to one project** (portfolio, discipline, capture-figma, flux-legacy, …) →
+- **Scoped to one project** (portfolio, discipline, capture-app, capture-figma, flux-legacy, …) →
   `~/JHD/vault/projects/<name>/`.
 - **True cross-project doctrine or a reusable lesson** (a ruling that binds every
   project, a technical lesson learned once and reusable everywhere) →
   `~/JHD/vault/fleet/`.
-- **The orchestrator's own operating state** (HANDOVER, CONTRACT, standing process
-  notes about running the vault itself) → `~/JHD/vault/orchestrator/`.
+- **The orchestrator's own operating state** (cockpit `orchestrator/cockpit.md`,
+  CONTRACT, standing process notes) → `~/JHD/vault/orchestrator/`. Surgical-patch the
+  cockpit; do not dump a project diary there. Project last-left lives at
+  `projects/<name>/<name>-handover.md` (replace on wrap). Rulings: handover-trays,
+  unique-note-names.
 - **Material we did not author** (a captured site, a screenshot, external code to
   imitate) → `~/JHD/vault/references/` — this one folder stays type-first because a
   reference is never "about" one project; it's a durable cross-project database (see
@@ -88,7 +95,8 @@ record, filed in `references/` — never as authored body prose inside a project
 
 A project doesn't exist in the vault until all three of these land in the same write:
 
-1. **`projects/<name>/` folder shape** — `hub.md` + empty-until-needed `primers/`,
+1. **`projects/<name>/` folder shape** — hub `projects/<name>/<name>.md` +
+   `<name>-handover.md` (last-left, replace on wrap) + empty-until-needed `primers/`,
    `decisions/`, `audits/`, `artifacts/` subfolders.
 2. **An `[[estate-map]]` row** — `~/JHD/vault/estate/estate-map.md`, the project's
    repo, git remote, and where its knowledge lives.
@@ -128,13 +136,17 @@ tags: []
 
 ### Write model
 
-**Write tool only.** A dumb cron outside the session handles git commits automatically — never invoke `git` directly. Do not run `git add`, `git commit`, `git push`, or any git operation.
+**Author with the Write tool** (thing-then-aspect, graph wired in the same action). Do not hand-edit via `git apply` or dump a note at the vault root.
+
+**Land it.** This estate does **not** wait on a cron. Durable vault writes are a coherent git slice: commit, open the PR, merge (`gh pr merge`) — same remittance as other vault/docs work (see invariants). Do not leave hive notes uncommitted “for the cron.” A Mac cron, if it still exists, is a **backstop** only.
+
+Do not mix vault files and product-repo files in the same commit.
 
 ### Shared files and parallel agents — re-read live, edit narrow (2026-08-05)
 
 Most vault writes are a new file with no contention. A handful of files are
 shared indexes that more than one parallel agent may touch in the same
-window — `hub.md`, `MEMORY.md`, `references/_index.md`, or any file two
+window — a project hub, `MEMORY.md`, `references/reference-database.md`, or any file two
 dispatches from the same session might both append to. Per
 `concurrent-agents-worktree-isolation`, parallel agents already work in
 separate worktrees for exactly this class of race; a shared vault file is the
@@ -169,47 +181,58 @@ When replacing an older note, follow this exact sequence:
 2. Create the **new note** with `status: current` + `supersedes: "[[old-slug]]"` in its frontmatter
 3. **Never edit the old note body** — only frontmatter status + link are permitted to change
 
-### Hub files — link into them, don't rewrite them
+### Hub files — link into them in the same write
 
-`projects/<name>/hub.md` is a project's standing index (see
-`projects/portfolio/hub.md` for the worked shape). Unlike the old query-layer-derived
-hub listings, hubs in the current schema are hand-maintained `[[wikilink]]` indexes —
-when you add a decision/audit/artifact/primer worth surfacing, add its `[[link]]` under
-the relevant hub section in the same action, don't leave it to a query layer that isn't
-wired. Never delete or reorder existing hub entries while adding yours.
+Project hubs are `projects/<name>/<name>.md` (e.g. `projects/portfolio/portfolio.md`).
+Fleet rulings use `fleet/rulings/fleet-rulings.md` (and the token essay [[token-rulings]]).
+References use `references/reference-database.md`.
+
+When you add a decision / audit / artifact / primer / ruling worth finding later, **add its
+`[[link]]` under the relevant hub section in the same action**. Never delete or reorder
+existing hub entries while adding yours. An unlinked note is not a finished write.
 
 ---
 
-## Graph linking is part of the write, not a follow-up (ruling 2026-08-03)
+## Create properly — graph wiring is the write (ruling 2026-08-03)
 
-Nothing may land as an orphan or straggler in the vault's Obsidian graph. A
-structural pre-commit gate enforces this (`vault/scripts/githooks/pre-commit`
-runs `vault-lint.py` and blocks on BROKEN/AMBIGUOUS/ORPHANS) — but the gate is a
-backstop, not the mechanism. Wiring the note in is your job, done in the same
-write as creating it:
+Nothing may land as an orphan, WEAK note, or hub-gap straggler. **Wrap is a check, not a
+cleanup pass** — if a note needs hub-linking at wrap time, the write already failed.
 
-1. **At least one inbound link** — from the owning hub (`projects/<name>/hub.md`),
-   the relevant `_index`, or a MEMORY-equivalent index — added in the same action,
-   not queued as a follow-up.
-2. **Outbound `[[links]]` to lineage** — the decision/artifact/reference this note
-   builds on, supersedes, or was prompted by.
-3. **Run `python3 scripts/vault-lint.py` from vault root before declaring done**
-   and report `BROKEN`/`AMBIGUOUS`/`ORPHANS` all 0. (`wrap` runs this same check
-   at session close — this is the per-write version, not a duplicate step.)
+A pre-commit hook (`vault/scripts/githooks/pre-commit`) blocks bad graphs. That is a
+backstop. Your job is to wire the note in the same action that creates it:
 
-**Reference entries carry one more requirement:** add the row to
-`references/_index.md` in the same write (see **References are a typed write
-too**, above, and `fleet/rulings/reference-database-schema.md`) — an
-unindexed reference is unfindable even if it isn't a graph orphan.
+1. **Inbound link in the same write** — from the owning project hub, `fleet/rulings/fleet-rulings.md`,
+   or `references/reference-database.md` as appropriate. Not a follow-up todo.
+2. **Outbound `[[links]]` to lineage** — what this note builds on, supersedes, or was prompted by.
+3. **Family hub coverage** — project decisions must appear on the project hub; fleet rulings
+   on `fleet/rulings/fleet-rulings.md`; references as a row on `references/reference-database.md`.
+4. **Verify before declaring done** from vault root:
+   - `node scripts/vault-lint.mjs` — DANGLING / ORPHANS / HUB GAPS all 0
+   - `python3 scripts/vault-lint.py` — BROKEN / AMBIGUOUS / ORPHANS / **WEAK** / **GENERIC** all 0
+
+If either command is non-zero, fix the graph and re-run. Do not bank the note as done.
+
+**Reference entries:** add the row to `references/reference-database.md` in the same write (see
+`fleet/rulings/reference-database-schema.md`) — an unindexed reference is unfindable even
+if it isn't a graph orphan.
 
 ## Naming convention
 
+Ruling: `fleet/rulings/unique-note-names.md`. The filename stem **is** the search and
+graph label.
+
 ```
-<topic-slug>.md               # general notes
-<task-slug>-<topic-slug>.md   # task-scoped notes
+<topic-slug>.md                 # general notes
+<task-slug>-<topic-slug>.md     # task-scoped notes
+<name>-handover.md              # project last-left
+<what>-report.md                # artifact reports
+<site>-analysis.md              # reference site analysis
+<capture-slug>-read.md          # Figma capture reads
 ```
 
-Use lowercase kebab-case.
+Use lowercase kebab-case. **Forbidden stems** (lint fails): `_index`, `index`,
+`HANDOVER`, `REPORT`, `analysis`, `README`, `READ`, `hub`, `MEMORY`, `notes`,
+`untitled`. Never create a second file that shares a stem with an existing note.
 
 ---
 
@@ -234,4 +257,4 @@ Three capture sources, one schema:
 - **Operator screenshots** — when the operator provides a screenshot as a reference, file the image under `references/assets/<name>/` and write a `<name>.md` entry (`type: screenshot`, `source: operator`) describing what it shows and why it was kept; a screenshot with no entry is unfindable.
 - **Code** — when actual code is the reference (a snippet, a component, a technique from another repo), save the code file(s) under `references/assets/<name>/` and write a `<name>.md` entry (`type: code`, `good_for: [code, ...]`) noting origin, license if external, and what to imitate — the entry explains, the file is the ground truth.
 
-Regenerate `references/_index.md` after any reference write.
+Regenerate `references/reference-database.md` after any reference write.

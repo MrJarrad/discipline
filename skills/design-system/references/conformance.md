@@ -44,6 +44,10 @@ UI; a hit is a raw value that should be a token.
   (The raw-value greps above double as the mechanical half of this check.)
 - **Verified at real viewports** — desktop *and* mobile, named (design-craft's
   visual-truth rule). A code diff alone doesn't approve UI.
+- **House motion law** — JHD web products on the house system: motion reviewed
+  against [motion-law.md](motion-law.md) via the [`motion`](../motion/SKILL.md)
+  skill (grammar, type-enter recipe, token-bound clocks). Product-specific chrome
+  rows stay in the product until promoted to house law.
 
 ## Accessibility floor
 

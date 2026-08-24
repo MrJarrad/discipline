@@ -136,15 +136,17 @@ wrapping change; user zoom still works.
 
 ### Law 9 — Core Web Vitals are measured, not assumed (§6 #9, §I)
 
-**Acceptance criterion:** `onLCP`/`onCLS`/`onINP` reporting wired, with a budget line in
-the release gate — LCP ≤2.5s, CLS ≤0.10, INP ≤200ms at p75 becomes a falsifiable claim
-instead of a vibe.
+**Acceptance criterion:** lab measurement on UI work — LCP ≤2.5s, CLS ≤0.10, INP ≤200ms at
+p75 — with numbers attached to the change. Field CrUX and release-gate budgets stay
+release-only; **engineer and reviewer** must cite lab CWV on UI diffs or name the gap.
 
-- **DO:** wire `web-vitals` reporting and add a CWV budget check to the release gate.
+- **DO:** on UI changes, run lab CWV (Lighthouse, WebPageTest, or equivalent) and attach
+  p75 numbers vs the thresholds above; wire `web-vitals` field reporting at release.
 - **DON'T:** *"the site feels fast"* — the exact unfalsifiable-performance-claim reasoning
   the report calls out; without measurement, every performance claim on the surface is
   unverifiable by construction.
-- **Needs a runtime lane** (field/lab CWV measurement) — not grep-checkable this round.
+- **Lab lane (UI diffs):** engineer/reviewer duty — attach numbers or BLOCK. **Field lane
+  (release):** `web-vitals` reporting + budget in release gate — not every PR.
 
 ### Law 10 — Video colour metadata + audio loudness (§6 #10, §E)
 
@@ -164,9 +166,11 @@ measurement keeps every film within ±1 LU of the target integrated loudness.
 
 ## Runtime-lane TODO
 
-Laws 1, 9, 10 need a **runtime measurement lane** (throttled trace / Lighthouse, field CWV
-reporting, `ffprobe`/`ffmpeg` pipeline assertions respectively) that does not exist yet.
-This round intentionally does not build it — see `scripts/technical-design-check.mjs` for
-the grep-lane that covers laws 2 (partial), 4, 5 (partial), 6, 7, 8. Building the runtime
-lane is follow-up work, not silently deferred: track it before claiming laws 1/9/10 as
-enforced rather than merely documented.
+Laws 1 and 10 need a **runtime measurement lane** (throttled trace / Lighthouse for LCP
+hero priority; `ffprobe`/`ffmpeg` pipeline assertions for video colour/loudness) that does
+not exist yet as automated CI. **Law 9 lab CWV on UI diffs** is engineer/reviewer duty now —
+attach lab numbers or name the gap; field CrUX + release-gate budgets stay release-only.
+This round intentionally does not build full field CWV CI — see
+`scripts/technical-design-check.mjs` for the grep-lane that covers laws 2 (partial), 4, 5
+(partial), 6, 7, 8. Building the field/runtime release lane is follow-up work, not silently
+deferred: track it before claiming field Law 9 as enforced rather than merely documented.

@@ -1,119 +1,116 @@
 ---
 name: model-routing
-description: Decide model tier, effort, and turn caps for every dispatch — sonnet default, opus rare and justified, top-tier never dispatched; every spec sets maxTurns. Trigger before ANY Agent call or workflow spec, chain-loaded by routing as load-order step 2. Not WHO handles the work — that's routing; not brief structure — that's dispatch-brief.
+description: >-
+  Pick the best model for each dispatch via a decision tree — job shape ×
+  complexity × token efficiency. Chain-loaded by routing as load-order step 2
+  before any Agent call or workflow spec. Not WHO handles the work (routing)
+  and not brief structure (dispatch-brief).
 ---
 
 # Model Routing
 
-Model choice is a dispatch decision, made from this table — never inherited from the
-session, never picked by vibe. An unset `model` field silently inherits the
-orchestrator's own (top-tier) model: **always set it explicitly.**
+**Goal:** best model for the job — quality ceiling first, then efficiency/token cost.
+Not "always sonnet," not "always the parent chat," not habit.
 
-## Decision table
+An unset `model` on an Agent dispatch silently inherits the parent session's own
+(top-tier) model — a burn vector. **Always set `model` explicitly** from this tree.
 
-| Tier | When | Examples |
-|---|---|---|
-| **haiku** | Trivial mechanics with an unambiguous spec | renames, file moves, formatting, single-value lookups, running a known script and reporting output |
-| **sonnet** | **DEFAULT — everything else** | builds, fixes, audits, tracing, reviews, research, diagnosis, test writing, route-walking, screenshot verification |
-| **opus** | RARE. Only with a written one-line justification in the brief | novel architecture with high blast radius; adversarial judging where sonnet **demonstrably failed on this task** (record the failure) |
-| **top tier (fable/mythos)** | Never dispatched | orchestration and final synthesis live in the orchestrator itself |
+## Decision tree (three axes, in order)
+
+```mermaid
+flowchart TD
+  start[Work arrives] --> shape[1 Job shape]
+  shape --> complexity[2 Complexity]
+  complexity --> efficiency[3 Efficiency pick]
+  efficiency --> setModel[Set model on the dispatch explicitly]
+  setModel --> failCheck{Cheaper model failed on this task?}
+  failCheck -->|yes justify| escalate[Escalate one step]
+  failCheck -->|no| dispatch[Dispatch]
+  escalate --> dispatch
+```
+
+1. **Job shape** — mechanical · implement/fix · review/judge · research · design/UX judgment · architecture/orchestration
+2. **Complexity** — trivial · standard · hard · adversarial
+3. **Efficiency** — cheapest model that still clears the quality bar; **raise effort on the current model before jumping models**; decompose so bulk is cheap and verify/judge is expensive
+
+## Claude model map (defaults by cell)
+
+| Cell | Default pick |
+|---|---|
+| Trivial / mechanical | `haiku` |
+| Standard implement / fix / tests / most PR work | `sonnet` |
+| Design/UX **implementation** against a locked Figma/spec | `sonnet` |
+| Design/UX **taste / visual judgment** (no locked answer) | `opus` — justify |
+| Research / competitive / cited facts | `sonnet` with tool access and a cited-retrieval evidence contract — never a "cheaper because cheaper" downgrade to haiku |
+| Hard architecture / high blast radius | `opus` — justify |
+| Adversarial review / refute | one tier **stronger than the implementer**: `opus` reviews a sonnet build; a sonnet build of trivial scope may take a sonnet reviewer, never weaker |
+| Orchestration / parent synthesis | stays on the operator-chosen parent session — do **not** dispatch the top tier (fable/mythos) as a child |
+
+Persona agent files keep persona defaults (mostly sonnet); **dispatch-time routing
+overrides** when this tree says otherwise. Announce `"Persona (model): …"` with the
+**actual** chosen model.
+
+**Adversarial review:** **DO** put the reviewer at or above the implementer's tier;
+**DON'T** spend opus on every routine review — opus reviews when the implementer was
+already strong or the blast radius is high.
 
 ## Escalation rule
 
-Escalate one tier only after the cheaper tier has actually failed on the task at hand
-— a wrong or incomplete result you can point to, not a prediction that it might
-struggle. Record the failure in the escalated brief ("sonnet run X produced Y, wrong
-because Z"). "This is important" is not a justification; importance is handled by the
-evidence contract and the reviewer gate, not by model spend.
+- Use a stronger model **from the start** when the cell requires it (adversarial judge, novel high-blast-radius architecture).
+- Otherwise escalate only after a cheaper model **demonstrably failed** on this task. Record it in the brief ("sonnet run X produced Y, wrong because Z").
+- "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
 
-## Checklist addition (extends dispatch-brief)
+## Checklist (extends dispatch-brief)
 
 ```
 [ ] model set explicitly on the dispatch (never inherited)
-[ ] tier chosen from the table above; sonnet unless the table says otherwise
-[ ] if opus: one-line justification in the brief, naming the cheaper-tier failure
+[ ] job shape + complexity classified; pick from the Claude map above
+[ ] if above sonnet / haiku: one-line justification (cell requires it, or cheaper model failed)
 ```
 
-## Effort & caps
+## Effort & scope
 
-Model tier is one spend lever; effort and turn caps are the other two — set all three on
-every dispatch, not just the model.
+Model choice is one lever; effort, turn caps, and brief scope are the others.
 
-- **Effort low** for mechanical stages: renames, formatting, running a known script and
-  reporting output, single-value lookups — the same shape of work that routes to haiku.
-- **Effort medium** is the default for everything else: builds, fixes, audits, tracing,
-  reviews, research, diagnosis, test writing.
-- **Effort high** only for the hardest verify/judge passes — an adversarial refuter on a
-  high-stakes claim, a judge scoring competing designs. Never the default; justify it in
-  the brief the same way an opus escalation gets justified.
-- **Every spec sets `maxTurns`.** `workflow.mjs` now defaults an unset agent to 60 turns
-  (and an unset haiku agent to effort `low`) so a spec that forgets still runs capped, not
-  unbounded — but the default is a backstop, not a substitute for choosing a real number
-  for the task at hand. A spec that deliberately wants no cap must say so explicitly
-  (`"maxTurns": null`), which the runner logs as a burn-warning rather than silently
-  honoring.
-- **Single-reviewer gates are the default.** One reviewer (or one verify pass) per build is
-  sufficient for ordinary work. Reach for a multi-vote adversarial panel (`phase.verify.votes
-  > 1`, or multiple independent judge dispatches) only when the task itself says
-  "thorough" or "audit" — routine builds don't need three refuters agreeing.
+- **Effort low** — mechanical stages (renames, formatting, known script + report).
+- **Effort medium** — default for implement, fix, audit, research, tests.
+- **Effort high** — adversarial verify/judge or competing-design scoring only; justify like a model escalation.
+- **Every workflow spec sets `maxTurns`.** `workflow.mjs` defaults an unset agent to 60 turns (and an unset haiku agent to effort `low`) — a backstop, not a substitute for choosing a real number. `"maxTurns": null` must be explicit and is logged as a burn warning.
+- **Scope the brief** so the child finishes in one coherent pass — prefer parallel Agent dispatches over one unbounded mega-agent. Single reviewer/verify pass is the default; multi-judge panels only when the task says thorough/audit.
+- **Commit incrementally** in every implement brief so a long run never strands finished work.
 
-## Checklist addition — effort & caps
+## Soft token budgets (absorbed from model-efficiency)
 
-```
-[ ] effort set per stage (low for mechanical, medium default, high only for justified verify/judge)
-[ ] maxTurns set on every spec agent (or the 60-turn default is an accepted, not accidental, choice)
-[ ] single reviewer/verify pass unless the task says thorough/audit — then justify the panel size
-```
+A budget is a **soft ceiling → checkpoint**, not a hard kill. When crossed: stop and
+reassess — right model? right approach? bigger task than its class?
 
-## What today cost, and why
+| Task class | Checkpoint | If exceeded |
+|---|---|---|
+| Bulk / mechanical | Short pass; reclassify if still growing | Not mechanical — don’t just spend |
+| Standard coding | One coherent PR-sized slice | Split or escalate model after a failed cheaper pass |
+| Complex / craft / architecture | One full attempt at the justified model | Check the loop is productive before a 2nd expensive pass |
+| UI / design **judgment** | Taste iteration burns fast | Get operator sign-off; don’t burn tokens guessing |
+| Research | Open every cited URL | Conflict / SERP-only → fetch more primaries; never invent |
+| Orchestration / brain | Name the run shape up front | Decompose into child Agent dispatches |
 
-On 2026-07-26 one run dispatched 21 workflows / 42 agents in 6h30m wall time (39 sonnet, 1
-haiku, 2 unlabeled), burning an estimated $150–400 for the day. (The dedicated burn-report
-artifact did not survive the vault's 2026-07-31 legacy purge; under the current schema
-this evidence would live at `projects/discipline/artifacts/`.) None of that spend came from
-opus or top-tier — the routing table already held. The waste was structural: **no agent
-in any spec that day carried a `maxTurns` cap**, six near-identical "engineer + reviewer"
-lanes ran serially instead of in 2–3 parallel lanes (~54 min lost), a duplicated
-audit→fix→expand sequence that could have been one workflow cost another ~20 min, and a
-session-collision (dispatching before the prior run's session had cleared) burned a
-further ~7 min on instant failures. The lesson grounding the defaults above: model tier
-was never the leak — uncapped turns per agent and un-parallelized, un-batched dispatch
-were. Caps and effort tiering close the first; the routing table and this skill's
-panel-size guidance address the second.
+## Effort before model jump
 
-## Per-task token budgets (absorbed from model-efficiency)
+Prefer *raising effort on the current model* before *jumping models* when the gap is
+reasoning depth, not raw capability.
 
-A budget is a **soft ceiling → checkpoint**, not a hard kill. When a run crosses it, stop and
-reassess: right model? right approach? or genuinely a bigger task than its class? Numbers are
-output-token-first with a dollar gloss, grounded in measured eval runs.
-
-| Task class | Typical (measured) | Budget checkpoint | If exceeded |
-|---|---|---|---|
-| Bulk / mechanical | ~3–8k out · $0.07–0.15 (haiku) | **~10k out / ~$0.20** | it's not mechanical — reclassify, don't just spend |
-| Standard coding | ~3–4k out · ~$0.08 (haiku) | **~8k out / ~$0.15 haiku** | escalate to sonnet (budget resets to ~$0.45) |
-| Complex / craft | ~2–9k out · $0.44–0.95 (opus) | **~$1.50 / one full attempt** | check the loop is productive before a 2nd opus pass |
-| UI / design | ~6k out · ~$0.66 (sonnet) | **~$0.90** | you're probably iterating on taste — get a signoff, don't burn tokens |
-| Research | 1 Perplexity call · ~2s | **1 call default** | escalate to Sonar Pro/Deep only if the single call was insufficient |
-| Orchestration / brain | task-shaped | **name it up front** for the run | decompose into child tasks rather than one giant context |
-
-Batch API halves the coding rates for offline bulk — use it when a mechanical job isn't
-latency-bound.
-
-## Effort before tier
-
-Extended thinking / reasoning effort is a per-request toggle with no separate tier price —
-prefer *raising effort on the current tier* before *jumping a tier* when the gap is reasoning
-depth, not raw capability.
-
-**Decomposition lever:** split tasks so mechanical bulk runs cheap and only the verify/judge
-step runs expensive. A bulk edit at haiku plus a final review dispatch at sonnet is cheaper
-than one sonnet pass over the whole run.
+**Decomposition:** bulk edit on `haiku`/`sonnet` + final review on a stronger model beats
+one expensive model over the whole run.
 
 ## Anti-triggers
 
-- A trivial one-liner doesn't need a routing analysis — just do it on whatever's already
-  loaded. Don't manufacture a budget ceremony for a two-minute task.
-- Research questions never go to a coding tier "because it's cheaper" — cited retrieval is
-  the bar for facts; a bare LLM guessing from memory fails it regardless of price.
-- Cost is not the *only* axis: if latency is the constraint, a higher tier that finishes
-  faster can be the legitimate choice — a real reason to pay up.
+- Trivial one-liner — no routing ceremony; do it on whatever is already loaded.
+- Research never goes to a coding-cheap model “because it’s cheaper” — cited retrieval is the bar.
+- Latency can justify a costlier/faster model — cost is not the only axis.
+- Never leave model choice implicit for auditable fleet/ship dispatches.
+
+## Historical burn lesson (2026-07-26)
+
+One day burned heavily with **no turn/scope caps**, serial near-duplicate lanes, and
+session collisions — not because the “wrong tier name” was chosen. Lesson: explicit
+model + scoped briefs + parallel independent dispatches + turn caps + incremental
+commits. `workflow.mjs` remains this plugin's runner — cap every agent in the spec.

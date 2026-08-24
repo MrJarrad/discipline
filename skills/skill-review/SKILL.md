@@ -14,8 +14,8 @@ nobody read past the pitch. This skill is the checklist that keeps the
 verdict grounded in what the candidate actually does, not what it says it
 does.
 
-Pairs with `research-synthesis` (decompose/fan-out/source-or-stop) and
-`perplexity-research` (the reputation-check call) for method, and
+Pairs with `research-synthesis` (decompose/fan-out/source-or-stop) for method and
+live lookup (WebSearch + WebFetch), and
 `verify-finding` for the confidence/typed-sources discipline the verdict
 block below reuses.
 
@@ -62,10 +62,9 @@ to slow down, not an automatic disqualifier.
 
 ## Live reputation check
 
-One targeted `perplexity-research` query per candidate for independent
-corroboration or red flags — a third-party marketplace listing, a community
-thread, a known incident. A repo's own numbers are never independent
-evidence of its own legitimacy.
+One targeted web research pass per candidate (`research-synthesis`: search + fetch
+independent corroboration or red flags — marketplace listing, community thread, known
+incident). A repo's own numbers are never independent evidence of its own legitimacy.
 
 ## Map against the estate, by name
 

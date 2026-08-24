@@ -9,6 +9,7 @@
 | **Decompose** the question into the sub-questions that actually decide it | A link dump isn't an answer |
 | **Fan out** across several angles/sources, not one | Single-source research misses contradictions |
 | Prefer **primary sources** (docs, filings, the repo itself) over secondary summaries | Primary sources are the ground truth |
+| Use **WebSearch to discover** and **WebFetch to open** anything you cite | Snippets aren't sources |
 | **Source or stop** — cite a source you actually opened for every load-bearing claim | Unsourced claims aren't findings |
 | **Adversarially verify** each key claim — look for the counter-source | Catches confident-but-wrong claims |
 | **Lead with the answer**, then evidence, then confidence | Decision-ready shape |
@@ -24,7 +25,7 @@
 |-------|-----|
 | **Fabricate** a source, statistic, quote, or citation | Never invent evidence |
 | Present **inference as fact** | Mixing them destroys trust in both |
-| Stop at the **first source found** without fanning out | Misses the counter-evidence |
+| Answer a **live-world** question from **training memory** alone | Memory goes stale; search + fetch |
 | Treat a **skimmed abstract** as a read source | Overstates verification |
 | Deliver a **link dump** with no synthesized answer | The deliverable is the decision, not the links |
 | Skip **adversarial verification** on a load-bearing claim | Confident wrong answers are worse than "unknown" |

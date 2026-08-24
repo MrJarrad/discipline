@@ -1,9 +1,32 @@
 ---
 name: wrap
-description: Close out an orchestration session so the next one continues seamlessly — rewrite HANDOVER.md, land every ruling and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
+description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's `<name>-handover.md`, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
 ---
 
 # Wrap
+
+## Hard fail (non-negotiable)
+
+- Closing a **non-trivial** product session with **handover-only** (skipping other wrap sections) is a wrap/routing failure — not a shortcut.
+- **Forbidden** to tell the operator: "partial wrap is enough", "handover update is probably enough", or any equivalent heuristic.
+- **MUST** load this skill file and follow it end-to-end; do not improvisationally Write vault files.
+- Vault notes, lessons, rulings → read and follow **`vault-write`** first (placement, hub-link, lint). Ad-hoc vault Write without vault-write is a defect.
+- Lint exit ≠ 0 → wrap has **not** succeeded; do not claim wrapped.
+- **Operator-facing report:** compact outcomes only (what's banked, what's next — handover prose four moves). Section-by-section walk is the agent's internal contract (and mined-lessons on project handovers), not the designer's UI unless asked.
+
+## Orchestrator self-check (before ending a turn where a product was touched)
+
+```
+[ ] Handover current?
+[ ] If closing: wrap skill complete (not handover-only)?
+[ ] No parent product edits?
+[ ] Vault writes went through vault-write?
+```
+
+**Claude note:** Vault **working tree** is `~/JHD/vault/main`. Toolkit for Claude is the
+plugin repo `~/JHD/discipline/main` plus its marketplace/cache mirror — verify the
+installed plugin matches the repo at wrap. Section 4 below applies whenever that repo
+was edited this session.
 
 A session that ends without wrapping leaves the next one to reconstruct state from
 scratch — re-deriving what was already decided, re-discovering what's already running,
@@ -15,29 +38,50 @@ be fine," everything on this checklist is verified before the session is called 
 Skipping a section because "nothing changed there this session" is a valid outcome —
 state it explicitly. Skipping it by not checking is a wrap failure.
 
-### 1. HANDOVER.md — rewritten, not appended
+### 1. HANDOVER — cockpit patch + project files (not one rewrite)
 
-`orchestrator/HANDOVER.md` is a snapshot of current state, not a running log — treat an
-append as a smell: old, superseded content left in place misleads the next reader more
-than an honest gap does. Rewrite it to cover:
+Ruling: vault `fleet/rulings/handover-trays.md`. **Any chat may wrap.** Do not ask which
+window is home.
 
-- **Current state** — what's true right now, not a history of how it got there.
-- **Merged/unpushed commits per repo** — for every repo touched this session
-  (`~/JHD/portfolio`, the vault itself, the discipline plugin repo), state what's merged, what's pushed, and what's sitting
-  local-only. A commit that exists only on a dispatched agent's local branch is not
-  "done" — name it as unpushed.
-- **In-flight dispatches** — every Agent/workflow dispatch from this session is either
-  resolved (merged, reviewed, closed) or explicitly documented as still running, with
-  who's waiting on what.
-- **Open operator items** — every question still waiting on the operator, named
-  specifically (not "some design questions pending").
-- **Running processes** — the capture listener on port 4411
-  (`scripts/capture-listener.mjs`) is the standing example: state whether it is currently
-  running, and if it died or was never started, give the exact restart command
-  (`node scripts/capture-listener.mjs &`) rather than "start the listener."
-- **Capture/artifact freshness** — for any Figma capture or artifact referenced this
-  session, note whether it's current or stale relative to the live file/site, so the
-  next session doesn't build against a snapshot it thinks is live.
+`orchestrator/cockpit.md` is the **cockpit** (machine, in-flight chats) — short, live
+facts only. Each `projects/<name>/<name>-handover.md` is that project's last close-out
+(dated snapshot). Ruling: `fleet/rulings/unique-note-names.md`
+— never a generic `HANDOVER.md` stem.
+
+**Infer product** (no operator naming). **capture-app** and **capture-figma** are two products (they currently share `~/JHD/capture/main`):
+
+| When | Product handover |
+|---|---|
+| Capture.app, helper `:7755`, Screen Recording, `mac/` | `projects/capture-app/capture-app-handover.md` |
+| Capture Figma plugin, `figma-sync/`, `:4411`, ingest | `projects/capture-figma/capture-figma-handover.md` |
+| Capture repo and the work is unclear | **capture-app** — never default to capture-figma |
+| `~/JHD/portfolio/main` | `projects/portfolio/portfolio-handover.md` |
+| `~/JHD/skillz/main` | `projects/skillz/skillz-handover.md` |
+| `~/JHD/design-system/main` | package under Skillz — wrap **jhd-discipline** + **skillz** (no dedicated tray yet) |
+| `~/JHD/discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
+| `~/JHD/cursor-discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
+| Vault-only | Cockpit only — do not wipe a product file |
+
+Plugin state (Claude live plugin, or the Cursor snapshot) goes to **jhd-discipline**, never legacy `projects/discipline`.
+
+On wrap:
+
+- Re-verify live cockpit facts this session owns (listener, Claude parked, in-flight).
+- **Surgical patch** those cockpit sections; keep every other cockpit line unless this
+  session proved it stale. Never rewrite the cockpit as one project's diary.
+- **Replace `<name>-handover.md` for every project this session touched** (current workspace
+  plus any other — e.g. capture-app + jhd-discipline). Never rewrite untouched products.
+  Put shipped/open/next-step and Figma-artifact freshness on the **project** file, not
+  the cockpit. Do not put listener/Environment liveness on a project file.
+- In-flight list: add/remove **this chat's** line only.
+- Merged/unpushed commits for a repo belong on that project's handover.
+- Open operator items for a project belong on that project's handover.
+
+If `projects/<name>/` does not exist for a live product (jhd-discipline), create the
+new-project trio in the same wrap (`vault-write`).
+
+A project handover is last-left, not still-true. Date it. After a long gap the next
+session must say the date, then trust git + the hub.
 
 ### 2. Rulings — landed with lineage, same-action verified, thing-then-aspect placed
 
@@ -53,24 +97,25 @@ chance to drift from what was actually said.
 
 A reusable technical lesson learned this session lands in `fleet/lessons/`, not a flat
 `memories/` folder (that schema is retired — see `vault-write`). Separately, check the
-auto-memory directory (`~/.claude/projects/-Users-jarradharvey-JHD-vault/memory/`,
-mirrored into `estate/auto-memory/` at sync) and its `MEMORY.md` index for two things:
+auto-memory directory (if present under the vault estate sync —
+`estate/auto-memory/` — or the local Claude project memory path) and its `MEMORY.md` index for two things:
 the index actually lists every memory file present (no orphaned files, no index entries
 pointing at deleted ones), and any feedback or preference surfaced this session that
 should outlive it has been written down, not left in this session's transcript alone.
 
-### 4. Toolkit — committed, versioned, mirrored, registered
+### 4. Toolkit — committed and versioned (Claude plugin)
 
 Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
 
-- The plugin repo (`~/.claude/plugins/marketplaces/discipline/`) has every change
-  committed.
-- The version in `.claude-plugin/plugin.json` was bumped if the plugin's behavior
-  changed this session.
-- The bump is mirrored to the matching `~/.claude/plugins/cache/discipline/discipline/
-  <version>/` directory — a skill edited only in the marketplace copy and not mirrored
-  to cache is invisible to whatever reads from cache.
-- Registration (marketplace.json, any install manifest) reflects the current version.
+- The Claude discipline plugin repo (`~/JHD/discipline/main`) has every change
+  committed and pushed when the session claimed toolkit work was done.
+- Approved plans from this session are distilled into vault artifacts, not left
+  only in the session transcript.
+- If `.claude-plugin/plugin.json` version should bump for a behavior change, bump it
+  in the same commit set, and update the marketplace/cache mirror so the installed
+  plugin matches the repo.
+- If the Cursor snapshot tree (`~/JHD/cursor-discipline/main`) was also edited this
+  session, commit that repo separately — its version fields are its own concern.
 
 ### 5. Vault/Obsidian hygiene — structure conformance, thing-then-aspect
 
@@ -81,25 +126,33 @@ flat-by-type folder (`memories/`, `documents/`, `hubs/`, root-level `decisions/`
 project gets its full trio (folder shape + `estate/estate-map.md` row + `estate/repo-docs/`
 mirror) in the same action it's created, not staggered across sessions.
 
-New records are linked from their project's `hub.md` — an unlinked record is
+New records are linked from their project hub (`projects/<name>/<name>.md`) — an unlinked record is
 functionally invisible in a graph-navigated vault. Artifact frontmatter (`created`,
 `sources`, `status`, `supersedes` and equivalents) is current, not stale from a
 template. Naming conventions (human-name-first, path-composed names, the vault's own
-file-naming rules) held across everything written this session.
+file-naming rules) held across everything written this session. Link health is verified
+in the dedicated check below (both linters); do not leave hub wiring for that check to invent.
 
-### 6. Tasks — board state matches reality
+### 6. Leftover — handover Open/Next + git (`leftover-not-a-board`)
 
-Whatever task/issue board is in use, walk it: every task's recorded state matches what
-actually happened this session (a task marked in-progress that actually shipped is a
-stale board, not a minor discrepancy). Stale tasks — abandoned, superseded, or quietly
-finished without an update — get closed with an outcome stated, never left open with no
-trail.
+Leftover is AI-first: this chat's lock, product Open/Next on unique `<name>-handover.md`, git for what is actually true. **Not** Jira/Linear/GitHub Projects — wrap does not clerk an issue board.
+
+Ruling: vault `fleet/rulings/leftover-not-a-board.md`.
+
+On wrap:
+
+- **Derive or drop** product still-open from handover Open/Next — supersede lines this session shipped, parked, or abandoned.
+- **Verify git** matches what handover claims (uncommitted work, unpushed commits, branch truth).
+- **Write down** what git cannot see (parked intent, do-not-rebuild) on the project handover — not on a people-PM board.
+- **Do not** walk an external task/issue board; no ticket clerk.
+
+**Surface leftover** at session start (after reading handover Open), when the operator asks, when the lock changes, after reviewer PASS (leftover vs lock), and in wrap confirmation. **Silence** while a locked slice is in flight — do not dump Open every turn. **Transcript summary ≠ leftover.**
 
 ### 7. Verify — no durable reference to a dying path
 
 Grep the session's changes for `TODO`, `tmp`, or scratch-path references that point at
 this session's ephemeral scratchpad or any other path that dies with the session.
-Nothing durable — a committed file, a memory, HANDOVER.md itself — may reference
+Nothing durable — a committed file, a memory, a handover note itself — may reference
 `/private/tmp/...` or an equivalent session-scratch path. A durable reference to a path
 that won't exist next session is a landmine for whoever reads it next.
 
@@ -112,13 +165,14 @@ path in prose about *this* session — but every hit needs a look before wrap cl
 
 ## Report
 
-State, section by section, what changed and what was verified — not just "wrapped."
-A wrap report that only says "done" gives the next session nothing to check against; one
-that names the specific commits, the listener's running/restart state, and which rulings
-landed where lets the next session trust it without re-deriving it. Also report the
-personas and skills invoked this session against the routing tables
-(`skills/routing/SKILL.md`) — any mandated-skill zero on relevant work is a defect to log,
-not a silent gap.
+**Operator-facing (default):** compact outcomes — what's banked, what's next. Follow handover
+prose four moves below. Do **not** dump seven-section tables, "wrap skill", or plugin names
+unless the operator asked for the machinery.
+
+**Internal (agent contract):** walk all seven sections in order; state per section what
+changed and what was verified — not just "wrapped." Name specific commits, listener state,
+and where rulings landed. Log personas/skills invoked against routing tables
+(`skills/routing/SKILL.md`) — mandated-skill zero on relevant work is a defect, not a silent gap.
 
 ## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
 
@@ -187,8 +241,8 @@ here that isn't already banked?**
   it) or it's purely situational (true only of this one session, no future
   session would benefit) — skip it, with a one-line reason either way.
 
-**Output contract:** a short mined-lessons list in HANDOVER.md, one line per
-item reviewed across the three lanes:
+**Output contract:** a short mined-lessons list on **each project `<name>-handover.md` this wrap
+replaced** (not the cockpit), one line per item reviewed across the three lanes:
 
 ```
 ### Mined lessons (wrap learn step)
@@ -201,51 +255,59 @@ item reviewed across the three lanes:
 This list is the audit trail — the next session can check that mining
 actually happened this wrap, not just that the checkbox was ticked.
 
-## Link health at wrap
+## Link health at wrap (verification check — not a cleanup pass)
 
-Run `python3 scripts/vault-lint.py` from the vault root before committing the wrap.
-BROKEN links must be fixed (or the target restored) — this is the exit-1 gate.
-ARCHIVED citations are fine (historical lineage). New ORPHANS mean the note was banked
-without being connected — link it from the right project hub (or fleet ruling context)
-before closing. New WEAK notes (outbound links but zero inbound) are non-fatal but
-still worth a look — a record nothing points back to is graph-hygiene debt piling up;
-link it from its project hub in the same pass as fixing ORPHANS rather than deferring
-it.
+Notes must already be created properly (`vault-write`). Wrap **verifies**; it does not
+absorb graph debt. If lint fails here, fix the notes that were banked wrong this session
+(and treat that as a vault-write failure), then re-check.
+
+From vault root, **both** must exit 0:
+
+```bash
+node scripts/vault-lint.mjs
+python3 scripts/vault-lint.py
+```
+
+**Fail wrap (non-negotiable):** any DANGLING/BROKEN, AMBIGUOUS, ORPHANS, HUB GAPS, **WEAK**, or **GENERIC** (forbidden filename stems — `unique-note-names`).
+Do not add entries to `KNOWN_GAPS` to clear a wrap — wire the hub link instead.
+ARCHIVED citations are fine (historical lineage).
 
 ## Estate sync at wrap
 
-Run `~/JHD/vault/estate/sync-estate.sh` before the wrap commit — it banks live machine
-setup (LaunchAgents, claude-usage logs, auto-memory) one-way into `estate/`, and stages
-any changes for the wrap commit. Skipping it means the estate map and repo-docs mirrors
-silently drift from the live machine between sessions.
+Run `~/JHD/vault/main/estate/sync-estate.sh` (or flat `~/JHD/vault/estate/sync-estate.sh`) before the wrap commit — it banks live machine
+setup (LaunchAgents, claude-usage logs, auto-memory, **captures/live**) one-way into
+`estate/`, and stages any changes for the wrap commit. Skipping it means the estate map
+and banked Capture sync silently drift from the live machine between sessions.
 
+**Mid-session (multiple Capture plugin syncs):** do not wait for wrap — run
+`~/JHD/vault/main/estate/publish-captures.sh` after each sync (rsync + commit + push
+`estate/captures/`) so Cloud can `git pull` the tip immediately.
 ## Push at wrap
 
 After the checkpoint commit, `git push` (vault and any repo touched). Offsite remotes exist precisely so a dead machine loses nothing — a wrap that commits but doesn't push leaves the day's knowledge on one disk. If no remote is configured yet, run `scripts/setup-remotes.sh` from the vault root (one-time, needs gh CLI).
 
 ## Section 0 — drain the runners first (absorbed from the 2026-08-01 wrap)
 
-Wrap does not start while any workflow-runner dispatch is mid-flight. Every run
+Wrap does not start while any Agent / subagent dispatch is mid-flight. Every run
 from this session is either: gate returned and merged; gate returned NO-MERGE and
-the branch is explicitly parked in HANDOVER with what's missing; or turn-capped
+the branch is explicitly parked on the **cockpit** in-flight list with what's missing; or turn-capped
 with reviewer-verified work — in which case finish it (finisher dispatch, or the
 documented-exception path: orchestrator commits the reviewer-verified diff and
-runs the gate's own checks) before touching HANDOVER. A wrap written around a
+runs the gate's own checks) before touching handover files. A wrap written around a
 live run describes a state that's false by the time it's read.
 
 ## Repo topology at wrap (same origin, multiple clones)
 
-When a repo exists as canonical + mirror clones (e.g. ~/JHD/discipline and the
+When a repo exists as canonical + mirror clones (e.g. ~/JHD/discipline/main and the
 live install path), verify BOTH at wrap: same HEAD, both trees clean, both on
 main. An uncommitted tree in the clone this session didn't work in is still a
 wrap failure — checkpoint-commit it (credit the session that made it), merge
 through origin, and fast-forward the other clone. Also check for stale
 `.git/*.lock` files (compare mtime to running git processes before removing).
 
-## Version triple-sync
+## Version sync (Claude)
 
-A plugin version bump is one atomic change across FOUR places or it is drift:
-`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, the capture
-plugin's `PLUGIN_VERSION` const in `figma-plugin/capture-figma/code.js` (the
-version-sync drift-guard test encodes this — run it), and a fresh
-`~/.claude/plugins/cache/discipline/discipline/<version>/` mirror.
+A plugin version bump is drift unless `.claude-plugin/plugin.json` matches what you
+shipped this session **and** every product checkout that consumes Claude overlays is
+updated in the same catchup — a bump nobody installed is unfinished work. If the Cursor
+snapshot tree was edited, its own version fields stay that repo's concern.

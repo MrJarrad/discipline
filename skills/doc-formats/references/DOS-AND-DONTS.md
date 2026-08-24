@@ -14,6 +14,7 @@ Read [REGISTRY.md](REGISTRY.md), [GLOSSARY.md](GLOSSARY.md), and [NAMING.md](NAM
 | Use **REGISTRY.md** to pick the right template | Right artifact, right shape |
 | Defer **content rules** to the owning skill | Separation of structure vs process |
 | Tag facts **[confirmed] / [assumed] / [open]** in SCOPE docs | Matches `discover-scope`'s own vocabulary |
+| Write the **token and the rule, first, at the altitude it applies** | `state-the-rule` — anything past the rule is over-explain |
 
 ---
 
@@ -26,6 +27,7 @@ Read [REGISTRY.md](REGISTRY.md), [GLOSSARY.md](GLOSSARY.md), and [NAMING.md](NAM
 | Create a markdown template for a **task/issue** | Tasks live in dispatch briefs (`issue-triage`); a markdown stand-in drifts out of sync |
 | Put file paths in the body **outside a dedicated pointers section** | Goes stale fast |
 | Edit templates from **calling skills** | Single source of truth lives here |
+| Expand typed docs **past the rule** — anything after the token + rule at the right altitude | Over-explain; if the reader needs a caption, the doc isn't done |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: motion
-description: "Build, review, and name motion — animation decisions, easing, timing, springs, press feedback; review against the craft bar with an explicit Block/Approve; and reverse-lookup any effect's proper name. Trigger on \"the animation feels off\", \"should we look at motion/transition\", \"review the transition\", \"what's it called when…\", choosing easing/duration, or adding transitions. Not reading motion specs out of a Figma file — that's capture-figma; not performance of animations — that's performance."
+description: "Build, review, and name motion — animation decisions, easing, timing, springs, press feedback; read and implement motion law from design-system or capture; review against craft and the loaded law with Block/Approve; reverse-lookup effect names. Trigger on animation feel, transitions, easing/duration, or implementing motion law. Not Figma motion specs — capture-figma; not performance profiling — performance."
 ---
 
 # Motion
@@ -11,10 +11,11 @@ Craft, review bar, and vocabulary derived from Emil Kowalski's animation work �
 
 Concretely: `design-craft` decides a popover is built from the system's popover component with the system's spacing tokens. `motion` decides how that popover enters — from its trigger, in 150-200ms, ease-out. Don't re-litigate token/component choices here; don't skip motion review there.
 
-This skill does three jobs, kept as sections because they fire at different moments:
+This skill does four jobs, kept as sections because they fire at different moments:
 
-- **[Build](#build)** — the exact rule catalog for authoring motion (easing, durations, springs, gestures). This is the authority for exact values.
-- **[Review](#review)** — auditing a diff's motion against that catalog and reaching an explicit Block/Approve.
+- **[Build](#build)** — craft catalog for authoring motion (easing, durations, springs, gestures). Universal feel rules — not a site's law.
+- **[Motion law](#motion-law)** — load, interpret, and implement the active law instance (house, capture, or brief).
+- **[Review](#review)** — audit a diff against craft **and** the loaded law; reach an explicit Block/Approve.
 - **[Vocabulary](#vocabulary)** — reverse-lookup: turning a vague description of an effect into its precise term.
 
 ---
@@ -87,7 +88,7 @@ Find stronger custom variants at easing.dev or easings.co rather than hand-rolli
 
 Worked examples: `cubic-bezier(0.19,1,0.22,1)` @ 750ms → t90 **231ms** → passes both. `cubic-bezier(0.23,1,0.32,1)` @ 750ms → 271ms → passes both. A measured view-scale reveal at **377ms** → passes view scale, fails component scale. `cubic-bezier(0.86,0,0.07,1)` @ 750ms → 470ms → fails both. Any `ease-in-out` @ 500ms → 390ms → fails component scale.
 
-Perceived performance rides on t90, not the declared number — a fast-spinning spinner makes loading feel faster, and skipping the delay (and animation) on subsequent tooltips once one is already open makes a whole toolbar feel faster. Easing amplifies the effect: `ease-out` at 200ms feels faster than `ease-in` at 200ms because the user sees immediate movement. (`vault/references/gil-craft-extraction-2026-08-08.md` §7, Finding 7.6)
+Perceived performance rides on t90, not the declared number — a fast-spinning spinner makes loading feel faster, and skipping the delay (and animation) on subsequent tooltips once one is already open makes a whole toolbar feel faster. Easing amplifies the effect: `ease-out` at 200ms feels faster than `ease-in` at 200ms because the user sees immediate movement.
 
 ### Springs
 
@@ -133,16 +134,26 @@ Don't wire visual changes directly to a continuously-changing input (e.g., mouse
 
 **Stagger multi-element entrances.** A cascading small delay (30-80ms) between siblings feels more natural than everything appearing at once. Keep it decorative — never block interaction while stagger is still playing.
 
-### Sequencing grammar
+### Sequencing concepts (craft — law fills the numbers)
 
-Content-agnostic rules for how movers relate to each other in time, measured off frame-level video and CSS across five sites — the actors are the leader, the follower, and what holds still, never "text" or "media."
+How movers relate in time is **defined by the loaded motion law** when one exists. These concepts name what a law row describes — they are not hardcoded clocks:
 
-- **Duration is a function of the property; distance is a function of the element; velocity is derived, never authored.** Hold the animated property's duration constant regardless of travel distance — `transform` runs at one duration across a 24–101px range inside the same measured component — and set travel distance relative to the moving element's own size (default ≈1.0× its own box), not a fixed pixel offset. Effective velocity is whatever falls out (it can span 20×+ between a small and a large mover); if a move feels wrong, fix the distance or the curve, not the duration. (`vault/references/gil-craft-extraction-2026-08-08.md` §7, Findings 7.3–7.5)
-- **Different animations queue — never a gap, never a real overlap.** A follower that's a distinct animation from its leader starts within about one frame of the leader finishing: measured onset 0.64–1.29× the leader's duration, clustering at 1.0–1.2×, with the one declared (not measured) instance sitting at exactly 1.00×. Don't author a pause between a leader and its follower, and don't run them concurrently past a frame's slack. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.1)
-- **Identical siblings pile, they don't queue.** Copies of the same animation overlap heavily — the stagger step above is 4–20% of the item's own duration, most commonly ~75ms, never a full handoff. Queueing and piling are opposite behaviors for two different relationships; apply the one that matches. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.2)
-- **A shared slot empties to its floor before it refills — it never crossfades.** When incoming content lands where outgoing content was, drive that slot to zero/lowest exposure first, then bring the new content up from nothing. There should be no frame where old and new both show. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.3)
-- **What enters from nothing is last in, first out, and leaves 2–4× faster than it arrived.** An element with no on-screen predecessor (fades up from zero instead of traveling into place) should also be the first thing gone in reverse, and its exit duration should run a quarter to a half of its entry — not mirrored. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.4)
-- **Something always holds position and changes only exposure.** Every measured sequence has one element that never travels, it only dims or brightens — the outgoing view on a navigation, the static chrome on a load. It's what makes the movers around it legible; don't let everything in a sequence be in motion at once. (`vault/references/gil-craft-extraction-2026-08-08.md` §6, Finding 6.5)
+- **Duration is a function of the property; distance is a function of the element; velocity is derived, never authored.** Hold duration constant for a property; set travel relative to the element's size. Fix distance or curve when a move feels wrong — not duration by default.
+- **Distinct families overlap or hand off** — the loaded law states which. When law says overlap: follower delay **<** leader duration; both in motion together. Perceptible gap or exclusive handoff sold as overlap is a defect **when law requires overlap**.
+- **Identical siblings pile or queue** — the loaded law states stagger step and overlap %. Pile and queue are opposite; apply what the law specifies.
+- **Visual raster** — when law specifies column order: columns left → right; within a column, top → bottom; unit = cell contents, not glyphs.
+- **Clear the stage, hold still, type-enter recipe, clocks, cold vs in-app, scroll chrome** — each is a law row when present. See [Motion law](#motion-law).
+
+### Standing defect classes (craft — Block regardless of law)
+
+| Class | Rule |
+| --- | --- |
+| **Flash-before-enter** | Rest paints, then hide, then play. First painted frame of an enter must be the **from-state**. |
+| **Hidden-complete** | Animation reaches `to` while hidden; unhide pops finished state. Full travel must play while visible. |
+| **Pause-stack** | `animation-play-state: paused` stacks a second full delay after unhide. |
+| **Recipe-not-live** | Constants/tests pin a recipe the live DOM path never mounts. |
+
+Law-specific defect classes (**false overlap**, **raster-soup**, **glyph-stagger**, **law-clock drift**, etc.) **Block only when a law is loaded** and the implementation violates it. See [references/LAW.md](references/LAW.md).
 
 ### Performance
 
@@ -173,6 +184,20 @@ Content-agnostic rules for how movers relate to each other in time, measured off
 ### When reviewing UI motion
 
 Use the Before/After/Why markdown table format — see [references/BUILD-DOS-AND-DONTS.md](references/BUILD-DOS-AND-DONTS.md) for the exact required shape and worked examples, or the **Review** section below for the full review posture and explicit Block/Approve decision. Never a vertical "Before: ... After: ..." list.
+
+---
+
+## Motion law
+
+Read [references/LAW.md](references/LAW.md) when implementing or reviewing motion against a product or reference contract.
+
+**This skill does not own the law.** House law lives in `design-system` → `references/motion-law.md`. Captured reference law lives in the capture folder as `motion-law.md`. Product-specific rows may live in vault decisions or tempo modules named in the brief.
+
+**Load order:** brief/capture path → house law (JHD web) → product doc named in brief → law unobserved (craft only).
+
+**Implement:** derive clocks from the law's token map or product tempo module; wire sequencing to law rows; do not hand-copy ms when a law path exists.
+
+**Review:** Block craft defects always; Block law violations only when a law is loaded and quoted in the review brief.
 
 ---
 
@@ -212,6 +237,12 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 10. **Cohesion.** Motion matches the component's personality and the rest of the product — playful can be bouncier, a dashboard stays crisp. Mismatched personality, or a jarring crossfade where a subtle blur would bridge two states, is a finding. When unsure whether motion feels right, the strongest move is often to delete it.
 
+11. **Flash-before-enter.** First painted frame is the from-state — rest then animate is a **Block**.
+
+12. **Hidden-complete.** Motion must not finish while hidden then pop at `to` — **Block**.
+
+13. **Loaded motion law.** When a law is named in the brief, every row in that law is a review standard. Quote the law source; Block violations of overlap, raster, type-enter, clocks, gates, or chrome rows it defines. When no law is loaded, do not Block for missing site-specific recipes.
+
 ### Aggressive Escalation Triggers
 
 Flag these on sight, hard:
@@ -230,6 +261,11 @@ Flag these on sight, hard:
 - Ungated `:hover` motion
 - Symmetric enter/exit timing on a press-and-release or hold interaction
 - Everything-at-once entrance where a 30–80ms stagger belongs
+- **Flash-before-enter** — rest visible on first paint, then hidden, then animated; or unhide onto rest instead of from-state (**Block**)
+- **Hidden-complete** — animation runs to `to` while `visibility: hidden` / `display: none`; clip mask never travels, text pops in finished (**Block**)
+- **Pause-stack** — `animation-play-state: paused` through hide/unhide stacks a second full delay (**Block**)
+- **Recipe-not-live** — recipe wired in tests or constants but absent from the live mount path (**Block**)
+- **Law violation** — any row in the **loaded** motion law contradicted by the diff (**Block** — cite law source + row)
 
 ### Remedial Preference Hierarchy
 
@@ -264,7 +300,7 @@ A single markdown table. One row per issue. Never a "Before:/After:" vertical li
 
 Group remaining commentary by impact tier, highest first. Omit empty tiers.
 
-1. **Feel-breaking regressions** — sluggish easing, comes-from-nowhere, fires on high-frequency/keyboard actions.
+1. **Feel-breaking regressions** — sluggish easing, comes-from-nowhere, fires on high-frequency/keyboard actions, **flash-before-enter**, **hidden-complete** (motion not fully playing).
 2. **Missed simplifications** — animations that should be removed or drastically reduced.
 3. **Performance** — non-GPU properties, dropped-frame risks, recalc storms.
 4. **Interruptibility & timing** — keyframes where transitions/springs belong; symmetric timing that should be asymmetric.
@@ -273,7 +309,7 @@ Group remaining commentary by impact tier, highest first. Omit empty tiers.
 
 Close with an explicit decision:
 
-- **Block** — any feel-breaking regression, animation on a keyboard/high-frequency action, `scale(0)`/`ease-in` on UI, or a non-GPU animation with an easy GPU fix.
+- **Block** — any feel-breaking regression, animation on a keyboard/high-frequency action, `scale(0)`/`ease-in` on UI, a non-GPU animation with an easy GPU fix, **flash-before-enter**, **hidden-complete**, pause-stack, recipe-not-live, or any **loaded motion law** row violated (cite law + row).
 - **Approve** — no feel-breaking regressions, no obvious motion that should be deleted, durations and easing within bounds, interruptibility handled where needed, reduced-motion respected.
 
 Be specific and cite `file:line`. When a finding needs a precise value (a curve, a duration, a spring config), pull it from the **Build** section above rather than approximating.

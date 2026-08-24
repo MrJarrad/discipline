@@ -35,6 +35,10 @@ between any source playbook and any target brief:
 - **Pattern summary** — derive, don't just dump rows: per-layer cycle, stagger,
   deliberate overlaps ("next in starts 150ms before previous out ends so the
   stage is never empty" is intent a brief must carry), choreography groups.
+- **Motion law** — bank `motion-law.md` in the capture folder using the same shape as
+  [`motion`](../motion/references/LAW.md) / [capture-website motion-law template](../capture-website/references/motion-law-template.md).
+  Pattern summary rows feed the law table (overlap, pile, raster, type enter, clocks).
+  Video/tape is primary evidence — especially for sources with no DOM.
 - **Assets** — extracted files where the source embeds them, named by playback
   order, exact px dimensions; else a named blocker in the brief.
 
@@ -72,9 +76,9 @@ method, and add a playbook for it while the mechanics are fresh.
 5. **See the artwork** — screenshot or extract each layer's visual; describe
    composition. Extract embedded assets when the format carries them; verify one
    visually before trusting a name mapping.
-6. **Normalize + pattern-derive** into the spec above.
-7. **Bank + brief** — vault reference, then `discipline:dispatch-brief`; require
-   `discipline:motion-craft` of the receiver and add the target-surface mapping
+6. **Normalize + pattern-derive** into the spec above and **`motion-law.md`** (law shape).
+7. **Bank + brief** — vault reference + `motion-law.md`, then `discipline:dispatch-brief`; require
+   `discipline:motion` of the receiver and add the target-surface mapping
    below.
 
 ## Target-surface mapping (goes in the brief)

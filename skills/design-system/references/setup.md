@@ -1,67 +1,56 @@
-# Starting a new project on the house system
+# Wiring a JHD web product to the house system
 
-Goal: a new web app with the full token contract, dark mode, and shadcn wired —
-before you write any UI. Don't hand-assemble tokens; drop in the starter.
+Goal: consume `@jhd/design-system` from the fleet package — **not** scaffold a
+parallel Vite + Geist + shadcn token contract.
 
 ## Steps
 
-1. **Scaffold** Vite + React + TypeScript:
-   ```bash
-   npm create vite@latest my-app -- --template react-ts
-   cd my-app && npm install
-   ```
+1. **Ensure the package checkout exists** on disk:
+   `~/JHD/design-system/main` (container clone via `jhd-container-clone.sh`
+   if missing).
 
-2. **Add Tailwind v4 + the Vite plugin:**
+2. **Add the dependency** from the local package (workspace / file path until
+   published):
    ```bash
-   npm install tailwindcss @tailwindcss/vite
-   npm install tw-animate-css shadcn @fontsource-variable/geist
+   npm install ../design-system/main   # adjust relative path from your app root
    ```
-   In `vite.config.ts`, add the plugin and the `@` path alias:
+   Or wire the monorepo/workspace alias your stack uses — the rule is **one
+   import surface**, not a copied `globals.css` in the app.
+
+3. **Import package CSS once** at the app root (e.g. Next.js `layout.tsx` or
+   Vite `main.tsx`):
    ```ts
-   import { defineConfig } from "vite"
-   import react from "@vitejs/plugin-react"
-   import tailwindcss from "@tailwindcss/vite"
-   import path from "node:path"
-
-   export default defineConfig({
-     plugins: [react(), tailwindcss()],
-     resolve: { alias: { "@": path.resolve(__dirname, "./src") } },
-   })
+   import "@jhd/design-system/styles.css"   // path per package export once extract lands
    ```
-   Mirror the alias in `tsconfig.json` (`"paths": { "@/*": ["./src/*"] }`) so
-   `@/components`, `@/lib/utils` resolve.
+   Until the package ships CSS, **do not vendor** — read the interim contract
+   from `~/JHD/portfolio/main/src/app/globals.css` sections 1–11 and track
+   package extract as the follow-up. New apps should plan for package import
+   on day one.
 
-3. **Drop in the three starter files** (from `starter/` in this skill):
-   - `starter/index.css` → `src/index.css`, imported once in `src/main.tsx`
-   - `starter/components.json` → project root
-   - `starter/utils.ts` → `src/lib/utils.ts`
+4. **Supply Suisse** via `--font-suisse` in the app's theme / layout. Font
+   files stay with the app — never copy them into the package or another product.
 
-   At this point the full semantic token contract and light/dark theming are
-   live — every `bg-*`/`text-*`/`rounded-*` utility resolves to a token.
+5. **Use Figma-named utilities** — `bg-background-default-primary`,
+   `text-content-default-secondary`, `type-title title-style1-400`, Action
+   classes from the package — not raw Tailwind colour steps or Geist defaults.
 
-4. **Initialise shadcn, then add primitives** as you need them:
-   ```bash
-   npx shadcn@latest init      # reads components.json — no prompts to fight
-   npx shadcn@latest add button card dialog input
-   ```
-
-5. **Wire the theme toggle.** A `ThemeProvider` that stores `light`/`dark`/
-   `system` in `localStorage` and sets the resolved class on `<html>`. See
-   the portfolio site's `theme-provider.tsx` (`~/JHD/portfolio`)
-   for a complete, keyboard-toggleable implementation to copy.
+6. **Dark mode:** theme class on `<html>` swaps token values. No per-component
+   `dark:bg-*` for base surfaces. Copy portfolio's `theme-provider.tsx` pattern
+   if you need a reference toggle.
 
 ## Verify it took
 
-- Toggle `dark` on `<html>` in devtools — the whole app should re-theme with no
-  per-component changes. If a colour doesn't flip, it's a raw value, not a token.
-- A `<Button>` renders with the ring-on-focus, pointer cursor, and radius from
-  the scale. If not, `index.css` isn't imported or the `@` alias is wrong.
-- Render at desktop **and** mobile widths before calling any screen done
-  (design-craft's visual-truth rule).
+- Toggle dark on `<html>` — surfaces re-theme without component edits.
+- Grep for raw hex / arbitrary `[` values — should be zero outside the package.
+- Action/Badge render with house radii and focus ring — not shadcn defaults
+  unless explicitly part of the package.
 
-## What you inherit for free
+## What you do **not** do on JHD products
 
-Semantic tokens · foreground pairing · OKLCH light/dark · one radius root ·
-`success`/`warning` status tokens · the 8-hue categorical palette · `cn()` ·
-CVA-ready components · Geist. Everything the reference instance (the portfolio site) is
-built on.
+- `npm create vite` + Geist + shadcn init as the house path.
+- Copy `globals.css` (or `index.css`) from portfolio into a new app repo.
+- Invent a second visual language because "it's faster."
+
+For generic token-starter education (non-JHD greenfield), the old shadcn/Geist
+baseline remains in `references/starter/` as reference material only — **not**
+the JHD product path.
