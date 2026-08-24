@@ -73,9 +73,10 @@ completion ping** is a **routing failure**. Waiting **inside** the dispatch turn
 | Work smells like | Dispatch |
 |---|---|
 | implement, build, fix, refactor, add test | engineer |
-| look/feel, animation off, match figma, UI review | ux-designer |
-| engineer landed / "is it fixed?" / "is it working?" / verify the change | **reviewer** (readonly) — after engineer, before operator hears "done" |
-| ready to merge, review this, check before shipping | reviewer (readonly) |
+| match figma, make it look right, animation off, contract/fidelity UI | ux-designer (+ audit-build when built-vs-design) |
+| "design-review", "review the experience", "user-test this" | ux-designer (+ **design-review** whole) |
+| "quality review", "tech review", engineer landed / "is it fixed?" / "is it working?" / verify the change | **reviewer** (readonly) — build bars only, after engineer, before operator hears "done" |
+| ready to merge, review this, check before shipping | reviewer (readonly) — build bars |
 | research, look up, compare, what's the best, competitive | researcher (readonly) |
 | release, deploy, push to production, ship it | releaseops (after reviewer PASS) |
 | plan approved → tasks, triage board | project-manager |
