@@ -29,6 +29,7 @@ The operator is a designer. **Do not narrate surfaces and wait.** Classify inten
 | Specialist landed (any persona) | **Child:** **NEVER call `Task`**. Name next owner in evidence return and stop. Cursor notifies the parent | — |
 | Reviewer **PASS** on work with a live product the operator signs | Load **`present-for-review`** — native: full quit + relaunch signed bundle; web: *Ready* + what to check + one markdown hyperlink in chat (do **not** spawn Browser). No "go look" homework; no screenshot as the packet | Capture mid-recording blocks quit — say blocked |
 | Bad agent edits | Prefer **Checkpoints** rollback over git archaeology | — |
+| Resume / *Error resuming chat* toast after background specialist | **Ignore** — parent `Task`s next owner on completion ping; never ask operator to click Resume (**double-dispatch**). Plugin cannot hide Cursor UI | — |
 
 ## Anti-patterns (routing failures)
 - Saying "you should open Plan / Cloud / Browser" instead of invoking
@@ -38,6 +39,7 @@ The operator is a designer. **Do not narrate surfaces and wait.** Classify inten
 - **Doing the work in this chat so the operator does not wait.** Dispatch in the background (`Task` `run_in_background`, resume the standing specialist). **End the turn** after dispatch — do not AwaitShell/poll the child. The parent stays free; it does not become the engineer.
 - **Parent silence after the completion ping** when the baton table names the next owner — pass the baton on that notification; parent is not a waiting room.
 - **Waiting inside the dispatch turn** (AwaitShell/poll on the specialist) — locks the operator; routing failure.
+- **Treating the Resume toast as leftover or operator homework** — ignore it; parent passes baton on completion ping (`ignore-resume-toast`). Do not revert to blocking in-turn `Task` to dodge the toast.
 
 ## Cloud constraints
 Cloud VMs do **not** load home `~/.cursor/` loose files. This plugin + repo `AGENTS.md` / `.cursor/rules` are the portable unit. If neither `~/JHD/vault/main/orchestrator/cockpit.md` nor `~/JHD/vault/orchestrator/cockpit.md` exists, say so and use in-repo docs — do not fail.

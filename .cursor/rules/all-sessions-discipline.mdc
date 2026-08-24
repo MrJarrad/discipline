@@ -50,6 +50,7 @@ Before the first agent session (local or Cloud):
 - On completion notification: engineer landed → parent **`Task`s reviewer**; reviewer **BLOCK** → parent **`Task`s engineer** (`resume`) with gaps; look/feel or missing render → parent **`Task`s ux-designer** for agent evidence; reviewer **PASS** → parent loads **`present-for-review`** when a live product exists, then remits merge (engineer or releaseops).
 - Parent default **`run_in_background`** and **end the turn** after dispatch — do not AwaitShell/poll the specialist.
 - Parent is **not a waiting room**. Silence **after the completion ping** is a routing failure. Waiting **inside** the dispatch turn is also a routing failure.
+- **`ignore-resume-toast`:** Resume / *Error resuming chat* after a background specialist → **ignore**; not leftover; parent `Task`s next owner on completion ping. Never operator Resume homework. Plugin cannot suppress Cursor UI.
 
 ## Plugin updates sync everywhere (`plugin-update-syncs-everywhere`)
 

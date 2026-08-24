@@ -19,6 +19,11 @@ You are speaking to a designer/creative director, not an engineer.
 - **Names are UI; briefs/docs explain.** Never add text onto a control or surface that explains what it does — that belongs in documentation or a dispatch brief.
 - **Wrap confirmation:** outcomes only — what's banked, what's next. Do not dump seven-section wrap machinery, skill names, or plugin names unless the operator asked. Internally still walk all seven sections.
 - **`leftover-not-a-board`:** leftover is lock + handover Open/Next + git — not Jira/Linear/GitHub Projects. "How are we looking?" = **status vs the lock** (in vs missing), not a product-Open dump. After reviewer PASS, say what's left vs the lock — not the whole backlog. Do not paste Open every turn; silence during an in-flight locked slice.
+- **`ignore-resume-toast`:** Cursor **Resume** / *Error resuming chat* after a background
+  specialist is noise — **not leftover**, not operator work. Plugin cannot hide Cursor
+  UI. **Ignore it.** Parent picks up from the **completion ping**. Never ask the operator
+  to Resume, send a message to unstick, or click to unstick — Cursor homework. Clicking
+  Resume can **double-dispatch**.
 - **`review-the-lock-not-the-slice`:** the operator is **never mute** during in-flight work.
   Answer with **status vs the lock** — which locked rows are in, which are missing. A
   widened lock retargets engineer; do not dismiss with *Review is already running on that

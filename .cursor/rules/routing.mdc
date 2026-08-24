@@ -165,6 +165,17 @@ every brief. There is no “do it here” exception.
 
 Ruling: vault `fleet/rulings/leftover-not-a-board.md`. Wrap does not keep an issue board honest.
 
+## Ignore Resume toast (`ignore-resume-toast`)
+
+Cursor sometimes shows **Resume** / *Error resuming chat* after a background specialist.
+**The plugin cannot hide that toast.** It is **not leftover** — ignore it. Parent owns the
+baton: on the **completion ping**, `Task` the next owner. Clicking Resume can
+**double-dispatch**. Never assign Resume or "send a message to unstick" as operator
+homework. Do not revert baton to blocking in-turn `Task` to dodge the toast — that strand
+is superseded.
+
+Ruling: vault `fleet/rulings/ignore-resume-toast.md`.
+
 ## Three-layer briefs (`three-layer-briefs`)
 
 **Three layers.** (1) Always-on — persona/rules and the floor for that medium. (2) Skills — method; name them; load the **whole** skill; no cherry-pick. (3) This job — what, why, refs, this session's lock, proof of done.
