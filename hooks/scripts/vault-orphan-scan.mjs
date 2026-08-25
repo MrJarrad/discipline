@@ -4,14 +4,19 @@
    them at wrap — four stragglers found in a 308-note vault, each written
    with a "Hubs:" line pointing AT its hub but nothing linking back).
 
-   A note is an orphan if neither its filename stem nor its frontmatter
-   `name:` value is targeted by a [[wikilink]] or a relative markdown link
-   from any OTHER note in the vault. .obsidian/ and estate/ directories are
-   excluded (tooling/mirror trees, not content notes) at any depth.
+   Resolves links the way Obsidian does: a note is linked iff its FILENAME
+   stem, or an entry in its frontmatter `aliases:` list, is targeted by a
+   [[wikilink]] or a relative markdown link from any OTHER note in the
+   vault. Frontmatter `name:` does NOT count — a live failure the same day
+   this script was written showed hub backlinks written as
+   `[[frontmatter-name]]` against date-prefixed filenames staying broken,
+   because Obsidian never resolves by `name:`. .obsidian/ and estate/
+   directories are excluded (tooling/mirror trees, not content notes) at any
+   depth.
 
    Deliberately narrow — link presence, not full Obsidian link resolution:
-   no alias-only matching beyond stripping `|alias`/`#heading`, no
-   folder-scoped disambiguation between two same-named notes. Good enough to
+   no folder-scoped disambiguation between two same-named notes, no
+   heading-block resolution beyond stripping `#heading`. Good enough to
    catch the straggler failure mode; not a general graph validator (that's
    vault/scripts/vault-lint.{mjs,py} in the vault repo itself).
 
@@ -54,17 +59,35 @@ function readSafe(path) {
   }
 }
 
-// Extracts the frontmatter `name:` value, or null if absent/unparseable.
-// Intentionally simple — same narrow posture as frontmatter-check.mjs, not a
-// general YAML parser.
-function frontmatterName(text) {
-  if (!text.startsWith("---\n") && text !== "---") return null;
+// Extracts frontmatter `aliases:` entries — either a flow list
+// (`aliases: [a, b]`) or a block list (`aliases:` then `- a` / `- b` lines).
+// Empty array if absent/unparseable. Intentionally simple — same narrow
+// posture as frontmatter-check.mjs, not a general YAML parser.
+function frontmatterAliases(text) {
+  if (!text.startsWith("---\n") && text !== "---") return [];
   const close = text.indexOf("\n---", 4);
-  if (close === -1) return null;
+  if (close === -1) return [];
   const block = text.slice(4, close);
-  const match = block.match(/^name:\s*(.+)$/m);
-  if (!match) return null;
-  return match[1].trim().replace(/^["']|["']$/g, "");
+  const lines = block.split("\n");
+  const startIdx = lines.findIndex((l) => /^aliases:/.test(l));
+  if (startIdx === -1) return [];
+
+  const firstLineValue = lines[startIdx].replace(/^aliases:/, "").trim();
+  if (firstLineValue.startsWith("[")) {
+    const inner = firstLineValue.replace(/^\[/, "").replace(/\]$/, "");
+    return inner
+      .split(",")
+      .map((s) => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+
+  const aliases = [];
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!/^\s*-\s+/.test(line)) break; // end of the block list
+    aliases.push(line.replace(/^\s*-\s+/, "").trim().replace(/^["']|["']$/g, ""));
+  }
+  return aliases;
 }
 
 // Every [[wikilink]] target and every relative-markdown-link .md basename
@@ -97,7 +120,7 @@ export function scanVaultForOrphans(vaultRoot) {
   for (const file of files) {
     const text = readSafe(file);
     if (text === null) continue;
-    perFile.push({ file, stem: basename(file, ".md"), name: frontmatterName(text), text });
+    perFile.push({ file, stem: basename(file, ".md"), aliases: frontmatterAliases(text), text });
   }
 
   // target (lowercase) -> set of files that link it.
@@ -112,8 +135,8 @@ export function scanVaultForOrphans(vaultRoot) {
   const orphans = [];
   for (const target of perFile) {
     const sources = new Set(linkersByTarget.get(target.stem.toLowerCase()) ?? []);
-    if (target.name) {
-      for (const src of linkersByTarget.get(target.name.toLowerCase()) ?? []) sources.add(src);
+    for (const alias of target.aliases) {
+      for (const src of linkersByTarget.get(alias.toLowerCase()) ?? []) sources.add(src);
     }
     sources.delete(target.file); // a note linking itself doesn't count
     if (sources.size === 0) orphans.push(target.file);

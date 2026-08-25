@@ -68,14 +68,67 @@ test("a relative markdown link also counts as an inbound link", () => {
   }
 });
 
-test("frontmatter name: is also a valid inbound-link target, independent of filename stem", () => {
+test("a date-prefixed note linked only via its frontmatter name: (not its filename) is an orphan — the live bug class", () => {
+  // Tonight's actual failure: the hub backlink used [[frontmatter-name]]
+  // against a date-prefixed filename. Obsidian never resolves by name:, so
+  // this "fixed" link stayed broken and the note stayed orphaned.
   const root = makeVault();
   try {
     writeCleanIndexAndHub(root, "- [[the-real-name]]\n");
-    // filename stem differs from frontmatter name — link is by name:, not filename.
+    // filename stem differs from frontmatter name — the hub links the name,
+    // not the actual filename, which is exactly the bug that shipped tonight.
     writeFileSync(
-      join(root, "note-file.md"),
+      join(root, "2026-08-25-widget-decision.md"),
       ["---", "name: the-real-name", "description: x.", "---", "", "Body."].join("\n"),
+      "utf8"
+    );
+    const orphans = scanVaultForOrphans(root);
+    assert.equal(orphans.length, 1);
+    assert.ok(orphans[0].endsWith("2026-08-25-widget-decision.md"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a note linked via [[stem|display]] (pipe-aliased wikilink) is not an orphan", () => {
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "- [[2026-08-25-widget-decision|the widget decision]]\n");
+    writeFileSync(
+      join(root, "2026-08-25-widget-decision.md"),
+      ["---", "name: widget-decision", "description: x.", "---", "", "Body."].join("\n"),
+      "utf8"
+    );
+    const orphans = scanVaultForOrphans(root);
+    assert.deepEqual(orphans, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a note linked via a declared frontmatter alias (not its filename) is not an orphan", () => {
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "- [[widget-decision-alias]]\n");
+    writeFileSync(
+      join(root, "2026-08-25-widget-decision.md"),
+      ["---", "name: widget-decision", "aliases: [widget-decision-alias]", "description: x.", "---", "", "Body."].join("\n"),
+      "utf8"
+    );
+    const orphans = scanVaultForOrphans(root);
+    assert.deepEqual(orphans, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a note linked via a block-list frontmatter alias is not an orphan", () => {
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "- [[widget-decision-alias]]\n");
+    writeFileSync(
+      join(root, "2026-08-25-widget-decision.md"),
+      ["---", "name: widget-decision", "aliases:", "  - widget-decision-alias", "description: x.", "---", "", "Body."].join("\n"),
       "utf8"
     );
     const orphans = scanVaultForOrphans(root);
