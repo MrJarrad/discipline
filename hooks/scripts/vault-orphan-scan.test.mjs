@@ -106,6 +106,21 @@ test("a note linked via [[stem|display]] (pipe-aliased wikilink) is not an orpha
   }
 });
 
+test("a note linked only via a path-qualified wikilink ([[folder/sub/stem|display]]) is not an orphan", () => {
+  // Obsidian resolves a path-qualified wikilink by FILENAME, same as a bare
+  // [[stem]] — the live vault had 212 false orphans from exactly this gap
+  // (manifest files linked with a folder-qualified path).
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "- [[projects/portfolio/artifacts/some-manifest|the manifest]]\n");
+    writeFileSync(join(root, "some-manifest.md"), "# Some Manifest\n\nBody.\n", "utf8");
+    const orphans = scanVaultForOrphans(root);
+    assert.deepEqual(orphans, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("a note linked via a declared frontmatter alias (not its filename) is not an orphan", () => {
   const root = makeVault();
   try {
@@ -138,15 +153,26 @@ test("a note linked via a block-list frontmatter alias is not an orphan", () => 
   }
 });
 
-test(".obsidian/ and estate/ directories are excluded from the scan entirely", () => {
+test(".obsidian/ is excluded from the scan entirely", () => {
   const root = makeVault();
   try {
     mkdirSync(join(root, ".obsidian"), { recursive: true });
     writeFileSync(join(root, ".obsidian", "workspace.md"), "not a real note\n", "utf8");
+    const orphans = scanVaultForOrphans(root);
+    assert.deepEqual(orphans, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("estate/ is NOT excluded — an unlinked note inside it is a real orphan (wired-for-real law, 2026-08-25)", () => {
+  const root = makeVault();
+  try {
     mkdirSync(join(root, "estate"), { recursive: true });
     writeFileSync(join(root, "estate", "estate-map.md"), "# Estate Map\n\nno inbound links either.\n", "utf8");
     const orphans = scanVaultForOrphans(root);
-    assert.deepEqual(orphans, []);
+    assert.equal(orphans.length, 1);
+    assert.ok(orphans[0].endsWith("estate-map.md"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

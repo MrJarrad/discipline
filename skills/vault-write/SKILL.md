@@ -211,6 +211,12 @@ into.
 `.vault-bundle` marker file in its own folder in the same action it's imported — the
 bundle's parent note/README carries the hub link, not each individual file inside it.
 
+**Banking payload files is wired, not just placed** (vault ruling 2026-08-25, wired-for-real
+law): banking a folder of payload — captures, reference assets, spec artifacts — includes
+generating or updating that folder's `<folder>-manifest.md` with path-qualified links to
+every file in the same action; an attachment nothing points at is a straggler same as an
+unlinked note.
+
 ---
 
 ## Create properly — graph wiring is the write (ruling 2026-08-03)
