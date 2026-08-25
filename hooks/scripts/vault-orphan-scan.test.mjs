@@ -180,3 +180,65 @@ test("two mutually-unlinked notes both report as orphans, and the count matches"
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ---- .vault-bundle marker (archival bundle opt-out) ------------------------
+
+test("a .vault-bundle marker excludes its subtree entirely — an orphan inside is not reported", () => {
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "");
+    const bundleDir = join(root, "projects", "portfolio", "artifacts", "portfolio-v1", "docs");
+    mkdirSync(bundleDir, { recursive: true });
+    writeFileSync(join(bundleDir, ".vault-bundle"), "", "utf8");
+    // A .md file inside the marked bundle, linked from nowhere — would be an
+    // orphan under normal rules, but the bundle marker exempts the subtree.
+    writeFileSync(join(bundleDir, "old-architecture-notes.md"), "# Old Architecture\n\nPayload, not a note.\n", "utf8");
+    const orphans = scanVaultForOrphans(root);
+    assert.deepEqual(orphans, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an unmarked sibling directory next to a bundle is still scanned and reported normally", () => {
+  const root = makeVault();
+  try {
+    writeCleanIndexAndHub(root, "");
+    const artifactsDir = join(root, "projects", "portfolio", "artifacts");
+    const bundleDir = join(artifactsDir, "portfolio-v1", "docs");
+    mkdirSync(bundleDir, { recursive: true });
+    writeFileSync(join(bundleDir, ".vault-bundle"), "", "utf8");
+    writeFileSync(join(bundleDir, "payload.md"), "# Payload\n\nExcluded.\n", "utf8");
+
+    const siblingDir = join(artifactsDir, "portfolio-v2");
+    mkdirSync(siblingDir, { recursive: true });
+    writeFileSync(join(siblingDir, "real-orphan.md"), "# Real Orphan\n\nNo marker here — this one counts.\n", "utf8");
+
+    const orphans = scanVaultForOrphans(root);
+    assert.equal(orphans.length, 1);
+    assert.ok(orphans[0].endsWith("real-orphan.md"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a .vault-bundle marker at the vault root is ignored, with a warning, rather than silencing the whole vault", () => {
+  const root = makeVault();
+  try {
+    writeFileSync(join(root, ".vault-bundle"), "", "utf8");
+    writeFileSync(join(root, "unlinked.md"), "# Unlinked\n\nStill a real orphan.\n", "utf8");
+
+    const warnings = [];
+    const orphans = scanVaultForOrphans(root, { warn: (msg) => warnings.push(msg) });
+
+    // The marker at root must NOT exempt anything — normal orphan detection applies.
+    assert.equal(orphans.length, 1);
+    assert.ok(orphans[0].endsWith("unlinked.md"));
+    // And the ignore is surfaced, not silent.
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /vault-bundle/);
+    assert.match(warnings[0], /root/i);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

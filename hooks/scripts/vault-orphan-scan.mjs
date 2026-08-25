@@ -20,8 +20,19 @@
    catch the straggler failure mode; not a general graph validator (that's
    vault/scripts/vault-lint.{mjs,py} in the vault repo itself).
 
+   Bundle marker: a directory containing a file named `.vault-bundle` is an
+   imported archival bundle (e.g. a salvaged historical doc tree) — its
+   whole subtree is excluded from the scan. Bundle .md files are payload,
+   not vault notes: neither orphan candidates nor link sources. The
+   BUNDLE's own containing folder still needs a hub link from whatever note
+   references it — this only exempts what's INSIDE the marked directory. A
+   marker at the vault root itself is ignored (with a warning) rather than
+   honored — a root-level marker would silence orphan detection for the
+   entire vault, which is never the intent of a bundle marker.
+
    Interface (deep module — small surface):
-     scanVaultForOrphans(vaultRoot) -> string[] (absolute paths, sorted)
+     scanVaultForOrphans(vaultRoot, { warn }?) -> string[] (absolute paths, sorted)
+     `warn` (default console.warn) receives the root-marker-ignored message.
 
    Usage (CLI): node vault-orphan-scan.mjs <vault-root>
    Prints count + paths, exits 1 if any orphans, 0 if clean.               */
@@ -30,21 +41,36 @@ import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXCLUDED_DIRS = new Set([".obsidian", "estate"]);
+const BUNDLE_MARKER = ".vault-bundle";
 
 // Recursively collects every .md file under root, skipping unreadable
-// directories and the excluded trees (at any depth) rather than crashing.
-function walkMarkdownFiles(root, dir = root, out = []) {
+// directories, the excluded trees (at any depth), and any subtree marked
+// with a `.vault-bundle` file — except at `root` itself, where the marker
+// is ignored (with a warning) rather than honored, since honoring it there
+// would silence orphan detection for the whole vault.
+function walkMarkdownFiles(root, opts, dir = root, out = []) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
     return out; // unreadable directory — skip
   }
+  const hasBundleMarker = entries.some((e) => e.isFile() && e.name === BUNDLE_MARKER);
+  if (hasBundleMarker) {
+    if (dir === root) {
+      opts.warn(
+        `vault-orphan-scan: ignoring ${BUNDLE_MARKER} marker at the vault root (${dir}) — ` +
+          `a root-level marker would silence orphan detection for the whole vault, so it has no effect.`
+      );
+    } else {
+      return out; // marked archival subtree — excluded entirely, not descended into
+    }
+  }
   for (const entry of entries) {
     if (EXCLUDED_DIRS.has(entry.name)) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      walkMarkdownFiles(root, full, out);
+      walkMarkdownFiles(root, opts, full, out);
     } else if (entry.isFile() && extname(entry.name) === ".md") {
       out.push(full);
     }
@@ -113,10 +139,13 @@ function extractLinkTargets(text) {
 
 /**
  * @param {string} vaultRoot - absolute path to the vault working tree.
+ * @param {{ warn?: (msg: string) => void }} [opts] - `warn` receives the
+ *   root-marker-ignored message (default `console.warn`).
  * @returns {string[]} absolute paths of orphaned notes, sorted.
  */
-export function scanVaultForOrphans(vaultRoot) {
-  const files = walkMarkdownFiles(vaultRoot);
+export function scanVaultForOrphans(vaultRoot, opts = {}) {
+  const warn = opts.warn ?? console.warn;
+  const files = walkMarkdownFiles(vaultRoot, { warn });
   const perFile = [];
   for (const file of files) {
     const text = readSafe(file);

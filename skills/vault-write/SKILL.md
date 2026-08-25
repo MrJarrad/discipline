@@ -207,6 +207,10 @@ written into the hub must exactly match an existing file's basename (or a declar
 Evidence of a vault write names **both** files touched — the note and the hub it was wired
 into.
 
+**Imported archival bundles are payload, not notes:** a salvaged historical doc tree gets a
+`.vault-bundle` marker file in its own folder in the same action it's imported — the
+bundle's parent note/README carries the hub link, not each individual file inside it.
+
 ---
 
 ## Create properly — graph wiring is the write (ruling 2026-08-03)
