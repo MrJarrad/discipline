@@ -1,6 +1,6 @@
 ---
 name: ops-inbox
-description: Operates Jarrad's ops system — morning sweep, standup drafting, meeting-notes pipeline, Ops Inbox canonical memory. Trigger on "what's on my plate", "refresh the inbox", "draft my standup", "mark X done", "what did we decide about", "what does <person> owe", after any meeting ends, or when reconciling completed work. Chains summarise-meeting for transcript processing.
+description: Operates Jarrad's ops system — morning sweep, standup drafting, meeting-notes pipeline, Ops Inbox canonical memory. Trigger on "what's on my plate", "refresh the inbox", "draft my standup", "mark X done", "what did we decide about", "what does per-person owe", after any meeting ends, or when reconciling completed work. Chains summarise-meeting for transcript processing.
 ---
 
 # Ops Inbox — operating the system
