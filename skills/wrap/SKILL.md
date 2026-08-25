@@ -311,3 +311,13 @@ A plugin version bump is drift unless `.claude-plugin/plugin.json` matches what 
 shipped this session **and** every product checkout that consumes Claude overlays is
 updated in the same catchup — a bump nobody installed is unfinished work. If the Cursor
 snapshot tree was edited, its own version fields stay that repo's concern.
+
+**Two installs, both refreshed.** The plugin installs from the GitHub marketplace
+(`MrJarrad/discipline` main) in TWO places — Claude Code on the Mac and Claude web. A
+bump is unfinished until both are on the shipped version: Mac refreshes agent-side
+(`claude plugin update discipline@discipline`); web refresh is an operator action —
+surface it as one line, not homework repeated every turn.
+
+**Thin overlays, not scattered copies.** Product repos carry a thin tripwire `CLAUDE.md`
+block (floor + plugin-presence self-check), never a full rules copy — overlay scatter is
+the named anti-pattern (it is why the operator left the Cursor site session).
