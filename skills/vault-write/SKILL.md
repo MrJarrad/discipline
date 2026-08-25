@@ -191,6 +191,14 @@ When you add a decision / audit / artifact / primer / ruling worth finding later
 `[[link]]` under the relevant hub section in the same action**. Never delete or reorder
 existing hub entries while adding yours. An unlinked note is not a finished write.
 
+**A new note and its hub backlink are one atomic action** (operator ruling, straggler
+notes found in the live graph 2026-08-25). The same turn that `Write`s a note MUST also
+`Edit` the owning hub (or tray/index) to link it with `[[name]]`. A `Hubs:`
+frontmatter/lead line **inside the note, pointing at the hub, does not satisfy this** —
+that link points the wrong direction; only an inbound link **from** the hub kills a
+straggler. Evidence of a vault write names **both** files touched — the note and the hub
+it was wired into.
+
 ---
 
 ## Create properly — graph wiring is the write (ruling 2026-08-03)

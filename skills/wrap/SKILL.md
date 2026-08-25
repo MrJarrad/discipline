@@ -133,6 +133,11 @@ template. Naming conventions (human-name-first, path-composed names, the vault's
 file-naming rules) held across everything written this session. Link health is verified
 in the dedicated check below (both linters); do not leave hub wiring for that check to invent.
 
+**Orphan backstop:** run `node <plugin>/hooks/scripts/vault-orphan-scan.mjs <vault-root>`.
+Any orphan found here is a **wrap failure to fix in this same wrap** (link it from its
+hub) — not a note for next time; the write-time law in `vault-write` is meant to make this
+check come back clean.
+
 ### 6. Leftover — handover Open/Next + git (`leftover-not-a-board`)
 
 Leftover is AI-first: this chat's lock, product Open/Next on unique `<name>-handover.md`, git for what is actually true. **Not** Jira/Linear/GitHub Projects — wrap does not clerk an issue board.

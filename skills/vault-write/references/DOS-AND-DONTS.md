@@ -12,8 +12,11 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
 - **Write with the Write tool, then land the slice.** Author the note (graph wired). Then commit / PR / merge the vault working tree — do not leave hive notes for a cron.
 - **On supersede**, edit only the old note's frontmatter (`status: superseded` + `superseded_by:`) and write a fresh new note (`status: current` + `supersedes:`).
 - **Link new records into the project hub** (`projects/<name>/hub.md`) in the same action — hubs are hand-maintained indexes now, not query-layer derived.
+- **`Edit` the hub in the same turn as the `Write`** that creates the note — one atomic action, evidence names both files.
 
 ## Don't
+
+- **Don't write the note and say "hub — to be linked later."** That is the straggler factory: a `Hubs:` line inside the note points AT the hub, but nothing links back, so the note sits orphaned in the graph until someone notices (four found in the live vault, 2026-08-25). Link it now, in this turn, or don't call the write done.
 
 - **Don't file by type at the vault root.** `memories/`, `decisions/`, `documents/`, `hubs/`, `artifacts/` as top-level folders are the retired flat-by-type schema — every one of those aspects now lives *inside* `projects/<name>/` or `fleet/`.
 - **Don't skip remittance.** Writing the file is not done. Commit + PR + merge the vault working tree. A cron is a backstop, not a reason to skip git. Don't mix vault and product files in one commit.
