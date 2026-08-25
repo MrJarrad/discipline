@@ -116,6 +116,9 @@ description: >-
 
 Description is the trigger surface. Body is the procedure.
 
+Description is plain prose — no angle-bracket placeholders, and no custom frontmatter
+keys on agents — the claude.ai marketplace validator rejects both.
+
 ### Router skills
 
 When user-invoked skills multiply past memory, one **router** skill names when to reach
