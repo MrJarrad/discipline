@@ -77,15 +77,21 @@ A dispatch made without all four loaded is malformed.
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
    grilling, operator voice, every `Agent` dispatch, merge remittance after PASS).
 9. **Dispatch surface — local stays default, cloud is a routing cell.** Local dispatch
-   (`Agent`) is the default vehicle for every dispatch; cloud is never a blanket default.
-   Route to a cloud dispatch (Claude cloud session/agent) only when the work is
-   long-running, PR babysitting, parallel lanes on one repo, or must survive the laptop /
-   continue while the operator is away. **Never cloud for:** capture-stack work (`:4411`
-   listener, Capture.app helper, figma-daemon), present-for-review, or anything needing
-   machine-bound services or interactive-auth MCPs — those stay local. **Overlay gate:**
-   cloud dispatch requires the target repo to carry committed discipline overlays — cloud
-   doers get only what the repo commits, the local plugin does not travel. No overlays →
-   sync first (`plugin-update-syncs-everywhere`) or dispatch local.
+   (`Agent`) is the default vehicle. **The surface is chosen when a lane opens, not
+   per task** — same-domain follow-ups resume the standing specialist on whatever
+   surface it already lives; never bounce a domain between local and cloud mid-stream
+   (context is the asset). Route a new lane to cloud (Claude cloud session/agent) only
+   on **operator-intent facts known at dispatch**: the lane should continue while the
+   operator is away (overnight, PR babysit), or parallel lanes on one repo need isolated
+   checkouts. Duration guesses ("long-running") are not a criterion. **Outgrown lane =
+   explicit handoff:** if a local lane proves bigger than the session, wrap its evidence
+   into a fresh cloud brief and re-dispatch — a deliberate handoff with a named context
+   cost, not a retroactive routing failure. **Never cloud for:** capture-stack work
+   (`:4411` listener, Capture.app helper, figma-daemon), present-for-review, or anything
+   needing machine-bound services or interactive-auth MCPs — those stay local. **Overlay
+   gate:** cloud dispatch requires the target repo to carry committed discipline
+   overlays — cloud doers get only what the repo commits, the local plugin does not
+   travel. No overlays → sync first (`plugin-update-syncs-everywhere`) or dispatch local.
 10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
    table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
    set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
