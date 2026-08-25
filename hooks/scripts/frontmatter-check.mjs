@@ -28,6 +28,7 @@
    already (via checkSkillsDir's summary) and the specific defect.        */
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const KEY_LINE = /^([A-Za-z0-9_-]+):(.*)$/;
 const BLOCK_SCALAR_INDICATOR = /^[>|][+-]?\d*$/;
@@ -202,6 +203,145 @@ export function checkSkillsDir(skillsDir) {
   return { ok: failing.length === 0, results, summary: summaryLines.join("\n") };
 }
 
+// ---- web-validity pass ----------------------------------------------------
+// Four rules proven empirically against the claude.ai marketplace validator
+// (2026-08-25, one-shot harness, all fail->pass verified). Not YAML-general —
+// same narrow-parser posture as the frontmatter checks above.
+
+const AGENT_KEY_WHITELIST = new Set(["name", "description", "tools", "model", "color"]);
+const KNOWN_TOP_LEVEL_DIRS = new Set([".claude-plugin", "skills", "agents", "hooks", "output-styles"]);
+
+// Returns a short snippet centered on the first `<` or `>`, or null if none.
+function findAngleBracketSnippet(text) {
+  const idx = text.search(/[<>]/);
+  if (idx === -1) return null;
+  return text.slice(Math.max(0, idx - 15), Math.min(text.length, idx + 16)).trim();
+}
+
+// Rule 1: literal `<`/`>` in a `description:` frontmatter value. Bodies and
+// argument-hint are fine — only the description key is checked.
+export function checkDescriptionAngleBrackets(fileText) {
+  const { block, error } = extractFrontmatterLines(fileText);
+  if (error) return { ok: true, defects: [] }; // missing/unclosed caught elsewhere
+  const descEntry = groupEntries(block).find((e) => e.key === "description");
+  if (!descEntry) return { ok: true, defects: [] };
+  // A block-scalar indicator ("|", ">-", etc.) as the first-line value is
+  // markup, not content — the real text is the continuation lines only.
+  const firstLineIsContent = !BLOCK_SCALAR_INDICATOR.test(descEntry.firstLineValue);
+  const raw = [firstLineIsContent ? descEntry.firstLineValue : "", ...descEntry.continuation].join(" ");
+  const snippet = findAngleBracketSnippet(raw);
+  if (!snippet) return { ok: true, defects: [] };
+  return {
+    ok: false,
+    defects: [{
+      type: "web-angle-bracket",
+      message: `description contains "<"/">" ("${snippet}") — claude.ai marketplace validator rejects literal angle brackets in description frontmatter`,
+    }],
+  };
+}
+
+// Rule 2: agent frontmatter keys outside the whitelist (e.g. a custom
+// `skills:` key) — the validator rejects the file outright.
+export function checkAgentFrontmatterKeys(fileText) {
+  const { block, error } = extractFrontmatterLines(fileText);
+  if (error) return { ok: true, defects: [] };
+  const defects = [];
+  for (const entry of groupEntries(block)) {
+    if (!AGENT_KEY_WHITELIST.has(entry.key)) {
+      defects.push({
+        type: "web-agent-key",
+        message: `agent frontmatter key "${entry.key}:" is not on the web-validator whitelist (name/description/tools/model/color)`,
+      });
+    }
+  }
+  return { ok: defects.length === 0, defects };
+}
+
+// A directory with nothing git-tracked in it (e.g. a stray local scratch dir
+// holding only an untracked file) never reaches the published plugin tree —
+// it isn't a real marketplace-validator risk, so it's not flagged. Falls
+// back to "assume tracked" (still flags) when git isn't available.
+function hasTrackedFiles(repoRoot, dirName) {
+  try {
+    const out = execFileSync("git", ["ls-files", dirName], { cwd: repoRoot, encoding: "utf8" });
+    return out.trim().length > 0;
+  } catch {
+    return true;
+  }
+}
+
+// Rule 3: any top-level directory outside the known-good set. Dotfiles/
+// dotdirs and loose files are ignored — only unknown directories fail.
+export function checkTopLevelDirs(repoRoot) {
+  if (!existsSync(repoRoot)) return { ok: true, defects: [] };
+  const defects = [];
+  for (const entry of readdirSync(repoRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    if (KNOWN_TOP_LEVEL_DIRS.has(entry.name)) continue;
+    if (!hasTrackedFiles(repoRoot, entry.name)) continue;
+    defects.push({
+      type: "web-unknown-top-dir",
+      message: `top-level directory "${entry.name}/" is outside the known-good set (.claude-plugin, skills, agents, hooks, output-styles) — unknown top-level directories fail marketplace validation`,
+    });
+  }
+  return { ok: defects.length === 0, defects };
+}
+
+// Rule 4: marketplace.json plugins[].source must stay "./" — a github-object
+// source breaks web validation on a private repo (2026-08-25 finding).
+export function checkMarketplaceSource(repoRoot) {
+  const path = join(repoRoot, ".claude-plugin", "marketplace.json");
+  if (!existsSync(path)) return { ok: true, defects: [] };
+  let data;
+  try {
+    data = JSON.parse(readFileSync(path, "utf8"));
+  } catch (err) {
+    return { ok: false, defects: [{ type: "web-marketplace-source", message: `marketplace.json failed to parse: ${err.message}` }] };
+  }
+  const defects = [];
+  for (const plugin of data.plugins ?? []) {
+    if (plugin.source !== "./") {
+      defects.push({
+        type: "web-marketplace-source",
+        message: `plugin "${plugin.name ?? "?"}" source is ${JSON.stringify(plugin.source)}, not "./" — a github-object source breaks web validation on a private repo`,
+      });
+    }
+  }
+  return { ok: defects.length === 0, defects };
+}
+
+/**
+ * Runs all four web-validity rules across a repo root: description
+ * angle-brackets + agent-key whitelist over skills/*​/SKILL.md and
+ * agents/*.md, plus the top-level-dirs and marketplace-source repo-wide
+ * checks. Returns a flat defect list with `file` attached to each.
+ */
+export function checkWebValidity(repoRoot) {
+  const defects = [];
+  const skillsDir = join(repoRoot, "skills");
+  if (existsSync(skillsDir)) {
+    for (const dir of readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory())) {
+      const file = join(skillsDir, dir, "SKILL.md");
+      if (!existsSync(file)) continue;
+      const { defects: d } = checkDescriptionAngleBrackets(readFileSync(file, "utf8"));
+      for (const def of d) defects.push({ ...def, file });
+    }
+  }
+  const agentsDir = join(repoRoot, "agents");
+  if (existsSync(agentsDir)) {
+    for (const name of readdirSync(agentsDir).filter((n) => n.endsWith(".md"))) {
+      const file = join(agentsDir, name);
+      const text = readFileSync(file, "utf8");
+      for (const def of checkDescriptionAngleBrackets(text).defects) defects.push({ ...def, file });
+      for (const def of checkAgentFrontmatterKeys(text).defects) defects.push({ ...def, file });
+    }
+  }
+  for (const def of checkTopLevelDirs(repoRoot).defects) defects.push({ ...def, file: repoRoot });
+  for (const def of checkMarketplaceSource(repoRoot).defects) defects.push({ ...def, file: join(repoRoot, ".claude-plugin", "marketplace.json") });
+
+  return { ok: defects.length === 0, defects };
+}
+
 // ---- CLI ----------------------------------------------------------------
 
 function isMainModule() {
@@ -214,12 +354,23 @@ if (isMainModule()) {
     const idx = args.indexOf(flag);
     return idx === -1 ? fallback : args[idx + 1];
   };
-  const skillsDir = getArg("--skills-dir", join(process.cwd(), "skills"));
+  const repoRoot = getArg("--repo-root", process.cwd());
+  const skillsDir = getArg("--skills-dir", join(repoRoot, "skills"));
 
   try {
     const result = checkSkillsDir(skillsDir);
     console.log(result.summary);
-    process.exit(result.ok ? 0 : 1);
+
+    const web = checkWebValidity(repoRoot);
+    if (web.defects.length === 0) {
+      console.log("frontmatter-check (web-validity): clean.");
+    } else {
+      const lines = [`frontmatter-check (web-validity): ${web.defects.length} finding(s).`];
+      for (const d of web.defects) lines.push(`  [${d.type}] ${d.file}: ${d.message}`);
+      console.log(lines.join("\n"));
+    }
+
+    process.exit(result.ok && web.ok ? 0 : 1);
   } catch (err) {
     console.error(`[frontmatter-check] ${err.message}`);
     process.exit(2);
