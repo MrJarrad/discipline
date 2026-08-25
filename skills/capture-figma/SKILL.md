@@ -204,13 +204,25 @@ scrutiny a token or a geometry value gets. That exemption is never available.
   carries `copy: [{ id, path, text }]` at the top level (`id` optional, `path` the same
   Page/Frame/Component path convention as every other named entry, `text` the verbatim
   string) — read it as a full inventory, not a spot-check.
-- **Diff copy the same way you diff tokens.** The listener's own change taxonomy
-  (per-mode value changes, renames, `binding_broken`, etc.) does not cover `copy` today
-  — nothing in the diff engine classifies a text change. Until that's fixed upstream,
-  copy diffing is a manual pass: walk the current `copy` array against the prior
-  capture's, keyed by `path` (or `id` when present, same rename-detection logic as
-  variables/styles/components), and report every changed/added/removed string
-  explicitly — never summarize a text diff as "content updated."
+- **The listener diffs copy automatically — this is the primary path.** The listener's
+  `diffCopy()` (`~/JHD/figma-plugins/main/capture-figma/listener/capture-listener.mjs`)
+  correlates `copy` entries id-first, falling back to `path` when an id is missing on
+  either side — the same id-first/path-fallback pattern as every other bucket — and
+  emits three change records into `changes.jsonl`'s `changed.copy` array: `copy_changed`
+  (`{ path, old, new }`, a matched entry whose `text` differs), `copy_added` (`{ path,
+  text }`, a new-side-only path), and `copy_removed` (`{ path }`, an old-side-only path).
+  `summary.copy` totals the count. Read a copy delta from `changes.jsonl` exactly as you
+  would read a `layer_binding_*` delta (Change taxonomy, below) — the listener already
+  classified it, don't re-derive it by eye.
+- **Manual keyed diff — only when no listener/sync record exists.** When the read is
+  MCP-only or REST-only (no active listener session, no banked `changes.jsonl` covering
+  the capture window — e.g. a one-off file nobody has synced), there is no automated
+  `copy_*` record to read. In that narrow case, and only that case, diff the current
+  `copy` array against the prior capture by hand: key on `path` (or `id` when present),
+  same rename-detection logic as variables/styles/components, and report every changed/
+  added/removed string explicitly — never summarize a text diff as "content updated."
+  This manual path is the fallback, not the default; reach for `changes.jsonl` first
+  whenever the listener has been running.
 - **Text is never exempt.** A string that reads as "just copy" can be the entire
   designed change (a nav label, a CTA, a section header) — extract it **verbatim**
   (Step 4's rule already says this for screenshots; the copy lane is where it becomes
@@ -277,6 +289,12 @@ not ad-hoc prose:
   own `changed.layerBindings` array and its own `summary.layerBindings` count — a
   different chain (component internals) from top-level variable/style aliasing, never
   merged into `repointed`.
+- **`copy_*`** (`copy_changed` / `copy_added` / `copy_removed`) — the same id-first,
+  path-fallback correlation applied to the top-level `copy` array (Copy lane, above):
+  `copy_changed` is a matched entry whose `text` differs old→new, `copy_added`/
+  `copy_removed` are path-only-on-one-side. Kept in its own `changed.copy` array and its
+  own `summary.copy` count — text is diffed the same structural way as every other
+  bucket, never left to eyeballing.
 
 Use this vocabulary when writing a delta report or a capture document's changelog
 section — "what changed" is answered in these terms, not "some values moved."
