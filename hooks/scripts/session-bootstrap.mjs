@@ -32,7 +32,7 @@
    failure — hooks inject stdout into session context either way), and the
    process always exits 0 — a bootstrap must never block session start.
    Structured detail (ts, checks, actions taken) is appended as one JSONL
-   record to ~/JHD/captures/live/bootstrap.jsonl. */
+   record to ~/JHD/figma-plugins/main/capture-figma/captures/live/bootstrap.jsonl. */
 import { spawn, spawnSync } from "node:child_process";
 import { openSync, appendFileSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
@@ -44,12 +44,16 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 // Every field is overridable via a SESSION_BOOTSTRAP_* env var — test
 // isolation only (see the CLI test in session-bootstrap.test.mjs). Direct
 // invocation with no env vars set always uses the production defaults below,
-// same convention as capture-listener.mjs's CAPTURES_DIR override.
+// same env-var-override convention as capture-listener.mjs's own CAPTURES_DIR
+// override (that script now lives in
+// ~/JHD/figma-plugins/main/capture-figma/listener/, not in this repo).
 function defaultPaths() {
   const env = process.env;
   return {
     listenerUrl: env.SESSION_BOOTSTRAP_LISTENER_URL || "http://127.0.0.1:4411/health",
-    listenerScript: env.SESSION_BOOTSTRAP_LISTENER_SCRIPT || join(SCRIPT_DIR, "capture-listener.mjs"),
+    listenerScript:
+      env.SESSION_BOOTSTRAP_LISTENER_SCRIPT ||
+      join(homedir(), "JHD", "figma-plugins", "main", "capture-figma", "listener", "capture-listener.mjs"),
     conformanceMapPath: env.SESSION_BOOTSTRAP_CONFORMANCE_MAP || "/Users/jarradharvey/JHD/portfolio/design/figma-map.json",
     listenerLog: env.SESSION_BOOTSTRAP_LISTENER_LOG || "/tmp/capture-listener.log",
     devUrl: env.SESSION_BOOTSTRAP_DEV_URL || "http://localhost:3210",
@@ -58,7 +62,9 @@ function defaultPaths() {
     zshrcPath: env.SESSION_BOOTSTRAP_ZSHRC || join(homedir(), ".zshrc"),
     pluginJsonPath: env.SESSION_BOOTSTRAP_PLUGIN_JSON || join(SCRIPT_DIR, "..", ".claude-plugin", "plugin.json"),
     cacheDir: env.SESSION_BOOTSTRAP_CACHE_DIR || join(homedir(), ".claude", "plugins", "cache", "discipline", "discipline"),
-    logPath: env.SESSION_BOOTSTRAP_LOG_PATH || join(homedir(), "JHD", "captures", "live", "bootstrap.jsonl"),
+    logPath:
+      env.SESSION_BOOTSTRAP_LOG_PATH ||
+      join(homedir(), "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "bootstrap.jsonl"),
   };
 }
 

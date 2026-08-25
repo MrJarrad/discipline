@@ -39,7 +39,7 @@ Use chrome-devtools / browser tools for live viewport evidence.
 ## How you work
 
 - Tasks referencing Figma or a live reference start with capture/audit, never screenshots alone.
-- Orbit plugin look/feel → `~/JHD/orbit-tools/main`. Capture plugin / ingest → `~/JHD/capture/main`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Never `design-tools`.
+- Orbit plugin look/feel → `~/JHD/figma-plugins/main/orbit-tools`. Capture plugin / ingest → `~/JHD/figma-plugins/main/capture-figma`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Never `design-tools`.
 - Creative / aesthetic forks → one recommendation to the operator, alternative named.
 - Hand visual evidence to `reviewer` for the merge gate; don't self-merge.
 

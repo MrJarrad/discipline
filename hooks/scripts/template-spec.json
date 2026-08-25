@@ -1,6 +1,6 @@
 {
   "$schema": "template-spec/v1",
-  "$source": "~/JHD/captures/examples/example-templates-inventory-2026-07-28.md (DS Examples page, JHD-Spec-DesignSystem, desktop MCP read 2026-07-28). Operator ruling recorded there: the Example frames ARE the page templates.",
+  "$source": "~/JHD/figma-plugins/main/capture-figma/captures/examples/example-templates-inventory-2026-07-28.md (DS Examples page, JHD-Spec-DesignSystem, desktop MCP read 2026-07-28). Operator ruling recorded there: the Example frames ARE the page templates.",
   "$conventions": [
     "Each block's `role` is looked up in the live DOM via [data-kind=\"<role>\"] (the codebase's own component-root convention). A height/y/x/width field valued the literal string \"content\" is content-driven (depends on real project count/copy/media) and is always skipped, never a defect — see template-check.mjs's header comment.",
     "gridChecks only apply to Desktop (D) templates: the site's own CSS gates the 12-col grid behind the `lg` breakpoint (`lg:grid-cols-12` / `.layout-grid-grid[data-columns]`); Mobile (M) layouts are single-column, so a grid-snap check there would be meaningless.",

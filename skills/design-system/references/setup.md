@@ -6,7 +6,7 @@ parallel Vite + Geist + shadcn token contract.
 ## Steps
 
 1. **Ensure the package checkout exists** on disk:
-   `~/JHD/design-system/main` (container clone via `jhd-container-clone.sh`
+   `~/JHD/jhd-design-system` (container clone via `jhd-container-clone.sh`
    if missing).
 
 2. **Add the dependency** from the local package (workspace / file path until

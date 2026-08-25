@@ -24,7 +24,7 @@ description: Close out an orchestration session so the next one continues seamle
 ```
 
 **Claude note:** Vault **working tree** is `~/JHD/vault/main`. Toolkit for Claude is the
-plugin repo `~/JHD/discipline/main` plus its marketplace/cache mirror — verify the
+plugin repo `~/JHD/ai/discipline/main` plus its marketplace/cache mirror — verify the
 installed plugin matches the repo at wrap. Section 4 below applies whenever that repo
 was edited this session.
 
@@ -48,18 +48,21 @@ facts only. Each `projects/<name>/<name>-handover.md` is that project's last clo
 (dated snapshot). Ruling: `fleet/rulings/unique-note-names.md`
 — never a generic `HANDOVER.md` stem.
 
-**Infer product** (no operator naming). **capture-app** and **capture-figma** are two products (they currently share `~/JHD/capture/main`):
+**Infer product** (no operator naming). **capture-app** and **capture-figma** are two
+products, each with its own repo since the estate split (2026-08-25): `~/JHD/capture-app`
+(mac app) and `~/JHD/figma-plugins/main/capture-figma` (figma-sync, ingest-worker,
+listener family):
 
 | When | Product handover |
 |---|---|
-| Capture.app, helper `:7755`, Screen Recording, `mac/` | `projects/capture-app/capture-app-handover.md` |
-| Capture Figma plugin, `figma-sync/`, `:4411`, ingest | `projects/capture-figma/capture-figma-handover.md` |
+| Capture.app, helper `:7755`, Screen Recording, `mac/`, `~/JHD/capture-app` | `projects/capture-app/capture-app-handover.md` |
+| Capture Figma plugin, `figma-sync/`, `:4411`, ingest, `~/JHD/figma-plugins/main/capture-figma` | `projects/capture-figma/capture-figma-handover.md` |
 | Capture repo and the work is unclear | **capture-app** — never default to capture-figma |
 | `~/JHD/portfolio/main` | `projects/portfolio/portfolio-handover.md` |
 | `~/JHD/skillz/main` | `projects/skillz/skillz-handover.md` |
-| `~/JHD/design-system/main` | package under Skillz — wrap **jhd-discipline** + **skillz** (no dedicated tray yet) |
-| `~/JHD/discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
-| `~/JHD/cursor-discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
+| `~/JHD/jhd-design-system` | package under Skillz — wrap **jhd-discipline** + **skillz** (no dedicated tray yet) |
+| `~/JHD/ai/discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
+| `~/JHD/ai/discipline-cursor` | `projects/jhd-discipline/jhd-discipline-handover.md` |
 | Vault-only | Cockpit only — do not wipe a product file |
 
 Plugin state (Claude live plugin, or the Cursor snapshot) goes to **jhd-discipline**, never legacy `projects/discipline`.
@@ -107,14 +110,14 @@ should outlive it has been written down, not left in this session's transcript a
 
 Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
 
-- The Claude discipline plugin repo (`~/JHD/discipline/main`) has every change
+- The Claude discipline plugin repo (`~/JHD/ai/discipline/main`) has every change
   committed and pushed when the session claimed toolkit work was done.
 - Approved plans from this session are distilled into vault artifacts, not left
   only in the session transcript.
 - If `.claude-plugin/plugin.json` version should bump for a behavior change, bump it
   in the same commit set, and update the marketplace/cache mirror so the installed
   plugin matches the repo.
-- If the Cursor snapshot tree (`~/JHD/cursor-discipline/main`) was also edited this
+- If the Cursor snapshot tree (`~/JHD/ai/discipline-cursor`) was also edited this
   session, commit that repo separately — its version fields are its own concern.
 
 ### 5. Vault/Obsidian hygiene — structure conformance, thing-then-aspect
@@ -303,7 +306,7 @@ live run describes a state that's false by the time it's read.
 
 ## Repo topology at wrap (same origin, multiple clones)
 
-When a repo exists as canonical + mirror clones (e.g. ~/JHD/discipline/main and the
+When a repo exists as canonical + mirror clones (e.g. ~/JHD/ai/discipline/main and the
 live install path), verify BOTH at wrap: same HEAD, both trees clean, both on
 main. An uncommitted tree in the clone this session didn't work in is still a
 wrap failure — checkpoint-commit it (credit the session that made it), merge

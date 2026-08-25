@@ -26,7 +26,7 @@ Token names mirror Figma variables and styles exactly. Deviations are defects.
 
 **Action & motion:** Action radii, motion tokens — same names in CSS and Figma. **Motion law**
 (sequencing grammar, type enter, token-bound clocks) lives with the product, not the
-plugin: `~/JHD/design-system/main/motion-law.md` (`MrJarrad/jhd-design-system`) — same
+plugin: `~/JHD/jhd-design-system/motion-law.md` (`MrJarrad/jhd-design-system`) — same
 placement as the package tokens above. Reader load order: brief/capture law → house
 design-system repo law → product doc → law unobserved. The [`motion`](../motion/SKILL.md)
 skill reads and implements whichever law is loaded; it does not own any of them.
@@ -41,7 +41,7 @@ skill reads and implements whichever law is loaded; it does not own any of them.
 
 | Layer | Source |
 |---|---|
-| **Package (SoT once extract lands)** | `@jhd/design-system` from `~/JHD/design-system/main` (`MrJarrad/jhd-design-system`) |
+| **Package (SoT once extract lands)** | `@jhd/design-system` from `~/JHD/jhd-design-system` (`MrJarrad/jhd-design-system`) |
 | **Interim contract (until package ships CSS)** | `~/JHD/portfolio/main/src/app/globals.css` sections 1–11 + `action-base` / `badge-base` |
 | **Composition example (not the system)** | Portfolio site blocks — NavigationHeader, list feed, case-study, print layouts |
 
@@ -69,7 +69,7 @@ Component conventions (CVA, `data-slot`, focus ring): [components.md](references
 
 ## Starting a JHD web product
 
-Follow [references/setup.md](references/setup.md): add `@jhd/design-system` as a dependency from `~/JHD/design-system/main`, wire `--font-suisse`, import package CSS — **do not** scaffold Vite+Geist+shadcn as the JHD path.
+Follow [references/setup.md](references/setup.md): add `@jhd/design-system` as a dependency from `~/JHD/jhd-design-system`, wire `--font-suisse`, import package CSS — **do not** scaffold Vite+Geist+shadcn as the JHD path.
 
 ## Reference instance — portfolio
 
