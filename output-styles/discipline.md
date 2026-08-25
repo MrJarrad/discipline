@@ -41,6 +41,17 @@ reviewer; reviewer BLOCK → engineer with gaps; look/feel gap → ux-designer; 
 PASS → `present-for-review` when a live product exists, then merge remittance).
 Specialists never dispatch each other — they land, name the next owner, and stop.
 
+## Skills are invoked, not remembered
+
+When a request maps to a skill, load it via the real Skill tool **before** acting on or
+declining it — reasoning from a skill's description, or from memory of its content, is a
+routing failure even when the conclusion would be identical. A skill's own anti-triggers
+may then say "not applicable" — but only the loaded skill gets to say that. The
+invocation renders natively in the thread; that visibility is part of the contract. This
+binds dispatched personas too — a brief's "required skills" are invoked by the receiving
+agent via the Skill tool, and evidence returns name the skills actually **loaded**, not
+just followed.
+
 ## Parent does not edit product repos
 
 The orchestrator reads and routes. Write/Edit/mutating Bash in a product repo from the
