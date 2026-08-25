@@ -29,7 +29,7 @@ correct GitHub remote (`jhd-cursor-discipline` for rails/skills).
 
 ## Local Mac
 Prefer **jhd-discipline** from Team Marketplace. Dev-only symlink:
-`~/JHD/cursor-discipline/main` → `~/.cursor/plugins/local/jhd-discipline`.
+`~/JHD/ai/discipline-cursor` → `~/.cursor/plugins/local/jhd-discipline`.
 In-repo rules still apply and keep Cloud + local aligned.
 Obsidian opens `~/JHD/vault/main`.
 

@@ -74,7 +74,7 @@ a screenshot or "go look" is not presentation.
 - **Never fabricate.** Source it from real files/APIs/data, or ask.
 - **Figma is the contract** when a design file exists — names 1:1; deviations are
   defects. Use `capture-figma` before building or auditing against design.
-- **House system:** JHD web products consume `~/JHD/design-system/main` — never vendor
+- **House system:** JHD web products consume `~/JHD/jhd-design-system` — never vendor
   a copy; a raw colour, type size, radius, or space is a defect.
 - No commit without green typecheck. Never force-push. Merges are agent remittance
   after reviewer PASS — do not hand the operator merge homework.

@@ -67,7 +67,7 @@ Pick a name that will not collide with parked fleet remotes (`config/jhd-repos.j
 ### 3. Container clone
 
 ```bash
-bash ~/JHD/cursor-discipline/main/scripts/jhd-container-clone.sh \
+bash ~/JHD/ai/discipline-cursor/scripts/jhd-container-clone.sh \
   MrJarrad/<name> ~/JHD/<name>
 ```
 
@@ -80,7 +80,7 @@ If clone parks bare-only, finish `main/` after README exists on default branch.
 ### 4. Discipline sync
 
 ```bash
-bash ~/JHD/cursor-discipline/main/scripts/sync-discipline-into-product.sh \
+bash ~/JHD/ai/discipline-cursor/scripts/sync-discipline-into-product.sh \
   ~/JHD/<name>/main <kind>
 ```
 
@@ -98,7 +98,7 @@ Copy pattern from `~/JHD/portfolio/main`:
 
 ### 6. Register in `jhd-cursor-discipline`
 
-PR on `~/JHD/cursor-discipline/main` — do not mix vault files into this commit:
+PR on `~/JHD/ai/discipline-cursor` — do not mix vault files into this commit:
 
 | File | Add |
 |---|---|
@@ -124,7 +124,7 @@ do **not** add every product as a selected checkout on the Environment card.
 
 ### 8. Web products — house system
 
-- Consume `@jhd/design-system` from `~/JHD/design-system/main`.
+- Consume `@jhd/design-system` from `~/JHD/jhd-design-system`.
 - **Do not vendor** tokens or Action CSS into the app repo.
 - Add `github.com/MrJarrad/jhd-design-system` to the product's
   `.cursor/environment.json` `repositoryDependencies` (portfolio and skillz overlays

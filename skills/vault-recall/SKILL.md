@@ -24,11 +24,14 @@ not the aspect.
   read `projects/<name>/<name>-handover.md` first if it exists (dated last-left), then the
   project hub (`projects/<name>/<name>.md`). Follow hub `[[wikilinks]]` into
   `primers/`, `decisions/`, `audits/`, `artifacts/`. Infer `<name>` by **product**, not
-  “the capture folder”: Capture.app / helper / Screen Recording → **capture-app**;
-  Capture Figma plugin / `figma-sync` / ingest → **capture-figma**; unclear capture-repo
-  work → **capture-app** (never default to capture-figma). `portfolio/main` → portfolio;
-  `skillz/main` → skillz; `design-system/main` → house web package (Skillz extract — read skillz tray);
-  `discipline/main` (Claude plugin, live) and `cursor-discipline/main` (Cursor snapshot) → jhd-discipline (not legacy `projects/discipline`).
+  “the capture folder”: Capture.app / helper / Screen Recording →
+  **capture-app** (`~/JHD/capture-app`); Capture Figma plugin / `figma-sync` / ingest →
+  **capture-figma** (`~/JHD/figma-plugins/main/capture-figma`); unclear capture-repo work
+  → **capture-app** (never default to capture-figma). `portfolio/main` → portfolio;
+  `skillz/main` → skillz; `~/JHD/jhd-design-system` → house web package (Skillz extract —
+  read skillz tray); `~/JHD/ai/discipline/main` (Claude plugin, live) and
+  `~/JHD/ai/discipline-cursor` (Cursor snapshot) → jhd-discipline (not legacy
+  `projects/discipline`).
 - **Doing repeated work in a workstream** (a repo you keep dispatching into) → read
   `projects/<name>/primers/<workstream>-primer.md` first — the dispatch-brief skill
   requires it be cited as FIRST READ. If no primer exists yet, that's a signal to write

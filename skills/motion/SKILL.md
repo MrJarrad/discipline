@@ -197,7 +197,7 @@ Use the Before/After/Why markdown table format — see [references/BUILD-DOS-AND
 Read [references/LAW.md](references/LAW.md) when implementing or reviewing motion against a product or reference contract.
 
 **This skill does not own the law.** House law lives with the product, not this plugin:
-`~/JHD/design-system/main/motion-law.md` — the `design-system` skill points there.
+`~/JHD/jhd-design-system/motion-law.md` — the `design-system` skill points there.
 Captured reference law lives in the capture folder as `motion-law.md`. Product-specific
 rows may live in vault decisions or tempo modules named in the brief.
 

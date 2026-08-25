@@ -21,7 +21,7 @@ components.json                ← shadcn config where still used
 
 Read the actual tree — this sketch is only the shape to expect.
 
-**Package vs site:** `MrJarrad/jhd-design-system` (`~/JHD/design-system/main`)
+**Package vs site:** `MrJarrad/jhd-design-system` (`~/JHD/jhd-design-system`)
 owns tokens + Action/Badge/`cn()` once extract lands. Portfolio owns **site
 compositions** — NavigationHeader, list feed, case-study panels, print layouts.
 Do not copy those blocks into new apps as if they were the system.

@@ -3,7 +3,7 @@
 The **motion skill** does not own a site's motion law. It reads, implements, and reviews against whatever law is in play. Craft (frequency, easing, t90, springs, GPU, accessibility) lives in this skill's Build section. **Law** is the product- or reference-specific contract: sequencing grammar, type-enter recipe, clocks, chrome rules.
 
 House law for JHD web products lives with the product, not this plugin:
-`~/JHD/design-system/main/motion-law.md` (`MrJarrad/jhd-design-system`) — the
+`~/JHD/jhd-design-system/motion-law.md` (`MrJarrad/jhd-design-system`) — the
 `design-system` skill points there. Captured reference law: capture folder →
 `motion-law.md`. Product-specific law: brief, vault decision, or product repo doc named
 in the dispatch.
@@ -15,7 +15,7 @@ in the dispatch.
 Resolve the active law **before** authoring or reviewing motion:
 
 1. **Brief or capture folder** — if the dispatch names a reference path or banks `motion-law.md`, that instance is authoritative for this job.
-2. **House law** — JHD web products (`portfolio`, `skillz`, future house-system consumers): load `~/JHD/design-system/main/motion-law.md` — the `design-system` skill points there; the plugin does not carry a local copy.
+2. **House law** — JHD web products (`portfolio`, `skillz`, future house-system consumers): load `~/JHD/jhd-design-system/motion-law.md` — the `design-system` skill points there; the plugin does not carry a local copy.
 3. **Product repo doc** — if the product names a motion-law file (e.g. `site-tempo.ts` + vault decision), load that when the brief says so.
 4. **Unobserved** — if no law is loaded, apply craft only. Do **not** invent overlap rules, clip-wipe recipes, or clocks. Say law unobserved; do not claim parity.
 

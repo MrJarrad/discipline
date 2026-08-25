@@ -41,11 +41,13 @@ build. The fix is an order of operations: **numbers before pictures.**
 
 ## Cloud vs Mac (plugin sync)
 
-- **Mac** runs the Figma Capture plugin + `capture-listener` → writes `~/JHD/captures/live/`.
+- **Mac** runs the Figma Capture plugin + `capture-listener` → writes
+  `~/JHD/figma-plugins/main/capture-figma/captures/live/`.
 - After each sync (or when Cloud must see the tip), run
   `~/JHD/vault/main/estate/publish-captures.sh` (or flat `~/JHD/vault/estate/…`)
   which banks + pushes `estate/captures`.
-- **Cloud** fleet install symlinks `~/JHD/captures` → `vault/estate/captures`. Pull vault
+- **Cloud** fleet install symlinks the captures ground → `vault/estate/captures` (`~/JHD/captures`
+  no longer exists as a standalone path since the 2026-08-25 estate split). Pull vault
   before reading if a mid-session publish just landed. Taxonomy: vault `estate/capture-tools.md`.
 - Live Figma without local JSON needs Environment secret **`FIGMA_TOKEN`** (REST lane).
 
@@ -61,26 +63,28 @@ available and what you're reading, not by habit:
    self-sufficient with nothing else installed or configured. Use this lane whenever
    `FIGMA_TOKEN` isn't available, or the target file needs a one-off, human-in-loop read.
 2. **REST lane, when `FIGMA_TOKEN` exists — pinned tree/versions.** For tree/structure
-   (pages, frames, components, variant matrices) and real version pinning, the discipline
-   plugin's `scripts/figma-capture.mjs` (snapshot/delta) plus `scripts/capture-poll.mjs`
-   against the plain REST API (`depth`/`ids` omitted) is best-in-class: no active-tab
-   constraint, no lazy-page gaps, real `?version=` pinning (research decision — the
-   original research note did not survive the vault's 2026-07-31 legacy purge; a
-   fresh decision record, if this needs re-grounding, belongs at
-   `projects/capture-figma/decisions/`). Use this lane for anything that needs to be
+   (pages, frames, components, variant matrices) and real version pinning,
+   `~/JHD/figma-plugins/main/capture-figma/listener/figma-capture.mjs` (snapshot/delta)
+   plus `figma-node.mjs` against the plain REST API (`depth`/`ids` omitted) is
+   best-in-class: no active-tab constraint, no lazy-page gaps, real `?version=` pinning
+   (research decision — the original research note did not survive the vault's
+   2026-07-31 legacy purge; a fresh decision record, if this needs re-grounding, belongs
+   at `projects/capture-figma/decisions/`). Use this lane for anything that needs to be
    pinned to a specific version id and diffed structurally later (`figma-capture.mjs
-   versions` / `snapshot --version <id>` / `delta`).
+   versions` / `snapshot --version <id>` / `delta`). This listener family moved out of
+   the discipline plugin to `~/JHD/figma-plugins/main/capture-figma/listener/` in the
+   2026-08-25 estate split — the discipline plugin no longer carries its own copy.
 3. **Active variables/styles/components lane — Capture Figma sync plugin.** For variables,
    styles, and component/layer-binding exports with full mode coverage, the ACTIVE exporter
-   lives in **`MrJarrad/capture`** at `figma-sync/` (import
-   `~/JHD/capture/main/figma-sync/manifest.json` in Figma Development). Contract:
-   `references/figma-agent-plugin-brief.md`. Each **Sync** POSTs the same payload to
-   **both** the **capture-ingest** Worker (`capture/ingest-worker` → R2 + `jhd-vault`
+   lives in **`~/JHD/figma-plugins/main/capture-figma`** at `figma-sync/` (import
+   `~/JHD/figma-plugins/main/capture-figma/figma-sync/manifest.json` in Figma
+   Development). Contract: `references/figma-agent-plugin-brief.md`. Each **Sync** POSTs
+   the same payload to **both** the **capture-ingest** Worker
+   (`~/JHD/figma-plugins/main/capture-figma/ingest-worker` → R2 + `jhd-vault`
    `estate/captures/live/`) when a Bearer is saved, and the local **capture listener**
-   (`~/JHD/discipline/main/scripts/capture-listener.mjs`, `POST /capture` on
-   `localhost:4411`) when it is up. Optional `CAPTURE_AUTO_PUBLISH=1` →
-   `publish-captures.sh`. No Local/Remote toggle. The Claude-era
-   `discipline/figma-plugin/capture-figma` tree is a stub — do not import it.
+   (`~/JHD/figma-plugins/main/capture-figma/listener/capture-listener.mjs`, `POST /capture`
+   on `localhost:4411`) when it is up. Optional `CAPTURE_AUTO_PUBLISH=1` →
+   `publish-captures.sh`. No Local/Remote toggle.
 
 Ad-hoc/live-lookup: even when the REST or listener lane is the default for a file, MCP
 remains the right tool for a quick live check against whatever's on screen right now —
@@ -108,7 +112,7 @@ no active-tab dependency, no risk of reading whatever tab happens to be focused.
   extracted from it.
 - **`image <fileKey> <nodeId> [--scale 2] [--out path]`** — `GET /v1/images/:key` at
   `format=png`, downloads the rendered PNG. Default `--out`:
-  `~/JHD/captures/renders/<key>-<id>.png` (dir created if missing).
+  `~/JHD/figma-plugins/main/capture-figma/captures/renders/<key>-<id>.png` (dir created if missing).
 - **`vars <fileKey>`** — `GET /v1/files/:key/variables/local`. Enterprise-plan gated: on
   403 it prints the documented explanation and exits 2 rather than fabricating a result —
   fall back to the MCP `get_variable_defs` lane below.

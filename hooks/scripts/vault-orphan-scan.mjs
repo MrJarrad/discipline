@@ -10,9 +10,10 @@
    vault. Frontmatter `name:` does NOT count — a live failure the same day
    this script was written showed hub backlinks written as
    `[[frontmatter-name]]` against date-prefixed filenames staying broken,
-   because Obsidian never resolves by `name:`. .obsidian/ and estate/
-   directories are excluded (tooling/mirror trees, not content notes) at any
-   depth.
+   because Obsidian never resolves by `name:`. `.obsidian/` is excluded
+   (tooling, not content notes) at any depth. `estate/` is NOT excluded —
+   operator ruling 2026-08-25 (wired-for-real law): estate notes are wired
+   into the graph now and must stay checked like any other note.
 
    Deliberately narrow — link presence, not full Obsidian link resolution:
    no folder-scoped disambiguation between two same-named notes, no
@@ -40,7 +41,7 @@ import { readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const EXCLUDED_DIRS = new Set([".obsidian", "estate"]);
+const EXCLUDED_DIRS = new Set([".obsidian"]);
 const BUNDLE_MARKER = ".vault-bundle";
 
 // Recursively collects every .md file under root, skipping unreadable
@@ -119,12 +120,16 @@ function frontmatterAliases(text) {
 
 // Every [[wikilink]] target and every relative-markdown-link .md basename
 // this text references, lowercased. `[[target|alias]]` and `[[target#head]]`
-// resolve to `target`; a bare relative link's basename is used regardless of
-// its directory (Obsidian-style: the filename is the resolution key).
+// resolve to `target`; a path-qualified wikilink (`[[folder/sub/stem]]`) and
+// a bare relative link both resolve to their basename regardless of
+// directory (Obsidian-style: the filename is the resolution key, not the
+// path — 212 false orphans in the live vault came from exactly this gap).
 function extractLinkTargets(text) {
   const targets = new Set();
   for (const m of text.matchAll(/\[\[([^\]|#]+)/g)) {
-    targets.add(m[1].trim().toLowerCase());
+    const raw = m[1].trim();
+    const stem = raw.includes("/") ? raw.slice(raw.lastIndexOf("/") + 1) : raw;
+    targets.add(stem.toLowerCase());
   }
   for (const m of text.matchAll(/\]\(([^)]+\.md)\)/g)) {
     const linkPath = m[1].split("#")[0];

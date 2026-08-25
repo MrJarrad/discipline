@@ -89,10 +89,12 @@
    Housekeeping note: dispatched-repo .claude/journal.jsonl files (session
    journals a doer's own tooling may write inside the target repo) should be
    gitignored in that target repo — they're run-local scratch, not source.
-   Similarly, capture artifacts (capture-listener.mjs / capture-poll.mjs
-   output under ~/JHD/captures/) must never land inside a git-tracked
-   plugin directory (e.g. figma-plugin/capture-figma/) — they're written
-   to ~/JHD/captures/ specifically so this distinction is structural, not
+   Similarly, capture artifacts (the listener family — capture-listener.mjs
+   / capture-poll.mjs, now living in
+   ~/JHD/figma-plugins/main/capture-figma/listener/ — output under
+   ~/JHD/figma-plugins/main/capture-figma/captures/) must never land inside
+   that plugin's own git-tracked source tree — they're written to the
+   captures/ ground specifically so this distinction is structural, not
    just a gitignore rule, but keep it in mind if that ever changes.
 
    Burn defaults (operator ruling 2026-07-26, after a fleet burn drained a

@@ -67,7 +67,7 @@ if (isMainModule()) {
   };
   const capturePath = getArg(
     "--capture",
-    join(process.env.HOME, "JHD", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
+    join(process.env.HOME, "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
   );
 
   try {

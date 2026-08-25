@@ -613,7 +613,7 @@ test("coverage: a map entry pointing at a path the capture doesn't carry is repo
 // comparing the last declaration.
 //
 // The capture fixture below is the real one, values read from
-// ~/JHD/captures/live/jhd-spec-designsystem-variables-styles.json: the `layout`
+// ~/JHD/figma-plugins/main/capture-figma/captures/live/jhd-spec-designsystem-variables-styles.json: the `layout`
 // collection's ten modes, `layout/device/width` (sm 375 / md 768 / lg 1280 /
 // xl 1920, mirrored by the -flush and -sidebar-main variants), and
 // layout/text/title/font-size-400's alias chain into text-primitives/size/*

@@ -121,7 +121,7 @@
      3. template-check.mjs    — THIS geometry/structure lane (rendered block
         geometry + grid conformance + computed style probes vs the DS
         Example templates)
-   All three append to the same ~/JHD/captures/live/conformance.jsonl sink
+   All three append to the same ~/JHD/figma-plugins/main/capture-figma/captures/live/conformance.jsonl sink
    (keyed `binding`/`templates` alongside the value lane's own top-level
    ok/defects/summary — see each script's own header for its exact shape).
 
@@ -469,7 +469,7 @@ export function computeTemplateDefects({ template, templateId, route, viewportNa
 
 // ---- orchestration -----------------------------------------------------
 
-const DEFAULT_CONFORMANCE_PATH = join(homedir(), "JHD", "captures", "live", "conformance.jsonl");
+const DEFAULT_CONFORMANCE_PATH = join(homedir(), "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "conformance.jsonl");
 
 function routeUrl(baseUrl, route) {
   return new URL(route, baseUrl).toString();
