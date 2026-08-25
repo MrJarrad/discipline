@@ -139,7 +139,12 @@ Don't wire visual changes directly to a continuously-changing input (e.g., mouse
 How movers relate in time is **defined by the loaded motion law** when one exists. These concepts name what a law row describes — they are not hardcoded clocks:
 
 - **Duration is a function of the property; distance is a function of the element; velocity is derived, never authored.** Hold duration constant for a property; set travel relative to the element's size. Fix distance or curve when a move feels wrong — not duration by default.
-- **Distinct families overlap or hand off** — the loaded law states which. When law says overlap: follower delay **<** leader duration; both in motion together. Perceptible gap or exclusive handoff sold as overlap is a defect **when law requires overlap**.
+- **Distinct families overlap or hand off** — this skill implements whichever the **loaded**
+  law defines, never a universal default. When a loaded law defines overlap as
+  follow-not-start-together (e.g. the JHD house law's current definition: follower delay
+  **> 0** and **<** leader duration, both in motion together — simultaneous start and
+  exclusive handoff are defects against that law), implement that. A different loaded law
+  may define overlap differently; apply what it says.
 - **Identical siblings pile or queue** — the loaded law states stagger step and overlap %. Pile and queue are opposite; apply what the law specifies.
 - **Visual raster** — when law specifies column order: columns left → right; within a column, top → bottom; unit = cell contents, not glyphs.
 - **Clear the stage, hold still, type-enter recipe, clocks, cold vs in-app, scroll chrome** — each is a law row when present. See [Motion law](#motion-law).
@@ -191,7 +196,10 @@ Use the Before/After/Why markdown table format — see [references/BUILD-DOS-AND
 
 Read [references/LAW.md](references/LAW.md) when implementing or reviewing motion against a product or reference contract.
 
-**This skill does not own the law.** House law lives in `design-system` → `references/motion-law.md`. Captured reference law lives in the capture folder as `motion-law.md`. Product-specific rows may live in vault decisions or tempo modules named in the brief.
+**This skill does not own the law.** House law lives with the product, not this plugin:
+`~/JHD/design-system/main/motion-law.md` — the `design-system` skill points there.
+Captured reference law lives in the capture folder as `motion-law.md`. Product-specific
+rows may live in vault decisions or tempo modules named in the brief.
 
 **Load order:** brief/capture path → house law (JHD web) → product doc named in brief → law unobserved (craft only).
 

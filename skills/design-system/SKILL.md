@@ -24,7 +24,12 @@ Token names mirror Figma variables and styles exactly. Deviations are defects.
 
 **Type roles:** `title-style1-*`, `body-style1-*`, caption roles — bind the **style**, not ad-hoc `text-lg`.
 
-**Action & motion:** Action radii, motion tokens — same names in CSS and Figma. **Motion law** (sequencing grammar, type enter, token-bound clocks): [references/motion-law.md](references/motion-law.md). The [`motion`](../motion/SKILL.md) skill reads and implements law; it does not own it.
+**Action & motion:** Action radii, motion tokens — same names in CSS and Figma. **Motion law**
+(sequencing grammar, type enter, token-bound clocks) lives with the product, not the
+plugin: `~/JHD/design-system/main/motion-law.md` (`MrJarrad/jhd-design-system`) — same
+placement as the package tokens above. Reader load order: brief/capture law → house
+design-system repo law → product doc → law unobserved. The [`motion`](../motion/SKILL.md)
+skill reads and implements whichever law is loaded; it does not own any of them.
 
 **The one rule:** a raw colour, type size, radius, or space is a bug. Need something the contract lacks? Add the token in the **package** (or propose it), then reference it — never inline around it.
 
