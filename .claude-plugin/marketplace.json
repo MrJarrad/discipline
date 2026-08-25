@@ -11,11 +11,8 @@
     {
       "name": "discipline",
       "description": "A portable quality-discipline bundle \u2014 an always-on orchestrator persona over best-in-class craft skills, dispatching five doer personas (Engineer, Project Manager, Researcher, Reviewer, UX Designer) plus Release Ops. Routes to the right specialist by reflex. Runs on Claude models.",
-      "version": "1.52.0",
-      "source": {
-        "source": "github",
-        "repo": "MrJarrad/discipline"
-      },
+      "version": "1.52.1",
+      "source": "./",
       "author": {
         "name": "Jarrad Harvey",
         "email": "writetojarrad@gmail.com"
