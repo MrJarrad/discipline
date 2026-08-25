@@ -31,10 +31,10 @@ order, no matter which lane (MCP/REST/bank) or which step below supplies the mec
    pass 1 (Context).
 2. **What is it made of?** The anatomy: grid and composition (Step 3), per-element
    placement and col-spans, slots, sizing chains (hug/fill/fixed — Step 4's binding
-   chain rule), states read two-tier (page states as sibling Example frames per the
-   Template-layout lane, component states as variant properties per the layer model's
-   Components layer), and copy (the Copy lane) — all read as structure before any of
-   it is reduced to a number.
+   chain rule), states read two-tier (page states as sibling frames in the bank's
+   `exampleStructure` bucket per the Template-layout lane, component states as variant
+   properties per the layer model's Components layer), and copy (the Copy lane) — all
+   read as structure before any of it is reduced to a number.
 3. **Values last.** Variables and tokens (The order, below: variables → styles →
    metadata → screenshots) are the closing pass, not the opening one, because in a
    system that's flowing correctly a token update propagates globally and simply —
@@ -285,6 +285,10 @@ stopping at a component-set inventory of what exists on the page.
   author expresses states as sibling frames with a `state=` naming axis, capture each
   sibling as its own state's layout (own geometry, own instance set) — collapsing them
   into "the same layout" loses the state-specific structure the frames exist to record.
+  The bank keeps this page tier structurally separate from component variants: state
+  frames live in the export's `exampleStructure` bucket (group "Examples"), a distinct
+  top-level key from `templateFrames` — the same page-tier/component-tier split the
+  layer model draws between blocks/templates and components.
 - **Component-set inventory is necessary but not sufficient.** Listing which components a
   template instantiates answers "what's used here"; it doesn't answer "how is this page
   built" — the ordered block sequence, the frame's mode vector, and prop tables per
