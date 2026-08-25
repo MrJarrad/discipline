@@ -191,6 +191,22 @@ When you add a decision / audit / artifact / primer / ruling worth finding later
 `[[link]]` under the relevant hub section in the same action**. Never delete or reorder
 existing hub entries while adding yours. An unlinked note is not a finished write.
 
+**A new note and its hub backlink are one atomic action** (operator ruling, straggler
+notes found in the live graph 2026-08-25). The same turn that `Write`s a note MUST also
+`Edit` the owning hub (or tray/index) to link it in. A `Hubs:` frontmatter/lead line
+**inside the note, pointing at the hub, does not satisfy this** — that link points the
+wrong direction; only an inbound link **from** the hub kills a straggler.
+
+**The filename is the link key** (live-failure correction, 2026-08-25: hub backlinks
+written as `[[frontmatter-name]]` against date-prefixed filenames stayed broken —
+Obsidian resolves `[[wikilinks]]` by **filename**, or a declared `aliases:` entry, never
+by frontmatter `name:`). The hub backlink MUST use the target's actual filename stem —
+`[[2026-08-25-foo]]`, or `[[2026-08-25-foo|foo]]` for a readable display text — never the
+frontmatter `name:`. The writer verifies resolution in the same action: the `[[stem]]`
+written into the hub must exactly match an existing file's basename (or a declared alias).
+Evidence of a vault write names **both** files touched — the note and the hub it was wired
+into.
+
 ---
 
 ## Create properly — graph wiring is the write (ruling 2026-08-03)
