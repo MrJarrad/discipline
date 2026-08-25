@@ -36,7 +36,8 @@
    the task's own framing ("grep-able CSS/meta presence") and the report's
    acceptance criteria, which require rendering/measurement to actually
    verify correctness — out of scope for this lane.                        */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 // ---- line-number lookup ---------------------------------------------------
 
@@ -156,8 +157,21 @@ export function checkTechnicalDesign({ cssFiles = [], metaFiles = [] } = {}) {
 
 // ---- CLI --------------------------------------------------------------
 
+// realpath-normalizes both sides before comparing: import.meta.url resolves
+// symlinks (e.g. macOS's /tmp -> /private/tmp) while process.argv[1] does
+// not, so a script invoked through a symlinked path used to fail this check
+// and silently no-op its CLI block. Falls back to the raw path if realpath
+// itself fails (e.g. a path that no longer exists).
 function isMainModule() {
-  return import.meta.url === `file://${process.argv[1]}`;
+  const realpath = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const invoked = process.argv[1];
+  return Boolean(invoked) && realpath(fileURLToPath(import.meta.url)) === realpath(invoked);
 }
 
 if (isMainModule()) {

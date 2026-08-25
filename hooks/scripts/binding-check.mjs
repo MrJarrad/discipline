@@ -122,8 +122,9 @@
    before merging a visual/layout change — see template-check.mjs's header
    for the full integration note.
 */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { applyAnnotations, loadAnnotationRegistry, summarizeAnnotations } from "./annotations.mjs";
 
@@ -458,8 +459,21 @@ export function runBindingCheck({ capturePath, mappingPath, annotationsPath = DE
 
 // ---- CLI --------------------------------------------------------------
 
+// realpath-normalizes both sides before comparing: import.meta.url resolves
+// symlinks (e.g. macOS's /tmp -> /private/tmp) while process.argv[1] does
+// not, so a script invoked through a symlinked path used to fail this check
+// and silently no-op its CLI block. Falls back to the raw path if realpath
+// itself fails (e.g. a path that no longer exists).
 function isMainModule() {
-  return import.meta.url === `file://${process.argv[1]}`;
+  const realpath = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const invoked = process.argv[1];
+  return Boolean(invoked) && realpath(fileURLToPath(import.meta.url)) === realpath(invoked);
 }
 
 if (isMainModule()) {

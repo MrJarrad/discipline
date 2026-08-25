@@ -6,8 +6,9 @@
 
    Usage (CLI): node workflow-lint.mjs <spec.json>  -> prints errors, exit 1/0
    Usage (lib): lintSpec(spec, { personaExists }) -> { errors, warnings }     */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const KNOWN_MODELS = ["haiku", "sonnet", "opus"];
 export const KNOWN_EFFORTS = ["low", "medium", "high", "xhigh"];
@@ -574,8 +575,21 @@ export function personaExistsOnDisk(persona, pluginRoot) {
   return existsSync(join(pluginRoot, "agents", `${persona}.md`));
 }
 
+// realpath-normalizes both sides before comparing: import.meta.url resolves
+// symlinks (e.g. macOS's /tmp -> /private/tmp) while process.argv[1] does
+// not, so a script invoked through a symlinked path used to fail this check
+// and silently no-op its CLI block. Falls back to the raw path if realpath
+// itself fails (e.g. a path that no longer exists).
 function isMainModule() {
-  return import.meta.url === `file://${process.argv[1]}`;
+  const realpath = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const invoked = process.argv[1];
+  return Boolean(invoked) && realpath(fileURLToPath(import.meta.url)) === realpath(invoked);
 }
 
 if (isMainModule()) {

@@ -108,7 +108,7 @@
    "opus" or explicitly opted out of the turn cap, gets a `burn-warning`
    journal entry (and a console.warn) so heavy runs are visible, not
    silent — this does not block the run.                                  */
-import { readFileSync, appendFileSync } from "node:fs";
+import { readFileSync, appendFileSync, realpathSync } from "node:fs";
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -572,8 +572,21 @@ export async function runWorkflow(spec, log, { spawnImpl } = {}) {
   return { summary, totals, exitCode };
 }
 
+// realpath-normalizes both sides before comparing: import.meta.url resolves
+// symlinks (e.g. macOS's /tmp -> /private/tmp) while process.argv[1] does
+// not, so a script invoked through a symlinked path used to fail this check
+// and silently no-op its CLI block. Falls back to the raw path if realpath
+// itself fails (e.g. a path that no longer exists).
 function isMainModule() {
-  return import.meta.url === `file://${process.argv[1]}`;
+  const realpath = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const invoked = process.argv[1];
+  return Boolean(invoked) && realpath(fileURLToPath(import.meta.url)) === realpath(invoked);
 }
 
 // Duplicated (not imported) from session-bootstrap.mjs:222-237's
