@@ -18,7 +18,7 @@
    input.cwd when the command has no leading `cd`.                          */
 /* Second, independent gate on the same hook: FRONTMATTER GATE. Any commit
    whose staged changes touch skills/ gets every skills/<dir>/SKILL.md in
-   the target repo re-parsed by scripts/frontmatter-check.mjs. An invalid
+   the target repo re-parsed by hooks/scripts/frontmatter-check.mjs. An invalid
    frontmatter block (most notably an unquoted ": " inside a plain scalar —
    the class of bug that left shape-stress and stress-plan untriggerable
    for their whole lives, proposals/INTEGRATION-REPORT.md:87-95) denies the
