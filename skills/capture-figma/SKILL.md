@@ -11,6 +11,42 @@ doer loads this skill and reads via REST when the node id is known
 (`scripts/figma-node.mjs`) precisely because desktop Figma MCP binds to the parent session
 only.
 
+## Read order — the law, before any other step
+
+Operator, 2026-08-25, verbatim: "the anatomy is the best place [to] start when looking
+at figma, the variables and all that are important and they need to be correct, but
+[if] you or the agents don't understand what it all adds up to then we're setting
+ourselves up to fail. like first thing is understand the layout or the component or
+whatever has been pointed at. What are we building? then what's it made up of. … if
+the system is flowing correctly variables and token updates should just flow pretty
+simply at a global level."
+
+Every read of a Figma target — component, template, block, whole file — runs in this
+order, no matter which lane (MCP/REST/bank) or which step below supplies the mechanics:
+
+1. **What are we building?** Understand the pointed-at layout/component as a whole
+   first — its purpose, its context on the page, what it adds up to — before opening a
+   single variable or style. This is Step 1's architecture read and archetype
+   classification (below), and for a page-level target it's "Reading a page layout"'s
+   pass 1 (Context).
+2. **What is it made of?** The anatomy: grid and composition (Step 3), per-element
+   placement and col-spans, slots, sizing chains (hug/fill/fixed — Step 4's binding
+   chain rule), states read two-tier (page states as sibling frames in the bank's
+   `exampleStructure` bucket per the Template-layout lane, component states as variant
+   properties per the layer model's Components layer), and copy (the Copy lane) — all
+   read as structure before any of it is reduced to a number.
+3. **Values last.** Variables and tokens (The order, below: variables → styles →
+   metadata → screenshots) are the closing pass, not the opening one, because in a
+   system that's flowing correctly a token update propagates globally and simply —
+   values only mean something once 1 and 2 are already understood. **A "read" that
+   opens with `get_variable_defs` and can't state what's being built or what it's made
+   of first is not a design read — it's a values dump**, and gets sent back regardless
+   of how accurate the numbers turn out to be.
+
+This governs sequencing across the whole skill: Step 1 (what/anatomy) always precedes
+Step 2's "The order" (values), and within Step 2 itself variables come first among
+values, never first overall.
+
 ## Rule zero — operator-supplied Figma renders are 2x retina, always ÷2
 
 Any PNG the operator hands you as a design contract (a screenshot exported from Figma,
@@ -249,6 +285,10 @@ stopping at a component-set inventory of what exists on the page.
   author expresses states as sibling frames with a `state=` naming axis, capture each
   sibling as its own state's layout (own geometry, own instance set) — collapsing them
   into "the same layout" loses the state-specific structure the frames exist to record.
+  The bank keeps this page tier structurally separate from component variants: state
+  frames live in the export's `exampleStructure` bucket (group "Examples"), a distinct
+  top-level key from `templateFrames` — the same page-tier/component-tier split the
+  layer model draws between blocks/templates and components.
 - **Component-set inventory is necessary but not sufficient.** Listing which components a
   template instantiates answers "what's used here"; it doesn't answer "how is this page
   built" — the ordered block sequence, the frame's mode vector, and prop tables per
