@@ -76,7 +76,17 @@ A dispatch made without all four loaded is malformed.
    silence **after the completion ping** is a routing failure. Waiting **inside** the
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
    grilling, operator voice, every `Agent` dispatch, merge remittance after PASS).
-9. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
+9. **Dispatch surface — local stays default, cloud is a routing cell.** Local dispatch
+   (`Agent`) is the default vehicle for every dispatch; cloud is never a blanket default.
+   Route to a cloud dispatch (Claude cloud session/agent) only when the work is
+   long-running, PR babysitting, parallel lanes on one repo, or must survive the laptop /
+   continue while the operator is away. **Never cloud for:** capture-stack work (`:4411`
+   listener, Capture.app helper, figma-daemon), present-for-review, or anything needing
+   machine-bound services or interactive-auth MCPs — those stay local. **Overlay gate:**
+   cloud dispatch requires the target repo to carry committed discipline overlays — cloud
+   doers get only what the repo commits, the local plugin does not travel. No overlays →
+   sync first (`plugin-update-syncs-everywhere`) or dispatch local.
+10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
    table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
    set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
    write a slice brief of a whole-surface lock. **Work batches ≠ spec width** — caps must
@@ -88,7 +98,7 @@ A dispatch made without all four loaded is malformed.
    **BLOCK**. Operator widens lock mid-flight → parent **retargets** standing engineer; an
    in-flight review of the old slice is **not** protected — do **not** answer with *Review
    is already running on that slice. No second pass.*
-10. **Dispatch on the completion notification only.** Harness resume/reconnect prompts
+11. **Dispatch on the completion notification only.** Harness resume/reconnect prompts
    after a background specialist are noise — **not leftover**, not unfinished plugin work.
    Parent `Agent`-dispatches the next owner on the **completion notification**. Re-sending
    or re-polling can **double-dispatch**. Never assign "resume the agent" or "send a

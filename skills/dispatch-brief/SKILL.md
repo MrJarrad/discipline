@@ -90,9 +90,13 @@ model. Set the dispatch `model` field explicitly.
 
 ## Dispatch vehicle (Claude)
 
-- Single doer: `Agent` with the right `subagent_type` (engineer, reviewer, …), background by default.
+- Single doer: `Agent` with the right `subagent_type` (engineer, reviewer, …), background by default. Local is the default vehicle.
 - Multi-phase / parallel doers / adversarial verify: `node <plugin>/scripts/workflow.mjs <spec.json>`.
-- Off-laptop / long-running: Claude cloud session or scheduled agent when appropriate.
+- Cloud (Claude cloud session/agent): only when the work is long-running, PR babysitting,
+  parallel lanes on one repo, or must survive the laptop / continue while the operator is
+  away (`routing` rule 9). Requires the target repo to carry committed discipline
+  overlays — no overlays, no cloud. Never cloud for capture-stack work, present-for-review,
+  or machine-bound/interactive-auth MCP needs.
 
 ## Mandatory skill invocations
 
@@ -210,7 +214,7 @@ agent starts working, not re-mapping.
 [ ] Brief carries verified file:line loci, baselines, and key-file hashes
 [ ] Branch/cwd stated; out-of-bounds named; push policy stated
 [ ] "commit incrementally" stated explicitly; continuation gets fresh labels
-[ ] Vehicle chosen: `Agent` for a single doer, `workflow.mjs` spec for phased/parallel runs
+[ ] Vehicle chosen: `Agent` for a single doer, `workflow.mjs` spec for phased/parallel runs, cloud only with a one-clause justification (why this dispatch must survive the machine) and a confirmed overlay-carrying repo
 [ ] Ports stated: doer verification on :3211+, operator's :3210 untouched
 [ ] Merge briefs: reviewer verdict before merge; tree on main + worktrees pruned; evidence in-repo
 ```
