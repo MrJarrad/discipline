@@ -115,7 +115,7 @@ import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
-const pluginRoot = dirname(scriptsDir);
+const pluginRoot = dirname(dirname(scriptsDir));
 const operatorRulesPath = join(pluginRoot, "operator-rules.md");
 const runnerSettingsPath = join(pluginRoot, "runner-settings.json");
 

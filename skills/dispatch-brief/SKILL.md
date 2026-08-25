@@ -95,7 +95,7 @@ model. Set the dispatch `model` field explicitly.
   lanes** — if the task can be done in cloud, it should be (`routing` rule 9). Requires
   the target repo to already carry committed discipline overlays; overlay refresh is the
   standing precondition to clear first, not a reason to fall back to local by default.
-- Multi-phase / parallel doers / adversarial verify: `node <plugin>/scripts/workflow.mjs <spec.json>`.
+- Multi-phase / parallel doers / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
 - Vehicle is chosen **when the lane opens**, not per task — a resumed lane stays on
   its existing surface; never bounce a domain between local and cloud.
 - **Local** dispatch is the machine-bound exception: use it, and name in the brief the

@@ -269,7 +269,7 @@ test("classifyOutcome: capped is never folded into failed even on nonzero exit",
 // ---- runWorkflow: summary/exit-code shape --------------------------------
 //
 // runWorkflow() makes several synchronous console.log calls per dispatch
-// (scripts/workflow.mjs:325,333-339,345,353,394,406). Under node:test's
+// (hooks/scripts/workflow.mjs:325,333-339,345,353,394,406). Under node:test's
 // process-isolated reporter (Node v26.5.1), those console writes are
 // captured and relayed to the parent over the same structured IPC channel
 // the reporter uses for test diagnostics. Two or more of these tests in a

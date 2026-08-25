@@ -163,17 +163,10 @@ test("discriminate reports DISCRIMINATES when the arms diverge", () => {
   assert.equal(discriminate(candidate, baseline), DISCRIMINATION.DISCRIMINATES);
 });
 
-// ---- case file itself -------------------------------------------------------
-
-test("meta/skill-eval/cases.json loads and every case passes the fixture lint", () => {
-  const cases = loadCases(join(new URL(".", import.meta.url).pathname, "..", "meta", "skill-eval", "cases.json"));
-  assert.ok(cases.length >= 15);
-  const skillNames = ["define-terms", "design-modules", "discover-scope", "doc-formats", "issue-triage",
-    "model-routing", "ops-inbox", "summarise-meeting", "capture-figma", "capture-website",
-    "perplexity-research", "diagnosing-bugs", "audit-build", "banana", "qwen-edit"];
-  const { ok, violations } = lintCaseFixtures(cases, skillNames);
-  assert.equal(ok, true, JSON.stringify(violations));
-});
+// The meta/skill-eval/cases.json fixture-file test lived here — removed with
+// meta/ (archived on `archive/parked-cargo`, operator ruling 2026-08-25). The
+// loadCases/lintCaseFixtures coverage above (via inline fixtures) still holds;
+// only the fixture-file-on-disk assertion is gone.
 
 // ---- runArms — end-to-end with an injected runWorkflowImpl (no spawn) ------
 

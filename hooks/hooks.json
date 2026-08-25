@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/commit-gate.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/commit-gate.mjs\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/typecheck-marker.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/typecheck-marker.mjs\""
           }
         ]
       },
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/journal-append.mjs\""
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/journal-append.mjs\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/session-journal.mjs\" open"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/session-journal.mjs\" open"
           }
         ]
       }
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/session-journal.mjs\" close"
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/session-journal.mjs\" close"
           }
         ]
       }

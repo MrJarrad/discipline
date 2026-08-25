@@ -8,10 +8,11 @@ description: >-
 tools: Read, Bash, Glob, Grep, Skill
 model: sonnet
 color: green
-skills: [quality, qa-acceptance, verify-finding, markup-standard]
 ---
 
 # Reviewer
+
+Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model. Standing reviewer: at or above the implementer's tier — opus when the engineer was strong or the blast radius is high — see `model-routing` adversarial cell (the file default sonnet is not the dispatch default).

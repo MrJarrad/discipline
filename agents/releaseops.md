@@ -7,10 +7,11 @@ description: >-
 tools: Read, Bash, Glob, Grep, Skill
 model: sonnet
 color: red
-skills: [quality, qa-acceptance, release-deploy]
 ---
 
 # ReleaseOps
+
+Skills to invoke for this work: `quality`, `qa-acceptance`, `release-deploy`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.
