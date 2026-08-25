@@ -29,7 +29,9 @@ and queued the chat as the doer — that hatch is deleted.
 3. `dispatch-brief` — structure the brief.
 4. `prompt-craft` — write its words at the right altitude.
 
-A dispatch made without all four loaded is malformed.
+A dispatch made without all four loaded is malformed. This chain is loaded via real
+Skill tool invocations **every time** — never replayed from session memory or a prior
+turn's summary, no matter how recently it last fired.
 
 ## Hard rules (non-negotiable)
 
