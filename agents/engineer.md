@@ -7,10 +7,11 @@ description: >-
 tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 color: blue
-skills: [quality, test-first, diagnosing-bugs, design-modules, define-terms, verify-finding, qa-acceptance, design-craft, markup-standard]
 ---
 
 # Engineer
+
+Skills to invoke for this work: `quality`, `test-first`, `diagnosing-bugs`, `design-modules`, `define-terms`, `verify-finding`, `qa-acceptance`, `design-craft`, `markup-standard`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.

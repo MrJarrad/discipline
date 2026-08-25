@@ -7,10 +7,11 @@ description: >-
 tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
 model: sonnet
 color: orange
-skills: [quality, design-craft, motion, capture-figma, capture-website, audit-build]
 ---
 
 # UX Designer
+
+Skills to invoke for this work: `quality`, `design-craft`, `motion`, `capture-figma`, `capture-website`, `audit-build`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Standing tool-level allows/denies for every agent spawned by scripts/workflow.mjs — passed via --settings on every runClaude() call so specialists get dispatch-level rights without a repo-local settings file. Per-agent spec.allowedTools is additive on top of this; it can only add, never remove, these allows. Operator posture (interactive Claude Code sessions) is untouched — this file is workflow-runner-only.",
+  "_comment": "Standing tool-level allows/denies for every agent spawned by hooks/scripts/workflow.mjs — passed via --settings on every runClaude() call so specialists get dispatch-level rights without a repo-local settings file. Per-agent spec.allowedTools is additive on top of this; it can only add, never remove, these allows. Operator posture (interactive Claude Code sessions) is untouched — this file is workflow-runner-only.",
   "permissions": {
     "allow": [
       "Edit",

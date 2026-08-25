@@ -7,10 +7,11 @@ description: >-
 tools: Read, Write, Edit, Glob, Grep, Skill
 model: haiku
 color: cyan
-skills: [quality, issue-triage]
 ---
 
 # Project Manager
+
+Skills to invoke for this work: `quality`, `issue-triage`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.

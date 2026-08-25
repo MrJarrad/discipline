@@ -7,10 +7,11 @@ description: >-
 tools: Read, Glob, Grep, WebSearch, WebFetch, Skill, Bash
 model: sonnet
 color: yellow
-skills: [quality, research-synthesis]
 ---
 
 # Researcher
+
+Skills to invoke for this work: `quality`, `research-synthesis`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.
