@@ -312,11 +312,14 @@ shipped this session **and** every product checkout that consumes Claude overlay
 updated in the same catchup — a bump nobody installed is unfinished work. If the Cursor
 snapshot tree was edited, its own version fields stay that repo's concern.
 
-**Two installs, both refreshed.** The plugin installs from the GitHub marketplace
-(`MrJarrad/discipline` main) in TWO places — Claude Code on the Mac and Claude web. A
-bump is unfinished until both are on the shipped version: Mac refreshes agent-side
-(`claude plugin update discipline@discipline`); web refresh is an operator action —
-surface it as one line, not homework repeated every turn.
+**Two surfaces, with bootstrap.** The plugin ships from the GitHub marketplace
+(`MrJarrad/discipline` main) and must be installed and current on both surfaces —
+Claude Code on the Mac and Claude web. Web is a **one-time operator install** from that
+marketplace, **not yet done** — until it is, cloud doers have no plugin and the thin
+tripwire overlay is the only net. Once installed, every bump refreshes both: Mac
+refreshes agent-side (`claude plugin update discipline@discipline`); web refresh is a
+one-line operator action. Wrap surfaces a **missing** web install the same way it
+surfaces a stale one — one line, not homework repeated every turn.
 
 **Thin overlays, not scattered copies.** Product repos carry a thin tripwire `CLAUDE.md`
 block (floor + plugin-presence self-check), never a full rules copy — overlay scatter is
