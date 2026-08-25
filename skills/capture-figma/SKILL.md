@@ -1,6 +1,6 @@
 ---
 name: capture-figma
-description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels. Not for capturing live websites — that's capture-website; not for motion-tool sources (Jitter, AE, Lottie, Figma motion timelines) — that's capture-motion-source; not for auditing a built page against Figma — that's audit-build.
+description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, template layouts, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels; copy is its own mandatory audit lane, never waved through as "just content." Not for capturing live websites — that's capture-website; not for motion-tool sources (Jitter, AE, Lottie, Figma motion timelines) — that's capture-motion-source; not for auditing a built page against Figma — that's audit-build.
 ---
 
 # Figma Extraction
@@ -91,6 +91,51 @@ remains the right tool for a quick live check against whatever's on screen right
 confirming a single value, sanity-checking a pull, walking a file nobody has piped a
 token for yet.
 
+## The tool ladder — pick by what you're reading, not by habit
+
+This replaces improvising a tool per task. Read down the ladder; stop at the first rung
+that answers the question:
+
+1. **Figma MCP first — design context, text content, variables.** `get_design_context`
+   for composition/intent, `get_variable_defs` for the token graph, `get_metadata` for
+   structure and variant matrices. This is the portability floor (no token, no listener,
+   works on any file the desktop app has open) and the only lane that reaches live text
+   content and variables without an Enterprise plan.
+2. **REST scripts second — tree walks and PNG export.** `scripts/figma-node.mjs` (`node`
+   for a pruned subtree, `image` for a rendered PNG) against a known node id, no
+   active-tab dependency. Use this for exhaustive tree walks (every frame under a page,
+   every variant in a set) that would burn many MCP round-trips, and for every export
+   render — **`get_screenshot` on Claude Code returns text descriptions of the image,
+   not pixels**, so a PNG export always goes through the REST images endpoint or the
+   desktop MCP bridge on Mac, never through `get_screenshot` on Claude Code.
+3. **The sync bank JSON third — offline and mode-resolution work.** The active exporter's
+   banked export (`~/JHD/figma-plugins/main/capture-figma/captures/live/*.json`, or the
+   vault mirror at `estate/captures/live/`) carries full mode coverage and the `copy`
+   array (below) already extracted — reach for it when working offline, resolving a
+   value across every mode at once (no live session needed to walk each mode by hand),
+   or diffing against a prior capture via `changes.jsonl`.
+
+**Known live limits, name them rather than rediscovering them:**
+
+- **MCP page listing can miss canvases.** `get_metadata`/`get_design_context` walking a
+  file's page list has been observed to omit pages that exist on the canvas. When a page
+  count looks short, fall back to the REST depth-walk (`figma-node.mjs node <fileKey>
+  <rootId>` with children expanded) to confirm the true page set before concluding a page
+  doesn't exist.
+- **REST `variables/local` is Enterprise-gated.** `figma-node.mjs vars` hits `GET
+  /v1/files/:key/variables/local`, which 403s on non-Enterprise plans (the script detects
+  this and exits 2 rather than fabricating a result). The live path for variables on a
+  non-Enterprise file is the MCP `get_variable_defs` lane, not REST.
+
+**Code Connect is explicitly OUT** (operator ruling, 2026-08-25: Enterprise-only,
+"quite expensive" — would replace the capture plugin if it were available, it isn't).
+Do not reach for `get_code_connect_map`/`add_code_connect_map`. Instead, each consuming
+repo maintains an explicit **Figma-name → code-name mapping table** (in-repo, e.g. a
+`figma-code-map.md` or equivalent next to the design-system source) — an audit diffs
+the capture's names against that table, it never re-derives naming conventions from
+scratch. The capture-figma plugin (`~/JHD/figma-plugins/main/capture-figma`) stays the
+house name-mapping truth; this table is downstream of it, not a replacement for it.
+
 The steps below (Steps 1-4, the layer model, "The order," recapture) are written as the
 MCP-only procedure — the portability floor. When a REST or listener lane is available, run
 the same conceptual stages (architecture → styles/variables → components → blocks) through
@@ -148,6 +193,76 @@ REST lane's snapshot both carry more than a flat token list — extraction reads
   composition trees") made machine-readable — read a variant's bindings before assuming
   its internals are uniform across the matrix.
 
+## Copy lane — mandatory, equal to variables and geometry
+
+Text content is a fifth layer, not a footnote to the visual ones. A live audit missed a
+designed nav copy change entirely because the bank's copy was never read as its own
+lane — it got waved through as "just a content difference," exempt from the same
+scrutiny a token or a geometry value gets. That exemption is never available.
+
+- **The bank's top-level `copy` array is the source.** The active exporter's export
+  carries `copy: [{ id, path, text }]` at the top level (`id` optional, `path` the same
+  Page/Frame/Component path convention as every other named entry, `text` the verbatim
+  string) — read it as a full inventory, not a spot-check.
+- **The listener diffs copy automatically — this is the primary path.** The listener's
+  `diffCopy()` (`~/JHD/figma-plugins/main/capture-figma/listener/capture-listener.mjs`)
+  correlates `copy` entries id-first, falling back to `path` when an id is missing on
+  either side — the same id-first/path-fallback pattern as every other bucket — and
+  emits three change records into `changes.jsonl`'s `changed.copy` array: `copy_changed`
+  (`{ path, old, new }`, a matched entry whose `text` differs), `copy_added` (`{ path,
+  text }`, a new-side-only path), and `copy_removed` (`{ path }`, an old-side-only path).
+  `summary.copy` totals the count. Read a copy delta from `changes.jsonl` exactly as you
+  would read a `layer_binding_*` delta (Change taxonomy, below) — the listener already
+  classified it, don't re-derive it by eye.
+- **Manual keyed diff — only when no listener/sync record exists.** When the read is
+  MCP-only or REST-only (no active listener session, no banked `changes.jsonl` covering
+  the capture window — e.g. a one-off file nobody has synced), there is no automated
+  `copy_*` record to read. In that narrow case, and only that case, diff the current
+  `copy` array against the prior capture by hand: key on `path` (or `id` when present),
+  same rename-detection logic as variables/styles/components, and report every changed/
+  added/removed string explicitly — never summarize a text diff as "content updated."
+  This manual path is the fallback, not the default; reach for `changes.jsonl` first
+  whenever the listener has been running.
+- **Text is never exempt.** A string that reads as "just copy" can be the entire
+  designed change (a nav label, a CTA, a section header) — extract it **verbatim**
+  (Step 4's rule already says this for screenshots; the copy lane is where it becomes
+  systematic instead of incidental) and hold it to the same before/after scrutiny as a
+  spacing token. If a capture's audit report has a copy section with zero findings, that
+  section still exists and says so explicitly — it's never silently omitted because
+  "nothing changed."
+
+## Template-layout lane — read layouts, not just component inventories
+
+Reading a design file's templates (project pages, marketing layouts, any page-level
+frame meant to ship) means reading them as **layouts** — structure, instances, geometry,
+and states expressed as sibling frames per the operator's naming pattern (e.g.
+`default`/`hovered`/`disabled` as separate authored frames, not a toggled prop) — not
+stopping at a component-set inventory of what exists on the page.
+
+- **A template read is Step 3's "Reading a page layout" four-pass contract**, applied to
+  every template/project-page frame the brief touches, not just nav chrome. A live audit
+  read a project-page template only for nav geometry and missed the template's own
+  layout entirely — the fix is applying the four-pass read (context, composition, blocks
+  as instances, values as chains) to the whole template frame, every time one is in
+  scope, not narrowing to whichever region prompted the read.
+- **States-as-frames is a first-class pattern, not noise.** When a component/template
+  author expresses states as sibling frames with a `state=` naming axis, capture each
+  sibling as its own state's layout (own geometry, own instance set) — collapsing them
+  into "the same layout" loses the state-specific structure the frames exist to record.
+- **Component-set inventory is necessary but not sufficient.** Listing which components a
+  template instantiates answers "what's used here"; it doesn't answer "how is this page
+  built" — the ordered block sequence, the frame's mode vector, and prop tables per
+  instance (Step 3/4) are still required for a template read to count as complete.
+
+## Operator-intent rule
+
+When the operator states a design file was updated ("X was updated", "that changed in
+Figma"), that statement outranks a historical code ruling the bank might otherwise seem
+to confirm. A prior ruling recorded against an earlier state of the file is not evidence
+the file is still in that state — re-read the named layer against the operator's claim
+before citing the old ruling as still-current. Treat "operator says updated" as a signal
+to recapture that layer, not as a claim to verify-then-dismiss against stale history.
+
 ## Change taxonomy — the listener's reading vocabulary for "what changed"
 
 The listener (`scripts/capture-listener.mjs`) computes a richer change record than any
@@ -174,6 +289,12 @@ not ad-hoc prose:
   own `changed.layerBindings` array and its own `summary.layerBindings` count — a
   different chain (component internals) from top-level variable/style aliasing, never
   merged into `repointed`.
+- **`copy_*`** (`copy_changed` / `copy_added` / `copy_removed`) — the same id-first,
+  path-fallback correlation applied to the top-level `copy` array (Copy lane, above):
+  `copy_changed` is a matched entry whose `text` differs old→new, `copy_added`/
+  `copy_removed` are path-only-on-one-side. Kept in its own `changed.copy` array and its
+  own `summary.copy` count — text is diffed the same structural way as every other
+  bucket, never left to eyeballing.
 
 Use this vocabulary when writing a delta report or a capture document's changelog
 section — "what changed" is answered in these terms, not "some values moved."
