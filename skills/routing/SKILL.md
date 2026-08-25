@@ -76,22 +76,23 @@ A dispatch made without all four loaded is malformed.
    silence **after the completion ping** is a routing failure. Waiting **inside** the
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
    grilling, operator voice, every `Agent` dispatch, merge remittance after PASS).
-9. **Dispatch surface — local stays default, cloud is a routing cell.** Local dispatch
-   (`Agent`) is the default vehicle. **The surface is chosen when a lane opens, not
-   per task** — same-domain follow-ups resume the standing specialist on whatever
-   surface it already lives; never bounce a domain between local and cloud mid-stream
-   (context is the asset). Route a new lane to cloud (Claude cloud session/agent) only
-   on **operator-intent facts known at dispatch**: the lane should continue while the
-   operator is away (overnight, PR babysit), or parallel lanes on one repo need isolated
-   checkouts. Duration guesses ("long-running") are not a criterion. **Outgrown lane =
-   explicit handoff:** if a local lane proves bigger than the session, wrap its evidence
-   into a fresh cloud brief and re-dispatch — a deliberate handoff with a named context
-   cost, not a retroactive routing failure. **Never cloud for:** capture-stack work
-   (`:4411` listener, Capture.app helper, figma-daemon), present-for-review, or anything
-   needing machine-bound services or interactive-auth MCPs — those stay local. **Overlay
-   gate:** cloud dispatch requires the target repo to carry committed discipline
-   overlays — cloud doers get only what the repo commits, the local plugin does not
-   travel. No overlays → sync first (`plugin-update-syncs-everywhere`) or dispatch local.
+9. **Dispatch surface — cloud is the default for doer lanes, local is the machine-bound
+   exception.** If the task can be done in cloud, it should be: the operator works in
+   transit — a dropped main session is cheap (orchestration resumes), a dropped local
+   doer dies mid-lane. Route to **local** only for machine-bound work: capture stack
+   (`:4411` listener, Capture.app helper, figma-daemon), present-for-review,
+   interactive-auth MCPs, or work on this machine's own state. **The surface is chosen
+   when a lane opens, not per task** — same-domain follow-ups resume the standing
+   specialist on whatever surface it already lives; never bounce a domain between local
+   and cloud mid-stream (context is the asset). **Outgrown/mis-surfaced lane = explicit
+   handoff:** wrap the lane's evidence into a fresh brief on the right surface and
+   re-dispatch — a deliberate handoff with a named context cost, not a retroactive
+   routing failure. **Overlay gate (front-loaded precondition):** cloud dispatch
+   requires the target repo to already carry committed discipline overlays — cloud
+   doers get only what the repo commits, the local plugin does not travel. No overlays
+   means overlay refresh (`plugin-update-syncs-everywhere`) is the standing blocker to
+   clear before dispatch; a local dispatch on an overlay-less repo is a named fallback
+   in the brief, never the default reach.
 10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
    table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
    set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
