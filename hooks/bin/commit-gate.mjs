@@ -28,6 +28,7 @@ import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
+import { runTypecheckSync } from "./run-typecheck.mjs";
 
 function readHookInput() {
   try { return JSON.parse(readFileSync(0, "utf8") || "{}"); }
@@ -87,15 +88,18 @@ if (touchesSkills) {
 
 const markerPath = join(cwd, ".claude", ".typecheck-status.json");
 
-if (!existsSync(markerPath)) {
-  deny("Typecheck gate: no typecheck marker found yet — make at least one Write/Edit " +
-    "(which triggers the async typecheck) before committing, or run the repo's " +
-    "typecheck manually and retry.");
-}
-
+// Absent-marker fallback: rather than hard-failing the commit because no
+// Write/Edit has fired the async typecheck yet (marker fragility — SECOND
+// strike, see the handover defect record), run the SAME command-picking +
+// marker-writing logic synchronously right here, then gate on the fresh
+// result below exactly as if the marker had existed all along.
 let marker;
-try { marker = JSON.parse(readFileSync(markerPath, "utf8")); }
-catch { deny("Typecheck gate: marker file is unreadable/corrupt — re-run typecheck."); }
+if (!existsSync(markerPath)) {
+  marker = runTypecheckSync(cwd);
+} else {
+  try { marker = JSON.parse(readFileSync(markerPath, "utf8")); }
+  catch { deny("Typecheck gate: marker file is unreadable/corrupt — re-run typecheck."); }
+}
 
 if (marker.status === "green" || marker.status === "skipped") allow();
 
