@@ -39,7 +39,8 @@ Everyday **can-use-it** (keyboard, labels, no-mouse baseline) stays on **enginee
    Findings are **task fail points** ("task X breaks because…"), not copy notes or layout
    sketches unless the fail point requires naming the gap.
 4. **Figma / system misses** — load **`audit-build`** for built-vs-design numeric
-   fidelity; do not duplicate its measurement loop here.
+   fidelity; do not duplicate its measurement loop here. For the Figma-contracted
+   screenshot-pair evidence requirement, see `qa-acceptance` — one place, not restated here.
 5. **Return findings + recommendations** — structured fail points and recs; stop unless
    the brief also authorizes build.
 

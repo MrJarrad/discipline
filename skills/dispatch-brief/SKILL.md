@@ -121,6 +121,30 @@ type at hand.
 | Capture | `capture-figma` or `capture-website` |
 | Motion | `motion` |
 
+## Slice classification: adjust vs clean-rebuild
+
+Before authoring a brief against a design-backed defect set, classify it as an adjust
+slice or a clean-rebuild slice — `issue-triage`'s "Designed means build" section owns this
+call; this skill briefs whichever slice that classification produces.
+
+## Anti-delegation clause — dispatched doers never re-delegate
+
+Standing law (`routing` `skills/routing/SKILL.md`: "Persona — you are the doer. Implement.
+**NEVER call `Agent`.**") already binds named specialists. This clause **extends it
+explicitly to general-purpose vehicles** — a plain `Agent` dispatch with full tools and no
+named persona is still a doer, not a second orchestrator.
+
+Observed live 2026-08-26: a general-purpose vehicle spawned a tool-less
+persona sub-agent instead of doing the work itself; a second queued sub-agents and stalled
+waiting on them rather than executing inline. Both burned the dispatch on delegation instead
+of output.
+
+Every full-tool vehicle brief carries this standard language:
+
+> You ARE the doer — execute inline; your final message is the deliverable. No `Agent`
+> calls, no spawn-and-wait. If the task looks like it needs a specialist, that's a scoping
+> signal for the parent, not a license to sub-dispatch yourself.
+
 ## Ports
 
 Doers run verification servers on `:3211` and up. The operator's live dev server on
@@ -225,4 +249,5 @@ agent starts working, not re-mapping.
 [ ] Vehicle chosen at lane open (not per task): cloud is the assumed vehicle for doer lanes (confirmed overlay-carrying repo), `workflow.mjs` spec for phased/parallel runs; local only with a one-clause machine-bound justification (which need forces it); resumed lanes stay on their existing surface
 [ ] Ports stated: doer verification on :3211+, operator's :3210 untouched
 [ ] Merge briefs: reviewer verdict before merge; tree on main + worktrees pruned; evidence in-repo
+[ ] Full-tool/general-purpose vehicle brief carries the anti-delegation clause: "you ARE the doer" — no Agent calls, no spawn-and-wait
 ```

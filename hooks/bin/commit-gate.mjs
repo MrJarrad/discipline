@@ -28,6 +28,7 @@ import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
+import { runTypecheckSync } from "./run-typecheck.mjs";
 
 function readHookInput() {
   try { return JSON.parse(readFileSync(0, "utf8") || "{}"); }
@@ -87,17 +88,26 @@ if (touchesSkills) {
 
 const markerPath = join(cwd, ".claude", ".typecheck-status.json");
 
+// Absent-marker fallback: rather than hard-failing the commit because no
+// Write/Edit has fired the async typecheck yet (marker fragility — SECOND
+// strike, see the handover defect record), run the SAME command-picking +
+// marker-writing logic synchronously right here, then gate on the fresh
+// result below exactly as if the marker had existed all along.
+let marker;
 if (!existsSync(markerPath)) {
-  deny("Typecheck gate: no typecheck marker found yet — make at least one Write/Edit " +
-    "(which triggers the async typecheck) before committing, or run the repo's " +
-    "typecheck manually and retry.");
+  marker = runTypecheckSync(cwd);
+} else {
+  try { marker = JSON.parse(readFileSync(markerPath, "utf8")); }
+  catch { deny("Typecheck gate: marker file is unreadable/corrupt — re-run typecheck."); }
 }
 
-let marker;
-try { marker = JSON.parse(readFileSync(markerPath, "utf8")); }
-catch { deny("Typecheck gate: marker file is unreadable/corrupt — re-run typecheck."); }
-
 if (marker.status === "green" || marker.status === "skipped") allow();
+
+if (marker.status === "timeout") {
+  deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) TIMED OUT ` +
+    `at ${marker.ts} — the check never finished, so there's no result to gate on.\n` +
+    `${marker.tail || ""}`);
+}
 
 deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) was RED ` +
   `at ${marker.ts}. Fix the errors and let a Write/Edit re-trigger the check before committing.\n` +

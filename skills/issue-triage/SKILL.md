@@ -119,6 +119,28 @@ Not every request that lands in your lap is a task to triage:
 
 If prior triage notes exist on the task, read them first. Don't re-ask questions the reporter already answered. Check for new activity since the last pass and present the updated picture before recommending a state change.
 
+## Designed means build — adjust vs clean-rebuild
+
+When a defect set is against a design that already answers the question (Figma or an
+authored brief), classify the slice before writing the brief — this decides whether the
+brief is an adjustment or a rebuild, not something the doer discovers mid-build:
+
+- **Value conform** (a color, spacing, copy string, or single-property delta) →
+  **adjust slice** against the existing implementation.
+- **Structural or compositional divergence** (anatomy differs, not just values) **or**
+  three-plus stacked adjustment slices already landed on the same surface → **clean-rebuild
+  slice**, built fresh from the design source (Layer Brief + read sequence), treating the
+  existing implementation only as wiring reference (routes, data, motion hooks) — never as
+  the structural base.
+- **The design is the decision.** An element placed in the authored layouts is a build
+  mandate, not an open question to escalate. Escalate only what the design genuinely
+  doesn't answer — a design-answered question is never an operator escalation.
+
+Source: operator ruling `fleet/rulings/designed-means-build.md` — "it's in the designs it
+should be built. I think often we spend time adjusting things [that are] existing when it
+will probably be faster just to rebuild clean." (`dispatch-brief` briefs the resulting
+slice; this skill owns the classification call.)
+
 ## Intake classification: the five buckets (absorbed from capture-routing)
 
 A raw capture — quick-add, dictated thought, half-formed sentence — gets exactly one primary classification before it becomes work:
