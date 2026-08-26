@@ -40,7 +40,9 @@ or which step below supplies the mechanics:
    blocks." This reveals whether the target is composed purely of named components
    (healthy) or raw frames doing block work (a finding — see the composition ladder,
    Step 3.7) before a single pixel is measured. Pixels come second, to ground the
-   glance, never first.
+   glance, never first. When a Layer Brief export exists for the target (tool ladder
+   rung 0, below), the glance is read off the brief's top of tree, not assembled from a
+   fresh layer-list call.
 3. **Place it on the opinion gradient.** Primitive / component / block / page layout
    ([[design-system-opinion-gradient]]) — the level dictates what the thing is allowed
    to mean and which truth it's read against in step 4. This is Step 1's archetype
@@ -68,7 +70,11 @@ or which step below supplies the mechanics:
      effects/materials; props API as wiring (Step 4.2); text slots classified
      placeholder/real/unset-default; nested components as-placed, never re-derived
      (Step 4/"An instance is a pointer + prop record"); interaction layer (states,
-     prototype reactions, motion) or explicit "none authored."
+     prototype reactions, motion) or explicit "none authored." When a Layer Brief export
+     exists for the target (tool ladder rung 0, below), this descent is interpretation
+     of the brief's per-layer lines rather than a fresh tool-walk to reconstruct the
+     same tree — MCP/REST still supply what the brief doesn't carry (screenshots,
+     interactions, copy classification, spot-verified binding proofs).
 5. **Values last.** Variables and tokens (The order, below: variables → styles →
    metadata → screenshots) are the closing pass, not the opening one, because in a
    system that's flowing correctly a token update propagates globally and simply —
@@ -193,6 +199,25 @@ token for yet.
 This replaces improvising a tool per task. Read down the ladder; stop at the first rung
 that answers the question:
 
+0. **A Layer Brief export, when one exists for the target — primary anatomy source.**
+   An operator-provided or banked per-layer anatomy brief (format reference:
+   `projects/capture-figma/artifacts/layer-brief-plugin/` in the vault — a Figma plugin
+   that walks a frame and emits, per layer, its name/type, placed instance props, sizing
+   chain, layout direction and gap/pad expressed as bound-variable NAMES inline, with
+   unbound literals self-flagged, per-instance component deep links, and TEXT/effect
+   nodes carrying their style names (`textStyle(name)`/`effectStyle(name)`) rather than
+   left to be spotted or re-derived by eye) answers the anatomy/structure question
+   directly — no tool-walking needed to reconstruct it. When one exists for the target
+   frame or component, read-sequence Step 2 (the glance) and
+   Step 4 (the descent) become **interpretation of the brief**, not a sequence of MCP/REST
+   calls to assemble the same picture by hand. This rung sits above MCP for
+   anatomy/structure specifically — it does not replace MCP/REST for what a brief doesn't
+   carry: screenshots, interaction/prototype data, copy classification, and binding
+   PROOFS (a ⚠-flagged literal in the brief is a pre-surfaced finding, ready to report as
+   read; an unflagged binding may still be spot-verified via REST `boundVariables` when
+   the claim is load-bearing enough to need [proven] rather than [inferred] — see the
+   values-pass arbitration rule in Step 5). No banked or operator-supplied brief for the
+   target → drop to rung 1.
 1. **Figma MCP first — design context, text content, variables.** `get_design_context`
    for composition/intent, `get_variable_defs` for the token graph, `get_metadata` for
    structure and variant matrices. This is the portability floor (no token, no listener,
