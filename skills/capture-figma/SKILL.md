@@ -21,31 +21,92 @@ whatever has been pointed at. What are we building? then what's it made up of. �
 the system is flowing correctly variables and token updates should just flow pretty
 simply at a global level."
 
-Every read of a Figma target — component, template, block, whole file — runs in this
-order, no matter which lane (MCP/REST/bank) or which step below supplies the mechanics:
+Workshopped across five live test reads and operator-ratified 2026-08-26 (vault:
+[[figma-read-sequence]]), this six-step sequence is the full law — it supersedes the
+original three-step order, absorbing it rather than stacking a second competing order
+alongside it: steps 1-2 below ARE "what are we building?", step 4 IS "what is it made
+of?", and values stay last in both. Every read of a Figma target — component,
+template, block, whole file — runs in this order, no matter which lane (MCP/REST/bank)
+or which step below supplies the mechanics:
 
-1. **What are we building?** Understand the pointed-at layout/component as a whole
-   first — its purpose, its context on the page, what it adds up to — before opening a
-   single variable or style. This is Step 1's architecture read and archetype
-   classification (below), and for a page-level target it's "Reading a page layout"'s
-   pass 1 (Context).
-2. **What is it made of?** The anatomy: grid and composition (Step 3), per-element
-   placement and col-spans, slots, sizing chains (hug/fill/fixed — Step 4's binding
-   chain rule), states read two-tier (page states as sibling frames in the bank's
-   `exampleStructure` bucket per the Template-layout lane, component states as variant
-   properties per the layer model's Components layer), and copy (the Copy lane) — all
-   read as structure before any of it is reduced to a number.
-3. **Values last.** Variables and tokens (The order, below: variables → styles →
+1. **Name & context first.** The exact node name and everything it encodes before
+   opening anything: `D`/`M` prefix, page, view, `– State` suffix, mode pill,
+   dot-prefix privacy, section vs frame vs component set. State what the name alone
+   tells you, before any tool call past the name itself.
+2. **The glance — one sentence.** From name + layer list (one cheap metadata read),
+   state identity + composition inventory in a breath. Operator's ratified example,
+   verbatim: "This frame is the desktop Home Gallery design in its Landing state; it
+   contains a NavigationHeader, a NavigationSecondary, and a feed of SplitAsymmetric
+   blocks." This reveals whether the target is composed purely of named components
+   (healthy) or raw frames doing block work (a finding — see the composition ladder,
+   Step 3.7) before a single pixel is measured. Pixels come second, to ground the
+   glance, never first.
+3. **Place it on the opinion gradient.** Primitive / component / block / page layout
+   ([[design-system-opinion-gradient]]) — the level dictates what the thing is allowed
+   to mean and which truth it's read against in step 4. This is Step 1's archetype
+   classification made explicit as its own numbered stop, not a step to skip because
+   Step 1 "already covers it."
+4. **Descend, each level against its own truth — this is "what is it made of?"** The
+   anatomy: grid and composition (Step 3), per-element placement and col-spans, slots,
+   sizing chains (hug/fill/fixed — Step 4's binding chain rule below), states read
+   two-tier (page states as sibling frames in the bank's `exampleStructure` bucket per
+   the Template-layout lane, component states as variant properties per the layer
+   model's Components layer), and copy (the Copy lane) — all read as structure before
+   any of it is reduced to a number. Read each level against the truth the opinion
+   gradient assigns it, not a truth borrowed from an adjacent level
+   ([[design-system-opinion-gradient]]):
+   - *Page layouts:* blocks in order, variant + props **as authored — overrides are
+     the layout's opinion, read as intent, never drift** (template-layout lane
+     principle, and the opinion gradient's "per-instance overrides are not drift"
+     rule); layout grid; placement with positioning intent (pinned/sticky/scrolling);
+     page-tier states via sibling Example frames; M/D are ONE opinion through each
+     block's device axis — divergence the device axis can't explain is a real
+     inconsistency ([[design-system-opinion-gradient]] axis-ownership rule).
+   - *Blocks/components:* variant axes with axis ownership (`device` = the block's
+     own; every other axis = layout-facing opinion — [[design-system-opinion-gradient]]
+     axis-ownership rule); every variant's layer tree, slots, sizing chain,
+     effects/materials; props API as wiring (Step 4.2); text slots classified
+     placeholder/real/unset-default; nested components as-placed, never re-derived
+     (Step 4/"An instance is a pointer + prop record"); interaction layer (states,
+     prototype reactions, motion) or explicit "none authored."
+5. **Values last.** Variables and tokens (The order, below: variables → styles →
    metadata → screenshots) are the closing pass, not the opening one, because in a
    system that's flowing correctly a token update propagates globally and simply —
-   values only mean something once 1 and 2 are already understood. **A "read" that
-   opens with `get_variable_defs` and can't state what's being built or what it's made
-   of first is not a design read — it's a values dump**, and gets sent back regardless
-   of how accurate the numbers turn out to be.
+   values only mean something once 1-4 are already understood. Every dimension,
+   spacing, size, or height is reported as its **bound variable name**, resolved value
+   in parentheses, tagged **[proven: boundVariables]** (confirmed via REST `--raw` or
+   the plugin export's own `boundVariables`) or **[inferred: emitted var()]** (only
+   seen as an emitted CSS custom property, not yet confirmed against boundVariables) —
+   never as a naked number ([[no-naked-px]]: "it's really important that we're picking
+   up the variables, i don't ever add fix px in designs" — operator, verbatim). A
+   value with no binding found either side is not neutral data: since the operator
+   never authors fixed px, it's either (a) a read failure — walk deeper before
+   reporting — or (b) a genuine authoring slip, a finding to surface to the operator,
+   exactly like a raw hex in code. FILL/HUG computed sizing is not an unbound
+   value — it's a legitimate sizing-chain outcome (Step 4's binding-chain rule), never
+   confuse a computed dimension for a naked literal. **A "read" that opens with
+   `get_variable_defs` and can't state what's being built or what it's made of first is
+   not a design read — it's a values dump**, and gets sent back regardless of how
+   accurate the numbers turn out to be.
 
-This governs sequencing across the whole skill: Step 1 (what/anatomy) always precedes
-Step 2's "The order" (values), and within Step 2 itself variables come first among
-values, never first overall.
+   **Inference never convicts an unbound verdict.** `get_design_context`'s emitted code
+   resolves component-internal bindings to their literal CSS output — a missing
+   `var()` in emitted code is a **false negative**, not proof of an unbound value
+   (proven live 2026-08-26). Before ruling anything "unbound" on a component, arbitrate
+   with REST `--raw` (`scripts/figma-node.mjs node <fileKey> <nodeId> --raw`) and read
+   the node's actual `boundVariables` — that is the only source that convicts. Tag
+   accordingly: **[proven: boundVariables]** only once REST `--raw` (or an export
+   carrying `boundVariables`) has been read directly; **[inferred: emitted var()]** for
+   anything short of that — and an [inferred] tag is never itself grounds to report an
+   unbound finding, only grounds to go confirm one.
+6. **Relations & responsive story.** Where the target is consumed, what consumes it,
+   the cross-mode narrative in prose — close every read this way, whole-file or single
+   component alike.
+
+This governs sequencing across the whole skill: steps 1-4 (name/glance/level/anatomy)
+always precede step 5 (values), and within step 5 itself variable bindings come first
+among values, never first overall. Tool ladder unchanged throughout (MCP first, REST
+for depth/arbitration and the values-pass arbiter above, bank for modes).
 
 ## Rule zero — operator-supplied Figma renders are 2x retina, always ÷2
 
