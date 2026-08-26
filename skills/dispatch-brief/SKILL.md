@@ -121,6 +121,12 @@ type at hand.
 | Capture | `capture-figma` or `capture-website` |
 | Motion | `motion` |
 
+## Slice classification: adjust vs clean-rebuild
+
+Before authoring a brief against a design-backed defect set, classify it as an adjust
+slice or a clean-rebuild slice — `issue-triage`'s "Designed means build" section owns this
+call; this skill briefs whichever slice that classification produces.
+
 ## Anti-delegation clause — dispatched doers never re-delegate
 
 Standing law (`routing` `skills/routing/SKILL.md`: "Persona — you are the doer. Implement.
