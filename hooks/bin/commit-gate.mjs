@@ -103,6 +103,12 @@ if (!existsSync(markerPath)) {
 
 if (marker.status === "green" || marker.status === "skipped") allow();
 
+if (marker.status === "timeout") {
+  deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) TIMED OUT ` +
+    `at ${marker.ts} — the check never finished, so there's no result to gate on.\n` +
+    `${marker.tail || ""}`);
+}
+
 deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) was RED ` +
   `at ${marker.ts}. Fix the errors and let a Write/Edit re-trigger the check before committing.\n` +
   `Tail:\n${marker.tail || ""}`);

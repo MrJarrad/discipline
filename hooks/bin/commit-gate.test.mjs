@@ -23,10 +23,14 @@ function makeRepo({ typecheckExit }) {
   return dir;
 }
 
-function runGate(dir, command = 'git commit -m "test"') {
+function runGate(dir, command = 'git commit -m "test"', env = {}) {
   const input = JSON.stringify({ cwd: dir, tool_input: { command } });
   try {
-    const stdout = execFileSync(process.execPath, [gatePath], { input, encoding: "utf8" });
+    const stdout = execFileSync(process.execPath, [gatePath], {
+      input,
+      encoding: "utf8",
+      env: { ...process.env, ...env },
+    });
     return { exitCode: 0, stdout };
   } catch (err) {
     return { exitCode: err.status, stdout: err.stdout || "" };
@@ -90,6 +94,36 @@ test("existing red marker: still denies, unchanged", () => {
     const result = runGate(dir);
     assert.match(result.stdout, /permissionDecision":"deny"/);
     assert.match(result.stdout, /RED/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("absent marker with a hung typecheck: gate times out fast and denies with a timeout message", () => {
+  const dir = mkdtempSync(join(tmpdir(), "commit-gate-test-"));
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: "fixture",
+      // Sleeps far longer than the test-local timeout override below —
+      // proves the gate doesn't hang waiting on a stuck typecheck.
+      scripts: { typecheck: "node -e \"setTimeout(() => {}, 60000)\"" },
+    }, null, 2),
+  );
+  try {
+    const start = Date.now();
+    const result = runGate(dir, 'git commit -m "test"', { TYPECHECK_TIMEOUT_MS: "500" });
+    const elapsed = Date.now() - start;
+
+    assert.ok(elapsed < 10000, `gate must fail fast, not hang until the real command finishes (took ${elapsed}ms)`);
+    assert.match(result.stdout, /permissionDecision":"deny"/);
+    assert.match(result.stdout, /TIMED OUT/);
+    assert.match(result.stdout, /timed out after 500ms/);
+
+    const markerPath = join(dir, ".claude", ".typecheck-status.json");
+    assert.ok(existsSync(markerPath), "gate must write the marker it computed even on timeout");
+    const marker = JSON.parse(readFileSync(markerPath, "utf8"));
+    assert.equal(marker.status, "timeout", "timeout is its own status, distinct from red");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

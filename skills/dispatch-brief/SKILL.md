@@ -134,7 +134,7 @@ Standing law (`routing` `skills/routing/SKILL.md`: "Persona — you are the doer
 explicitly to general-purpose vehicles** — a plain `Agent` dispatch with full tools and no
 named persona is still a doer, not a second orchestrator.
 
-Grounded in two live incidents, 2026-08-26: a general-purpose vehicle spawned a tool-less
+Observed live 2026-08-26: a general-purpose vehicle spawned a tool-less
 persona sub-agent instead of doing the work itself; a second queued sub-agents and stalled
 waiting on them rather than executing inline. Both burned the dispatch on delegation instead
 of output.
