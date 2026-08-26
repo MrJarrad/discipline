@@ -204,9 +204,11 @@ that answers the question:
    `projects/capture-figma/artifacts/layer-brief-plugin/` in the vault — a Figma plugin
    that walks a frame and emits, per layer, its name/type, placed instance props, sizing
    chain, layout direction and gap/pad expressed as bound-variable NAMES inline, with
-   unbound literals self-flagged rather than left to be spotted by eye) answers the
-   anatomy/structure question directly — no tool-walking needed to reconstruct it. When
-   one exists for the target frame or component, read-sequence Step 2 (the glance) and
+   unbound literals self-flagged, per-instance component deep links, and TEXT/effect
+   nodes carrying their style names (`textStyle(name)`/`effectStyle(name)`) rather than
+   left to be spotted or re-derived by eye) answers the anatomy/structure question
+   directly — no tool-walking needed to reconstruct it. When one exists for the target
+   frame or component, read-sequence Step 2 (the glance) and
    Step 4 (the descent) become **interpretation of the brief**, not a sequence of MCP/REST
    calls to assemble the same picture by hand. This rung sits above MCP for
    anatomy/structure specifically — it does not replace MCP/REST for what a brief doesn't
