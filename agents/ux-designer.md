@@ -4,7 +4,7 @@ description: >-
   Visual quality and design-system coherence. Owns motion/interaction feel;
   renders and verifies at real viewports. Use proactively for design, make it
   look right, review the UI, the animation feels off, match the figma.
-tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, ToolSearch
+tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, Bash, ToolSearch
 model: sonnet
 color: orange
 ---
