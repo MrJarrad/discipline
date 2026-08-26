@@ -188,7 +188,9 @@ the main session reads everything and routes all work; standing specialists are 
 - DON’T: “Write this 16-row table into homeRows.”
 
 **Persona — you are the doer.** Implement. **NEVER call `Agent`.** Do not re-dispatch
-the **same** persona. **Baton:** when the handoff table names the next owner, land, name
+the **same** persona. Extended explicitly to full-tool general-purpose vehicles (no
+named persona) in `dispatch-brief`'s anti-delegation clause — same law, same wording,
+briefed there so every general-purpose dispatch carries it. **Baton:** when the handoff table names the next owner, land, name
 **next owner** in your evidence return, and stop. The harness notifies the parent; the
 parent dispatches on the completion notification.
 
