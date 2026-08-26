@@ -181,6 +181,9 @@ unless the operator asked for the machinery.
 changed and what was verified — not just "wrapped." Name specific commits, listener state,
 and where rulings landed. Log personas/skills invoked against routing tables
 (`skills/routing/SKILL.md`) — mandated-skill zero on relevant work is a defect, not a silent gap.
+Log the session's **dispatch tally** — `cloud N / local M` — with each local dispatch's
+one-clause machine-bound justification spot-listed (`routing` rule 9); an unjustified local
+count, or a cloud share trending down session over session, is drift to name, not skip.
 
 ## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
 

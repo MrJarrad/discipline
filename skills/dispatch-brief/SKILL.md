@@ -79,9 +79,17 @@ Anything past that is over-explain.
 
 Every dispatch label uses `persona-(model)` style from the **model-routing tree result**,
 e.g. `engineer-sonnet:task-slug`, `reviewer-opus:discipline-sync` (sonnet builder);
-`reviewer-opus:product-architecture` when implementer was top-tier or blast is high. The `Agent`
-`description` field must lead with `persona (model):` so the thread UI names the
-dispatch — e.g. `"Researcher (sonnet): competitive scan"` — never a bare or anonymous run.
+`reviewer-opus:product-architecture` when implementer was top-tier or blast is high.
+
+**Surface-first description (hard item, `routing` rule 9).** The `Agent` `description`
+field must lead with the chosen surface, then `persona (model):`, so the thread UI names
+both on every dispatch — `cloud — persona (model): task` or `local — persona (model):
+task`, e.g. `"cloud — Researcher (sonnet): competitive scan"`, `"local — Engineer
+(sonnet): capture-stack fix"`. Never a bare or anonymous run, and never `persona (model):`
+without the surface prefix. A **local** dispatch's brief must carry the one-clause
+machine-bound justification (`dispatch-brief` "Vehicle" section) — the surface prefix
+makes that choice visible in the thread UI; the justification clause is what makes it
+legitimate. Cloud dispatches carry no justification clause — cloud is the default.
 
 Status lines name "persona (model) into repo" with the **actual** chosen model.
 
@@ -237,6 +245,9 @@ agent starts working, not re-mapping.
 [ ] Reviewer dispatch: **same current locked table** as engineer — paired briefs match on locked rows
 [ ] Question stated neutrally; any named candidate labeled a hypothesis, not an answer
 [ ] Label is persona-(model) from the model-routing tree; dispatch description leads with it
+[ ] Description leads with surface — `cloud — persona (model): task` or `local —
+    persona (model): task`; local dispatch's brief carries the one-clause machine-bound
+    justification (`routing` rule 9)
 [ ] Model set explicitly (never inherited); justification if above haiku/sonnet
 [ ] Required skills named per the work-type table above
 [ ] Figma-backed build: file+node named; doer loads capture-figma; no pasted prop table

@@ -94,7 +94,11 @@ turn's summary, no matter how recently it last fired.
    doers get only what the repo commits, the local plugin does not travel. No overlays
    means overlay refresh (`plugin-update-syncs-everywhere`) is the standing blocker to
    clear before dispatch; a local dispatch on an overlay-less repo is a named fallback
-   in the brief, never the default reach.
+   in the brief, never the default reach. **Visible on every dispatch:** the `Agent`
+   `description` leads with the surface — `cloud — persona (model): task` / `local —
+   persona (model): task` — and a local brief carries the one-clause machine-bound
+   justification; mechanic and checklist item live in `dispatch-brief`'s "Persona +
+   model" section — this rule is the law, that skill is the enforcement point.
 10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
    table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
    set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
