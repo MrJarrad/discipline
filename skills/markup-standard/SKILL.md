@@ -134,6 +134,18 @@ composition," it's an uncompiled component style pasted N times.
 - **A raw one-off hex/px value in a `class` string is still a bug** — `design-craft`'s
   "nothing raw, ever" rule holds here unchanged; class-length is a separate axis from
   token discipline.
+- **Repeated property combinations become a class.** When the same combination of
+  properties appears on more than one element, that combination becomes a class or
+  utility — a single reusable name, defined once, applied by name. Inline `style=`
+  attributes are only for truly per-instance computed values (a data-driven offset, a
+  computed custom property). The class name describes what it does (`.blend-ink`,
+  `.card-elevated`), not what it contains (`.gray-blur-thing`) — the recipe can evolve
+  behind a stable role name, exactly like a token. (Operator ruling 2026-08-28,
+  blend-mono precedent — the monochrome-ground blend treatment was hand-declared per
+  surface before being named and hoisted.) The JS-side analogue is the same discipline
+  one level down: a repeated computed value (a duration, an easing curve) gets a named
+  helper function (`entryDurationCss`/`entryEasingCss`) instead of being interpolated
+  inline at every call site — same rule, different material.
 
 ## Head/meta hygiene
 
@@ -233,7 +245,9 @@ produced, so it's reproducible by construction.
    read might miss, and is independent confirmation rather than a duplicate check.
 5. **Spot-check class discipline** on any touched component: is a Tailwind stack
    repeated verbatim across ≥2 call sites in the diff? If so, it should have moved to
-   the `@layer components` layer in this same change, not been left inline.
+   the `@layer components` layer in this same change, not been left inline. Same check
+   for inline `style`/CSS declaration blocks: a visual recipe declared more than once
+   should be one named class applied by name, not repeated or inlined.
 6. **Read the `<head>`** on the touched route: title, description, OG/Twitter, canonical,
    JSON-LD present and route-specific (not the shared default) when the route has its
    own identity.
