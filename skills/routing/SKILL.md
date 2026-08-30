@@ -78,12 +78,25 @@ turn's summary, no matter how recently it last fired.
    silence **after the completion ping** is a routing failure. Waiting **inside** the
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
    grilling, operator voice, every `Agent` dispatch, merge remittance after PASS).
-9. **Dispatch surface — cloud is the default for doer lanes, local is the machine-bound
-   exception.** If the task can be done in cloud, it should be: the operator works in
-   transit — a dropped main session is cheap (orchestration resumes), a dropped local
-   doer dies mid-lane. Route to **local** only for machine-bound work: capture stack
-   (`:4411` listener, Capture.app helper, figma-daemon), present-for-review,
-   interactive-auth MCPs, or work on this machine's own state. **The surface is chosen
+9. **Dispatch surface — operator's rule: "if a task can be done in cloud, it is."**
+   Every dispatched agent is a doer — build, fix, verify, triage, review, audit,
+   research alike; the cloud default covers all of them, and the only test is
+   capability, never lane taxonomy. Why: the operator works in transit — a dropped main
+   session is cheap (orchestration resumes), a dropped local doer dies mid-lane.
+
+   **Local is justified by exactly three needs**, named in one clause in the brief:
+   (a) **verifying the deployed surface** or presenting it for review — the only
+   operator-facing surface is the deployed URL, and cloud egress 403s `*.workers.dev`;
+   (b) **machine-bound stacks** — `:4411` capture listener, Capture.app helper,
+   figma-daemon, interactive-auth MCPs; (c) **this machine's own state**.
+
+   **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
+   blocks only the check of the **deployed** surface. A doer slice verifying its
+   own build on `:3211`+ is **not** machine-bound — cloud VMs build and
+   Playwright-verify localhost fine. "Faster", "interactive", or "read-only" is not a clause either.
+   Misused 2026-08-30 to run five engineer slices local; operator flagged "all local".
+
+   **The surface is chosen
    when a lane opens, not per task** — same-domain follow-ups resume the standing
    specialist on whatever surface it already lives; never bounce a domain between local
    and cloud mid-stream (context is the asset). **Outgrown/mis-surfaced lane = explicit
