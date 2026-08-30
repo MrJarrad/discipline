@@ -70,6 +70,17 @@ slice* must not protect it.
 
 Standing fleet rulings are quoted separately (below). Locked decisions are **this session's** tree.
 
+**Review tier — every reviewer brief names one, `FULL` or `LIGHT`** (operator-blessed
+2026-08-29). `FULL` for structural, motion, compositing, or cross-cutting change — the
+exhaustive bar, unchanged. `LIGHT` for conform, docs, data, or copy change — verify the
+named ACs with runtime evidence, skip exhaustive sweeps and mutation batteries. Unnamed
+tier defaults to `FULL`; the tier is the parent's call at dispatch, never the reviewer's.
+
+**The reviewer samples, it does not re-derive.** Engineer commits evidence; the brief
+requires the reviewer to independently re-derive **2–3 unannounced probes of its own
+choosing** plus anything suspicious, and audit the rest. Random adversarial sampling is
+what keeps independence — it is not a licence to accept the engineer's word wholesale.
+
 ## State the rule in plans and briefs
 
 Plans, docs, comments, briefs: the token and the rule, first, at the altitude it applies.
@@ -106,11 +117,14 @@ model. Set the dispatch `model` field explicitly.
 - Multi-phase / parallel doers / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
 - Vehicle is chosen **when the lane opens**, not per task — a resumed lane stays on
   its existing surface; never bounce a domain between local and cloud.
-- **Local** dispatch is the machine-bound exception: use it, and name in the brief the
-  one-clause machine-bound need that forces it — capture-stack work (`:4411` listener,
-  Capture.app helper, figma-daemon), present-for-review, interactive-auth MCPs, or work
-  on this machine's own state. A local dispatch on an overlay-less repo is a named
-  fallback in the brief, never the default reach.
+- **Local** dispatch is the exception, and the brief names the one clause that forces it.
+  Only three clauses are legitimate (`routing` rule 9): (a) **verifying the deployed
+  surface** or present-for-review — cloud egress 403s `*.workers.dev`; (b) machine-bound
+  stacks — `:4411` capture listener, Capture.app helper, figma-daemon, interactive-auth
+  MCPs; (c) this machine's own state. A doer slice verifying its **own build** on
+  `:3211`+ is **not** machine-bound — that goes cloud; nor is "faster", "interactive", or
+  "read-only". A local dispatch on an overlay-less repo is a named fallback in the brief,
+  never the default reach.
 - An outgrown or mis-surfaced lane gets a deliberate handoff: wrap evidence into a fresh
   brief on the right surface and re-dispatch, not a retroactive verdict on the prior run.
 
@@ -134,6 +148,16 @@ type at hand.
 Before authoring a brief against a design-backed defect set, classify it as an adjust
 slice or a clean-rebuild slice — `issue-triage`'s "Designed means build" section owns this
 call; this skill briefs whichever slice that classification produces.
+
+**Prototype-first when the mechanism is unproven.** If the slice rests on physics or
+behaviour nobody has run yet (compositing, a novel interaction, an unverified data
+shape), brief a throwaway `prototype` lane **before** the build lane — minutes of running
+code settle what build rounds otherwise grope at. Proven mechanism → straight to build.
+
+**CI carries the suite.** On repos with GitHub Actions running typecheck + suite on
+push/PR, the brief points evidence at the green check for those two rather than making
+every engineer and reviewer round re-run the full suite locally; per-round evidence stays
+on what CI does not cover (runtime behaviour, captures, ACs).
 
 ## Anti-delegation clause — dispatched doers never re-delegate
 
@@ -246,8 +270,12 @@ agent starts working, not re-mapping.
 [ ] Question stated neutrally; any named candidate labeled a hypothesis, not an answer
 [ ] Label is persona-(model) from the model-routing tree; dispatch description leads with it
 [ ] Description leads with surface — `cloud — persona (model): task` or `local —
-    persona (model): task`; local dispatch's brief carries the one-clause machine-bound
-    justification (`routing` rule 9)
+    persona (model): task`; a local dispatch's brief carries one of the three legitimate
+    clauses (`routing` rule 9): verifying the **deployed surface**/present-for-review,
+    a machine-bound stack, or this machine's own state — a slice verifying its own
+    `:3211`+ build is **not** machine-bound and goes cloud
+[ ] Reviewer brief names its **review tier** — `FULL` or `LIGHT` — and requires 2–3
+    unannounced re-derived probes plus audit of the rest
 [ ] Model set explicitly (never inherited); justification if above haiku/sonnet
 [ ] Required skills named per the work-type table above
 [ ] Figma-backed build: file+node named; doer loads capture-figma; no pasted prop table
@@ -257,7 +285,8 @@ agent starts working, not re-mapping.
 [ ] Brief carries verified file:line loci, baselines, and key-file hashes
 [ ] Branch/cwd stated; out-of-bounds named; push policy stated
 [ ] "commit incrementally" stated explicitly; continuation gets fresh labels
-[ ] Vehicle chosen at lane open (not per task): cloud is the assumed vehicle for doer lanes (confirmed overlay-carrying repo), `workflow.mjs` spec for phased/parallel runs; local only with a one-clause machine-bound justification (which need forces it); resumed lanes stay on their existing surface
+[ ] Vehicle chosen at lane open (not per task): cloud is the assumed vehicle for doer lanes (confirmed overlay-carrying repo), `workflow.mjs` spec for phased/parallel runs; local only on one of the three scoped clauses; resumed lanes stay on their existing surface
+[ ] Unproven mechanism: prototype lane briefed before the build lane
 [ ] Ports stated: doer verification on :3211+, operator's :3210 untouched
 [ ] Merge briefs: reviewer verdict before merge; tree on main + worktrees pruned; evidence in-repo
 [ ] Full-tool/general-purpose vehicle brief carries the anti-delegation clause: "you ARE the doer" — no Agent calls, no spawn-and-wait
