@@ -163,6 +163,24 @@ function isMediaAtRule(selector) {
   return /^@media\b/.test(selector);
 }
 
+// Wider than isMediaAtRule: any CONDITIONAL group at-rule whose declarations
+// only apply under a runtime condition, not just @media's viewport/print
+// condition. Used by buildDsSurface's @theme fold (see there) — a token
+// declared only inside `@supports (…) { @theme inline { … } }` or
+// `@container (…) { @theme inline { … } }` is exactly as conditional as one
+// inside `@media`, and folding it into the unconditional root bucket would
+// report it MATCH/present when the DS package has, in fact, no unconditional
+// declaration of it. `@layer` is deliberately excluded — a cascade layer is
+// unconditional, it only affects override order, so `@layer base { @theme
+// inline { … } }` still counts as the default-mode declaration. `@scope` and
+// `@starting-style` are left out for now (not seen in this codebase's CSS;
+// add them here if that changes — @scope narrows by DOM subtree, not by any
+// runtime condition this pass evaluates, so it would need its own judgment
+// call rather than folding into this list by default).
+function isConditionalGroupAtRule(selector) {
+  return /^@(media|supports|container)\b/.test(selector);
+}
+
 // Comments are stripped WHOLESALE before the scan rather than skipped
 // inline, because a comment sitting in a selector prelude is swallowed by the
 // selector match (`[^{};]+` happily eats a brace-free comment) and the
@@ -1074,7 +1092,7 @@ function resolveHandoffVariable(variable, collection) {
   const defaultMode = modes.find((m) => m.modeId === collection.defaultModeId) || modes[0];
   const figmaDefault = normalizeFigmaValue(handoffModeValue(defaultMode));
 
-  const darkModeMeta = (collection.modes || []).find((m) => m.name === "dark");
+  const darkModeMeta = (collection.modes || []).find((m) => typeof m.name === "string" && m.name.toLowerCase() === "dark");
   const hasDarkAxis = Boolean(darkModeMeta) && defaultMode && defaultMode.modeName !== "dark";
   const darkVariableMode = hasDarkAxis ? modes.find((m) => m.modeId === darkModeMeta.id) : undefined;
   const figmaDark = hasDarkAxis ? normalizeFigmaValue(handoffModeValue(darkVariableMode)) : undefined;
@@ -1108,7 +1126,7 @@ function buildDsSurface(cssTexts) {
   const root = {};
   const dark = {};
   walkCssDeclarations(combined, ({ prop, value, stack }) => {
-    if (stack.some(isMediaAtRule)) return;
+    if (stack.some(isConditionalGroupAtRule)) return;
     const top = stack[stack.length - 1];
     if (top === ":root" || /^@theme\b/.test(top)) root[prop] = value;
     else if (top === ".dark") dark[prop] = value;
@@ -1340,8 +1358,21 @@ if (isMainModule()) {
       join(process.env.HOME, "JHD", "jhd-design-system", "main", "design", "handoff", "v3b-2026-09-05", "jhd-spec-designsystem-design-system-handoff.json")
     );
     const cssPaths = getArgAll("--css");
-    const driftThreshold = Number(getArg("--drift-threshold", "0"));
+    const driftThresholdRaw = getArg("--drift-threshold", "0");
+    const driftThreshold = Number(driftThresholdRaw);
     const ci = args.includes("--ci");
+
+    // A typo'd or missing --drift-threshold value must never fail OPEN: an
+    // invalid threshold makes `valueDrift > threshold` false-by-NaN below, so
+    // `--ci --drift-threshold abc` would silently exit 0 with real drift
+    // present. Reject anything that isn't a finite, non-negative number
+    // before the gate runs at all.
+    if (ci && (driftThresholdRaw === undefined || !Number.isFinite(driftThreshold) || driftThreshold < 0)) {
+      console.error(
+        `[conformance-check --handoff] --drift-threshold must be a finite, non-negative number, got: ${driftThresholdRaw === undefined ? "(missing value)" : JSON.stringify(driftThresholdRaw)}`
+      );
+      process.exit(2);
+    }
 
     try {
       const result = runHandoffCheck({
