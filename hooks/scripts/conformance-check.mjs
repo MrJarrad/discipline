@@ -1122,6 +1122,34 @@ function handoffModeValue(mode, variableType) {
     return { __unresolvedAlias: true, targetId: mode.raw.id };
   }
 
+  // Schema 6: the export finishes the build cell itself — `mode.build.css` IS
+  // the final CSS string the DS package emits, so it is used verbatim rather
+  // than re-derived from `unitHint.convertedValue` (schema 5's shape, still
+  // read below when `build` is absent — a schema-5 mode never carries it).
+  // `resolved` -> parseCssScalar-normalized `build.css` (same normalization
+  // schema 5's converted-value path already applies, so both schemas land on
+  // the same comparable number). `unresolved` -> the same UNCONVERTED shape
+  // schema 5 emits for a strategy the export could not carry out, so a
+  // schema-6 unresolved build reads identically to a schema-5 one downstream
+  // (never invents a value for either).
+  // Scoped to FLOAT (mirroring the `variableType === "FLOAT"` guard schema 5
+  // already used below): `build` only carries a real unit-conversion verdict
+  // for numeric variables. STRING/COLOR variables report `build.status:
+  // "unresolved"` UNCONDITIONALLY (build doesn't apply to them at all) while
+  // their `raw` is the real, already-correct value (a font name, a hex
+  // string) — reading `mode.build` for those would misclassify all 213
+  // color-primitives and every STRING variable as UNCONVERTED.
+  if (variableType === "FLOAT" && mode.build) {
+    if (mode.build.status === "resolved") return parseCssScalar("", mode.build.css);
+    return {
+      __unconverted: true,
+      strategy: mode.unitHint?.conversionStrategy ?? mode.build.conversionStrategy ?? null,
+      buildUnit: mode.unitHint?.buildUnit ?? mode.build.unit ?? null,
+      confidence: mode.build.confidence ?? mode.unitHint?.confidence ?? "none",
+      sourceUnit: mode.unitHint?.sourceUnit ?? null,
+    };
+  }
+
   if (variableType === "FLOAT") {
     const u = mode.unitHint;
     if (u && u.conversionStrategy) {
@@ -1147,15 +1175,43 @@ function isUnresolvedAlias(v) {
   return Boolean(v) && typeof v === "object" && v.__unresolvedAlias === true;
 }
 
+// Schema 6 `breakpoints.entries[]`: one row per layout mode (`modeId`,
+// `family`, `widthPx`, `layoutVariant`, ...). Mirrors ds-from-handoff.mjs's
+// own P6 ruling exactly — the collection's `defaultModeId` is Figma's "first
+// mode" convention (`lg`, unrelated to responsive intent), but the DS package
+// now seeds its unconditional `:root` base from the mode with the SMALLEST
+// `widthPx` among `layoutVariant === "default"` entries (`sm`). Comparing
+// this pass's figmaDefault against `collection.defaultModeId` for a layout
+// variable would compare `lg`'s Figma value against the DS's `sm`-based
+// unconditional declaration — same collection, same variable, wrong mode on
+// each side. Returns a Map of collectionId -> base modeId; absent on schema
+// 3/5 (no `breakpoints` block), where `collection.defaultModeId` stays the
+// only source, unchanged from before this slice.
+function computeLayoutBaseModeIds(breakpoints) {
+  const byCollection = new Map();
+  for (const entry of breakpoints?.entries || []) {
+    if (entry.layoutVariant !== "default" || typeof entry.widthPx !== "number") continue;
+    const current = byCollection.get(entry.collectionId);
+    if (!current || entry.widthPx < current.widthPx) {
+      byCollection.set(entry.collectionId, { modeId: entry.modeId, widthPx: entry.widthPx });
+    }
+  }
+  const result = new Map();
+  for (const [collectionId, { modeId }] of byCollection) result.set(collectionId, modeId);
+  return result;
+}
+
 // Resolves one collection's default-mode (and, for `color`, dark-mode) value
 // for a single variable. Returns null for a variable with no WEB codeSyntax —
-// nothing this pass can bind against.
-function resolveHandoffVariable(variable, collection) {
+// nothing this pass can bind against. `baseModeId` overrides
+// `collection.defaultModeId` when the export's own breakpoints table names a
+// different base mode for this collection (see computeLayoutBaseModeIds).
+function resolveHandoffVariable(variable, collection, baseModeId) {
   const webName = variable.codeSyntax && variable.codeSyntax.WEB && variable.codeSyntax.WEB.value;
   if (!webName) return null;
 
   const modes = variable.modes || [];
-  const defaultMode = modes.find((m) => m.modeId === collection.defaultModeId) || modes[0];
+  const defaultMode = modes.find((m) => m.modeId === (baseModeId ?? collection.defaultModeId)) || modes[0];
   const defaultRaw = handoffModeValue(defaultMode, variable.type);
   const figmaDefault = isUnconverted(defaultRaw) ? defaultRaw : normalizeFigmaValue(defaultRaw);
 
@@ -1302,25 +1358,30 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
   const designSystemStateHash =
     (handoff.fingerprint && handoff.fingerprint.designSystemStateHash) || handoff.designSystemStateHash || null;
 
-  // Schema gate. Version 5 is the format this pass compares CONVERTED values
-  // against (per-mode `unitHint.conversionStrategy`/`convertedValue`, P4 in
-  // ds-from-handoff.mjs). Version 3 exports carry no `unitHint` at all, so
-  // every FLOAT falls through `handoffModeValue`'s bare-`mode.raw` branch —
-  // the same comparison this pass always made — and is accepted as-is
-  // (cheap: no behaviour to gate, nothing schema 5 added is present to check).
+  // Schema gate. Version 6 is the format this pass compares the export's own
+  // FINAL CSS against (per-mode `build.css`/`build.status`, the export doing
+  // the unit-formatting work `formatConvertedForCompare` used to redo — see
+  // `handoffModeValue`). Version 5 compares CONVERTED values via per-mode
+  // `unitHint.conversionStrategy`/`convertedValue` (P4 in ds-from-handoff.mjs)
+  // for any mode that carries no `build` block. Version 3 exports carry
+  // neither `unitHint` nor `build`, so every FLOAT falls through
+  // `handoffModeValue`'s bare-`mode.raw` branch — the same comparison this
+  // pass always made — and is accepted as-is (cheap: no behaviour to gate).
   // Anything else is refused rather than silently comparing raw numbers
-  // against converted CSS values with no unitHint to reconcile them.
+  // against converted CSS values with no unitHint/build to reconcile them.
   const schemaVersion = String(handoff.schemaVersion ?? "");
-  if (handoff.schema !== "design-system-handoff" || !["3", "5"].includes(schemaVersion)) {
+  if (handoff.schema !== "design-system-handoff" || !["3", "5", "6"].includes(schemaVersion)) {
     throw new Error(
       `handoff export schema not supported: ${handoff.schema ?? "(missing)"} v${handoff.schemaVersion ?? "(missing)"} — ` +
-        `runHandoffCheck compares converted values via schemaVersion 5's per-mode unitHint (or accepts schemaVersion 3, ` +
-        `which has none to compare). Regenerate the export at v5, or open an issue if a new schema version needs support.`,
+        `runHandoffCheck compares converted values via schemaVersion 6's per-mode build.css (or schemaVersion 5's ` +
+        `unitHint, or accepts schemaVersion 3, which has neither to compare). Regenerate the export at v6, or open an ` +
+        `issue if a new schema version needs support.`,
     );
   }
 
   const { combined, root, dark } = buildDsSurface(cssTexts);
   const allowlistSet = new Set(allowlist);
+  const layoutBaseModeIds = computeLayoutBaseModeIds(handoff.breakpoints);
 
   const defects = [];
   const matches = [];
@@ -1329,7 +1390,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
 
   for (const collection of handoff.collections || []) {
     for (const variable of collection.variables || []) {
-      const resolved = resolveHandoffVariable(variable, collection);
+      const resolved = resolveHandoffVariable(variable, collection, layoutBaseModeIds.get(collection.id));
       if (!resolved) continue; // no WEB codeSyntax — nothing to bind against
       const { webName, path, figmaDefault, hasDarkAxis, figmaDark } = resolved;
       figmaNames.add(webName);
@@ -1399,6 +1460,18 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
   const missingCount = defects.filter((d) => d.type === "MISSING-IN-DS").length;
   const unresolvedCount = defects.filter((d) => d.type === "unresolved-alias").length;
 
+  // Schema 6 publishes `changes.variables.codeNameChanged` — a WEB code-name
+  // change vs the export's own diff baseline, distinct from a value/alias
+  // change. Passed through as its own count (never folded into MISSING-IN-DS/
+  // EXTRA-IN-DS, which this pass still reports independently for the old and
+  // new names) so a reader sees "N names changed" as its own line instead of
+  // reading a naming-policy rename as an unrelated MISSING+EXTRA pair.
+  // Absent on schema 3/5 (no `changes` block at all) — defaults to 0, not a
+  // gate condition.
+  const codeNameChangedCount = Array.isArray(handoff.changes?.variables?.codeNameChanged)
+    ? handoff.changes.variables.codeNameChanged.length
+    : 0;
+
   const counts = {
     total: matches.length + defects.length + unconverted.length,
     match: matches.length,
@@ -1407,6 +1480,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
     unresolvedAlias: unresolvedCount,
     unconverted: unconverted.length,
     extraInDs: extraInDs.length,
+    codeNameChanged: codeNameChangedCount,
   };
 
   // UNCONVERTED is neither a match nor an actionable defect — it names a gap
@@ -1416,7 +1490,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
   // ds-from-handoff-report.md.
   const ok = missingCount === 0 && valueDriftCount === 0 && unresolvedCount === 0;
   const summaryLines = [
-    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted.`,
+    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted, ${counts.codeNameChanged} code-name-changed.`,
   ];
   for (const d of defects) summaryLines.push(`  [${d.type}] ${d.path} (${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
   for (const n of extraInDs) summaryLines.push(`  [EXTRA-IN-DS] ${n}`);

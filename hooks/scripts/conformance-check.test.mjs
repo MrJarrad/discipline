@@ -1680,3 +1680,283 @@ test("CLI --handoff --ci --drift-threshold with a missing value is rejected, exi
   ]);
   assert.equal(run.status, 2);
 });
+
+// ---- runHandoffCheck: schema 6 — compares against modes[].build ------------
+
+// A schemaVersion 6 fixture builder — same shape as makeHandoffFixtureV5 but
+// with schemaVersion 6 and an optional `changes.variables.codeNameChanged`
+// passthrough.
+function makeHandoffFixtureV6({ collections, css, codeNameChanged = [], breakpoints }) {
+  const root = mkdtempSync(join(tmpdir(), "handoff-check-v6-test-"));
+  const handoffPath = join(root, "handoff.json");
+  writeFileSync(
+    handoffPath,
+    JSON.stringify({
+      schema: "design-system-handoff",
+      schemaVersion: 6,
+      fingerprint: { designSystemStateHash: "test-hash-v6" },
+      changes: { variables: { codeNameChanged } },
+      ...(breakpoints ? { breakpoints } : {}),
+      collections,
+    }),
+    "utf8"
+  );
+  const cssPath = join(root, "styles.css");
+  writeFileSync(cssPath, css, "utf8");
+  return { root, handoffPath, cssPath };
+}
+
+// A FLOAT variable carrying a schema-6 per-mode `build` cell — the shape the
+// export now finishes itself (see conformance-check.mjs's handoffModeValue).
+function floatVariableWithBuild(name, webName, build, unitHint, modeId = "1:0", modeName = "default") {
+  return {
+    name,
+    type: "FLOAT",
+    codeSyntax: { WEB: { value: webName } },
+    modes: [{ modeId, modeName, raw: build.raw, effective: true, build, ...(unitHint ? { unitHint } : {}) }],
+  };
+}
+
+test("handoff schema 6: a resolved build.css MATCHes the DS's declared px value (not the bare raw number)", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "effects",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithBuild("blur-100", "--blur-100", {
+            status: "resolved",
+            raw: 12,
+            value: 12,
+            unit: "px",
+            css: "12px",
+            conversionStrategy: "identity",
+            confidence: "high",
+            source: "scope",
+          }),
+        ],
+      },
+    ],
+    css: `:root { --blur-100: 12px; }\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.counts.valueDrift, 0);
+});
+
+test("handoff schema 6: an unresolved build -> UNCONVERTED, not a false VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "text-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithBuild(
+            "letter-spacing/050",
+            "--letter-spacing-050",
+            { status: "unresolved", raw: 0.25, confidence: "medium", source: "name" },
+            { conversionStrategy: "divide-by-associated-font-size", buildUnit: "em", confidence: "medium", sourceUnit: "px" }
+          ),
+        ],
+      },
+    ],
+    // No CSS declaration at all — an UNCONVERTED entry has nothing to compare.
+    css: `:root {}\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.unconverted.length, 1);
+  assert.equal(result.unconverted[0].strategy, "divide-by-associated-font-size");
+  assert.equal(result.counts.missingInDs, 0);
+  assert.equal(result.counts.valueDrift, 0);
+});
+
+test("handoff schema 6: build.css disagreeing with the DS's declared value still flags VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "effects",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithBuild("blur-200", "--blur-200", {
+            status: "resolved",
+            raw: 32,
+            value: 32,
+            unit: "px",
+            css: "32px",
+            conversionStrategy: "identity",
+            confidence: "high",
+            source: "scope",
+          }),
+        ],
+      },
+    ],
+    css: `:root { --blur-200: 40px; }\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.valueDrift, 1);
+});
+
+test("handoff schema 6: an alias mode short-circuits to terminalValue before build is ever consulted", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "color",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "light" }],
+        variables: [
+          {
+            name: "background/default/primary",
+            codeSyntax: { WEB: { value: "--background-default-primary" } },
+            modes: [
+              {
+                modeId: "1:0",
+                modeName: "light",
+                raw: { type: "VARIABLE_ALIAS", id: "VariableID:9:1" },
+                alias: { terminalValue: { r: 1, g: 1, b: 1, a: 1 } },
+                // A misleading unresolved build should never win over the
+                // alias's own terminalValue — the semantic variable's build
+                // cell describes its own unconverted intent, not what the
+                // primitive it points at resolves to.
+                build: { status: "unresolved", raw: { type: "VARIABLE_ALIAS", id: "VariableID:9:1" }, confidence: "none", source: "unresolved" },
+                effective: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `:root { --background-default-primary: #ffffff; }\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff schema 6: a mode with no build block falls back to the schema-5 unitHint path", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "opacity",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithUnitHint("opacity/500", "--opacity-500", 50, {
+            storedUnit: "raw-number",
+            rawValue: 50,
+            sourceUnit: "percent-0-100",
+            buildUnit: "unitless",
+            conversionStrategy: "divide-by-100",
+            convertedValue: 0.5,
+            confidence: "high",
+          }),
+        ],
+      },
+    ],
+    css: `:root { --opacity-500: 0.5; }\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff schema 6 is accepted by the schema gate (schema 5 rejection no longer applies)", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({ collections: [], css: ":root {}\n" });
+  assert.doesNotThrow(() => runHandoffCheck({ handoffPath, cssPaths: [cssPath] }));
+});
+
+test("handoff schema 6: changes.variables.codeNameChanged length passes through as its own count, never folded into missing/extra", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [],
+    css: ":root {}\n",
+    codeNameChanged: [
+      { variableName: "grid/gap", oldWebName: "--grid-gap-old", newWebName: "--grid-gap" },
+      { variableName: "grid/gap-lg", oldWebName: "--grid-gap-lg-old", newWebName: "--grid-gap-lg" },
+    ],
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.counts.codeNameChanged, 2);
+});
+
+test("handoff schema 5/3: codeNameChanged count defaults to 0 (no changes block)", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({ collections: [], css: ":root {}\n" });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.counts.codeNameChanged, 0);
+});
+
+test("handoff schema 6: a layout variable's default compares against breakpoints' smallest-width mode (sm), not collection.defaultModeId (lg) — mirrors ds-from-handoff's P6", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        id: "VariableCollectionId:layout",
+        name: "layout",
+        // Figma's own "first mode" convention — unrelated to responsive intent.
+        defaultModeId: "89:1",
+        modes: [
+          { id: "89:1", name: "lg" },
+          { id: "26:1", name: "sm" },
+        ],
+        variables: [
+          {
+            name: "grid/padding-default",
+            type: "FLOAT",
+            codeSyntax: { WEB: { value: "--grid-padding-default" } },
+            modes: [
+              { modeId: "89:1", modeName: "lg", raw: 48, effective: true, build: { status: "resolved", raw: 48, value: 48, unit: "px", css: "48px", conversionStrategy: "identity", confidence: "high" } },
+              { modeId: "26:1", modeName: "sm", raw: 24, effective: true, build: { status: "resolved", raw: 24, value: 24, unit: "px", css: "24px", conversionStrategy: "identity", confidence: "high" } },
+            ],
+          },
+        ],
+      },
+    ],
+    // Unconditional :root carries sm's value (24px), per P6 — the DS package
+    // no longer seeds its base from lg.
+    css: `:root { --grid-padding-default: 24px; }\n@media (min-width: 1280px) { :root { --grid-padding-default: 48px; } }\n`,
+    breakpoints: {
+      entries: [
+        { collectionId: "VariableCollectionId:layout", modeId: "89:1", widthPx: 1280, layoutVariant: "default" },
+        { collectionId: "VariableCollectionId:layout", modeId: "26:1", widthPx: 375, layoutVariant: "default" },
+      ],
+    },
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.counts.valueDrift, 0);
+});
+
+test("handoff schema 6: without a breakpoints.entries table, a layout variable still compares against collection.defaultModeId (lg) — no regression when breakpoints is absent", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV6({
+    collections: [
+      {
+        name: "layout",
+        defaultModeId: "89:1",
+        modes: [
+          { id: "89:1", name: "lg" },
+          { id: "26:1", name: "sm" },
+        ],
+        variables: [
+          {
+            name: "grid/padding-default",
+            type: "FLOAT",
+            codeSyntax: { WEB: { value: "--grid-padding-default" } },
+            modes: [
+              { modeId: "89:1", modeName: "lg", raw: 48, effective: true, build: { status: "resolved", raw: 48, value: 48, unit: "px", css: "48px", conversionStrategy: "identity", confidence: "high" } },
+              { modeId: "26:1", modeName: "sm", raw: 24, effective: true, build: { status: "resolved", raw: 24, value: 24, unit: "px", css: "24px", conversionStrategy: "identity", confidence: "high" } },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `:root { --grid-padding-default: 48px; }\n`,
+  });
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
