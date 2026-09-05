@@ -163,6 +163,24 @@ function isMediaAtRule(selector) {
   return /^@media\b/.test(selector);
 }
 
+// Wider than isMediaAtRule: any CONDITIONAL group at-rule whose declarations
+// only apply under a runtime condition, not just @media's viewport/print
+// condition. Used by buildDsSurface's @theme fold (see there) — a token
+// declared only inside `@supports (…) { @theme inline { … } }` or
+// `@container (…) { @theme inline { … } }` is exactly as conditional as one
+// inside `@media`, and folding it into the unconditional root bucket would
+// report it MATCH/present when the DS package has, in fact, no unconditional
+// declaration of it. `@layer` is deliberately excluded — a cascade layer is
+// unconditional, it only affects override order, so `@layer base { @theme
+// inline { … } }` still counts as the default-mode declaration. `@scope` and
+// `@starting-style` are left out for now (not seen in this codebase's CSS;
+// add them here if that changes — @scope narrows by DOM subtree, not by any
+// runtime condition this pass evaluates, so it would need its own judgment
+// call rather than folding into this list by default).
+function isConditionalGroupAtRule(selector) {
+  return /^@(media|supports|container)\b/.test(selector);
+}
+
 // Comments are stripped WHOLESALE before the scan rather than skipped
 // inline, because a comment sitting in a selector prelude is swallowed by the
 // selector match (`[^{};]+` happily eats a brace-free comment) and the
@@ -982,6 +1000,327 @@ export function runCoverageReport({ capturePath, mappingPath }) {
   return computeCoverage(JSON.parse(readFileSync(capturePath, "utf8")), JSON.parse(readFileSync(mappingPath, "utf8")));
 }
 
+// ---- Handoff enumeration pass -----------------------------------------------
+//
+// WHY THIS EXISTS: the VALUE lane above (runConformanceCheck) only ever looks
+// at what figma-map.json happens to mention — 55 of 580+ captured variables on
+// the live pipeline (see computeCoverage's own note). A variable that was never
+// added to the map is invisible in BOTH directions: not missing, not matching,
+// not anything — the dimension-1000 defect (audit
+// projects/portfolio/audits/2026-09-04-dimension-token-parity.md) slipped
+// through exactly this gap for weeks. This pass instead walks EVERY variable in
+// a Design System handoff export (schema `design-system-handoff`, distinct from
+// the capture-listener's `variables-styles` capture the VALUE lane reads) and
+// classifies it against the DS package's own generated + hand-authored CSS,
+// with no map file in between.
+//
+// Handoff export shape (per collection): `variables[].modes[]` carries one
+// entry per Figma mode with a `raw` value (or, for an alias,
+// `{ type: "VARIABLE_ALIAS", id }` plus a sibling `alias.terminalValue` that
+// the export has ALREADY fully resolved through the whole chain — used
+// directly rather than re-walking mode.raw one hop at a time, since the
+// export did the harder version of that work already and a partial re-walk
+// here could only make it MORE stale, never fresher). `codeSyntax.WEB.value`
+// is the CSS custom-property name this pass resolves against — no name
+// mapping is needed the way figma-map.json entries require one.
+//
+// DEFAULT MODE, PER COLLECTION: a collection's `defaultModeId` names which of
+// its modes is "the" value — the one the DS package declares in an
+// unconditional `:root` block (see ds-from-handoff.mjs's own P2 policy and the
+// generated tokens.generated.css, where every collection's default mode is the
+// bare `:root` declaration and every OTHER mode lives behind a selector this
+// pass deliberately does not chase: `.dark` for color, `[data-jhd-*-mode="N"]`
+// for action/icon, and per-breakpoint blocks for layout). Reusing
+// parseCssCustomProps (the same root/dark scanner the VALUE lane's
+// "css-root-dark" extraction uses) is what makes that selection automatic:
+// data-attribute and @media-scoped declarations are invisible to it by
+// construction, so `rootMap`/`darkMap` already hold exactly the default-mode
+// value for every collection, mode-scoped or not — never the last declaration
+// in the file (which, for icon/action, would silently pick mode 300 or 400
+// instead of the export's own default).
+//
+// COLOR is the one collection with a real two-axis contract (light -> :root,
+// dark -> .dark): every other collection's non-default modes are look-ins a
+// human never asked this pass to grade (action/icon per-mode ramps, layout's
+// per-breakpoint values) — those stay the VALUE lane's job for any entry that
+// IS mapped, and are out of scope for MISSING/DRIFT classification here
+// (existence via the default mode is still checked and still catches an
+// unmirrored token, which is the actual gap this pass closes).
+//
+// CLASSIFICATION (per variable with a WEB codeSyntax):
+//   MATCH           default-mode (and, for color, dark-mode) values agree
+//                   after unit/alias/case normalization.
+//   VALUE-DRIFT     both sides exist but disagree past tolerance.
+//   MISSING-IN-DS   the WEB name has no :root (or .dark) declaration anywhere
+//                   in the CSS sources given.
+//   EXTRA-IN-DS     (reported separately, not per-variable) any custom
+//                   property declared in :root/.dark whose name matches no
+//                   export WEB name, minus `allowlist` (house-only tokens with
+//                   no Figma counterpart, e.g. component-composition helpers).
+//
+// NORMALIZATION reuses existing primitives rather than re-inventing them
+// (code-minimalism rung 2): `parseCssScalar` already does rem->px at the same
+// 16px root the rest of this file assumes, plus one var() hop; `valuesMatch`
+// already does case-insensitive hex/rgb color comparison and numeric
+// tolerance. Alias resolution on the FIGMA side goes through the export's own
+// `terminalValue` (full resolution, not "one hop" — see above), which the
+// code-side var() one-hop in parseCssScalar is symmetrical enough with in
+// practice: the DS package's own alias chains are shallow (token ->
+// semantic -> palette, 1-2 hops), so a value that resolved on the Figma side
+// resolves here too.
+function handoffModeValue(mode) {
+  if (!mode) return undefined;
+  if (mode.raw && typeof mode.raw === "object" && mode.raw.type === "VARIABLE_ALIAS") {
+    if (mode.alias && mode.alias.terminalValue !== undefined) return mode.alias.terminalValue;
+    return { __unresolvedAlias: true, targetId: mode.raw.id };
+  }
+  return mode.raw;
+}
+
+function isUnresolvedAlias(v) {
+  return Boolean(v) && typeof v === "object" && v.__unresolvedAlias === true;
+}
+
+// Resolves one collection's default-mode (and, for `color`, dark-mode) value
+// for a single variable. Returns null for a variable with no WEB codeSyntax —
+// nothing this pass can bind against.
+function resolveHandoffVariable(variable, collection) {
+  const webName = variable.codeSyntax && variable.codeSyntax.WEB && variable.codeSyntax.WEB.value;
+  if (!webName) return null;
+
+  const modes = variable.modes || [];
+  const defaultMode = modes.find((m) => m.modeId === collection.defaultModeId) || modes[0];
+  const figmaDefault = normalizeFigmaValue(handoffModeValue(defaultMode));
+
+  const darkModeMeta = (collection.modes || []).find((m) => typeof m.name === "string" && m.name.toLowerCase() === "dark");
+  const hasDarkAxis = Boolean(darkModeMeta) && defaultMode && defaultMode.modeName !== "dark";
+  const darkVariableMode = hasDarkAxis ? modes.find((m) => m.modeId === darkModeMeta.id) : undefined;
+  const figmaDark = hasDarkAxis ? normalizeFigmaValue(handoffModeValue(darkVariableMode)) : undefined;
+
+  return {
+    webName,
+    path: `${collection.name}/${variable.name}`,
+    figmaDefault,
+    hasDarkAxis,
+    figmaDark,
+  };
+}
+
+// Builds the DS package's declared-custom-property surface from one or more
+// CSS sources, concatenated in the order given — later sources win on a
+// shared property (the same "hand-authored always wins over generated"
+// convention tokens.generated.css's own header documents).
+//
+// Deliberately NOT parseCssCustomProps: this codebase is Tailwind v4
+// CSS-first, and its Figma-named scalar tokens (dimension/radius/border/
+// motion ramps, plus every `--color-*` alias) are declared inside
+// `@theme inline { }`, not `:root` — parseCssCustomProps' own sibling
+// extractor (css-scalar) documents exactly this ("used for non-theme-mode
+// tokens ... which live in @theme inline rather than :root/.dark"). A root/
+// dark-only scan reads every one of those as MISSING-IN-DS, which is what
+// the first (unscoped) version of this pass did against the live DS repo —
+// `@theme inline`/`@theme` is folded into the same "root" bucket here so it
+// counts as the default-mode declaration it functions as.
+function buildDsSurface(cssTexts) {
+  const combined = cssTexts.join("\n");
+  const root = {};
+  const dark = {};
+  walkCssDeclarations(combined, ({ prop, value, stack }) => {
+    if (stack.some(isConditionalGroupAtRule)) return;
+    const top = stack[stack.length - 1];
+    if (top === ":root" || /^@theme\b/.test(top)) root[prop] = value;
+    else if (top === ".dark") dark[prop] = value;
+  });
+  return { combined, root, dark };
+}
+
+// Plain (unscoped) one-hop var() resolution — used for every collection
+// EXCEPT color, where a var() reference can point at a name whose OWN value
+// differs by scope (see resolveDsScoped below).
+function resolveDsValue(combinedCss, rawValue) {
+  if (rawValue === undefined) return undefined;
+  return parseCssScalar(combinedCss, rawValue);
+}
+
+// Scope-aware one-hop var() resolution for color. The house architecture
+// aliases every Figma-named `--color-*` token (declared once, in
+// `@theme inline`, unconditionally) to an UNPREFIXED semantic name that
+// carries the real light/dark split (`:root`/`.dark`) — e.g.
+// `--color-background-default-primary: var(--background-default-primary)`,
+// where `--background-default-primary` itself has a `:root` value AND a
+// `.dark` override. A plain "last declaration anywhere" hop (what
+// resolveDsValue/parseCssScalar does) always lands on whichever of the two
+// was declared LAST in the file — the .dark block, on this codebase's
+// section order — so both the light AND dark comparisons would silently
+// compare against the dark value. This resolves the referenced name against
+// the SCOPE being checked instead: `dark` falls back to `root` (mirroring
+// extractCssRootDark's existing dark-inherits-from-light rule) and `light`
+// never reads `.dark`. Falls through to the plain one-hop resolver for
+// anything that isn't a single var() reference (a literal hex, or a chain
+// this pass doesn't otherwise expect).
+function resolveDsScoped(combinedCss, root, dark, rawValue, scope) {
+  if (rawValue === undefined) return undefined;
+  const varRef = rawValue.match(/^var\((--[a-zA-Z0-9-]+)\)$/);
+  if (!varRef) return parseCssScalar(combinedCss, rawValue);
+  const refName = varRef[1].replace(/^--/, "");
+  const scoped = scope === "dark" ? (dark[refName] !== undefined ? dark[refName] : root[refName]) : root[refName];
+  if (scoped === undefined) return undefined;
+  return parseCssScalar(combinedCss, scoped);
+}
+
+const EASING_KEYWORD_BEZIER = {
+  linear: "cubic-bezier(0, 0, 1, 1)",
+};
+
+// Same-curve keyword/bezier-string equivalence (e.g. Figma's "linear" keyword
+// vs the DS package's authored `cubic-bezier(0, 0, 1, 1)`) — a narrow,
+// explicit table rather than a general CSS easing-keyword parser, since this
+// is the one keyword the live export and package are known to disagree on in
+// representation (not value). Extend the table if another keyword surfaces;
+// this pass otherwise falls through to valuesMatch's plain string equality.
+function easingEquivalent(a, b) {
+  const norm = (v) => (typeof v === "string" ? v.trim().toLowerCase() : v);
+  const na = norm(a);
+  const nb = norm(b);
+  return (EASING_KEYWORD_BEZIER[na] && EASING_KEYWORD_BEZIER[na] === nb) || (EASING_KEYWORD_BEZIER[nb] && EASING_KEYWORD_BEZIER[nb] === na);
+}
+
+// Strips one layer of matching wrapping quotes — a font-family name is a bare
+// string in the Figma export ("Suisse Intl") but CSS-quoted in authored code
+// ('"Suisse Intl"'), same value, different representation. Only strips when
+// both ends match, so a value that merely contains a quote character is left
+// alone.
+function stripWrappingQuotes(v) {
+  if (typeof v !== "string" || v.length < 2) return v;
+  const first = v[0];
+  const last = v[v.length - 1];
+  if ((first === '"' || first === "'") && first === last) return v.slice(1, -1);
+  return v;
+}
+
+function valuesMatchHandoff(figmaValue, dsValue) {
+  if (valuesMatch(figmaValue, dsValue)) return true;
+  if (easingEquivalent(figmaValue, dsValue)) return true;
+  if (typeof figmaValue === "string" && typeof dsValue === "string") {
+    return stripWrappingQuotes(figmaValue) === stripWrappingQuotes(dsValue);
+  }
+  return false;
+}
+
+// runHandoffCheck({ handoffPath, cssPaths, allowlist? })
+//   handoffPath — the Design System handoff export
+//     (schema "design-system-handoff"; see file header for shape).
+//   cssPaths — CSS sources to resolve DS values against, in generated-then-
+//     hand-authored order (hand-authored wins, see buildDsSurface above).
+//   allowlist — optional array of DS-only `--custom-property` names excluded
+//     from EXTRA-IN-DS (house tokens with no Figma counterpart). Defaults to
+//     empty: an unrecognized DS property is a real, reportable finding, not
+//     assumed benign.
+// Returns { ok, designSystemStateHash, counts, defects, matches, extraInDs,
+// summary }. `defects` holds the two ACTIONABLE classes (MISSING-IN-DS,
+// VALUE-DRIFT) in the same defect shape (`type`, `path`/`tokenName`) the VALUE
+// lane already emits, so a consumer that only reads `.defects` (e.g.
+// summarizeConformance's `lane()` helper in capture-listener.mjs) needs no
+// special-casing to add a `handoff` lane alongside `value`/`binding`/
+// `pageTemplate`.
+export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
+  if (!existsSync(handoffPath)) throw new Error(`handoff export not found: ${handoffPath}`);
+  const cssTexts = cssPaths.map((p) => {
+    if (!existsSync(p)) throw new Error(`css source not found: ${p}`);
+    return readFileSync(p, "utf8");
+  });
+
+  const handoff = JSON.parse(readFileSync(handoffPath, "utf8"));
+  const designSystemStateHash =
+    (handoff.fingerprint && handoff.fingerprint.designSystemStateHash) || handoff.designSystemStateHash || null;
+
+  const { combined, root, dark } = buildDsSurface(cssTexts);
+  const allowlistSet = new Set(allowlist);
+
+  const defects = [];
+  const matches = [];
+  const figmaNames = new Set();
+
+  for (const collection of handoff.collections || []) {
+    for (const variable of collection.variables || []) {
+      const resolved = resolveHandoffVariable(variable, collection);
+      if (!resolved) continue; // no WEB codeSyntax — nothing to bind against
+      const { webName, path, figmaDefault, hasDarkAxis, figmaDark } = resolved;
+      figmaNames.add(webName);
+      const propName = webName.replace(/^--/, "");
+
+      if (isUnresolvedAlias(figmaDefault)) {
+        defects.push({ path, tokenName: webName, type: "unresolved-alias", detail: `alias target ${figmaDefault.targetId} not present in export` });
+        continue;
+      }
+
+      const dsRootRaw = root[propName];
+      if (dsRootRaw === undefined && dark[propName] === undefined) {
+        defects.push({ path, tokenName: webName, type: "MISSING-IN-DS" });
+        continue;
+      }
+
+      // Color goes through the scope-aware resolver (a `--color-*` alias can
+      // point at a name whose own value differs by scope); every other
+      // collection has no light/dark axis to disambiguate, so the plain
+      // one-hop resolver is enough.
+      const dsDefault = hasDarkAxis || collection.name === "color" ? resolveDsScoped(combined, root, dark, dsRootRaw, "light") : resolveDsValue(combined, dsRootRaw);
+      const rootMatches = dsRootRaw === undefined ? false : valuesMatchHandoff(figmaDefault, dsDefault);
+
+      let darkOk = true;
+      let dsDark;
+      if (hasDarkAxis) {
+        const dsDarkRaw = dark[propName] !== undefined ? dark[propName] : dsRootRaw;
+        dsDark = resolveDsScoped(combined, root, dark, dsDarkRaw, "dark");
+        darkOk = dsDarkRaw === undefined ? false : valuesMatchHandoff(figmaDark, dsDark);
+      }
+
+      if (dsRootRaw !== undefined && rootMatches && darkOk) {
+        matches.push({ path, tokenName: webName, type: "MATCH", value: dsDefault });
+      } else if (dsRootRaw === undefined) {
+        defects.push({ path, tokenName: webName, type: "MISSING-IN-DS", detail: "declared under .dark only" });
+      } else {
+        // Report the first mode that failed — light before dark, matching
+        // the order those axes are checked above.
+        const failedDark = hasDarkAxis && !darkOk;
+        defects.push({
+          path,
+          tokenName: webName,
+          type: "VALUE-DRIFT",
+          old: failedDark ? figmaDark : figmaDefault,
+          new: failedDark ? dsDark : dsDefault,
+          ...(hasDarkAxis ? { mode: failedDark ? "dark" : "light" } : {}),
+        });
+      }
+    }
+  }
+
+  const dsNames = new Set([...Object.keys(root), ...Object.keys(dark)].map((n) => `--${n}`));
+  const extraInDs = [...dsNames].filter((n) => !figmaNames.has(n) && !allowlistSet.has(n)).sort();
+
+  const valueDriftCount = defects.filter((d) => d.type === "VALUE-DRIFT").length;
+  const missingCount = defects.filter((d) => d.type === "MISSING-IN-DS").length;
+  const unresolvedCount = defects.filter((d) => d.type === "unresolved-alias").length;
+
+  const counts = {
+    total: matches.length + defects.length,
+    match: matches.length,
+    valueDrift: valueDriftCount,
+    missingInDs: missingCount,
+    unresolvedAlias: unresolvedCount,
+    extraInDs: extraInDs.length,
+  };
+
+  const ok = missingCount === 0 && valueDriftCount === 0 && unresolvedCount === 0;
+  const summaryLines = [
+    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias.`,
+  ];
+  for (const d of defects) summaryLines.push(`  [${d.type}] ${d.path} (${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
+  for (const n of extraInDs) summaryLines.push(`  [EXTRA-IN-DS] ${n}`);
+
+  return { ok, designSystemStateHash, counts, defects, matches, extraInDs, summary: summaryLines.join("\n") };
+}
+
 // ---- CLI --------------------------------------------------------------
 
 // realpath-normalizes both sides before comparing: import.meta.url resolves
@@ -1007,18 +1346,67 @@ if (isMainModule()) {
     const idx = args.indexOf(flag);
     return idx === -1 ? fallback : args[idx + 1];
   };
-  const capturePath = getArg(
-    "--capture",
-    join(process.env.HOME, "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
-  );
-  const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio", "design", "figma-map.json"));
+  const getArgAll = (flag) => args.reduce((acc, a, i) => (a === flag ? [...acc, args[i + 1]] : acc), []);
 
-  try {
-    const result = runConformanceCheck({ capturePath, mappingPath });
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.ok ? 0 : 1);
-  } catch (err) {
-    console.error(`[conformance-check] ${err.message}`);
-    process.exit(2);
+  if (args.includes("--handoff")) {
+    // Enumerates every variable in a Design System handoff export against
+    // the DS package's CSS — see runHandoffCheck's header. Independent CLI
+    // mode from the map-driven VALUE lane above (different input shape, no
+    // figma-map.json involved).
+    const handoffPath = getArg(
+      "--handoff-path",
+      join(process.env.HOME, "JHD", "jhd-design-system", "main", "design", "handoff", "v3b-2026-09-05", "jhd-spec-designsystem-design-system-handoff.json")
+    );
+    const cssPaths = getArgAll("--css");
+    const driftThresholdRaw = getArg("--drift-threshold", "0");
+    const driftThreshold = Number(driftThresholdRaw);
+    const ci = args.includes("--ci");
+
+    // A typo'd or missing --drift-threshold value must never fail OPEN: an
+    // invalid threshold makes `valueDrift > threshold` false-by-NaN below, so
+    // `--ci --drift-threshold abc` would silently exit 0 with real drift
+    // present. Reject anything that isn't a finite, non-negative number
+    // before the gate runs at all.
+    if (ci && (driftThresholdRaw === undefined || !Number.isFinite(driftThreshold) || driftThreshold < 0)) {
+      console.error(
+        `[conformance-check --handoff] --drift-threshold must be a finite, non-negative number, got: ${driftThresholdRaw === undefined ? "(missing value)" : JSON.stringify(driftThresholdRaw)}`
+      );
+      process.exit(2);
+    }
+
+    try {
+      const result = runHandoffCheck({
+        handoffPath,
+        cssPaths: cssPaths.length > 0 ? cssPaths : [
+          join(process.env.HOME, "JHD", "jhd-design-system", "main", "src", "tokens.generated.css"),
+          join(process.env.HOME, "JHD", "jhd-design-system", "main", "src", "styles.css"),
+        ],
+      });
+      console.log(JSON.stringify(result, null, 2));
+      if (!ci) process.exit(result.ok ? 0 : 1);
+      // CI mode: MISSING-IN-DS is never allowed through; VALUE-DRIFT tolerates
+      // an explicit threshold (a known, ratified drift count is not the same
+      // failure as a newly-introduced one — see --drift-threshold).
+      const fails = result.counts.missingInDs > 0 || result.counts.unresolvedAlias > 0 || result.counts.valueDrift > driftThreshold;
+      process.exit(fails ? 1 : 0);
+    } catch (err) {
+      console.error(`[conformance-check --handoff] ${err.message}`);
+      process.exit(2);
+    }
+  } else {
+    const capturePath = getArg(
+      "--capture",
+      join(process.env.HOME, "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "jhd-spec-designsystem-variables-styles.json")
+    );
+    const mappingPath = getArg("--map", join(process.env.HOME, "JHD", "portfolio", "design", "figma-map.json"));
+
+    try {
+      const result = runConformanceCheck({ capturePath, mappingPath });
+      console.log(JSON.stringify(result, null, 2));
+      process.exit(result.ok ? 0 : 1);
+    } catch (err) {
+      console.error(`[conformance-check] ${err.message}`);
+      process.exit(2);
+    }
   }
 }
