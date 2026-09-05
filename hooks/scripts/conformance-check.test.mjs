@@ -959,3 +959,294 @@ test("coverage: a fully covered capture reports zero unmapped and an empty name 
   assert.equal(coverage.unmapped, 0);
   assert.deepEqual(coverage.unmappedPaths, []);
 });
+
+// ---- runHandoffCheck: enumerates every export variable, not just a map -----
+
+import { runHandoffCheck } from "./conformance-check.mjs";
+
+function makeHandoffFixture({ collections, css }) {
+  const root = mkdtempSync(join(tmpdir(), "handoff-check-test-"));
+  const handoffPath = join(root, "handoff.json");
+  writeFileSync(
+    handoffPath,
+    JSON.stringify({
+      schema: "design-system-handoff",
+      schemaVersion: 3,
+      fingerprint: { designSystemStateHash: "test-hash-123" },
+      collections,
+    }),
+    "utf8"
+  );
+  const cssPath = join(root, "styles.css");
+  writeFileSync(cssPath, css, "utf8");
+  return { root, handoffPath, cssPath };
+}
+
+function scalarVariable(name, webName, rawValue, modeId = "1:0", modeName = "default") {
+  return {
+    name,
+    codeSyntax: { WEB: { value: webName } },
+    modes: [{ modeId, modeName, raw: rawValue, effective: true }],
+  };
+}
+
+test("handoff: DS value matches export default -> MATCH, ok:true", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem; /* 2px */\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.counts.missingInDs, 0);
+  assert.equal(result.counts.valueDrift, 0);
+  assert.equal(result.designSystemStateHash, "test-hash-123");
+});
+
+test("handoff: WEB name absent from every CSS source -> MISSING-IN-DS defect, ok:false", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-1000", "--dimension-1000", 32)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.missingInDs, 1);
+  assert.equal(result.defects[0].type, "MISSING-IN-DS");
+  assert.equal(result.defects[0].tokenName, "--dimension-1000");
+});
+
+test("handoff: DS value present but numerically different -> VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-1000", "--dimension-1000", 32)],
+      },
+    ],
+    css: `:root {\n  --dimension-1000: 1rem; /* 16px, not 32 */\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.valueDrift, 1);
+  assert.equal(result.defects[0].type, "VALUE-DRIFT");
+  assert.equal(result.defects[0].old, 32);
+  assert.equal(result.defects[0].new, 16);
+});
+
+test("handoff: rem<->px at 16 and hex case are normalized before comparing (no false drift)", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/radius-full", "--radius-full", 999)],
+      },
+    ],
+    css: `:root {\n  --radius-full: 62.4375rem; /* 999px, rem-authored */\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff: color light/dark axis checks both scopes, dark drift reported with mode:'dark'", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color",
+        defaultModeId: "1:0",
+        modes: [
+          { id: "1:0", name: "light" },
+          { id: "1:1", name: "dark" },
+        ],
+        variables: [
+          {
+            name: "color/content/primary",
+            codeSyntax: { WEB: { value: "--color-content-primary" } },
+            modes: [
+              { modeId: "1:0", modeName: "light", raw: "#000000FF", effective: true },
+              { modeId: "1:1", modeName: "dark", raw: "#FFFFFFFF", effective: true },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `:root {\n  --color-content-primary: #000000;\n}\n.dark {\n  --color-content-primary: #eeeeee;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.valueDrift, 1);
+  assert.equal(result.defects[0].mode, "dark");
+});
+
+test("handoff: alias resolves via the export's own terminalValue, no re-walk needed", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "value" }],
+        variables: [
+          {
+            name: "color/action/primary",
+            codeSyntax: { WEB: { value: "--color-action-primary" } },
+            modes: [
+              {
+                modeId: "1:0",
+                modeName: "value",
+                raw: { type: "VARIABLE_ALIAS", id: "VariableID:9:1" },
+                alias: { terminalValue: "#A33001FF" },
+                effective: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `:root {\n  --color-action-primary: #a33001;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff: hand-authored CSS wins over generated when both declare the same property", () => {
+  const genRoot = mkdtempSync(join(tmpdir(), "handoff-check-test-"));
+  const genPath = join(genRoot, "generated.css");
+  writeFileSync(genPath, `:root {\n  --dimension-200: 999rem;\n}\n`, "utf8"); // deliberately wrong
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n}\n`, // hand-authored, correct
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [genPath, cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff: a DS custom property with no matching export name -> EXTRA-IN-DS, excluded by allowlist", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n  --house-only-helper: 4px;\n}\n`,
+  });
+
+  const withoutAllowlist = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.deepEqual(withoutAllowlist.extraInDs, ["--house-only-helper"]);
+
+  const withAllowlist = runHandoffCheck({ handoffPath, cssPaths: [cssPath], allowlist: ["--house-only-helper"] });
+  assert.deepEqual(withAllowlist.extraInDs, []);
+});
+
+test("handoff: a scalar token declared inside @theme inline (Tailwind v4) counts as the default declaration, not MISSING-IN-DS", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `@theme inline {\n  --dimension-200: 0.125rem; /* 2px */\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff: a Figma-named color alias that points at a scope-split semantic name compares light against :root, not whichever declaration is last in the file", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color",
+        defaultModeId: "1:0",
+        modes: [
+          { id: "1:0", name: "light" },
+          { id: "1:1", name: "dark" },
+        ],
+        variables: [
+          {
+            name: "color/background/default/primary",
+            codeSyntax: { WEB: { value: "--color-background-default-primary" } },
+            modes: [
+              { modeId: "1:0", modeName: "light", raw: "#FFFFFFFF", effective: true },
+              { modeId: "1:1", modeName: "dark", raw: "#000000FF", effective: true },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `@theme inline {\n  --color-background-default-primary: var(--background-default-primary);\n}\n:root {\n  --background-default-primary: #ffffff;\n}\n.dark {\n  --background-default-primary: #000000;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.counts.valueDrift, 0);
+});
+
+test("handoff: a bare font-family string vs a CSS-quoted one are the same value, not VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "text-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "value" }],
+        variables: [scalarVariable("family/font-sans", "--family-font-sans", "Suisse Intl")],
+      },
+    ],
+    css: `:root {\n  --family-font-sans: "Suisse Intl";\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
