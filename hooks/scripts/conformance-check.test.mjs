@@ -990,6 +990,38 @@ function scalarVariable(name, webName, rawValue, modeId = "1:0", modeName = "def
   };
 }
 
+// A schemaVersion 5 fixture builder — same shape as makeHandoffFixture but
+// with schemaVersion 5, needed for the unitHint-driven cases below (schema 3
+// carries no unitHint at all).
+function makeHandoffFixtureV5({ collections, css }) {
+  const root = mkdtempSync(join(tmpdir(), "handoff-check-v5-test-"));
+  const handoffPath = join(root, "handoff.json");
+  writeFileSync(
+    handoffPath,
+    JSON.stringify({
+      schema: "design-system-handoff",
+      schemaVersion: 5,
+      fingerprint: { designSystemStateHash: "test-hash-v5" },
+      collections,
+    }),
+    "utf8"
+  );
+  const cssPath = join(root, "styles.css");
+  writeFileSync(cssPath, css, "utf8");
+  return { root, handoffPath, cssPath };
+}
+
+// A FLOAT variable carrying a schema-5 per-mode `unitHint` — the shape the
+// generator (ds-from-handoff.mjs) and this check both key off.
+function floatVariableWithUnitHint(name, webName, rawValue, unitHint, modeId = "1:0", modeName = "default") {
+  return {
+    name,
+    type: "FLOAT",
+    codeSyntax: { WEB: { value: webName } },
+    modes: [{ modeId, modeName, raw: rawValue, effective: true, unitHint }],
+  };
+}
+
 test("handoff: DS value matches export default -> MATCH, ok:true", () => {
   const { handoffPath, cssPath } = makeHandoffFixture({
     collections: [
@@ -1323,6 +1355,221 @@ test("handoff: a bare font-family string vs a CSS-quoted one are the same value,
 
   assert.equal(result.ok, true);
   assert.equal(result.counts.match, 1);
+});
+
+// ---- schema 5: compare CONVERTED values, not raw Figma numbers ------------
+// DS PR #14 generates `--opacity-500: 0.5` from Figma's stored raw `50` via
+// `divide-by-100`. Comparing `mode.raw` (50) against the DS CSS (0.5)
+// directly is a false VALUE-DRIFT on every converted token — this is the bug
+// schema 5's per-mode unitHint exists to let this pass avoid.
+
+test("handoff schema 5: divide-by-100 opacity fraction matches the DS's converted CSS -> MATCH, not a false VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV5({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithUnitHint("opacity/opacity-500", "--opacity-500", 50, {
+            rawValue: 50,
+            sourceUnit: "raw-number",
+            buildUnit: "unitless",
+            conversionStrategy: "divide-by-100",
+            convertedValue: 0.5,
+            confidence: "high",
+          }),
+        ],
+      },
+    ],
+    css: `:root {\n  --opacity-500: 0.5;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.counts.valueDrift, 0);
+});
+
+test("handoff schema 5: divide-by-root-font-size rem value matches the DS's rem CSS at the same px equivalent", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV5({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithUnitHint("grid/grid-gap", "--grid-gap", 80, {
+            rawValue: 80,
+            sourceUnit: "px",
+            buildUnit: "rem",
+            conversionStrategy: "divide-by-root-font-size",
+            convertedValue: 5,
+            confidence: "high",
+          }),
+        ],
+      },
+    ],
+    css: `:root {\n  --grid-gap: 5rem;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff schema 5: a genuine value disagreement past conversion still flags VALUE-DRIFT", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV5({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          floatVariableWithUnitHint("grid/grid-gap-lg", "--grid-gap-lg", 96, {
+            rawValue: 96,
+            sourceUnit: "px",
+            buildUnit: "rem",
+            conversionStrategy: "divide-by-root-font-size",
+            convertedValue: 6,
+            confidence: "high",
+          }),
+        ],
+      },
+    ],
+    // DS declares 5rem (80px) where Figma's converted value is 6rem (96px) — a
+    // real drift, not a unit artifact.
+    css: `:root {\n  --grid-gap-lg: 5rem;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.valueDrift, 1);
+  assert.equal(result.defects[0].type, "VALUE-DRIFT");
+});
+
+test("handoff schema 5: divide-by-associated-font-size with no convertedValue -> UNCONVERTED, not VALUE-DRIFT or MATCH", () => {
+  const { handoffPath, cssPath } = makeHandoffFixtureV5({
+    collections: [
+      {
+        name: "text-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "value" }],
+        variables: [
+          floatVariableWithUnitHint("letter-spacing/300", "--letter-spacing-300", 0, {
+            rawValue: 0,
+            sourceUnit: "px",
+            buildUnit: "em",
+            conversionStrategy: "divide-by-associated-font-size",
+            confidence: "medium",
+            // no convertedValue — the export could not carry the strategy out
+          }),
+        ],
+      },
+    ],
+    // DS emits the raw source value with an UNCONVERTED comment (P4) —
+    // whatever it declares, this pass must not compare it as drift or match.
+    css: `:root {\n  --letter-spacing-300: 0px; /* UNCONVERTED */\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 0);
+  assert.equal(result.counts.valueDrift, 0);
+  assert.equal(result.counts.unconverted, 1);
+  assert.equal(result.unconverted[0].tokenName, "--letter-spacing-300");
+  assert.equal(result.unconverted[0].strategy, "divide-by-associated-font-size");
+});
+
+test("handoff schema 5: a semantic alias to a letter-spacing primitive is resolved via terminalValue, never classified UNCONVERTED even though its own unitHint names divide-by-associated-font-size", () => {
+  // Mirrors the live export: text/title/letter-spacing-100 is an ALIAS to
+  // letter-spacing/300. Its unitHint describes the semantic variable's own
+  // (unused) conversion intent — the generator's alias branch short-circuits
+  // before ever consulting it (P4/P5 in ds-from-handoff.mjs), so this check
+  // must do the same rather than misreporting the alias as unconverted.
+  const { handoffPath, cssPath } = makeHandoffFixtureV5({
+    collections: [
+      {
+        name: "layout",
+        defaultModeId: "89:1",
+        modes: [{ id: "89:1", name: "lg" }],
+        variables: [
+          {
+            name: "text/title/letter-spacing-100",
+            type: "FLOAT",
+            codeSyntax: { WEB: { value: "--text-title-letter-spacing-100" } },
+            modes: [
+              {
+                modeId: "89:1",
+                modeName: "lg",
+                raw: { type: "VARIABLE_ALIAS", id: "VariableID:1:53" },
+                alias: {
+                  chain: [{ variableId: "VariableID:1:53", variableName: "letter-spacing/300" }],
+                  terminalValue: 0,
+                },
+                unitHint: {
+                  sourceUnit: "px",
+                  buildUnit: "em",
+                  conversionStrategy: "divide-by-associated-font-size",
+                  confidence: "medium",
+                },
+                effective: true,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    css: `:root {\n  --text-title-letter-spacing-100: var(--letter-spacing-300);\n  --letter-spacing-300: 0px;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.counts.unconverted, 0);
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff schema 3: no unitHint at all -> bare raw comparison, unchanged behaviour", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("opacity/opacity-500", "--opacity-500", 50)],
+      },
+    ],
+    css: `:root {\n  --opacity-500: 50;\n}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.counts.match, 1);
+});
+
+test("handoff: unsupported schemaVersion is refused with a clear message, not silently compared", () => {
+  const root = mkdtempSync(join(tmpdir(), "handoff-check-badschema-test-"));
+  const handoffPath = join(root, "handoff.json");
+  writeFileSync(
+    handoffPath,
+    JSON.stringify({
+      schema: "design-system-handoff",
+      schemaVersion: 99,
+      fingerprint: { designSystemStateHash: "test-hash-bad" },
+      collections: [],
+    }),
+    "utf8"
+  );
+  const cssPath = join(root, "styles.css");
+  writeFileSync(cssPath, ":root {}\n", "utf8");
+
+  assert.throws(() => runHandoffCheck({ handoffPath, cssPaths: [cssPath] }), /schema not supported/);
 });
 
 // ---- CLI --handoff --ci --drift-threshold: must never fail open -----------

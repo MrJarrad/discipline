@@ -1068,11 +1068,77 @@ export function runCoverageReport({ capturePath, mappingPath }) {
 // practice: the DS package's own alias chains are shallow (token ->
 // semantic -> palette, 1-2 hops), so a value that resolved on the Figma side
 // resolves here too.
-function handoffModeValue(mode) {
+// Suffix per `buildUnit` — the same table ds-from-handoff.mjs's `BUILD_UNIT_SUFFIX`
+// attaches CSS syntax with, kept in lockstep so a converted Figma value and the
+// DS's generated declaration are formatted identically before comparison.
+const BUILD_UNIT_SUFFIX = {
+  rem: "rem",
+  px: "px",
+  em: "em",
+  "%": "%",
+  unitless: "",
+};
+
+// Schema 5's `unitHint.convertedValue` is a bare number in `buildUnit`'s scale
+// (e.g. `0.5` for a `divide-by-100` opacity). The DS package's generated CSS
+// carries the unit suffix (`0.5`, `1px`, `5rem`). Formatting the converted
+// value with the same suffix and running it back through `parseCssScalar`
+// (empty cssText — no var() hop needed for a literal) reuses the exact
+// px/rem/bare-number normalization the DS side already goes through, so a
+// `divide-by-root-font-size` rem value and a `divide-by-100` fraction both
+// land on the same comparable number `parseCssScalar` would produce for the
+// DS declaration.
+function formatConvertedForCompare(u) {
+  const suffix = BUILD_UNIT_SUFFIX[u.buildUnit];
+  if (suffix === undefined) return u.convertedValue;
+  return parseCssScalar("", `${u.convertedValue}${suffix}`);
+}
+
+function isUnconverted(v) {
+  return Boolean(v) && typeof v === "object" && v.__unconverted === true;
+}
+
+// Resolves what a mode ACTUALLY publishes to CSS, mirroring
+// ds-from-handoff.mjs's own `resolveValue` branch order exactly (P4 in that
+// file's header): an alias short-circuits before unitHint is even consulted
+// (the semantic variable's own unitHint describes intended usage, not what
+// gets emitted — the primitive it points at is what's built), and only a
+// non-alias FLOAT with a `conversionStrategy` goes through unit conversion.
+// Comparing `mode.raw` directly (the pre-fix behaviour) compares Figma's
+// STORED number — e.g. opacity's 0-100 raw — against the DS package's
+// CONVERTED CSS value (a 0-1 fraction), which is not the same quantity and
+// produces a false VALUE-DRIFT on every `divide-by-100`/`divide-by-root-
+// font-size` token.
+function handoffModeValue(mode, variableType) {
   if (!mode) return undefined;
+  if (mode.alias) {
+    if (mode.alias.terminalValue !== undefined) return mode.alias.terminalValue;
+    return { __unresolvedAlias: true, targetId: mode.raw?.id };
+  }
   if (mode.raw && typeof mode.raw === "object" && mode.raw.type === "VARIABLE_ALIAS") {
-    if (mode.alias && mode.alias.terminalValue !== undefined) return mode.alias.terminalValue;
+    // Alias marker with no resolved `alias` block at all (shouldn't happen in
+    // a well-formed export, but fail closed rather than compare against the
+    // marker object).
     return { __unresolvedAlias: true, targetId: mode.raw.id };
+  }
+
+  if (variableType === "FLOAT") {
+    const u = mode.unitHint;
+    if (u && u.conversionStrategy) {
+      if (typeof u.convertedValue === "number") return formatConvertedForCompare(u);
+      // Strategy named but the export could not carry it out (in practice
+      // `divide-by-associated-font-size`) — the DS package emits the raw
+      // source value with an UNCONVERTED comment (P4) rather than inventing
+      // a divisor. Classify the same way here instead of comparing a raw
+      // Figma number against a DS value that was never actually converted.
+      return {
+        __unconverted: true,
+        strategy: u.conversionStrategy,
+        buildUnit: u.buildUnit ?? null,
+        confidence: u.confidence ?? "none",
+        sourceUnit: u.sourceUnit ?? null,
+      };
+    }
   }
   return mode.raw;
 }
@@ -1090,12 +1156,14 @@ function resolveHandoffVariable(variable, collection) {
 
   const modes = variable.modes || [];
   const defaultMode = modes.find((m) => m.modeId === collection.defaultModeId) || modes[0];
-  const figmaDefault = normalizeFigmaValue(handoffModeValue(defaultMode));
+  const defaultRaw = handoffModeValue(defaultMode, variable.type);
+  const figmaDefault = isUnconverted(defaultRaw) ? defaultRaw : normalizeFigmaValue(defaultRaw);
 
   const darkModeMeta = (collection.modes || []).find((m) => typeof m.name === "string" && m.name.toLowerCase() === "dark");
   const hasDarkAxis = Boolean(darkModeMeta) && defaultMode && defaultMode.modeName !== "dark";
   const darkVariableMode = hasDarkAxis ? modes.find((m) => m.modeId === darkModeMeta.id) : undefined;
-  const figmaDark = hasDarkAxis ? normalizeFigmaValue(handoffModeValue(darkVariableMode)) : undefined;
+  const darkRaw = hasDarkAxis ? handoffModeValue(darkVariableMode, variable.type) : undefined;
+  const figmaDark = hasDarkAxis ? (isUnconverted(darkRaw) ? darkRaw : normalizeFigmaValue(darkRaw)) : undefined;
 
   return {
     webName,
@@ -1234,11 +1302,29 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
   const designSystemStateHash =
     (handoff.fingerprint && handoff.fingerprint.designSystemStateHash) || handoff.designSystemStateHash || null;
 
+  // Schema gate. Version 5 is the format this pass compares CONVERTED values
+  // against (per-mode `unitHint.conversionStrategy`/`convertedValue`, P4 in
+  // ds-from-handoff.mjs). Version 3 exports carry no `unitHint` at all, so
+  // every FLOAT falls through `handoffModeValue`'s bare-`mode.raw` branch —
+  // the same comparison this pass always made — and is accepted as-is
+  // (cheap: no behaviour to gate, nothing schema 5 added is present to check).
+  // Anything else is refused rather than silently comparing raw numbers
+  // against converted CSS values with no unitHint to reconcile them.
+  const schemaVersion = String(handoff.schemaVersion ?? "");
+  if (handoff.schema !== "design-system-handoff" || !["3", "5"].includes(schemaVersion)) {
+    throw new Error(
+      `handoff export schema not supported: ${handoff.schema ?? "(missing)"} v${handoff.schemaVersion ?? "(missing)"} — ` +
+        `runHandoffCheck compares converted values via schemaVersion 5's per-mode unitHint (or accepts schemaVersion 3, ` +
+        `which has none to compare). Regenerate the export at v5, or open an issue if a new schema version needs support.`,
+    );
+  }
+
   const { combined, root, dark } = buildDsSurface(cssTexts);
   const allowlistSet = new Set(allowlist);
 
   const defects = [];
   const matches = [];
+  const unconverted = [];
   const figmaNames = new Set();
 
   for (const collection of handoff.collections || []) {
@@ -1251,6 +1337,17 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
 
       if (isUnresolvedAlias(figmaDefault)) {
         defects.push({ path, tokenName: webName, type: "unresolved-alias", detail: `alias target ${figmaDefault.targetId} not present in export` });
+        continue;
+      }
+
+      // A strategy the export named but could not execute (in practice
+      // `divide-by-associated-font-size`) — no converted value exists to
+      // compare, so this is neither a match nor a drift. Report it as its
+      // own class rather than either forcing a comparison against an
+      // unconverted number or silently dropping it (P4: never invent the
+      // missing divisor).
+      if (isUnconverted(figmaDefault)) {
+        unconverted.push({ path, tokenName: webName, type: "UNCONVERTED", ...figmaDefault });
         continue;
       }
 
@@ -1303,22 +1400,29 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
   const unresolvedCount = defects.filter((d) => d.type === "unresolved-alias").length;
 
   const counts = {
-    total: matches.length + defects.length,
+    total: matches.length + defects.length + unconverted.length,
     match: matches.length,
     valueDrift: valueDriftCount,
     missingInDs: missingCount,
     unresolvedAlias: unresolvedCount,
+    unconverted: unconverted.length,
     extraInDs: extraInDs.length,
   };
 
+  // UNCONVERTED is neither a match nor an actionable defect — it names a gap
+  // in what the export itself could carry out (no font size to divide by),
+  // not a disagreement between Figma and the DS package. It never fails the
+  // gate; it is reported so the residue is visible, per §6 of
+  // ds-from-handoff-report.md.
   const ok = missingCount === 0 && valueDriftCount === 0 && unresolvedCount === 0;
   const summaryLines = [
-    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias.`,
+    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted.`,
   ];
   for (const d of defects) summaryLines.push(`  [${d.type}] ${d.path} (${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
   for (const n of extraInDs) summaryLines.push(`  [EXTRA-IN-DS] ${n}`);
+  for (const u of unconverted) summaryLines.push(`  [UNCONVERTED] ${u.path} (${u.tokenName}) — ${u.strategy} -> ${u.buildUnit ?? "?"} (${u.confidence})`);
 
-  return { ok, designSystemStateHash, counts, defects, matches, extraInDs, summary: summaryLines.join("\n") };
+  return { ok, designSystemStateHash, counts, defects, matches, unconverted, extraInDs, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------
