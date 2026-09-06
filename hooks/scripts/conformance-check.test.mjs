@@ -2075,3 +2075,110 @@ test("handoff schema 6: without a breakpoints.entries table, a layout variable s
   assert.equal(result.ok, true);
   assert.equal(result.counts.match, 1);
 });
+
+// ---- P7 correction: PRIVATE is its own class ------------------------------
+// A hidden variable that a published token aliases is EMITTED by the DS
+// generator under its own name (otherwise the referring token is invalid at
+// computed-value time). So it is present in the CSS while not being a public
+// token — it is neither MISSING, nor EXTRA, nor a public MATCH. The generator
+// hands the list over in exclusions.json's `private[]`.
+
+test("handoff: a private (hidden, alias-reachable) name is PRIVATE — not EXTRA-IN-DS, not MATCH, not MISSING", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("palette/cruise/500", "--color-palette-cruise-500", 8, {
+            hiddenFromPublishing: true,
+          }),
+        ],
+      },
+    ],
+    // The DS package DOES emit it — that is the whole point of PRIVATE.
+    css: `:root {\n  --color-palette-cruise-500: 0.5rem;\n}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [], private: ["--color-palette-cruise-500"] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+
+  assert.equal(result.counts.private, 1);
+  assert.equal(result.counts.hidden, 0, "reachable ⇒ PRIVATE, never double-counted as HIDDEN");
+  assert.equal(result.counts.extraInDs, 0, "it IS in the CSS, but it is not an unexpected DS-only token");
+  assert.equal(result.counts.match, 0, "PRIVATE is never a public MATCH");
+  assert.equal(result.counts.missingInDs, 0);
+  assert.deepEqual(result.private.map((p) => p.tokenName), ["--color-palette-cruise-500"]);
+  assert.equal(result.ok, true);
+});
+
+test("handoff: a hidden name NOT in private[] stays HIDDEN", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("palette/cruise/50", "--color-palette-cruise-50", 8, { hiddenFromPublishing: true }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [], private: ["--color-palette-cruise-500"] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.hidden, 1);
+  assert.equal(result.counts.private, 0);
+});
+
+test("handoff: EXCLUDED wins over hidden, so `.utility` is never double-counted", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: ".utility",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          // `.utility` members are BOTH hidden upstream and on the policy list.
+          // Without a precedence rule they'd land in HIDDEN and the two classes
+          // would sum to more than the number of variables.
+          scalarVariableFlags("utility-space-xs", "--utility-space-xs", 4, { hiddenFromPublishing: true }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: ["--utility-space-xs"], private: [] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.excluded, 1);
+  assert.equal(result.counts.hidden, 0, "policy list wins — classes must stay disjoint");
+  assert.equal(result.counts.private, 0);
+});
+
+test("handoff: exclusions.json without a private[] key still runs (older DS checkout)", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.private, 0);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.ok, true);
+});

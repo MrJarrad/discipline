@@ -1339,10 +1339,21 @@ function valuesMatchHandoff(figmaValue, dsValue) {
 // file -> empty set (not a hard failure: an older DS checkout predating P7,
 // or a `--css`-only invocation against a repo that hasn't regenerated yet,
 // should still run — it will just report 0 EXCLUDED rather than refuse).
+// `names`   -> EXCLUDED: on the generator's policy list, never emitted.
+// `private` -> PRIVATE:  hidden in Figma but the alias target of a published
+//              token, so the generator DOES emit it (a referenced-but-
+//              undeclared custom property is invalid at computed-value time).
+//              It is therefore present in the CSS while not being a public
+//              token — neither MISSING, nor EXTRA-IN-DS, nor a MATCH.
+// A DS checkout predating either key yields an empty set for it, not a failure.
 function loadExclusionNames(exclusionsPath) {
-  if (!exclusionsPath || !existsSync(exclusionsPath)) return new Set();
+  const empty = { excluded: new Set(), private: new Set() };
+  if (!exclusionsPath || !existsSync(exclusionsPath)) return empty;
   const parsed = JSON.parse(readFileSync(exclusionsPath, "utf8"));
-  return new Set(Array.isArray(parsed.names) ? parsed.names : []);
+  return {
+    excluded: new Set(Array.isArray(parsed.names) ? parsed.names : []),
+    private: new Set(Array.isArray(parsed.private) ? parsed.private : []),
+  };
 }
 
 // HIDDEN is read straight off the variable the checker already has open —
@@ -1363,15 +1374,23 @@ function isHiddenFromPublishing(variable) {
 //     empty: an unrecognized DS property is a real, reportable finding, not
 //     assumed benign.
 //   exclusionsPath — optional path to ds-from-handoff.mjs's
-//     `design/generated/exclusions.json` (P7's EXCLUDE_PATHS interim policy).
-//     Names in this file are reported as EXCLUDED, never MISSING/MATCH/DRIFT.
+//     `design/generated/exclusions.json`, the single source of truth for P7.
+//     `names[]`   -> EXCLUDED (policy list, never emitted by the generator).
+//     `private[]` -> PRIVATE  (hidden in Figma but the alias target of a
+//                    published token, so the generator DOES emit it).
+//     Neither is ever MISSING/MATCH/DRIFT; PRIVATE is additionally kept out of
+//     EXTRA-IN-DS, since being declared in the CSS is correct for it.
+// P7 classes are disjoint and exhaustive: total + private + hidden + excluded
+// equals the number of variables in the export (581 on the v6 export: 494 +
+// 25 + 19 + 43). EXCLUDED is checked before hidden because `.utility` is both.
+//
 // Returns { ok, designSystemStateHash, counts, defects, matches, extraInDs,
 // hidden, excluded, summary }. `defects` holds the two ACTIONABLE classes
 // (MISSING-IN-DS, VALUE-DRIFT) in the same defect shape (`type`,
 // `path`/`tokenName`) the VALUE lane already emits, so a consumer that only
 // reads `.defects` (e.g. summarizeConformance's `lane()` helper in
 // capture-listener.mjs) needs no special-casing to add a `handoff` lane
-// alongside `value`/`binding`/`pageTemplate`. HIDDEN and EXCLUDED (policy P7)
+// alongside `value`/`binding`/`pageTemplate`. PRIVATE, HIDDEN and EXCLUDED (P7)
 // are their own arrays, never folded into `defects` or `matches` — a
 // Figma-only scaffolding variable is neither a pass nor a failure, it is out
 // of scope entirely.
@@ -1409,7 +1428,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
 
   const { combined, root, dark } = buildDsSurface(cssTexts);
   const allowlistSet = new Set(allowlist);
-  const exclusionNames = loadExclusionNames(exclusionsPath);
+  const { excluded: exclusionNames, private: privateNames } = loadExclusionNames(exclusionsPath);
   const layoutBaseModeIds = computeLayoutBaseModeIds(handoff.breakpoints);
 
   const defects = [];
@@ -1417,6 +1436,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
   const unconverted = [];
   const hidden = [];
   const excluded = [];
+  const privateTokens = [];
   const figmaNames = new Set();
 
   for (const collection of handoff.collections || []) {
@@ -1431,12 +1451,22 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
       // never enter `figmaNames` — that set drives EXTRA-IN-DS, and a
       // scaffolding name is not a Figma-side token the DS package is
       // expected to declare.
-      if (isHiddenFromPublishing(variable)) {
-        if (webName) hidden.push({ path, tokenName: webName, type: "HIDDEN" });
-        continue;
-      }
+      // Order is the precedence rule, and it matters: `.utility` members are
+      // BOTH on the policy list AND hidden upstream. EXCLUDED is checked first
+      // so the classes stay disjoint and sum to the variable count.
       if (webName && exclusionNames.has(webName)) {
         excluded.push({ path, tokenName: webName, type: "EXCLUDED" });
+        continue;
+      }
+      if (isHiddenFromPublishing(variable)) {
+        // PRIVATE is the hidden-but-alias-reachable subset. Unlike HIDDEN it IS
+        // present in the DS CSS, so it must also be kept out of EXTRA-IN-DS
+        // below — being declared is correct here, not a defect.
+        if (webName && privateNames.has(webName)) {
+          privateTokens.push({ path, tokenName: webName, type: "PRIVATE" });
+        } else if (webName) {
+          hidden.push({ path, tokenName: webName, type: "HIDDEN" });
+        }
         continue;
       }
 
@@ -1504,7 +1534,12 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
   }
 
   const dsNames = new Set([...Object.keys(root), ...Object.keys(dark)].map((n) => `--${n}`));
-  const extraInDs = [...dsNames].filter((n) => !figmaNames.has(n) && !allowlistSet.has(n)).sort();
+  // PRIVATE names are deliberately declared in the DS CSS and deliberately
+  // absent from `figmaNames` (they are not public tokens), so without this
+  // filter every one of them would be misreported as EXTRA-IN-DS.
+  const extraInDs = [...dsNames]
+    .filter((n) => !figmaNames.has(n) && !allowlistSet.has(n) && !privateNames.has(n))
+    .sort();
 
   const valueDriftCount = defects.filter((d) => d.type === "VALUE-DRIFT").length;
   const missingCount = defects.filter((d) => d.type === "MISSING-IN-DS").length;
@@ -1531,6 +1566,7 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
     unconverted: unconverted.length,
     extraInDs: extraInDs.length,
     codeNameChanged: codeNameChangedCount,
+    private: privateTokens.length,
     hidden: hidden.length,
     excluded: excluded.length,
   };
@@ -1544,15 +1580,16 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusi
   // never entered the comparison at all.
   const ok = missingCount === 0 && valueDriftCount === 0 && unresolvedCount === 0;
   const summaryLines = [
-    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted, ${counts.codeNameChanged} code-name-changed, ${counts.hidden} hidden, ${counts.excluded} excluded.`,
+    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted, ${counts.codeNameChanged} code-name-changed, ${counts.private} private, ${counts.hidden} hidden, ${counts.excluded} excluded.`,
   ];
   for (const d of defects) summaryLines.push(`  [${d.type}] ${d.path} (${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
   for (const n of extraInDs) summaryLines.push(`  [EXTRA-IN-DS] ${n}`);
   for (const u of unconverted) summaryLines.push(`  [UNCONVERTED] ${u.path} (${u.tokenName}) — ${u.strategy} -> ${u.buildUnit ?? "?"} (${u.confidence})`);
+  for (const p of privateTokens) summaryLines.push(`  [PRIVATE] ${p.path} (${p.tokenName})`);
   for (const h of hidden) summaryLines.push(`  [HIDDEN] ${h.path} (${h.tokenName})`);
   for (const e of excluded) summaryLines.push(`  [EXCLUDED] ${e.path} (${e.tokenName})`);
 
-  return { ok, designSystemStateHash, counts, defects, matches, unconverted, extraInDs, hidden, excluded, summary: summaryLines.join("\n") };
+  return { ok, designSystemStateHash, counts, defects, matches, unconverted, extraInDs, private: privateTokens, hidden, excluded, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------
