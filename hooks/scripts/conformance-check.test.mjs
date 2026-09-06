@@ -1022,6 +1022,121 @@ function floatVariableWithUnitHint(name, webName, rawValue, unitHint, modeId = "
   };
 }
 
+// ---- P7: HIDDEN / EXCLUDED are neither MISSING nor MATCH -------------------
+
+function scalarVariableFlags(name, webName, rawValue, flags = {}) {
+  return { ...scalarVariable(name, webName, rawValue), ...flags };
+}
+
+test("handoff: hiddenFromPublishing:true variable is HIDDEN, never MISSING/MATCH, and does not count as EXTRA-IN-DS", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "layout",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("grid/aspect/landscape/full-width", "--grid-aspect-landscape-full-width", 12, {
+            hiddenFromPublishing: true,
+          }),
+        ],
+      },
+    ],
+    // The DS package correctly does NOT emit a hidden variable (this is the
+    // normal case, post-P7-generator-fix) — nothing in the CSS to match or miss.
+    css: `:root {}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+
+  assert.equal(result.counts.hidden, 1);
+  assert.equal(result.counts.match, 0);
+  assert.equal(result.counts.missingInDs, 0);
+  assert.equal(result.counts.extraInDs, 0, "no CSS declaration exists, so nothing to flag as extra");
+  assert.deepEqual(
+    result.hidden.map((h) => h.tokenName),
+    ["--grid-aspect-landscape-full-width"],
+  );
+  assert.equal(result.ok, true);
+});
+
+test("handoff: effectivelyHiddenFromPublishing:true alone is enough to classify HIDDEN", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("dimension/dimension-999", "--dimension-999", 4, {
+            hiddenFromPublishing: false,
+            effectivelyHiddenFromPublishing: true,
+          }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
+  assert.equal(result.counts.hidden, 1);
+  assert.equal(result.counts.missingInDs, 0);
+});
+
+test("handoff: a name listed in exclusions.json is EXCLUDED, not MISSING, and distinct from HIDDEN", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "layout",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          // Not marked hidden upstream — exactly the interim case EXCLUDE_PATHS covers.
+          scalarVariableFlags("grid/aspect/portrait/full-width", "--grid-aspect-portrait-full-width", 12, {
+            hiddenFromPublishing: false,
+          }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: ["--grid-aspect-portrait-full-width"] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+
+  assert.equal(result.counts.excluded, 1);
+  assert.equal(result.counts.hidden, 0, "EXCLUDE_PATHS and hiddenFromPublishing are independent classes");
+  assert.equal(result.counts.missingInDs, 0);
+  assert.deepEqual(
+    result.excluded.map((e) => e.tokenName),
+    ["--grid-aspect-portrait-full-width"],
+  );
+});
+
+test("handoff: exclusions.json missing -> EXCLUDED is 0, the run still succeeds (not a hard failure)", () => {
+  const { handoffPath, cssPath } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n}\n`,
+  });
+
+  const result = runHandoffCheck({
+    handoffPath,
+    cssPaths: [cssPath],
+    exclusionsPath: join(cssPath, "..", "does-not-exist.json"),
+  });
+
+  assert.equal(result.counts.excluded, 0);
+  assert.equal(result.ok, true);
+});
+
 test("handoff: DS value matches export default -> MATCH, ok:true", () => {
   const { handoffPath, cssPath } = makeHandoffFixture({
     collections: [
@@ -1959,4 +2074,111 @@ test("handoff schema 6: without a breakpoints.entries table, a layout variable s
   const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath] });
   assert.equal(result.ok, true);
   assert.equal(result.counts.match, 1);
+});
+
+// ---- P7 correction: PRIVATE is its own class ------------------------------
+// A hidden variable that a published token aliases is EMITTED by the DS
+// generator under its own name (otherwise the referring token is invalid at
+// computed-value time). So it is present in the CSS while not being a public
+// token — it is neither MISSING, nor EXTRA, nor a public MATCH. The generator
+// hands the list over in exclusions.json's `private[]`.
+
+test("handoff: a private (hidden, alias-reachable) name is PRIVATE — not EXTRA-IN-DS, not MATCH, not MISSING", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("palette/cruise/500", "--color-palette-cruise-500", 8, {
+            hiddenFromPublishing: true,
+          }),
+        ],
+      },
+    ],
+    // The DS package DOES emit it — that is the whole point of PRIVATE.
+    css: `:root {\n  --color-palette-cruise-500: 0.5rem;\n}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [], private: ["--color-palette-cruise-500"] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+
+  assert.equal(result.counts.private, 1);
+  assert.equal(result.counts.hidden, 0, "reachable ⇒ PRIVATE, never double-counted as HIDDEN");
+  assert.equal(result.counts.extraInDs, 0, "it IS in the CSS, but it is not an unexpected DS-only token");
+  assert.equal(result.counts.match, 0, "PRIVATE is never a public MATCH");
+  assert.equal(result.counts.missingInDs, 0);
+  assert.deepEqual(result.private.map((p) => p.tokenName), ["--color-palette-cruise-500"]);
+  assert.equal(result.ok, true);
+});
+
+test("handoff: a hidden name NOT in private[] stays HIDDEN", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "color-primitives",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          scalarVariableFlags("palette/cruise/50", "--color-palette-cruise-50", 8, { hiddenFromPublishing: true }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [], private: ["--color-palette-cruise-500"] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.hidden, 1);
+  assert.equal(result.counts.private, 0);
+});
+
+test("handoff: EXCLUDED wins over hidden, so `.utility` is never double-counted", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: ".utility",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [
+          // `.utility` members are BOTH hidden upstream and on the policy list.
+          // Without a precedence rule they'd land in HIDDEN and the two classes
+          // would sum to more than the number of variables.
+          scalarVariableFlags("utility-space-xs", "--utility-space-xs", 4, { hiddenFromPublishing: true }),
+        ],
+      },
+    ],
+    css: `:root {}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: ["--utility-space-xs"], private: [] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.excluded, 1);
+  assert.equal(result.counts.hidden, 0, "policy list wins — classes must stay disjoint");
+  assert.equal(result.counts.private, 0);
+});
+
+test("handoff: exclusions.json without a private[] key still runs (older DS checkout)", () => {
+  const { handoffPath, cssPath, root } = makeHandoffFixture({
+    collections: [
+      {
+        name: "core",
+        defaultModeId: "1:0",
+        modes: [{ id: "1:0", name: "default" }],
+        variables: [scalarVariable("dimension/dimension-200", "--dimension-200", 2)],
+      },
+    ],
+    css: `:root {\n  --dimension-200: 0.125rem;\n}\n`,
+  });
+  const exclusionsPath = join(root, "exclusions.json");
+  writeFileSync(exclusionsPath, JSON.stringify({ names: [] }), "utf8");
+
+  const result = runHandoffCheck({ handoffPath, cssPaths: [cssPath], exclusionsPath });
+  assert.equal(result.counts.private, 0);
+  assert.equal(result.counts.match, 1);
+  assert.equal(result.ok, true);
 });
