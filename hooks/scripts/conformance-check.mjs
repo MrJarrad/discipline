@@ -1331,7 +1331,29 @@ function valuesMatchHandoff(figmaValue, dsValue) {
   return false;
 }
 
-// runHandoffCheck({ handoffPath, cssPaths, allowlist? })
+// Loads the EXCLUDED-name list from ds-from-handoff.mjs's own
+// `design/generated/exclusions.json` (P7 in that script). This is the ONE
+// place the exclusion policy is allowed to live — the checker must not
+// maintain its own copy of the generator's `EXCLUDE_PATHS` prefixes, or the
+// two would silently drift apart the first time either side changes. Missing
+// file -> empty set (not a hard failure: an older DS checkout predating P7,
+// or a `--css`-only invocation against a repo that hasn't regenerated yet,
+// should still run — it will just report 0 EXCLUDED rather than refuse).
+function loadExclusionNames(exclusionsPath) {
+  if (!exclusionsPath || !existsSync(exclusionsPath)) return new Set();
+  const parsed = JSON.parse(readFileSync(exclusionsPath, "utf8"));
+  return new Set(Array.isArray(parsed.names) ? parsed.names : []);
+}
+
+// HIDDEN is read straight off the variable the checker already has open —
+// `hiddenFromPublishing` / `effectivelyHiddenFromPublishing` are the export's
+// own fields, the same ones ds-from-handoff.mjs's P7 reads. No second copy of
+// this rule to keep in sync; both tools consume the identical export field.
+function isHiddenFromPublishing(variable) {
+  return variable.hiddenFromPublishing === true || variable.effectivelyHiddenFromPublishing === true;
+}
+
+// runHandoffCheck({ handoffPath, cssPaths, allowlist?, exclusionsPath? })
 //   handoffPath — the Design System handoff export
 //     (schema "design-system-handoff"; see file header for shape).
 //   cssPaths — CSS sources to resolve DS values against, in generated-then-
@@ -1340,14 +1362,20 @@ function valuesMatchHandoff(figmaValue, dsValue) {
 //     from EXTRA-IN-DS (house tokens with no Figma counterpart). Defaults to
 //     empty: an unrecognized DS property is a real, reportable finding, not
 //     assumed benign.
+//   exclusionsPath — optional path to ds-from-handoff.mjs's
+//     `design/generated/exclusions.json` (P7's EXCLUDE_PATHS interim policy).
+//     Names in this file are reported as EXCLUDED, never MISSING/MATCH/DRIFT.
 // Returns { ok, designSystemStateHash, counts, defects, matches, extraInDs,
-// summary }. `defects` holds the two ACTIONABLE classes (MISSING-IN-DS,
-// VALUE-DRIFT) in the same defect shape (`type`, `path`/`tokenName`) the VALUE
-// lane already emits, so a consumer that only reads `.defects` (e.g.
-// summarizeConformance's `lane()` helper in capture-listener.mjs) needs no
-// special-casing to add a `handoff` lane alongside `value`/`binding`/
-// `pageTemplate`.
-export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
+// hidden, excluded, summary }. `defects` holds the two ACTIONABLE classes
+// (MISSING-IN-DS, VALUE-DRIFT) in the same defect shape (`type`,
+// `path`/`tokenName`) the VALUE lane already emits, so a consumer that only
+// reads `.defects` (e.g. summarizeConformance's `lane()` helper in
+// capture-listener.mjs) needs no special-casing to add a `handoff` lane
+// alongside `value`/`binding`/`pageTemplate`. HIDDEN and EXCLUDED (policy P7)
+// are their own arrays, never folded into `defects` or `matches` — a
+// Figma-only scaffolding variable is neither a pass nor a failure, it is out
+// of scope entirely.
+export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [], exclusionsPath }) {
   if (!existsSync(handoffPath)) throw new Error(`handoff export not found: ${handoffPath}`);
   const cssTexts = cssPaths.map((p) => {
     if (!existsSync(p)) throw new Error(`css source not found: ${p}`);
@@ -1381,18 +1409,40 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
 
   const { combined, root, dark } = buildDsSurface(cssTexts);
   const allowlistSet = new Set(allowlist);
+  const exclusionNames = loadExclusionNames(exclusionsPath);
   const layoutBaseModeIds = computeLayoutBaseModeIds(handoff.breakpoints);
 
   const defects = [];
   const matches = [];
   const unconverted = [];
+  const hidden = [];
+  const excluded = [];
   const figmaNames = new Set();
 
   for (const collection of handoff.collections || []) {
     for (const variable of collection.variables || []) {
+      const webName = variable.codeSyntax && variable.codeSyntax.WEB && variable.codeSyntax.WEB.value;
+      const path = `${collection.name}/${variable.name}`;
+
+      // P7 — neither MISSING nor MATCH nor DRIFT: Figma-only scaffolding is
+      // out of scope entirely, not a pass/fail verdict. Checked before
+      // `resolveHandoffVariable` (and before a WEB name is even required)
+      // since a hidden/excluded variable's WEB name, if it has one, must
+      // never enter `figmaNames` — that set drives EXTRA-IN-DS, and a
+      // scaffolding name is not a Figma-side token the DS package is
+      // expected to declare.
+      if (isHiddenFromPublishing(variable)) {
+        if (webName) hidden.push({ path, tokenName: webName, type: "HIDDEN" });
+        continue;
+      }
+      if (webName && exclusionNames.has(webName)) {
+        excluded.push({ path, tokenName: webName, type: "EXCLUDED" });
+        continue;
+      }
+
       const resolved = resolveHandoffVariable(variable, collection, layoutBaseModeIds.get(collection.id));
       if (!resolved) continue; // no WEB codeSyntax — nothing to bind against
-      const { webName, path, figmaDefault, hasDarkAxis, figmaDark } = resolved;
+      const { figmaDefault, hasDarkAxis, figmaDark } = resolved;
       figmaNames.add(webName);
       const propName = webName.replace(/^--/, "");
 
@@ -1481,22 +1531,28 @@ export function runHandoffCheck({ handoffPath, cssPaths, allowlist = [] }) {
     unconverted: unconverted.length,
     extraInDs: extraInDs.length,
     codeNameChanged: codeNameChangedCount,
+    hidden: hidden.length,
+    excluded: excluded.length,
   };
 
   // UNCONVERTED is neither a match nor an actionable defect — it names a gap
   // in what the export itself could carry out (no font size to divide by),
   // not a disagreement between Figma and the DS package. It never fails the
   // gate; it is reported so the residue is visible, per §6 of
-  // ds-from-handoff-report.md.
+  // ds-from-handoff-report.md. HIDDEN and EXCLUDED (policy P7) are the same
+  // shape of non-verdict, one level earlier: Figma-only scaffolding that
+  // never entered the comparison at all.
   const ok = missingCount === 0 && valueDriftCount === 0 && unresolvedCount === 0;
   const summaryLines = [
-    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted, ${counts.codeNameChanged} code-name-changed.`,
+    `Handoff check: ${counts.total} variables enumerated, ${counts.match} match, ${counts.valueDrift} value-drift, ${counts.missingInDs} missing-in-ds, ${counts.extraInDs} extra-in-ds, ${counts.unresolvedAlias} unresolved-alias, ${counts.unconverted} unconverted, ${counts.codeNameChanged} code-name-changed, ${counts.hidden} hidden, ${counts.excluded} excluded.`,
   ];
   for (const d of defects) summaryLines.push(`  [${d.type}] ${d.path} (${d.tokenName})${d.detail ? ` — ${d.detail}` : ""}`);
   for (const n of extraInDs) summaryLines.push(`  [EXTRA-IN-DS] ${n}`);
   for (const u of unconverted) summaryLines.push(`  [UNCONVERTED] ${u.path} (${u.tokenName}) — ${u.strategy} -> ${u.buildUnit ?? "?"} (${u.confidence})`);
+  for (const h of hidden) summaryLines.push(`  [HIDDEN] ${h.path} (${h.tokenName})`);
+  for (const e of excluded) summaryLines.push(`  [EXCLUDED] ${e.path} (${e.tokenName})`);
 
-  return { ok, designSystemStateHash, counts, defects, matches, unconverted, extraInDs, summary: summaryLines.join("\n") };
+  return { ok, designSystemStateHash, counts, defects, matches, unconverted, extraInDs, hidden, excluded, summary: summaryLines.join("\n") };
 }
 
 // ---- CLI --------------------------------------------------------------
@@ -1536,6 +1592,13 @@ if (isMainModule()) {
       join(process.env.HOME, "JHD", "jhd-design-system", "main", "design", "handoff", "v3b-2026-09-05", "jhd-spec-designsystem-design-system-handoff.json")
     );
     const cssPaths = getArgAll("--css");
+    // P7 — the EXCLUDE_PATHS list ds-from-handoff.mjs writes alongside its
+    // CSS output. Same DS checkout the default --css paths already assume;
+    // override together with --css when checking a different checkout.
+    const exclusionsPath = getArg(
+      "--exclusions-path",
+      join(process.env.HOME, "JHD", "jhd-design-system", "main", "design", "generated", "exclusions.json")
+    );
     const driftThresholdRaw = getArg("--drift-threshold", "0");
     const driftThreshold = Number(driftThresholdRaw);
     const ci = args.includes("--ci");
@@ -1559,6 +1622,7 @@ if (isMainModule()) {
           join(process.env.HOME, "JHD", "jhd-design-system", "main", "src", "tokens.generated.css"),
           join(process.env.HOME, "JHD", "jhd-design-system", "main", "src", "styles.css"),
         ],
+        exclusionsPath,
       });
       console.log(JSON.stringify(result, null, 2));
       if (!ci) process.exit(result.ok ? 0 : 1);
