@@ -113,7 +113,7 @@ test("LIGHT is the standing default and FULL is the justified exception", () => 
 test("the no-tier fallback runs LIGHT, not FULL", () => {
   assert.match(reviewer, /No tier in the brief\s*(?:→|->)\s*run \*\*LIGHT\*\*/i);
   assert.doesNotMatch(reviewer, /No tier in the brief\s*(?:→|->)\s*run \*\*FULL\*\*/i);
-  assert.match(dispatchBrief, /Unnamed tier defaults to `?LIGHT/i);
+  assert.match(dispatchBrief, /Unnamed tier\s+defaults to `?LIGHT/i);
 });
 
 test("the reviewer never evaluates look", () => {

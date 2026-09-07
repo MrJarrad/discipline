@@ -68,18 +68,41 @@ Engineer and reviewer briefs must **match on locked rows** (`review-the-lock-not
 A review briefed on a narrower table is **not the gate**; *Review is already running on that
 slice* must not protect it.
 
+**Name the lock's live path, not just the snapshot.** The copied table is a courtesy
+snapshot; the brief also names the **live lock file** (vault path) and requires the
+reviewer to re-read it and confirm the match **before recording any finding**. The spec
+may have moved since dispatch — a mismatch is a red finding, "spec drifted", never a
+clear verdict with a note attached.
+
 Standing fleet rulings are quoted separately (below). Locked decisions are **this session's** tree.
 
-**Review tier — every reviewer brief names one, `FULL` or `LIGHT`** (operator-blessed
-2026-08-29). `FULL` for structural, motion, compositing, or cross-cutting change — the
-exhaustive bar, unchanged. `LIGHT` for conform, docs, data, or copy change — verify the
-named ACs with runtime evidence, skip exhaustive sweeps and mutation batteries. Unnamed
-tier defaults to `FULL`; the tier is the parent's call at dispatch, never the reviewer's.
+**Deterministic gates precede review.** Build, typecheck, and the suite (CI where the
+repo has it) must be **green before a reviewer is solicited** — a reviewer handed a red
+build returns immediately without reviewing. The engineer brief states the gates; the
+reviewer brief cites them as met. Model judgement is for the residual those gates cannot
+express, never a substitute for running them.
 
-**The reviewer samples, it does not re-derive.** Engineer commits evidence; the brief
-requires the reviewer to independently re-derive **2–3 unannounced probes of its own
-choosing** plus anything suspicious, and audit the rest. Random adversarial sampling is
-what keeps independence — it is not a licence to accept the engineer's word wholesale.
+**Review tier — `LIGHT` is the standing default; `FULL` is the exception the brief must
+argue** (operator, 2026-09-07: *"way too much agent reviewing going on generally"*).
+`LIGHT` verifies the named ACs with runtime evidence and skips exhaustive sweeps and
+mutation batteries. `FULL` is for cross-repo, destructive, or first-pass high-blast
+surfaces, and the brief names **why** — an unargued `FULL` is over-review. Unnamed tier
+defaults to `LIGHT`; the tier is the parent's call at dispatch, never the reviewer's.
+**One review per change**, and small fixes (single file, no behaviour claim, gates green)
+get **no reviewer** at all — engineer verification plus parent check.
+
+**The reviewer samples the routine and re-derives the claim classes.** Engineer commits
+evidence; the brief requires the reviewer to independently re-derive **2–3 unannounced
+probes of its own choosing** plus anything suspicious, and audit the rest. Random
+adversarial sampling is what keeps independence — it is not a licence to accept the
+engineer's word wholesale. **Enumeration, precedent, and determinism claims are exempt
+from sampling**: the brief requires them grep- or rerun-verified in full
+(`reviewer-reruns-evidence-tables`). Every finding is **independently re-validated**
+before it surfaces, and the brief says so.
+
+**Review rounds are capped at 3 per change.** A round is one reviewer verdict. At the cap
+without a clean result the loop halts and the parent presents the open findings to the
+operator — the brief never promises a fourth round or a re-brief.
 
 ## State the rule in plans and briefs
 
@@ -106,6 +129,13 @@ Status lines name "persona (model) into repo" with the **actual** chosen model.
 
 Model is chosen via `model-routing` (best for job) — **never inherit** the parent chat
 model. Set the dispatch `model` field explicitly.
+
+**Effort tier — every brief names one:** `routine | contested | high-stakes`. It states
+how much deliberation the job is worth, so model and thinking budget follow the work
+rather than the parent's habit. `routine` is known-shape work with a clear answer;
+`contested` is work where reasonable approaches disagree or a claim will be argued;
+`high-stakes` is irreversible, cross-repo, or fleet-wide blast radius. `model-routing`
+maps each tier to a model and a thinking budget — this skill only requires the field.
 
 ## Dispatch vehicle (Claude)
 
@@ -183,6 +213,16 @@ Doers run verification servers on `:3211` and up. The operator's live dev server
 `:3210` is never started, stopped, or reused by a dispatched agent — state that boundary
 in the brief, don't assume the doer infers it.
 
+## Notes ledger — survive compaction
+
+A long dispatch that compacts loses the facts it earned. **Before any compaction, append
+the key facts and decisions to a scratch ledger file, then re-read the ledger after the
+compaction** — a searchable ledger beats one lossy summary. The brief names the ledger
+path (scratch, never the repo) and states the rule for the doer: verified `path:line`
+loci, resolved ambiguities, rejected approaches and why, and the current state of each
+AC go in the ledger as they are settled — not reconstructed afterwards from a summary
+that already dropped them.
+
 ## Caps and continuity
 
 - Scope the brief so one dispatch can finish a coherent **work batch**; prefer parallel dispatches
@@ -225,13 +265,16 @@ work, the brief also names what compliance with that ruling looks like as eviden
 surfaced failure beats a false "done" — say so explicitly.
 
 **Engineer briefs:** do not claim "fixed" or operator-facing done — return evidence for
-reviewer. Parent dispatches **reviewer** after engineer lands.
+review. Parent solicits **reviewer** after engineer lands and the gates are green.
 
-**Reviewer briefs:** copy the **same current locked table** as the engineer brief — paired
-briefs must match on locked rows. Behaviour claims require `[runtime]` or `[test]` evidence in the
-verdict; visual/feel claims require rendered evidence or re-dispatch **ux-designer**.
-Diff-only PASS on behaviour or feel claims is **BLOCK**. A review that **notes** a lock miss
-and PASSes is **not PASS** — noted without fail is not PASS.
+**Reviewer briefs:** copy the **same current locked table** as the engineer brief (plus its
+live path) — paired briefs must match on locked rows. The reviewer returns
+**severity-ranked findings** (red / amber / note), each independently re-validated — not a
+bare merge verdict. **Merge condition: deterministic gates green + no red finding open**,
+remitted by the parent. Behaviour claims require `[runtime]` or `[test]` evidence in the
+finding; a diff-only behaviour claim is red. Look and feel are the operator's lane —
+rendered agent evidence for a Figma/reference match goes to **ux-designer**, and a review
+that **notes** a lock miss without failing it is not a clear review.
 
 ## Scope fence
 
@@ -274,8 +317,14 @@ agent starts working, not re-mapping.
     clauses (`routing` rule 9): verifying the **deployed surface**/present-for-review,
     a machine-bound stack, or this machine's own state — a slice verifying its own
     `:3211`+ build is **not** machine-bound and goes cloud
-[ ] Reviewer brief names its **review tier** — `FULL` or `LIGHT` — and requires 2–3
-    unannounced re-derived probes plus audit of the rest
+[ ] Reviewer brief names its **review tier** — `LIGHT` by default, `FULL` only with the
+    justification argued — and requires 2–3 unannounced re-derived probes plus audit of
+    the rest, enumeration/precedent/determinism claims verified in full, and every
+    finding independently re-validated; round cap of 3 stated
+[ ] Deterministic gates (build, typecheck, suite/CI) green before a reviewer is solicited
+[ ] Reviewer brief names the lock's **live path**, not only the copied snapshot
+[ ] Effort tier named — `routine | contested | high-stakes` — and mapped via model-routing
+[ ] Notes-ledger path named for long dispatches: append before compaction, re-read after
 [ ] Model set explicitly (never inherited); justification if above haiku/sonnet
 [ ] Required skills named per the work-type table above
 [ ] Figma-backed build: file+node named; doer loads capture-figma; no pasted prop table
