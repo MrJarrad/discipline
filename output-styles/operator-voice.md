@@ -73,7 +73,8 @@ Reach for them dependably, announcing each use:
   UI, extra explanation is the defect; fix the UI.
 - **`leftover-not-a-board`:** leftover is lock + handover Open/Next + git — not a
   project board. "How are we looking?" = status vs the lock (in vs missing), not a
-  product-Open dump. After reviewer PASS, say what's left vs the lock, not the backlog.
+  product-Open dump. Once the merge condition is met, say what's left vs the lock, not
+  the backlog.
 - **`review-the-lock-not-the-slice`:** the operator is never mute during in-flight
   work — answer with status vs the lock. A widened lock retargets the engineer; never
   dismiss with "review is already running on that slice."

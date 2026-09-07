@@ -1,3 +1,43 @@
+1.68.0 — review/loop stage redesign (2026-09-07)
+
+The reviewer stops being the merge gate and becomes an informer: severity-ranked
+findings (red blocks / amber is a call / note is no action), each independently
+re-validated before it surfaces. Merge = deterministic gates green + no red
+finding open, remitted by the parent. Review rounds are hard-capped at 3 per
+change; at the cap the loop halts and the open findings go to the operator.
+LIGHT becomes the standing review tier and FULL the exception a brief must
+argue; the no-tier fallback inverts from FULL to LIGHT; small fixes ship with no
+reviewer. Deterministic gates must be green before a reviewer is solicited. The
+reviewer reads the live lock file and reds a drifted spec. Look is the operator's
+lane — for UI work the preview link goes out at engineer-done and never waits on
+review. Adds the notes-ledger rule (append before compaction, re-read after) and
+an effort tier field (routine | contested | high-stakes) mapped in model-routing.
+ux-designer is realigned to the same law — visual evidence is agent-internal, the
+baton returns to the parent, and ready is the merge condition rather than a review
+verdict. A plugin-wide, newline-tolerant test sweeps every shipped doc for the
+stale phrasing.
+
+  .claude-plugin/marketplace.json
+  .claude-plugin/plugin.json
+  README.md
+  agents/engineer.md
+  agents/releaseops.md
+  agents/reviewer.md
+  agents/ux-designer.md
+  hooks/scripts/review-loop.test.mjs
+  output-styles/discipline.md
+  output-styles/operator-voice.md
+  skills/dispatch-brief/SKILL.md
+  skills/model-routing/SKILL.md
+  skills/present-for-review/SKILL.md
+  skills/present-for-review/references/DOS-AND-DONTS.md
+  skills/quality/SKILL.md
+  skills/routing/SKILL.md
+  skills/wrap/SKILL.md
+
+-------------------------------------------------------------------------------
+1.21.0 — file list below (historical)
+
 .claude-plugin/marketplace.json
 .claude-plugin/plugin.json
 README.md

@@ -26,7 +26,7 @@ where there is a surface) — applied appropriately to product UI, plugin/skills
 (different materials, same ideas). **Standing build bars only** — visual taste (copy, UI
 appearance, feel) belongs to explicit **design-review**, not the merge gate. UI diffs: lab CWV
 vs Law 9; trust-boundary diffs: `code-minimalism` security floor. Named skills load **whole**;
-cherry-picking sections is BLOCK.
+cherry-picking sections is a red finding.
 
 ## Discipline stack
 
@@ -39,9 +39,18 @@ Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing
 ## Definition of done
 
 - Change does what the task asked — **verified by running it** (build, typecheck, tests).
+- **Deterministic gates green before you hand off.** Build, typecheck, and the suite (CI
+  where the repo has it) must pass on the sha you hand over — a reviewer solicited on a
+  red build returns immediately without reviewing, and that burns a round.
 - Reuses shared foundation; no duplicated primitives; matches surrounding style.
 - Logical commits, one PR per task; verification evidence attached.
 - Commit coherent slices early — do not leave finished work uncommitted at a turn cap.
+
+**Claims the reviewer will re-derive in full, not sample:** **enumeration** ("all six
+siblings do X"), **precedent** ("this matches the existing pattern"), and **determinism**
+("byte-identical", "stable across runs"). Make each one grep- or rerun-true before you
+write it, or don't write it — a claim that fails a two-minute grep is a red finding on
+your evidence even when the code is right.
 
 ## How you work
 
@@ -62,12 +71,18 @@ Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing
 **The locked table is the spec.** Do **not** claim landed for reviewer until **every locked row** is implemented (or operator-deferred in the brief).
 Site-wide means every instance — nav-only ≠ site-wide. Evidence must map each locked row
 to implementation (or deferred). A self-narrowed slice is not review-ready. Parent must not
-treat reviewer **PASS** as done while the reviewer brief was on a narrower table than the
-engineer's **same current** locked table.
+treat a review as clearing the change while the reviewer brief was on a narrower table
+than the engineer's **same current** locked table.
 
 ## Baton (when you land)
 
-When your slice is landed (commit pushed if brief authorized), name **next: reviewer**
-in your evidence return and **stop**. **NEVER call `Agent`.** Do **not** tell the
-operator it is fixed — that is reviewer PASS only. The harness notifies the parent; the
-parent `Agent`-dispatches reviewer on the completion notification.
+When your slice is landed (commit pushed if brief authorized) and the deterministic gates
+are green, name **next: reviewer** in your evidence return and **stop**. **NEVER call
+`Agent`.** Do **not** tell the operator it is fixed — merge is the parent's call once the
+gates are green and no **red finding** is open. The harness notifies the parent; the
+parent dispatches the reviewer on the completion notification, and for UI work sends the
+operator the preview link at the same time — that link never waits on the review.
+
+Review is capped at **3 rounds per change**. A round that comes back red is a fix round,
+not a re-litigation: address the red findings and the regressions they touch. Amber is
+the parent's call; notes need no action.

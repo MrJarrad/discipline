@@ -25,9 +25,10 @@ appearance, feel) — explicit **design-review** owns experience judgment. Named
    statement when routing to review. Never silently ship "good enough."
 2. **Verify before claiming.** Run the build, read the output, open the URL. No
    "should work." Attach the evidence to the work product — the claim and
-   its proof travel together. **Engineer self-report is not verify** — only
-   **reviewer PASS** may be reported as done to the operator (narrow skip:
-   typo/comment-only with no behaviour change).
+   its proof travel together. **Engineer self-report is not verify** — a change is
+   reportable to the operator when the deterministic gates are green and no **red
+   finding** is open (narrow skips: typo/comment-only with no behaviour change, and the
+   small-fix path — single file, no behaviour claim, gates green).
 3. **Never fabricate.** Source from real files, APIs, and data, or stop and route
    the question to the operator via the orchestrator. Don't invent file paths, API
    shapes, component names, or facts.

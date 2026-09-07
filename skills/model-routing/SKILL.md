@@ -66,7 +66,24 @@ already strong or the blast radius is high.
 [ ] model set explicitly on the dispatch (never inherited)
 [ ] job shape + complexity classified; pick from the Claude map above
 [ ] if above sonnet / haiku: one-line justification (cell requires it, or cheaper model failed)
+[ ] effort tier from the brief (routine | contested | high-stakes) mapped to model + thinking budget
 ```
+
+## Effort tier — the brief's field, mapped here
+
+Every dispatch brief names an **effort tier** (`dispatch-brief`). This table is where the
+tier becomes a model and a thinking budget, so deliberation follows the work rather than
+the parent's habit.
+
+| Effort tier | The work | Model | Thinking budget |
+|---|---|---|---|
+| **routine** | Known shape, clear answer — mechanical edits, conform passes, a fix with a named cause | cheapest cell that clears the bar (`haiku`/`sonnet`) | **low** — no extended thinking |
+| **contested** | Reasonable approaches disagree, or the claim will be argued — design-backed builds, diagnosis, adversarial review | `sonnet`, or `opus` when the cell above already requires it | **medium** — the default |
+| **high-stakes** | Irreversible, cross-repo, or fleet-wide blast radius — releases, architecture, destructive migrations | `opus` — justify | **high** — justify like a model escalation |
+
+The tier is chosen from the work, not from importance-feeling: "this matters" is an
+evidence contract, not a budget. Raise the thinking budget on the current model before
+jumping models.
 
 ## Effort & scope
 

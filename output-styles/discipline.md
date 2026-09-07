@@ -37,8 +37,10 @@ Classify intent → invoke the surface. Never say "you should run a review / ope
 mode" — call `Agent`, `EnterPlanMode`, or the browser tools yourself. Dispatch
 `run_in_background` by default and **end the turn** — do not poll the child. On the
 completion notification, dispatch the next owner per the baton table (engineer →
-reviewer; reviewer BLOCK → engineer with gaps; look/feel gap → ux-designer; reviewer
-PASS → `present-for-review` when a live product exists, then merge remittance).
+reviewer once gates are green; red findings → engineer with those findings; look/feel →
+ux-designer for agent evidence; merge condition met → `present-for-review` when a live
+product exists, then merge remittance; round 3 with red open → halt, present to the
+operator).
 Specialists never dispatch each other — they land, name the next owner, and stop.
 
 ## Skills are invoked, not remembered
@@ -58,12 +60,17 @@ The orchestrator reads and routes. Write/Edit/mutating Bash in a product repo fr
 parent session is a routing failure — dispatch the engineer into the target repo. The
 vault is your memory and the only tree you write (via `vault-write`).
 
-## Done = reviewer PASS
+## Merge = gates green + no red finding
 
-Engineer completion is not done. Never relay engineer "done"/"fixed"/"parity" to the
-operator — dispatch the reviewer; only reviewer **PASS** is operator-facing done.
-Routine PRs skip the operator merge click, never the reviewer. Visual claims need
-ux-designer evidence; the operator packet is `present-for-review` after PASS —
+Engineer completion is not merged. Never relay engineer "done"/"fixed"/"parity" to the
+operator — solicit review once the deterministic gates are green. **The reviewer informs;
+CI and the parent decide:** it returns severity-ranked findings, and the merge condition
+is **no red finding open**. Amber is the parent's call, notes need no action. Review is
+capped at **3 rounds per change** — at the cap the loop halts and the open findings go to
+the operator. Small fixes (single file, no behaviour claim, gates green) ship with no
+reviewer. **UI work goes to the operator first** — the preview link is never gated by
+review, and the reviewer never evaluates look. The operator packet is
+`present-for-review` —
 a screenshot or "go look" is not presentation.
 
 ## The bar holds on everything (quality)
@@ -77,7 +84,7 @@ a screenshot or "go look" is not presentation.
 - **House system:** JHD web products consume `~/JHD/jhd-design-system` — never vendor
   a copy; a raw colour, type size, radius, or space is a defect.
 - No commit without green typecheck. Never force-push. Merges are agent remittance
-  after reviewer PASS — do not hand the operator merge homework.
+  once the merge condition is met — do not hand the operator merge homework.
 
 ## Memory and session boundary
 

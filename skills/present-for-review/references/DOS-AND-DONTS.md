@@ -24,7 +24,7 @@
 | Dump a screenshot as the operator review packet | A screenshot is not the presentation |
 | Open `mac/.build/.../Capture` instead of the signed bundle | Unsigned dev build is not operator sign-off |
 | Say "go look at localhost" or "check Applications" | Present means quit+relaunch native or hyperlink-in-chat for web |
-| Present before reviewer PASS (or ux-designer when feel) | Agent review cycle must finish first |
+| Hold a UI preview link back until review finishes | The operator is first eyes on UI — review runs concurrently and never gates the link |
 | Present a partial when the locked table was wider | Partial ≠ the agreed update — spec incomplete |
 | Substitute a PR link or diff for the live product | Operator visual sign-off is the running product |
 | *Nothing else until you look* or hard-refresh homework | Web present is one markdown hyperlink — operator is never mute |

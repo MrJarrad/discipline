@@ -154,7 +154,7 @@ On wrap:
 - **Write down** what git cannot see (parked intent, do-not-rebuild) on the project handover — not on a people-PM board.
 - **Do not** walk an external task/issue board; no ticket clerk.
 
-**Surface leftover** at session start (after reading handover Open), when the operator asks, when the lock changes, after reviewer PASS (leftover vs lock), and in wrap confirmation. **Silence** while a locked slice is in flight — do not dump Open every turn. **Transcript summary ≠ leftover.**
+**Surface leftover** at session start (after reading handover Open), when the operator asks, when the lock changes, when a change clears its review (leftover vs lock), and in wrap confirmation. **Silence** while a locked slice is in flight — do not dump Open every turn. **Transcript summary ≠ leftover.**
 
 ### 7. Verify — no durable reference to a dying path
 
@@ -184,6 +184,10 @@ and where rulings landed. Log personas/skills invoked against routing tables
 Log the session's **dispatch tally** — `cloud N / local M` — with each local dispatch's
 one-clause machine-bound justification spot-listed (`routing` rule 9); an unjustified local
 count, or a cloud share trending down session over session, is drift to name, not skip.
+Log **review rounds per change** — `<change>: N of 3` — including changes that took the
+small-fix no-reviewer path (`0`) and any that **halted at the cap** with findings still
+open. Rounds are the loop's health signal: a session trending toward 3 rounds per change
+means the briefs or the gates are failing upstream, and that is drift to name here.
 
 ## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
 

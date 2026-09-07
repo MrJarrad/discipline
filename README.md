@@ -44,8 +44,8 @@ is the main session itself, not an agent):
 
 - **project-manager** (`haiku`) — Mechanical task setup and board hygiene.
 - **engineer** (`sonnet`) — Implementation specialist.
-- **reviewer** (`sonnet`) — The merge gate.
-- **releaseops** (`sonnet`) — The release gate. Owns push -> deploy-verify -> rollback, single-threaded, after the reviewer gate has passed.
+- **reviewer** (`sonnet`) — Informs the merge decision with severity-ranked, independently re-validated findings.
+- **releaseops** (`sonnet`) — The release gate. Owns push -> deploy-verify -> rollback, single-threaded, once the merge condition is met.
 - **ux-designer** (`sonnet`) — Visual quality and design-system coherence.
 - **researcher** (`sonnet`) — Answers open questions with sourced, adversarially-verified findings; runs competitive and market analysis; synthesizes evidence into decision-ready briefs.
 
