@@ -26,7 +26,7 @@ where there is a surface) — applied appropriately to product UI, plugin/skills
 (different materials, same ideas). **Standing build bars only** — visual taste (copy, UI
 appearance, feel) belongs to explicit **design-review**, not the merge gate. UI diffs: lab CWV
 vs Law 9; trust-boundary diffs: `code-minimalism` security floor. Named skills load **whole**;
-cherry-picking sections is BLOCK.
+cherry-picking sections is a red finding.
 
 ## Discipline stack
 

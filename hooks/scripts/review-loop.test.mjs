@@ -4,12 +4,28 @@
 // Run: node --test scripts/review-loop.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
+
+// Every agent-consumed doc the plugin ships — the law's blast radius.
+const shippedDocs = () => [
+  ...readdirSync(join(repo, "agents"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => `agents/${f}`),
+  ...readdirSync(join(repo, "skills"), { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => `skills/${d.name}/SKILL.md`)
+    .filter((rel) => existsSync(join(repo, rel))),
+  ...readdirSync(join(repo, "output-styles"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => `output-styles/${f}`),
+  "operator-rules.md",
+  "README.md",
+];
 
 const reviewer = read("agents/reviewer.md");
 const routing = read("skills/routing/SKILL.md");
@@ -68,11 +84,24 @@ test("merge is CI green plus no red finding — not 'done = reviewer PASS'", () 
     ["discipline output style", disciplineStyle],
   ]) {
     assert.match(text, /no red finding/i, `${name} must state the merge condition`);
-    assert.doesNotMatch(
-      text,
-      /only reviewer \*{0,2}PASS\*{0,2} (?:is|may be) (?:operator-facing )?done/i,
-      `${name} must not still say done = reviewer PASS`,
-    );
+  }
+});
+
+// The stale law hides across line wraps, so every shipped doc is swept as a whole
+// string (newline-tolerant), not line by line — that is how R1 escaped round 1.
+test("no shipped doc still says done = reviewer PASS or carries a verdict-sense BLOCK", () => {
+  const stale = [
+    [/reviewer\s+PASS/i, "done = reviewer PASS — merge is gates green + no red finding"],
+    [/done\s*=\s*reviewer/i, "done = reviewer verdict — merge is gates green + no red finding"],
+    [/\b(?:is|are)\s+BLOCK\b/i, "verdict-sense BLOCK — say 'is a red finding'"],
+  ];
+  // reviewer.md deliberately names the shape it must never return.
+  const allowed = /never a bare PASS\/BLOCK merge verdict/i;
+  for (const rel of shippedDocs()) {
+    const text = read(rel).replace(allowed, "");
+    for (const [pattern, why] of stale) {
+      assert.doesNotMatch(text, pattern, `${rel} must not carry: ${why}`);
+    }
   }
 });
 

@@ -12,6 +12,10 @@ reviewer reads the live lock file and reds a drifted spec. Look is the operator'
 lane — for UI work the preview link goes out at engineer-done and never waits on
 review. Adds the notes-ledger rule (append before compaction, re-read after) and
 an effort tier field (routine | contested | high-stakes) mapped in model-routing.
+ux-designer is realigned to the same law — visual evidence is agent-internal, the
+baton returns to the parent, and ready is the merge condition rather than a review
+verdict. A plugin-wide, newline-tolerant test sweeps every shipped doc for the
+stale phrasing.
 
   .claude-plugin/marketplace.json
   .claude-plugin/plugin.json
@@ -19,6 +23,7 @@ an effort tier field (routine | contested | high-stakes) mapped in model-routing
   agents/engineer.md
   agents/releaseops.md
   agents/reviewer.md
+  agents/ux-designer.md
   hooks/scripts/review-loop.test.mjs
   output-styles/discipline.md
   output-styles/operator-voice.md

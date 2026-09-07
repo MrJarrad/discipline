@@ -337,6 +337,6 @@ agent starts working, not re-mapping.
 [ ] Vehicle chosen at lane open (not per task): cloud is the assumed vehicle for doer lanes (confirmed overlay-carrying repo), `workflow.mjs` spec for phased/parallel runs; local only on one of the three scoped clauses; resumed lanes stay on their existing surface
 [ ] Unproven mechanism: prototype lane briefed before the build lane
 [ ] Ports stated: doer verification on :3211+, operator's :3210 untouched
-[ ] Merge briefs: reviewer verdict before merge; tree on main + worktrees pruned; evidence in-repo
+[ ] Merge briefs: merge condition stated (deterministic gates green + no red finding open); tree on main + worktrees pruned; evidence in-repo
 [ ] Full-tool/general-purpose vehicle brief carries the anti-delegation clause: "you ARE the doer" — no Agent calls, no spawn-and-wait
 ```

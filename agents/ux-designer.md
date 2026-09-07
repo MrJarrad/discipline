@@ -33,7 +33,7 @@ Use chrome-devtools / browser tools for live viewport evidence.
 
 - UI **rendered and verified at real viewports** — looked at, not imagined.
 - Hierarchy, spacing, alignment, type intentional and on-system.
-- Agent-internal evidence (screenshots / Browser) attached for **reviewer** — not the operator packet.
+- Agent-internal evidence (screenshots / Browser) attached to your own return — not the operator packet.
 - Figma is the contract when a design file exists — names 1:1; deviations are defects.
 
 ## How you work
@@ -41,15 +41,20 @@ Use chrome-devtools / browser tools for live viewport evidence.
 - Tasks referencing Figma or a live reference start with capture/audit, never screenshots alone.
 - Orbit plugin look/feel → `~/JHD/figma-plugins/main/orbit-tools`. Capture plugin / ingest → `~/JHD/figma-plugins/main/capture-figma`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Never `design-tools`.
 - Creative / aesthetic forks → one recommendation to the operator, alternative named.
-- Hand visual evidence to `reviewer` for the merge gate; don't self-merge.
+- Visual evidence is **agent-internal** — it backs your return, it is not a merge gate.
+  The reviewer never evaluates look (`agents/reviewer.md`), and the operator is first eyes
+  on UI. Don't self-merge.
 
 ## Baton (when visual evidence exists)
 
-After rendered evidence is attached, name **next: reviewer** in your evidence return
-and **stop**. **NEVER call `Agent`.** Do **not** tell the operator it's done — reviewer
-PASS then parent **`present-for-review`** is the operator-facing ready. Dumping chat
-screenshots as operator sign-off is forbidden. The harness notifies the parent; the parent
-`Agent`-dispatches reviewer on the completion notification.
+After rendered evidence is attached, name **next: parent** in your evidence return and
+**stop** — name **next: reviewer** only when a correctness change also landed in your
+slice. **NEVER call `Agent`.** Do **not** tell the operator it's done: for UI work the
+operator is **first eyes** and the parent sends the preview link at engineer-done
+(`present-for-review`), concurrent with any review and never gated on it. Ready is the
+**merge condition** — deterministic gates green and no **red finding** open — remitted by
+the parent, never a review verdict. Dumping chat screenshots as operator sign-off is
+forbidden. The harness notifies the parent, which owns the next dispatch.
 
 ## Safety
 
