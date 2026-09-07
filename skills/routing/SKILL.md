@@ -58,13 +58,17 @@ turn's summary, no matter how recently it last fired.
    as a substitute for work a persona owns, and never for anything the operator
    asked to be researched, designed, built, reviewed, or released.
 6. **The fleet merges and ships, never the orchestrator** (operator ruling,
-   2026-07-26). Reviewer returns PASS/BLOCK (verdict only, never writes); on PASS,
-   parent loads **`present-for-review`** when a live product exists, then dispatches
-   merge execution to Engineer (mid-stream integration) or Release Ops (release-gated).
-   **Engineer complete is not done.** After engineer lands, dispatch reviewer before
-   the operator hears "fixed". Only reviewer PASS may be reported as done. Skipping
-   reviewer because the change is "routine", "one file", or "discipline/docs" is
-   forbidden — routine skips the operator merge click, not reviewer.
+   2026-07-26). **The reviewer informs; CI and the parent decide.** Reviewer returns
+   severity-ranked findings (red / amber / note), never a bare merge verdict and never
+   a write. **Merge condition: deterministic gates green + no red finding open** —
+   the parent remits, loading **`present-for-review`** first when a live product
+   exists, then dispatching merge execution to Engineer (mid-stream integration) or
+   Release Ops (release-gated). **Engineer complete is not merged.** After engineer
+   lands, solicit review before the operator hears "fixed" — except on the small-fix
+   path (single file, no behaviour claim, gates green), which ships on engineer
+   verification + parent check with no reviewer (`lean-review-operator-visual`).
+   **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
+   for the tier and round-cap law.
 7. **Grill before dispatch.** Non-trivial build/design: if the decision frontier is
    not empty, load `grilling` and lock the tree (experience questions, recommended
    answers) before `Agent`. Cannot write ACs without inventing requirements → grill,
@@ -77,7 +81,8 @@ turn's summary, no matter how recently it last fired.
    **NEVER call `Agent`** — they land, name the next owner in evidence, and stop. Parent
    silence **after the completion ping** is a routing failure. Waiting **inside** the
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
-   grilling, operator voice, every `Agent` dispatch, merge remittance after PASS).
+   grilling, operator voice, every `Agent` dispatch, merge remittance when the merge
+   condition is met).
 9. **Dispatch surface — operator's rule: "if a task can be done in cloud, it is."**
    Every dispatched agent is a doer — build, fix, verify, triage, review, audit,
    research alike; the cloud default covers all of them, and the only test is
@@ -118,10 +123,11 @@ turn's summary, no matter how recently it last fired.
    write a slice brief of a whole-surface lock. **Work batches ≠ spec width** — caps must
    not drop locked rows (see `dispatch-brief`). **Paired briefs:** engineer and reviewer
    briefs share the **same current locked table** — never dispatch reviewer on an earlier
-   narrower table. **Noted without fail is not PASS** (e.g. notes wrap-as-one-blob and
-   PASSes). Then: engineer covers every row (or operator-deferred). Do **not** dispatch
-   reviewer until every locked row is claimed or deferred. Reviewer **Spec** incomplete →
-   **BLOCK**. Operator widens lock mid-flight → parent **retargets** standing engineer; an
+   narrower table, and the reviewer brief names the lock's **live path** so the reviewer
+   re-reads it rather than trusting the snapshot — a drifted spec is a **red finding**.
+   **Noted without failing is not a clear review** (e.g. notes wrap-as-one-blob and clears
+   it). Then: engineer covers every row (or operator-deferred). Do **not** solicit review
+   until every locked row is claimed or deferred. Spec incomplete → **red**. Operator widens lock mid-flight → parent **retargets** standing engineer; an
    in-flight review of the old slice is **not** protected — do **not** answer with *Review
    is already running on that slice. No second pass.*
 11. **Dispatch on the completion notification only.** Harness resume/reconnect prompts
@@ -135,10 +141,14 @@ turn's summary, no matter how recently it last fired.
 
 | Just finished | Next owner (parent `Agent`-dispatches on completion notification) |
 |---|---|
-| Engineer landed (behaviour / plugin / product change) | **Reviewer** |
-| Reviewer **BLOCK** | **Engineer** (`resume`) with BLOCK gaps |
-| Look/feel / match Figma / match reference, or reviewer BLOCKs visual claim for missing render | **UX Designer** for agent evidence, then reviewer again |
-| Reviewer **PASS** | If live product the operator signs → parent loads **`present-for-review`**, then merge execution — engineer mid-stream or Release Ops; parent remits; no operator Merge click |
+| Engineer landed, **UI change** | **Operator** — preview link goes out first (`present-for-review`); reviewer runs concurrently and never gates the link |
+| Engineer landed (behaviour / plugin / product change) | **Reviewer**, once deterministic gates are green — a red build is not review-ready |
+| Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge |
+| Reviewer returns **red** findings | **Engineer** (`resume`) with the red findings — this is round 2 |
+| Reviewer returns **amber / note** only | Merge condition met — parent's call whether amber is fixed now or taken as a follow-up lane; notes need no action |
+| **Round 3 returns with red still open** | **Operator** — the loop **halts**. Parent presents the open findings for a decision. No round 4, no re-brief |
+| Look/feel / match Figma / match reference | **UX Designer** for agent evidence (the reviewer never evaluates look) |
+| Merge condition met (gates green, no red) | If live product the operator signs → parent loads **`present-for-review`**, then merge execution — engineer mid-stream or Release Ops; parent remits; no operator Merge click |
 
 **Persona:** name the next owner in evidence; **NEVER call `Agent`.** **Orchestrator:**
 default `run_in_background`, **end the turn** after dispatch, `Agent` next owner on the
@@ -217,18 +227,19 @@ parent memory.
 
 ## Verification hooks
 
-- **Baton (parent-only):** engineer landed → parent `Agent`-dispatches reviewer; reviewer BLOCK →
-  parent `Agent`-dispatches engineer (`resume`); feel/render gap → parent `Agent`-dispatches ux-designer for
-  agent evidence; reviewer PASS → parent **`present-for-review`** when live product, then
-  merge remittance. Specialists **NEVER call `Agent`**. Parent silence **after the
-  completion ping** is a routing failure. Waiting **inside** the dispatch turn is also a
-  routing failure.
-- **Engineer complete → reviewer.** Orchestrator must not relay engineer "done"/"fixed"/"parity" to the operator. Only reviewer PASS is operator-facing done. **Brief gate first:** whole locked table in ACs — slice brief of whole-surface lock → malformed, do not dispatch (`review-the-lock-not-the-slice`). **Paired briefs:** reviewer brief = **same current locked table** as engineer; noted without fail is not PASS. Do **not** dispatch reviewer until engineer claims **every locked row** or names operator-deferred rows.
+- **Baton (parent-only):** engineer landed → parent `Agent`-dispatches reviewer once
+  deterministic gates are green; red findings → parent `Agent`-dispatches engineer
+  (`resume`); feel/render gap → parent `Agent`-dispatches ux-designer for agent evidence;
+  merge condition met → parent **`present-for-review`** when live product, then merge
+  remittance; **round 3 with red still open → halt and present to the operator**.
+  Specialists **NEVER call `Agent`**. Parent silence **after the completion ping** is a
+  routing failure. Waiting **inside** the dispatch turn is also a routing failure.
+- **Engineer complete → reviewer.** Orchestrator must not relay engineer "done"/"fixed"/"parity" to the operator. **Merge is CI green + no red finding**, remitted by the parent — not a reviewer verdict relayed onward. **Brief gate first:** whole locked table in ACs — slice brief of whole-surface lock → malformed, do not dispatch (`review-the-lock-not-the-slice`). **Paired briefs:** reviewer brief = **same current locked table** as engineer, and names the lock's **live path** so the reviewer re-reads it; noted without failing is not a clear review. Do **not** solicit review until engineer claims **every locked row** or names operator-deferred rows.
 - **Lock widened mid-flight:** parent retargets engineer; old-slice in-flight review is not the gate. Operator is **never mute** — status vs lock (in vs missing).
-- **Behaviour claims** need `[runtime]` or `[test]` evidence in the reviewer verdict — diff-only PASS on a behaviour claim is BLOCK.
+- **Behaviour claims** need `[runtime]` or `[test]` evidence in the reviewer's finding — diff-only on a behaviour claim is a red finding.
 - **UI reviews** include a console error check on touched routes (uncaught errors and
-  `console.error`) — same standing BLOCK class as lab CWV on UI work.
-- **Visual/feel claims** need rendered evidence (ux-designer preview or Browser) — diff-only PASS on a feel claim is BLOCK; re-dispatch ux-designer when evidence is missing.
+  `console.error`) — same standing red class as lab CWV on UI work.
+- **Look and feel are the operator's lane** — the reviewer never evaluates look. Rendered agent evidence for a Figma/reference match goes to ux-designer; the operator's own preview link goes out at engineer-done and never waits on review.
 - Reviewer: a change whose brief mandated skills must show those invocations in
   the transcript — missing evidence is a quality failure, send back.
 - `wrap`: report personas/skills invoked this session against these tables;
