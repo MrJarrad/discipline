@@ -1,3 +1,49 @@
+1.69.0 — output style: communication rules first (2026-09-08)
+
+One forced output style. `output-styles/discipline.md` now opens with how a reply
+reads, and routing follows it — built from the 2026-09-08 transcript research (58
+operator confusion signals across 802 sessions; six named failure types). The rules
+are positive and exampled: lead with the outcome; use the vocabulary the work already
+has and gloss any system term in the same sentence on first use; a second confusion
+signal earns different framing, never the same sentences; walk-backs lead with
+"Correction:"; every status ends with one next-action sentence; waiting messages say
+what is observably happening; a decision message is one question, one recommendation,
+one named alternative; ~120 words is a tripwire, not a rule; a pre-send self-check
+closes the section. Borrowed lines are credited in the style.
+
+`operator-voice.md` is retired — its force-for-plugin sibling meant it never fired.
+Its load-bearing rules are merged in: announce by invoking the real tool, the four
+operator calls (creative, aesthetic, scope, destructive), one recommendation and never
+a menu, native commands unprompted, status against the lock. The style is capped at
+130 lines with no tables so it reads on a phone.
+
+`dispatch-brief` gains **Fixed evidence return** — final sha, per-criterion table with
+file:line, gate output verbatim, open gaps, next owner, budgeted at 250 words excluding
+the table and gate output. Every agent references that one section instead of implying
+its own shape. Briefs now name skills rather than restating their procedure, may not
+paste vault rulings beyond one DO/DON'T pair, and target under 600 words.
+
+A new law test (hooks/scripts/output-style.test.mjs) asserts the frontmatter flags, the
+retirement, each communication rule, and the return contract on a whitespace-flattened
+copy, so a reflowed paragraph cannot silently drop a rule.
+
+  .claude-plugin/marketplace.json
+  .claude-plugin/plugin.json
+  CHANGED.txt
+  agents/engineer.md
+  agents/project-manager.md
+  agents/releaseops.md
+  agents/researcher.md
+  agents/reviewer.md
+  agents/ux-designer.md
+  hooks/scripts/output-style.test.mjs
+  output-styles/discipline.md
+  output-styles/operator-voice.md
+  skills/dispatch-brief/SKILL.md
+  skills/grilling/references/DOS-AND-DONTS.md
+  skills/skill-authoring/references/DOS-AND-DONTS.md
+
+-------------------------------------------------------------------------------
 1.68.0 — review/loop stage redesign (2026-09-07)
 
 The reviewer stops being the merge gate and becomes an informer: severity-ranked
