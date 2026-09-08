@@ -870,12 +870,13 @@ dims where relevant, the token mapping (measured → system token), variant matr
 component, verbatim copy, and an explicit **unobserved/unresolved list**. Claims without a
 node id or variable behind them are marked as inference.
 
-### Vocabulary source for define-terms
+### One vocabulary source among several for define-terms
 
-The architecture map's layer/component name list IS the project's canonical vocabulary
-source for `define-terms` — its glossary keys against these names, verbatim, not against
-whatever synonym gets used in conversation. A recapture that renames or adds layers
-updates the glossary the same pass; don't let the two drift apart.
+The architecture map's layer/component name list feeds `define-terms`' glossary — one
+source among several (design files, code classes/tokens, file names) for the names of
+actual things the glossary keys against, verbatim, not against whatever synonym gets used
+in conversation. A recapture that renames or adds layers updates the glossary the same
+pass; don't let the sources drift apart.
 
 ## Alpha composites — Figma's alias-with-opacity gap
 

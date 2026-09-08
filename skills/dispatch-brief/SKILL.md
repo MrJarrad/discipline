@@ -49,18 +49,19 @@ a whole-surface lock is the origin of partial implement + reviews on the wrong s
 - **Technical column:** one line the doer needs; the parent translates once here, not the doer guessing from "modern" or "robust."
 
 **Part-name fidelity.** When the operator's own words name a physical/visual part or
-element, the operator column carries the **layer/component name from the project's
-source file** exactly as the operator said it; the technical column may append a code
-identifier, which itself should mirror the layer name — never a synonym, in either
-direction. Ring, rim, lip, and edge are different layers, and swapping one for another
-is how a lane and a review get spent on the wrong part (hoverboard 2026-09-08: "the part
-that just peeks out of the thruster" named layer `disc`'s edge; the brief renamed it to
-the ring). A brief that renames a part instead of quoting its layer name is malformed.
-Resolve unclear part names against the layer-derived project glossary (`define-terms`)
+element, the operator column carries the **name of the actual thing as defined wherever
+it's defined** — a layer/component name in a design file, a class or token in code, a
+style, a file — exactly as the operator said it; the technical column may append a code
+identifier, which itself should mirror that source name — never a synonym, in either
+direction. Ring, rim, lip, and edge can be different named things, and swapping one for
+another is how a lane and a review get spent on the wrong part (hoverboard 2026-09-08:
+"the part that just peeks out of the thruster" named the thing `disc`'s edge; the brief
+renamed it to the ring). A brief that renames a part instead of quoting its defined name
+is malformed. Resolve unclear part names against the project glossary (`define-terms`)
 before the row goes into a brief.
 
-- **DO:** "Row 4: `disc` edge (layer `disc`, operator: 'the part that peeks out of the
-  thruster')"
+- **DO:** "Row 4: `disc` edge (the thing is named `disc`; operator: 'the part that peeks
+  out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
 - **Locked decisions → ACs:** **one AC per locked row** (operator-deferred rows named
   explicitly in the brief). Acceptance criteria must trace to these rows — **every locked row**, or an explicit operator-deferred row named in the brief.
