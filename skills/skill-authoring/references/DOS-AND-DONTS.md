@@ -41,7 +41,7 @@
 
 **Do:** Minimum tokens; token + rule at the altitude it applies.
 
-**Don't:** Essay-length rules — that's over-explain per operator-voice.
+**Don't:** Essay-length rules — that's over-explain per the `discipline` output style.
 
 ### AGENTS.md
 

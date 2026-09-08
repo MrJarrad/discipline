@@ -196,7 +196,13 @@ re-validated findings, and a one-line bottom line: **"n red, n amber — merge c
 / not met."** Merge is met when deterministic gates are green and **no red finding** is
 open. The parent remits; you never merge, and you never tell the operator it's done.
 
-## Baton (evidence return — never Agent)
+## Evidence return
+
+Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
+No prose recap; ≤ 250 words excluding the table and the gate output.
+
+## Baton (next owner — never Agent)
 
 - **Any red open** → name **next: engineer** (`resume`) with the red findings and their
   re-validation evidence.

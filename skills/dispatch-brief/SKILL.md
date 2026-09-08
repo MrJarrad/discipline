@@ -252,17 +252,50 @@ what, why, refs, this session's **Locked decisions** table, evidence contract, s
 - Three standing footnotes: don't break other work; don't leave an experience broken; use named skills **whole**
 - Skill **names** per work type — never paste skill bodies or restate skill procedures
 
+**Briefs name skills; they never restate them.** Name the skill and the doer loads it
+whole via the Skill tool. Pasting a skill's procedure into a brief duplicates always-on
+context, drifts silently when the skill changes, and reads as a licence to cherry-pick
+the pasted part. Naming is the instruction.
+
 **When to quote a ruling verbatim:** only when session-critical AND not already in always-on
-— then one ruling + DO/DON'T pair (`vault/fleet/rulings/2026-08-10-do-dont-pairs.md`). The
-reviewer brief gets the same session binders (lock + footnotes), not a fleet ruling anthology.
+— then one ruling + DO/DON'T pair (`vault/fleet/rulings/2026-08-10-do-dont-pairs.md`). A brief
+may not paste vault rulings **beyond one DO/DON'T pair**: name the ruling's path and let the
+doer read it. The reviewer brief gets the same session binders (lock + footnotes), not a
+fleet ruling anthology.
+
+**Target brief length: under 600 words**, excluding the locked-decisions table and pasted
+acceptance criteria. A longer brief is almost always restated skill procedure or a ruling
+anthology — cut those first, never the lock rows or the evidence contract.
+
+## Fixed evidence return
+
+**Every persona returns the same five things, in this order.** Defined once here; agent
+files reference this section rather than restating it, and briefs cite it rather than
+inventing a shape per dispatch.
+
+| # | Field | What it is |
+|---|---|---|
+| 1 | **Final sha** | the commit the evidence certifies |
+| 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line` |
+| 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
+| 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
+| 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent` |
+
+**No prose recap, no narrative** — the table and the gate output are the report. Budget:
+**≤ 250 words**, excluding the per-criterion table and the verbatim gate output. Over
+budget is a signal the run was under-scoped, not a licence to narrate.
+
+Non-code lanes map the same five: the reviewer's per-criterion rows are its
+severity-ranked findings with their re-validation; the researcher's `file:line` is the
+cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats a false
+"done" — a fail row with evidence is a complete return, and the brief says so.
 
 ## Evidence contract
 
-Every brief states what the agent must return as proof of done: a commit hash plus a
-clean `tsc`/build result for code, measured numbers for perf or content claims, cited
-URLs for research, file paths for anything touched. Where a standing ruling governs the
-work, the brief also names what compliance with that ruling looks like as evidence. A
-surfaced failure beats a false "done" — say so explicitly.
+Beyond the fixed shape above, every brief names what counts as proof for *this* job:
+measured numbers for perf or content claims, cited URLs for research, the captured
+artifact for design work. Where a standing ruling governs the work, the brief also names
+what compliance with that ruling looks like as evidence.
 
 **Engineer briefs:** do not claim "fixed" or operator-facing done — return evidence for
 review. Parent solicits **reviewer** after engineer lands and the gates are green.
@@ -329,7 +362,12 @@ agent starts working, not re-mapping.
 [ ] Required skills named per the work-type table above
 [ ] Figma-backed build: file+node named; doer loads capture-figma; no pasted prop table
 [ ] Three-layer brief: lock table + three footnotes + skill names only — no skill bodies; no quote-every-ruling novel
-[ ] Evidence contract stated: what proof comes back, "failure beats false done"
+[ ] Evidence return is the **Fixed evidence return** shape (sha, per-criterion table with
+    file:line, gate output verbatim, open gaps, next owner) — referenced, not re-specified;
+    ≤ 250 words excluding table and gate output
+[ ] Job-specific proof named on top of the fixed shape: "failure beats false done"
+[ ] Skills **named**, never restated; no vault ruling pasted beyond one DO/DON'T pair
+[ ] Brief length under the 600-word target (locked table and ACs excluded)
 [ ] Same-domain: `SendMessage` to the standing agent (routing law); spawn only for a new domain; primer cited as first read where one exists
 [ ] Brief carries verified file:line loci, baselines, and key-file hashes
 [ ] Branch/cwd stated; out-of-bounds named; push policy stated

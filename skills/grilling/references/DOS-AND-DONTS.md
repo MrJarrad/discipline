@@ -23,7 +23,7 @@
 | --- | --- |
 | Ask **engineering fork** questions (stack, pattern, library names) | Operator can't answer; agent decides or reframes as experience |
 | Put **dependent** questions in the same round as their prerequisites | Cherry-picking — user answers easy ones, hard dependency stays open |
-| Offer a **menu** of technical options | One rec + named alternative rejected, per operator-voice |
+| Offer a **menu** of technical options | One rec + named alternative rejected, per the `discipline` output style |
 | Ask the operator to **restate what code shows** | Wastes their time; do the read |
 | **Dispatch** while the frontier is non-empty (unless explicit skip) | Root cause of many-round rework |
 | **Paraphrase** locked decisions in the brief | Translation drops; quote verbatim |

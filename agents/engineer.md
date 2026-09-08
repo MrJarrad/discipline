@@ -74,6 +74,12 @@ to implementation (or deferred). A self-narrowed slice is not review-ready. Pare
 treat a review as clearing the change while the reviewer brief was on a narrower table
 than the engineer's **same current** locked table.
 
+## Evidence return
+
+Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
+No prose recap; ≤ 250 words excluding the table and the gate output.
+
 ## Baton (when you land)
 
 When your slice is landed (commit pushed if brief authorized) and the deterministic gates
