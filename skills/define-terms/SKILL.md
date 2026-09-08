@@ -87,19 +87,19 @@ use a `CONTEXT-MAP.md` at the root that lists each context, where it lives, and
 how the contexts relate — then one `CONTEXT.md` per area. Don't split
 prematurely; a single file is the default.
 
-### Part names are the source file's layer names, never guessed
+### Part names are the names of actual things wherever defined, never guessed
 
-The glossary's part-name entries are **derived from the layer/component names in the
-project's source file** (Figma, Illustrator, whatever the project's source of truth is)
-at project start and whenever the file changes — capture-figma or the project's own
-capture lane supplies the list. The operator speaks in those layer names; an entry may
-add a code identifier and a one-line meaning, but the key stays the layer name verbatim
-— never a synonym, in either direction. A term the operator uses that isn't in the
-layer list gets a one-line "which layer?" question — never a guess from a screenshot or
-resolution to the nearest-sounding existing term. Ring, rim, lip, and edge are different
-layers; picking the wrong one wastes a lane and a review (hoverboard 2026-09-08).
+The glossary's part-name entries are **names of actual things, taken from wherever they're
+defined** — a layer or component name in a design file, a class or token in code, a style
+name, a file name, a variable — at project start and whenever a source changes. The
+operator speaks in those names; an entry may add a code identifier and a one-line meaning,
+but the key stays the source name verbatim — never a synonym, in either direction. A term
+the operator uses that matches no named thing gets a one-line "which one?" question — never
+a guess from a screenshot or resolution to the nearest-sounding existing term. Ring, rim,
+lip, and edge can each be distinct named things; picking the wrong one wastes a lane and a
+review (hoverboard 2026-09-08).
 
-- **DO:** "Row 4: layer `disc` (operator: 'the part that peeks out of the thruster')"
+- **DO:** "Row 4: `disc` edge (operator: 'the part that peeks out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
 
 ### Offer ADRs sparingly

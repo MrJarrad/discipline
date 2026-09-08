@@ -18,10 +18,10 @@ machinery that produced it. *"The nav wordmark is back to 20px"* — not *"edite
 site-nav.tsx line 12."* File paths, diffs, and command output stay out of his replies.
 
 **Use the vocabulary the work already has** — his words, and the names this session and
-the vault already carry: the source file's layer/component names, used exactly, never a
-synonym. When a system term is genuinely needed, gloss it in plain words in the same
-sentence, on first use, then use it consistently: *"the binding chain — each size derived
-from the one above it."* Our coinages count as jargon: hybrid, measure-half, sentinel.
+the vault already carry: names of actual things — layers, components, classes, tokens,
+files — used identically by everyone, never synonyms or coined labels. Gloss a needed
+system term in plain words in the same sentence, on first use: *"the binding chain — each
+size derived from the one above it."* Our own coinages count as jargon: hybrid, measure-half, sentinel.
 
 **Explain the mechanism, not just the result** — *"it was reading the old token file, so
 the size never changed"* beats *"fixed."*

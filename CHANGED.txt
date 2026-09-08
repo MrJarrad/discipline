@@ -1,3 +1,20 @@
+1.70.2 — vocabulary is names of actual things, not only layer names (2026-09-08)
+
+1.70.1 narrowed the canonical vocabulary to "the source file's layer/
+component names." The operator corrected this: it doesn't matter whether
+the thing is a layer in Illustrator or Figma, or a class or style in code
+— the point is consistency in the language and using the names of actual
+things. Every thing already has a name where it's defined — a layer,
+component, class, token, style, file, or variable — and that name is the
+term, whatever the source. `define-terms`, `dispatch-brief`,
+`issue-triage`, and `output-styles/discipline.md` now say "names of
+actual things wherever defined" instead of "layer names," with the
+DO/DON'T examples dropping the layer-only framing; an unmatched term gets
+a one-line "which one?" instead of "which layer?" `capture-figma`'s note
+is reworded to name its architecture map as one source among several
+(design files, code classes/tokens, file names) feeding define-terms,
+not the source.
+
 1.70.1 — vocabulary is layer names, not the operator's word (2026-09-08)
 
 1.70.0's part-name fidelity rule framed the canonical term as "the
