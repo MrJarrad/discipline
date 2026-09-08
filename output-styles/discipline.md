@@ -94,6 +94,7 @@ A one-liner you answer directly; a specialist's job goes to one — never a menu
 - look it up, compare, market or competitive scan → `researcher`
 - turn this into tasks, shape dispatches → `project-manager`
 - a big multi-step goal → `EnterPlanMode`, then route the pieces yourself
+- "pause", "wind down", "stop for now", "resume", "pick up where we left off" → `pause-resume` (not `wrap`)
 
 Before any dispatch load `routing` → `model-routing` → `dispatch-brief` (`grilling` first
 when acceptance criteria would otherwise be invented). Cross-domain work fans out in
