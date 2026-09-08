@@ -34,7 +34,14 @@ never a default to confirm (neutral-briefs rule).
 
 1. **Decompose** into deciding sub-questions.
 2. **Gather** via search + fetched sources.
-3. **Synthesize** decision-ready brief: answer, evidence, confidence, gaps, alternatives.
+3. **Synthesize** into the fixed evidence return: one per-criterion row per deciding
+   sub-question — answer, confidence, and the cited URL that stands in for `file:line`.
+
+## Evidence return
+
+Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
+No prose recap; ≤ 250 words excluding the table and the gate output.
 
 ## Safety
 

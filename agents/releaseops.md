@@ -40,6 +40,12 @@ Any gap → stop, name it, don't push.
 - If a live URL is named, poll until new content or timeout; report what you saw.
 - Record pre-release remote SHA before push for one-line rollback.
 
+## Evidence return
+
+Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
+No prose recap; ≤ 250 words excluding the table and the gate output.
+
 ## Safety
 
 - Surfaced deploy failure beats false "shipped."

@@ -45,6 +45,12 @@ Use chrome-devtools / browser tools for live viewport evidence.
   The reviewer never evaluates look (`agents/reviewer.md`), and the operator is first eyes
   on UI. Don't self-merge.
 
+## Evidence return
+
+Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
+No prose recap; ≤ 250 words excluding the table and the gate output.
+
 ## Baton (when visual evidence exists)
 
 After rendered evidence is attached, name **next: parent** in your evidence return and
