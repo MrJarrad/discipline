@@ -35,7 +35,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 **Verify & ship** — `quality` · `qa-acceptance` · `verify-finding` · `test-first` · `webapp-testing` · `diagnosing-bugs` · `release-deploy`
 
-**Research & knowledge** — `perplexity-research` · `research-synthesis` · `vault-recall` · `vault-write`
+**Research & knowledge** — `research-synthesis` · `vault-recall` · `vault-write`
 
 **Ops & meta** — `ops-inbox` · `summarise-meeting` · `brand-voice` · `agent-ops` · `wrap` · `skill-review`
 

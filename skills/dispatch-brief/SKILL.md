@@ -330,7 +330,9 @@ that **notes** a lock miss without failing it is not a clear review.
 State the branch and cwd explicitly (per-agent cwd for multi-repo dispatch). State what
 is out of bounds — files, repos, or concerns the agent must not touch. For any repo work:
 **do NOT push** unless the brief explicitly authorizes releaseops/orchestrator push —
-default is the orchestrator reviews and pushes.
+default is the orchestrator reviews and pushes. A dispatched agent never edits settings,
+permissions, hooks, or plugin config (`~/.claude/**`, `.claude/settings*.json`) — a blocked
+or denied command is a finding to return to the parent, never a workaround.
 
 ## Reviewer-gate sequencing
 
