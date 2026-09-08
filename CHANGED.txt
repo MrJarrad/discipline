@@ -1,3 +1,40 @@
+1.70.0 — pause/resume skill, part-name fidelity (2026-09-08)
+
+New skill `skills/pause-resume/SKILL.md` converts the operator-ratified
+pause/resume protocol (`fleet/rulings/pause-resume-protocol.md`) into a
+fireable skill with all nine trigger phrases: pause, "I need to pause", "I
+need to pause shortly", wind down, stop for now, let's stop here, resume,
+pick up where we left off, carry on from the snapshot. Pause halts new
+dispatch, stops running agents at their next safe point, banks a one-screen
+snapshot into the project handover, and confirms in one line; resume reads
+the snapshot and re-dispatches each interrupted lane as a fresh
+continuation. Cross-referenced from `routing` (rule 12, persona table) and
+the always-on `output-styles/discipline.md` route-by-reflex list, so the
+words fire it by reflex instead of falling to `wrap` (which stays the full
+session close, not this).
+
+Part-name fidelity: `dispatch-brief`'s Locked decisions section, `define-
+terms`, and `issue-triage` now each carry the rule that a physical/visual
+part name in the operator's own words travels verbatim — the technical
+column may add a code identifier but never substitutes a synonym (ring,
+rim, lip, and edge are different parts). `define-terms` adds the part name
+to the glossary from the operator's usage before a lane opens, never
+guessing it; `issue-triage` quotes the resolved term back to the operator
+in one line before a lane opens on a feedback row naming a part. Prompted
+by the hoverboard 2026-09-08 miss, where a briefed "ring" cost two lanes
+and a review when the operator meant the disc's edge.
+
+  .claude-plugin/marketplace.json
+  .claude-plugin/plugin.json
+  CHANGED.txt
+  output-styles/discipline.md
+  skills/define-terms/SKILL.md
+  skills/dispatch-brief/SKILL.md
+  skills/issue-triage/SKILL.md
+  skills/pause-resume/SKILL.md
+  skills/routing/SKILL.md
+
+-------------------------------------------------------------------------------
 1.69.0 — output style: communication rules first (2026-09-08)
 
 One forced output style. `output-styles/discipline.md` now opens with how a reply
