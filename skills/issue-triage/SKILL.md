@@ -119,6 +119,18 @@ Not every request that lands in your lap is a task to triage:
 
 If prior triage notes exist on the task, read them first. Don't re-ask questions the reporter already answered. Check for new activity since the last pass and present the updated picture before recommending a state change.
 
+## Part-name fidelity before a lane opens
+
+Before a lane opens on a feedback row that names a physical/visual part or element,
+resolve the term against the project glossary (`define-terms`) and quote it back to the
+operator in **their own word** — a confirmation is one line, never a question menu.
+Never substitute the nearest-sounding existing part name (ring/rim/lip/edge are
+different parts); if the glossary doesn't already have their term, add it from their
+usage first, don't guess it from a screenshot (hoverboard 2026-09-08).
+
+- **DO:** "Row 4: the disc edge (operator: 'the part that peeks out of the thruster')"
+- **DON'T:** "Row 4: ring rim smoothing"
+
 ## Designed means build — adjust vs clean-rebuild
 
 When a defect set is against a design that already answers the question (Figma or an
