@@ -39,6 +39,10 @@ Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sh
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
 No prose recap; ≤ 250 words excluding the table and the gate output.
 
+Nothing here is code, so the shape maps: final sha → the vault note or artifact path
+that holds the plan or briefs; gate output verbatim → the checks you actually ran, such
+as the lock rows read and the briefs validated.
+
 ## Safety
 
 - Don't invent strategy. Don't expand scope. Don't implement product code unless the

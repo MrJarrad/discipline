@@ -16,6 +16,16 @@ const read = (p) => readFileSync(join(repo, p), "utf8");
 // copy so a reflowed paragraph can never silently drop a rule (review-loop.test.mjs).
 const flow = (text) => text.replace(/\s+/g, " ");
 
+// A rule is pinned only when its OWN sentences are asserted: grab the paragraph that
+// starts with the rule's bold lead and stop at the blank line, so deleting that block
+// goes red even though the words survive elsewhere in the file.
+const block = (text, lead) => {
+  const start = text.indexOf(lead);
+  assert.notEqual(start, -1, `rule block missing: ${lead}`);
+  const end = text.indexOf("\n\n", start);
+  return flow(text.slice(start, end === -1 ? undefined : end));
+};
+
 const style = flow(read("output-styles/discipline.md"));
 const styleRaw = read("output-styles/discipline.md");
 const dispatchBrief = flow(read("skills/dispatch-brief/SKILL.md"));
@@ -63,7 +73,13 @@ test("operator-voice's load-bearing rules survive the merge", () => {
   assert.match(style, /scope/i);
   assert.match(style, /destructive/i);
   assert.match(style, /never a menu/i, "one recommendation, never a menu survives");
-  assert.match(style, /\/plan|\/context|\/compact|\/todos/, "native commands unprompted survive");
+  const NATIVE_COMMANDS = [
+    "/todos", "/plan", "/context", "/compact", "/code-review", "/security-review",
+    "/verify", "/subtask", "/rewind", "/memory", "/usage", "/tasks",
+  ];
+  for (const cmd of NATIVE_COMMANDS) {
+    assert.ok(style.includes(`\`${cmd}\``), `native command ${cmd} must be named in the style`);
+  }
 });
 
 // --- AC2: the ten communication rules, positively framed ------------------
@@ -73,9 +89,13 @@ test("(a) outcome first", () => {
 });
 
 test("(b) the operator's own vocabulary, with a gloss on first use", () => {
-  assert.match(style, /vocabular/i);
-  assert.match(style, /first use/i);
-  assert.match(style, /same sentence/i, "the gloss rides in the same sentence");
+  const rule = block(styleRaw, "**Use the vocabulary the work already has**");
+  assert.match(rule, /his words/i, "the vocabulary is the operator's own");
+  assert.match(rule, /this session and the vault/i, "plus what the session and vault already carry");
+  assert.match(rule, /gloss/i, "a system term is glossed");
+  assert.match(rule, /same sentence/i, "the gloss rides in the same sentence");
+  assert.match(rule, /first use/i);
+  assert.match(rule, /coinages count as jargon/i, "our own coinages are jargon too");
 });
 
 test("(c) the six researched failure types are named DON'Ts with the operator's signals", () => {
@@ -118,10 +138,12 @@ test("(i) the ~120-word tripwire opens with what this means", () => {
   assert.match(style, /what this means/i);
 });
 
-test("(j) a pre-send self-check line", () => {
-  assert.match(style, /before you send|pre-send/i);
-  assert.match(style, /20 words/i);
-  assert.match(style, /two meanings/i);
+test("(j) the pre-send self-check counts ideas and vocabulary, not sentence length", () => {
+  const check = block(styleRaw, "**Before you send:**");
+  assert.match(check, /two ideas/i, "one sentence, one idea");
+  assert.match(check, /gloss/i, "a term that needed a gloss and did not get one");
+  assert.match(check, /have not been using|haven't been using/i, "a term new to the session");
+  assert.doesNotMatch(check, /\d+ words/, "sentence length is not a gate here");
 });
 
 test("borrowed rules are credited", () => {

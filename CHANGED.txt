@@ -14,8 +14,10 @@ closes the section. Borrowed lines are credited in the style.
 `operator-voice.md` is retired — its force-for-plugin sibling meant it never fired.
 Its load-bearing rules are merged in: announce by invoking the real tool, the four
 operator calls (creative, aesthetic, scope, destructive), one recommendation and never
-a menu, native commands unprompted, status against the lock. The style is capped at
-130 lines with no tables so it reads on a phone.
+a menu, status against the lock, and all twelve native commands used unprompted
+(`/todos /plan /context /compact /code-review /security-review /verify /subtask
+/rewind /memory /usage /tasks`) — the law test asserts every one by name. The style is
+capped at 130 lines with no tables so it reads on a phone.
 
 `dispatch-brief` gains **Fixed evidence return** — final sha, per-criterion table with
 file:line, gate output verbatim, open gaps, next owner, budgeted at 250 words excluding
@@ -25,8 +27,15 @@ paste vault rulings beyond one DO/DON'T pair, and target under 600 words.
 
 A new law test (hooks/scripts/output-style.test.mjs) asserts the frontmatter flags, the
 retirement, each communication rule, and the return contract on a whitespace-flattened
-copy, so a reflowed paragraph cannot silently drop a rule.
+copy, so a reflowed paragraph cannot silently drop a rule. Rules whose words also occur
+elsewhere in the file are asserted inside their own paragraph block, so deleting the
+block goes red. `node --test hooks/scripts/` reports 455 tests; `node --test hooks/`
+reports 461 (it also picks up the hook-level suites outside scripts/).
 
+`.gitignore` now ignores `.ledger.md` — the notes ledger is per-run scratch, not
+shipped plugin content.
+
+  .gitignore
   .claude-plugin/marketplace.json
   .claude-plugin/plugin.json
   CHANGED.txt
