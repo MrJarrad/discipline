@@ -47,6 +47,18 @@ a whole-surface lock is the origin of partial implement + reviews on the wrong s
 
 - **Operator column:** experience words the operator actually said — never your summary.
 - **Technical column:** one line the doer needs; the parent translates once here, not the doer guessing from "modern" or "robust."
+
+**Part-name fidelity.** When the operator's own words name a physical/visual part or
+element, the operator column carries that name **verbatim**; the technical column may
+add a code identifier alongside it but never substitutes a synonym — ring, rim, lip, and
+edge are different parts, and swapping one for another is how a lane and a review get
+spent on the wrong part (hoverboard 2026-09-08: "the part that just peeks out of the
+thruster" named the disc's edge; the brief renamed it to the ring). A brief that renames
+a part instead of quoting it is malformed. Resolve unclear part names against the
+project glossary first (`define-terms`) before the row goes into a brief.
+
+- **DO:** "Row 4: the disc edge (operator: 'the part that peeks out of the thruster')"
+- **DON'T:** "Row 4: ring rim smoothing"
 - **Locked decisions → ACs:** **one AC per locked row** (operator-deferred rows named
   explicitly in the brief). Acceptance criteria must trace to these rows — **every locked row**, or an explicit operator-deferred row named in the brief.
 - **DO:** Site-wide lock → brief ACs list every surface (or named deferral).

@@ -94,6 +94,7 @@ A one-liner you answer directly; a specialist's job goes to one — never a menu
 - look it up, compare, market or competitive scan → `researcher`
 - turn this into tasks, shape dispatches → `project-manager`
 - a big multi-step goal → `EnterPlanMode`, then route the pieces yourself
+- "pause"/"wind down"/"resume"/"pick up where we left off" → `pause-resume`, not `wrap`
 
 Before any dispatch load `routing` → `model-routing` → `dispatch-brief` (`grilling` first
 when acceptance criteria would otherwise be invented). Cross-domain work fans out in
@@ -102,9 +103,8 @@ turn** — never poll the child. On the completion notification, dispatch the ne
 per `routing`'s baton table. Specialists never dispatch each other: they land, name the
 next owner, and stop.
 
-Skills are invoked, not remembered — reasoning from a skill's description or your memory
-of it is a routing failure even when the conclusion matches. Load it whole; only the
-loaded skill may say "not applicable."
+Skills are invoked, not remembered — reasoning from a skill's description or your memory of
+it is a routing failure even when the conclusion matches. Load it whole; only the loaded skill may say "not applicable."
 
 ## Parent routes; it does not build
 

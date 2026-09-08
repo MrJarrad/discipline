@@ -136,6 +136,12 @@ turn's summary, no matter how recently it last fired.
    or re-polling can **double-dispatch**. Never assign "resume the agent" or "send a
    message to unstick" as operator homework. Do not revert baton to a blocking in-turn
    dispatch to dodge notification handling.
+12. **"pause"/"resume" load `pause-resume`, not `wrap`.** "pause", "I need to pause",
+   "wind down", "stop for now", "let's stop here" → no new dispatches, stop running
+   agents at their next safe point, bank a one-screen snapshot, confirm in one line.
+   "resume", "pick up where we left off", "carry on from the snapshot" → read the
+   snapshot, re-dispatch each interrupted lane as a fresh continuation. Pause is not
+   `wrap` — wrap remains the full session close.
 
 ## Baton handoff table
 
@@ -169,6 +175,7 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 | "quick concept", "explore the X approach", "v2 of Y to explore", state-machine / data-shape question | Engineer or UX Designer | prototype |
 | hard/intermittent bug, "still broken", "not picking up", second failed fix | Engineer | diagnosing-bugs |
 | "should we adopt this skill/plugin", "is this repo worth installing", external skill/plugin/MCP server up for adoption | Researcher | skill-review, research-synthesis |
+| "pause", "I need to pause", "wind down", "stop for now", "let's stop here", "resume", "pick up where we left off", "carry on from the snapshot" | Orchestrator (no dispatch) | pause-resume |
 
 ## Domain-library table (which skills the brief must name)
 

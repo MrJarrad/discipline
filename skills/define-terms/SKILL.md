@@ -1,6 +1,6 @@
 ---
 name: define-terms
-description: Actively sharpen a project's domain vocabulary — challenge fuzzy or colliding terms, maintain the CONTEXT.md glossary, record lightweight ADRs when decisions crystallise. Trigger on "just to be clear", "need to be clear on this one", "what I mean by X is", "I've renamed X to Y", naming disputes (component/variable/block names), or whenever the operator corrects terminology mid-task. Not for document templates — that's doc-formats.
+description: Actively sharpen a project's domain vocabulary — challenge fuzzy or colliding terms, maintain the CONTEXT.md glossary, record lightweight ADRs when decisions crystallise. Trigger on "just to be clear", "need to be clear on this one", "what I mean by X is", "I've renamed X to Y", naming disputes (component/variable/block names), "which part do you mean", any feedback row naming a physical/visual part or element, or whenever the operator corrects terminology mid-task. Not for document templates — that's doc-formats.
 ---
 
 # Define Terms
@@ -86,6 +86,17 @@ splits into separate bounded areas (a monorepo with distinct services, say),
 use a `CONTEXT-MAP.md` at the root that lists each context, where it lives, and
 how the contexts relate — then one `CONTEXT.md` per area. Don't split
 prematurely; a single file is the default.
+
+### Part names are added, never guessed
+
+A physical/visual part or element the operator names ("the part that just peeks out of
+the thruster") that isn't in the glossary gets added from the operator's own usage
+**before** a lane opens on it — never guessed from a screenshot or resolved to the
+nearest-sounding existing term. Ring, rim, lip, and edge are different parts; picking
+the wrong one wastes a lane and a review (hoverboard 2026-09-08).
+
+- **DO:** "Row 4: the disc edge (operator: 'the part that peeks out of the thruster')"
+- **DON'T:** "Row 4: ring rim smoothing"
 
 ### Offer ADRs sparingly
 
