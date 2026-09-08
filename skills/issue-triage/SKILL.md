@@ -122,13 +122,13 @@ If prior triage notes exist on the task, read them first. Don't re-ask questions
 ## Part-name fidelity before a lane opens
 
 Before a lane opens on a feedback row that names a physical/visual part or element,
-resolve the term against the project glossary (`define-terms`) and quote it back to the
-operator in **their own word** — a confirmation is one line, never a question menu.
-Never substitute the nearest-sounding existing part name (ring/rim/lip/edge are
-different parts); if the glossary doesn't already have their term, add it from their
-usage first, don't guess it from a screenshot (hoverboard 2026-09-08).
+resolve the term against the layer-derived project glossary (`define-terms`) and quote
+it back to the operator in **the source file's layer name** — a confirmation is one
+line, never a question menu. Never substitute the nearest-sounding existing layer name
+(ring/rim/lip/edge are different layers); if the glossary doesn't already have their
+term, ask "which layer?" — don't guess it from a screenshot (hoverboard 2026-09-08).
 
-- **DO:** "Row 4: the disc edge (operator: 'the part that peeks out of the thruster')"
+- **DO:** "Row 4: layer `disc` edge (operator: 'the part that peeks out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
 
 ## Designed means build — adjust vs clean-rebuild

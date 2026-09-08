@@ -1,3 +1,21 @@
+1.70.1 — vocabulary is layer names, not the operator's word (2026-09-08)
+
+1.70.0's part-name fidelity rule framed the canonical term as "the
+operator's word." The operator corrected this: the canonical vocabulary is
+the layer/component names in the project's source file (Figma,
+Illustrator, whatever the source of truth is) — the operator speaks in
+those names, and consistency across comms depends on everyone using the
+same layer names, not on whoever spoke first. `define-terms` now derives
+the glossary from the source file's layer/component list (captured by
+`capture-figma` or the project's own capture lane) rather than from
+operator usage; an unmatched operator term gets a one-line "which layer?"
+question instead of a guess. `dispatch-brief`'s Locked decisions rows and
+`issue-triage`'s part-name resolution both quote the layer name verbatim,
+with the code identifier (where added) mirroring it. `capture-figma` gains
+a short note that its architecture map's layer list is define-terms's
+vocabulary source. `output-styles/discipline.md` states the vocabulary is
+the source file's names, not a paraphrase.
+
 1.70.0 — pause/resume skill, part-name fidelity (2026-09-08)
 
 New skill `skills/pause-resume/SKILL.md` converts the operator-ratified

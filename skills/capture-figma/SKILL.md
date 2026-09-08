@@ -870,6 +870,13 @@ dims where relevant, the token mapping (measured → system token), variant matr
 component, verbatim copy, and an explicit **unobserved/unresolved list**. Claims without a
 node id or variable behind them are marked as inference.
 
+### Vocabulary source for define-terms
+
+The architecture map's layer/component name list IS the project's canonical vocabulary
+source for `define-terms` — its glossary keys against these names, verbatim, not against
+whatever synonym gets used in conversation. A recapture that renames or adds layers
+updates the glossary the same pass; don't let the two drift apart.
+
 ## Alpha composites — Figma's alias-with-opacity gap
 
 Figma color variables cannot alias another variable AND apply an opacity (long-standing
