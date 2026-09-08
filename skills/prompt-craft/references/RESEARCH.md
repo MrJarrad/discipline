@@ -1,6 +1,6 @@
 # Research grounding — prompt-craft
 
-This skill is grounded in a Perplexity deep-research pass (2026-07-04, gpt-5.2, grounded/cited) cross-read against the primary sources below. It is **not** written from intuition. Load-bearing claims and their sources:
+This skill is grounded in a deep-research pass (2026-07-04, gpt-5.2, grounded/cited) cross-read against the primary sources below. It is **not** written from intuition. Load-bearing claims and their sources:
 
 ## Primary sources
 

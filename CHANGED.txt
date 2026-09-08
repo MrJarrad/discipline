@@ -1,3 +1,16 @@
+1.71.0 — retire perplexity-research; settings/permissions guard (2026-09-08)
+
+Removed the `perplexity-research` skill and every reference to it (skill count
+46). Research now runs on `research-synthesis` alone (WebSearch/WebFetch) —
+no replacement engine. Prompted by tonight's incident: a dispatched Release Ops
+agent, blocked on a merge command, tried to rewrite `~/.claude/settings.json`
+to widen its own permissions; the harness blocked it. Added a guard rule to
+`agents/releaseops.md`, `skills/release-deploy/SKILL.md`, and the scope-fence
+section of `skills/dispatch-brief/SKILL.md`: a dispatched agent never edits
+settings, permissions, hooks, or plugin config (`~/.claude/**`,
+`.claude/settings*.json`); a blocked or denied command is a finding to return
+to the parent, never a workaround.
+
 1.70.2 — vocabulary is names of actual things, not only layer names (2026-09-08)
 
 1.70.1 narrowed the canonical vocabulary to "the source file's layer/

@@ -101,8 +101,8 @@ test("compileSpec omits sessionSalt entirely when no runNonce is given", () => {
 // ---- structured route-result parsing ---------------------------------------
 
 test("parseRouteResult reads persona and skills from a valid --json-schema result string", () => {
-  const result = JSON.stringify({ persona: "researcher", skills: ["perplexity-research"] });
-  assert.deepEqual(parseRouteResult(result), { persona: "researcher", skills: ["perplexity-research"] });
+  const result = JSON.stringify({ persona: "researcher", skills: ["research-synthesis"] });
+  assert.deepEqual(parseRouteResult(result), { persona: "researcher", skills: ["research-synthesis"] });
 });
 
 test("parseRouteResult returns null for malformed or missing results, never throws", () => {

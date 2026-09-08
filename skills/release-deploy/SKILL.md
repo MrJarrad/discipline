@@ -83,6 +83,13 @@ Every flag-gated deploy runs the checklist in
 tick each line with its evidence (command output, dashboard link, flag state), and attach it as the
 release's work product. An unticked checklist is not a release — it's a plan.
 
+## Guard: never touch settings or permissions
+
+A deploy blocked by a permission rule is a **finding**, not an obstacle to route around.
+Never edit `~/.claude/**` or `.claude/settings*.json` to widen your own access and retry.
+DO: "`gh pr merge` denied → return 'merge blocked by permission rule X; next: parent'".
+DON'T: "add `Bash(gh *)` to settings.json and retry."
+
 ## Where this sits
 
 - **Owner:** this skill owns the procedure standing; **releaseops** runs
