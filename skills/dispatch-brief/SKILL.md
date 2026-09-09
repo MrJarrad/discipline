@@ -357,6 +357,8 @@ agent starts working, not re-mapping.
 
 ```
 [ ] Grilling frontier empty OR explicit operator skip; cannot invent ACs → grill first
+[ ] Real-world properties the brief assumes → grilled (assumption gate) or
+    operator-skipped; none invented, none coined
 [ ] Locked decisions block present — operator verbatim + technical translation per row
 [ ] Brief copies **whole** locked table into ACs — **one AC per locked row** (deferrals explicit); slice brief of whole-surface lock → malformed, do not dispatch
 [ ] Work batch named if scoped — batch ≠ narrower lock; caps do not drop locked rows
