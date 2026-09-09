@@ -33,6 +33,31 @@
 
 ## Branch-specific
 
+### Assumptions (two examples)
+
+**Real-world property (velcro example, hoverboard 2026-09-08)**
+
+**Do:** "❓ **Q1 — velcro construction:** cut from a sheet, or tape strips?
+➡️ **Recommended:** sheet. ❓ **Q2 — hook type:** standard, micro-hook, mushroom?
+➡️ **Recommended:** micro-hook. ❓ **Q3 — loop type:** napped (fuzzy) or unnapped?
+➡️ **Recommended:** unnapped." The operator's answers took one message; they'd
+sourced the type vocabulary themselves by asking Gemini "are there different types
+of velcro textures".
+
+**Don't:** Build a 1 mm die-cut margin band and a fuzzy loop pile, then explain
+"margin" after the operator asks what it means — two rounds spent assuming standard
+stubby hooks and fuzzy loop pile before asking. Never coin a term (like "margin")
+for a real-world feature the operator hasn't named — ask instead.
+
+**Coding property**
+
+**Do:** "❓ **Q1 — state handling:** keep the existing store or add a reducer?
+➡️ **Recommended:** existing store. ❓ **Q2 — empty state copy:** 'No projects yet'
+or leave blank? ➡️ **Recommended:** 'No projects yet'." One message settles both.
+
+**Don't:** Pick a new state library and invent the empty-state copy, then explain
+both after review.
+
 ### Thin context / vague ask
 
 **Do:** Draft the implicit tree from context; mark Assumption on unsettled branches;

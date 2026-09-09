@@ -4,9 +4,12 @@ description: >-
   Interview relentlessly until the design tree is locked — frontier rounds of
   experience-level questions, each with a recommended answer. Use before dispatch
   on non-trivial build/design work, when stress-testing a plan or proposal, when
-  the operator says grill this, or when acceptance criteria cannot be written
-  without inventing requirements. Not bugfixes with a clear repro, not explicit
-  just implement this. Composes define-terms when a repo is open.
+  the operator says grill this, when acceptance criteria cannot be written
+  without inventing requirements, or when a brief assumes any property the operator
+  could answer in one line — "how does X look", "what kind of X", "which type of X",
+  which convention/library/approach to use, what the expected behaviour is, any brief
+  that assumes a property the operator could answer. Applies to fix rounds too, not
+  only new builds. Composes define-terms when a repo is open.
 ---
 
 # Grilling
@@ -24,15 +27,36 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 - "Grill this", "stress-test the plan", "is the plan ready"
 - Orchestrator cannot write acceptance criteria without inventing requirements
 - `shape-stress` interview mode (this skill is the interview primitive)
+- A brief (build **or** fix round) assumes a property the operator could settle in
+  one line — a material or part, a code convention, a library or approach, an
+  expected behaviour, a content or copy choice, a data shape, a naming choice
 
 **Not for:** typo fixes, clear bugfixes with repro, explicit "just build it" / skip
-grill.
+grill. A fix round whose target is such an assumable property is **in scope** — the
+bugfix carve-out does not exempt it.
+
+## Assumption gate
+
+Before any brief that would otherwise assume a property the operator could settle in
+one line — a material or part, a code convention, a library or approach choice, an
+expected behaviour, a content or copy choice, a data shape, a naming choice — list
+every such property and ask them as one grilling round in the standard ❓/➡️ format,
+one recommended answer each. This applies to feedback and fix rounds too: a fix
+targeting one of these properties is not exempt from the gate.
+
+**Never coin a term for a feature or concept.** If the parent needs a word the
+operator hasn't used and no source names, that's an assumption to ask about, not a
+label to invent — cross-reference the vocabulary rule in `define-terms`.
+
+See [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) for the worked
+velcro example.
 
 ## Smell table
 
 | Smell | Do |
 | --- | --- |
 | Match reference site / Gill / Figma feel | Grill at experience altitude OR operator skip → then dispatch with tape/reference path + locked AC. Do not invent ACs. Visual claims: browser evidence (Claude browser tools or Playwright) and/or **ux-designer** before claiming parity. |
+| Brief describes how a material/part/process looks or behaves | Ask the frontier of type/variant/construction/source questions first — assumption gate, below. |
 
 ## The design tree
 
