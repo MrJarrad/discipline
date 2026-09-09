@@ -128,8 +128,9 @@ component, class, token, style, or file — a confirmation is one line, never a 
 menu. Never substitute the nearest-sounding existing name (ring/rim/lip/edge can be
 different things); if the glossary doesn't already have their term, ask "which one?" —
 don't guess it from a screenshot (hoverboard 2026-09-08). A feedback row about a
-material or physical part routes through `grilling`'s assumption gate before a lane
-opens.
+property the operator could settle in one line — a material or physical part, a code
+convention, a library or approach, a behaviour, content, a data shape, a naming
+choice — routes through `grilling`'s assumption gate before a lane opens.
 
 - **DO:** "Row 4: `disc` edge (operator: 'the part that peeks out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"

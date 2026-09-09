@@ -1,19 +1,20 @@
-1.72.0 — grilling assumption gate for real-world properties (2026-09-09)
+1.72.0 — grilling assumption gate, generalised beyond materials (2026-09-09)
 
 Added an assumption gate to `grilling`: before any brief (build or fix round) that
-depends on how a real-world thing looks, is made, or is used — a material, physical
-part, fabrication method, or product convention — the parent lists each such property
-and asks the operator in one grilling round, the standard ❓/➡️ format, one
-recommended answer each. Prompted by the hoverboard 2026-09-08 velcro case: the
-session coined "margin" for a die-cut backing strip and assumed standard stubby
-hooks and fuzzy loop pile, spending two rounds before asking three questions the
-operator answered in one message. `skills/grilling/SKILL.md` gains the section, a
-"When this fires" bullet, a smell-table row, and a narrower "Not for" so a fix round
-targeting a real-world property is in scope; description frontmatter gains the
-trigger phrases. `skills/grilling/references/DOS-AND-DONTS.md` gains the velcro
-DO/DON'T pair and the never-coin-a-term rule. `skills/dispatch-brief/SKILL.md`
-checklist and `skills/issue-triage/SKILL.md`'s part-name section each gain one line
-routing real-world-property work through the gate.
+assumes a property the operator could settle in one line — a material or part, a
+code convention, a library or approach, an expected behaviour, a content or copy
+choice, a data shape, or a naming choice — the parent lists each such property and
+asks the operator in one grilling round, the standard ❓/➡️ format, one recommended
+answer each. Prompted by the hoverboard 2026-09-08 velcro case, then widened by the
+operator: "this could apply to lots of different scenarios not just material
+references... but coding things or whatever it may be." `skills/grilling/SKILL.md`
+renames the section to "Assumption gate", generalises the rule and the never-coin-
+a-term note beyond real-world features, and keeps the domain list to one example
+line; description frontmatter generalises the trigger phrases.
+`skills/grilling/references/DOS-AND-DONTS.md` keeps the velcro DO/DON'T pair and
+adds a matching coding pair under "Assumptions (two examples)".
+`skills/dispatch-brief/SKILL.md` checklist and `skills/issue-triage/SKILL.md`'s
+part-name section each reword their one line to the general rule.
 
 1.71.0 — retire perplexity-research; settings/permissions guard (2026-09-08)
 

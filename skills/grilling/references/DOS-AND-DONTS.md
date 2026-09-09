@@ -33,7 +33,9 @@
 
 ## Branch-specific
 
-### Real-world properties (velcro example, hoverboard 2026-09-08)
+### Assumptions (two examples)
+
+**Real-world property (velcro example, hoverboard 2026-09-08)**
 
 **Do:** "❓ **Q1 — velcro construction:** cut from a sheet, or tape strips?
 ➡️ **Recommended:** sheet. ❓ **Q2 — hook type:** standard, micro-hook, mushroom?
@@ -46,6 +48,15 @@ of velcro textures".
 "margin" after the operator asks what it means — two rounds spent assuming standard
 stubby hooks and fuzzy loop pile before asking. Never coin a term (like "margin")
 for a real-world feature the operator hasn't named — ask instead.
+
+**Coding property**
+
+**Do:** "❓ **Q1 — state handling:** keep the existing store or add a reducer?
+➡️ **Recommended:** existing store. ❓ **Q2 — empty state copy:** 'No projects yet'
+or leave blank? ➡️ **Recommended:** 'No projects yet'." One message settles both.
+
+**Don't:** Pick a new state library and invent the empty-state copy, then explain
+both after review.
 
 ### Thin context / vague ask
 
