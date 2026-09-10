@@ -228,7 +228,11 @@ test("wrap carries lessons-ship-or-say-why-not and the release checklist", () =>
 
 test("vault-write's frontmatter template carries the encoded field and the index exemption", () => {
   carries(vaultWrite, "**`fleet/lessons/` and `fleet/rulings/` carry one more mandatory key: `encoded:`**");
-  carries(vaultWrite, "Index files (`index.md`, `README.md`) are exempt.");
+  carries(
+    vaultWrite,
+    "a file whose stem equals its folder (`fleet/lessons/lessons.md`) or its `fleet-` form " +
+      "(`fleet/lessons/fleet-lessons.md`), plus any file whose frontmatter carries `kind: index`",
+  );
   assert.match(vaultWrite, /encoded: 1\.73\.0/);
 });
 
@@ -252,7 +256,7 @@ test("skill-authoring's Lesson intake names all five items in one commit", () =>
 
 // The house bar is a rule short enough to read at the acting moment. Two of
 // the 1.73.0 texts are longer than 80 words as the operator ratified them
-// (source contract 87, mechanism named 101) — verbatim wins over the word
+// (source contract 87, mechanism named 108) — verbatim wins over the word
 // count, so length is asserted as "no longer than ratified" rather than as a
 // hard 80: a later edit that pads a rule fails here.
 test("the ratified rule texts have not grown past their ratified length", () => {

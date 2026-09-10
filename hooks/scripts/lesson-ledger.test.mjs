@@ -83,11 +83,12 @@ test("queued is clean without --release and a failure with it", () => {
   });
 });
 
-test("index files are exempt and subfolders are out of scope", () => {
+test("the house-convention index files are exempt and subfolders are out of scope", () => {
   withVault(
     {
-      "fleet/lessons/index.md": null,
-      "fleet/lessons/README.md": null,
+      "fleet/lessons/fleet-lessons.md": null,
+      "fleet/lessons/lessons.md": null,
+      "fleet/rulings/fleet-rulings.md": null,
       "fleet/lessons/archive/old.md": null,
       "fleet/lessons/a.md": "1.73.0",
     },
@@ -97,6 +98,21 @@ test("index files are exempt and subfolders are out of scope", () => {
       assert.equal(result.ok, true);
     },
   );
+});
+
+test("kind: index in the frontmatter exempts a file whatever its stem", () => {
+  const root = fixtureVault({ "fleet/rulings/a.md": "1.73.0" });
+  try {
+    writeFileSync(
+      join(root, "fleet", "rulings", "token-rulings.md"),
+      "---\nname: token-rulings\nkind: index\n---\n\nbody\n",
+    );
+    const result = lintLessonLedger(root);
+    assert.equal(result.files.length, 1, result.files.join("\n"));
+    assert.equal(result.ok, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a vault with no fleet directories at all is clean, not an error", () => {
@@ -137,6 +153,21 @@ test("CLI exits 0 on a clean vault and prints the record count", () => {
     assert.equal(code, 0, stdout);
     assert.match(stdout, /1 record\(s\) clean/);
   });
+});
+
+test("CLI exits 0 on this vault's own index files left unstamped", () => {
+  withVault(
+    {
+      "fleet/lessons/fleet-lessons.md": null,
+      "fleet/rulings/fleet-rulings.md": null,
+      "fleet/lessons/a.md": "1.73.0",
+    },
+    (root) => {
+      const { code, stdout } = runCli([root, "--release", "1.73.0"]);
+      assert.equal(code, 0, stdout);
+      assert.match(stdout, /1 record\(s\) clean/);
+    },
+  );
 });
 
 test("CLI exits 1 on a missing field", () => {

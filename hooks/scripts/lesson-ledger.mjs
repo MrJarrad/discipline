@@ -7,8 +7,11 @@
    than a memory the next wrap has to reconstruct.
 
    Scope: <vault-root>/fleet/lessons/*.md and <vault-root>/fleet/rulings/*.md,
-   top level only (subfolders are not lesson records). Index files —
-   `index.md`, `README.md` — are exempt: they list lessons, they are not one.
+   top level only (subfolders are not lesson records). Index files are exempt
+   — they list lessons, they are not one. An index is named by the house
+   convention (`<folder>/<folder>.md`, so `fleet/lessons/lessons.md`, or the
+   `fleet-` prefixed form `fleet/lessons/fleet-lessons.md`) or declares
+   `kind: index` in its frontmatter.
 
    Field grammar, frontmatter only:
      encoded: 1.73.0            a released plugin version shipped the rule
@@ -33,10 +36,25 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
-const EXEMPT_FILES = new Set(["index.md", "README.md"]);
 
 // `1.73.0` | `pre-1.73.0` | `queued` | `skipped(<non-empty reason>)`.
 const VALID_ENCODED = /^(?:\d+\.\d+\.\d+|pre-\d+\.\d+\.\d+|queued|skipped\([^)]+\))$/;
+
+// An index rather than a record: stem equal to the folder name, the house
+// `fleet-<folder>` form of it, or an explicit `kind: index` in frontmatter.
+// The stem tests are cheap and answer nearly every case; the frontmatter read
+// is the escape hatch for an index named after its subject (`token-rulings`).
+function isIndexFile(dir, name, fullPath) {
+  const folder = dir.split("/").pop();
+  if (name === `${folder}.md` || name === `fleet-${folder}.md`) return true;
+  let text;
+  try {
+    text = readFileSync(fullPath, "utf8");
+  } catch {
+    return false;
+  }
+  return frontmatterValue(text, "kind") === "index";
+}
 
 // Top-level .md records in one ledger directory, sorted; index files dropped.
 // A missing directory is not an error — a vault without rulings yet is clean.
@@ -48,20 +66,21 @@ function ledgerFiles(vaultRoot, dir) {
     return [];
   }
   return entries
-    .filter((e) => e.isFile() && e.name.endsWith(".md") && !EXEMPT_FILES.has(e.name))
+    .filter((e) => e.isFile() && e.name.endsWith(".md"))
     .map((e) => join(vaultRoot, dir, e.name))
+    .filter((full) => !isIndexFile(dir, full.split("/").pop(), full))
     .sort();
 }
 
-// The raw `encoded:` value from the frontmatter block, or null when the file
-// has no frontmatter or no such key. Scoped to the block on purpose: an
-// `encoded:` mentioned in the prose below is documentation, not the field.
-function encodedValue(text) {
+// The raw value of one frontmatter key, or null when the file has no
+// frontmatter or no such key. Scoped to the block on purpose: an `encoded:`
+// mentioned in the prose below is documentation, not the field.
+function frontmatterValue(text, key) {
   if (!text.startsWith("---\n")) return null;
   const close = text.indexOf("\n---", 4);
   if (close === -1) return null;
   for (const line of text.slice(4, close).split("\n")) {
-    const m = line.match(/^encoded:\s*(.*)$/);
+    const m = line.match(new RegExp(`^${key}:\\s*(.*)$`));
     if (m) return m[1].trim().replace(/\s*#.*$/, "").replace(/^["']|["']$/g, "");
   }
   return null;
@@ -88,7 +107,7 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
     } catch {
       continue; // unreadable record — skip, same posture as the orphan scan
     }
-    const value = encodedValue(text);
+    const value = frontmatterValue(text, "encoded");
     if (value === null || value === "") {
       missing.push({ file });
       continue;
