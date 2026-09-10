@@ -1,3 +1,36 @@
+1.74.0 — handoff-to-code: the export pair is the contract (2026-09-10)
+
+New skill `skills/handoff-to-code/SKILL.md`. Where 1.73.0 made the brief point at a
+Design Handoff export instead of re-describing it, 1.74.0 gives the doer the procedure:
+**the handoff pair is the contract — every node, token, copy string and annotation in it
+is built, never Figma pixels, never inferred values.** Six steps: reconcile the
+markdown's companion `state`/`content` hashes against the JSON's
+`fingerprint.designSystemStateHash`/`contentHash` and its `schemaVersion` against the
+consumer's declared versions (a mismatch is a stale-pair defect, not a build); run
+`handoff-css --config … --check` and read every warning in the report's
+`Responsive classes (P11) and aliases (P12)` section — `VIEWPORT_UNFLAGGED`,
+`VIEWPORT_OUTSIDE_GROUPS`, `VIEWPORT_CLASS_WITHOUT_FRACTION`,
+`VIEWPORT_FRACTION_DISAGREES`, `BUILD_CELL_CONTRADICTORY` — building *through* a warning,
+never around it; map every `$variable` through its **`codeSyntax.WEB`** name, where no
+emitted token is a defect and a legacy alias is not the name; implement with the
+handoff's **Build standards 1–5** as the mechanism rules (a `[Grid]` frame is
+`display: grid` and `col-span(N/M)` is `grid-column: span N` — column maths is a defect
+even when it measures right); build the Content Outline verbatim, with `⚠ placeholder` a
+defect rather than a guess and the newest pair beating any prior record; return the
+deviation table `element · Figma binding · token used · value · status · ruling ref` and
+**stop for a ruling on drift**. Worked example is the real 2026-09-10 nav footer
+(`$device/screen-height/full` → `height: var(--device-screen-height-full)`).
+
+`capture-figma` hands over: `## Export shape` and the values pass now point at
+`handoff-to-code` when a pair exists; it keeps the read-order law, the lanes, the copy
+and template-layout lanes, and recapture. `dispatch-brief`'s Source contract and
+`agents/engineer.md`'s stack name the skill as the doer's, and the engineer's evidence
+return names the per-node form of the deviation table.
+`hooks/scripts/source-contract-law.test.mjs` gains 9 assertions on the new ratified
+sentences, including that the skill reads standalone — no machine-local paths, house
+names only under `## At JHD` — because the same skill ships to Figma Community inside
+the `handoff-css` package (`skills/handoff-to-code/SKILL.md` there).
+
 1.73.0 — the export is the contract; reviewer structure check; State section; lesson ledger (2026-09-10)
 
 Five root problems from the 2026-09-09 nav rejection ship one release each with an

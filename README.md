@@ -20,7 +20,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 ## What's inside
 
-**40 skills** — craft and delivery discipline that any agent can draw on.
+**47 skills** — craft and delivery discipline that any agent can draw on.
 
 **Dispatch** — who does the work, on what model, in what brief:
 
@@ -31,7 +31,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 **Design & build** — `design-craft` · `design-system` · `design-taste-frontend` · `motion` · `markup-standard` · `design-modules` · `architect-systems` · `code-minimalism` · `impeccable` · `nextjs`
 
-**Capture & audit** — `capture-figma` · `capture-website` · `audit-build`
+**Capture & audit** — `capture-figma` · `handoff-to-code` · `capture-website` · `audit-build`
 
 **Verify & ship** — `quality` · `qa-acceptance` · `verify-finding` · `test-first` · `webapp-testing` · `diagnosing-bugs` · `release-deploy`
 
