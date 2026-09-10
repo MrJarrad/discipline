@@ -31,12 +31,14 @@ with `:3210` (operator dev server) and `:3211` (hoverboard viewer) reserved —
 `hooks/scripts/workflow-lint.mjs` protects both.
 **A5 — lessons ship or say why not:** new `hooks/scripts/lesson-ledger.mjs` lints
 `encoded: <semver> | pre-1.73.0 | queued | skipped(<reason>)` on every
-`fleet/lessons/*.md` and `fleet/rulings/*.md` (index files exempt);
+`fleet/lessons/*.md` and `fleet/rulings/*.md`;
 `hooks/bin/commit-gate.mjs` runs it with `--release` when a staged change bumps
-`.claude-plugin/plugin.json`, warn-and-skips when the vault is absent, and is enabled by
-`DISCIPLINE_LEDGER_GATE=1` until the vault backfill lands. `wrap`, `vault-write` and
-`skill-authoring` (new `## Lesson intake`) carry the rule.
+`.claude-plugin/plugin.json`, warn-and-skips when the vault is absent, and is on by default
+with `DISCIPLINE_LEDGER_GATE=0` as the opt-out. Index files are exempt by the house
+convention (`<folder>/<folder>.md`, `fleet-<folder>.md`, or `kind: index`). `wrap`,
+`vault-write` and `skill-authoring` (new `## Lesson intake`) carry the rule.
 
+Dispositions applied by the vault backfill lane (jhd-vault PR, same release).
 Lessons encoded in this version: hoverboard rounds 4–7 items 1, 2, 3, 8;
 review-evidence-lessons items 1, 2; all four items on
 `projects/jhd-discipline/jhd-discipline-handover.md`; and the "mechanism" candidate from
@@ -45,7 +47,7 @@ review-evidence-lessons items 1, 2; all four items on
 (harness-specific).
 
 New law tests: `hooks/scripts/source-contract-law.test.mjs` (28) and
-`hooks/scripts/lesson-ledger.test.mjs` (12), plus five commit-gate cases.
+`hooks/scripts/lesson-ledger.test.mjs` (14), plus five commit-gate cases.
 
 1.72.0 — grilling assumption gate, generalised beyond materials (2026-09-09)
 

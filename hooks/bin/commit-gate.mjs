@@ -32,9 +32,8 @@
    version>, and denies the commit with the ledger's own report when it fails.
    Warn-and-skip when the vault root is absent: cloud runners have no vault,
    and gating a release on a tree that isn't there would block every one of
-   them. Enabled by $DISCIPLINE_LEDGER_GATE=1 while the live vault is being
-   backfilled — the field is not yet universal, so the gate ships off by
-   default and turns on with the backfill. */
+   them. On by default; $DISCIPLINE_LEDGER_GATE=0 is the documented opt-out for
+   a run that must not consult a vault at all. */
 import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
@@ -114,7 +113,7 @@ function stagedVersionBump(repoCwd) {
   return added ? added[1] : null;
 }
 
-if (process.env.DISCIPLINE_LEDGER_GATE === "1") {
+if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
   const bumpedTo = stagedVersionBump(cwd);
   if (bumpedTo) {
     let vaultRoot = process.env.DISCIPLINE_VAULT_ROOT;

@@ -178,7 +178,6 @@ test("release commit with a queued lesson is denied, naming the release and the 
   const vault = makeVault("queued");
   try {
     const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
-      DISCIPLINE_LEDGER_GATE: "1",
       DISCIPLINE_VAULT_ROOT: vault,
     });
     assert.match(result.stdout, /permissionDecision":"deny"/);
@@ -196,7 +195,6 @@ test("release commit with an encoded ledger passes the gate", () => {
   const vault = makeVault("1.73.0");
   try {
     const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
-      DISCIPLINE_LEDGER_GATE: "1",
       DISCIPLINE_VAULT_ROOT: vault,
     });
     assert.equal(result.stdout, "", "clean ledger emits no deny JSON");
@@ -210,7 +208,6 @@ test("an absent vault root warns and skips rather than blocking the release", ()
   const dir = makeReleaseRepo("1.73.0");
   try {
     const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
-      DISCIPLINE_LEDGER_GATE: "1",
       DISCIPLINE_VAULT_ROOT: join(tmpdir(), "no-such-vault-root-abc"),
     });
     assert.equal(result.stdout, "", "absent vault must not deny the commit");
@@ -224,7 +221,6 @@ test("a commit that stages no version bump never runs the ledger", () => {
   const vault = makeVault("queued");
   try {
     const result = runGate(dir, 'git commit -m "chore: reformat manifest"', {
-      DISCIPLINE_LEDGER_GATE: "1",
       DISCIPLINE_VAULT_ROOT: vault,
     });
     assert.equal(result.stdout, "", "only a version bump is a release commit");
@@ -234,12 +230,18 @@ test("a commit that stages no version bump never runs the ledger", () => {
   }
 });
 
-test("the ledger gate stays off unless DISCIPLINE_LEDGER_GATE=1", () => {
+test("DISCIPLINE_LEDGER_GATE=0 is the opt-out; anything else leaves the gate on", () => {
   const dir = makeReleaseRepo("1.73.0");
   const vault = makeVault("queued");
   try {
-    const result = runGate(dir, 'git commit -m "release: 1.73.0"', { DISCIPLINE_VAULT_ROOT: vault });
-    assert.equal(result.stdout, "", "gate ships off by default while the vault is backfilled");
+    const off = runGate(dir, 'git commit -m "release: 1.73.0"', {
+      DISCIPLINE_VAULT_ROOT: vault,
+      DISCIPLINE_LEDGER_GATE: "0",
+    });
+    assert.equal(off.stdout, "", "=0 opts a run out of the ledger gate");
+    const on = runGate(dir, 'git commit -m "release: 1.73.0"', { DISCIPLINE_VAULT_ROOT: vault });
+    assert.match(on.stdout, /permissionDecision":"deny"/, "the gate is on with no flag set");
+    assert.match(on.stdout, /Lesson-ledger gate/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     rmSync(vault, { recursive: true, force: true });

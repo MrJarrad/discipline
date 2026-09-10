@@ -127,6 +127,8 @@ Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
   ruling is still `queued`, and `CHANGED.txt` names the lessons this version encoded. Run
   `node hooks/scripts/lesson-ledger.mjs <vault-root> --release <ver>` before the release
   commit and set each shipped lesson's `encoded:` to that version.
+  The gate is on by default; `DISCIPLINE_LEDGER_GATE=0` is the only opt-out, for a run that
+  must not consult a vault at all (an absent vault already warns and skips).
 - If the Cursor snapshot tree (`~/JHD/ai/discipline-cursor`) was also edited this
   session, commit that repo separately — its version fields are its own concern.
 
