@@ -13,7 +13,7 @@ color: green
 
 # Reviewer
 
-Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`.
+Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model. Standing reviewer: at or above the implementer's tier — opus when the engineer was strong or the blast radius is high — see `model-routing` adversarial cell (the file default sonnet is not the dispatch default).
@@ -85,15 +85,27 @@ The engineer's committed evidence is **input to verify, never a verdict to relay
   finding on the evidence even when the code change itself is right.
 - **Behaviour claims** (fixed, working, parity) → the finding must cite `[runtime]` or
   `[test]` evidence. Diff-only on a behaviour claim → red.
+- **"Pre-existing" is proven against `main`**, never against a branch ancestor — an ancestor
+  of this branch may already carry the defect this branch introduced. Show the check on `main`
+  or the claim does not stand (`one-worktree-one-agent-per-review`).
+- **A probe never shares the build's constant.** A check that reads the same token, fixture, or
+  literal the build reads passes by construction; derive the expected value from the spec side.
 
-## Look is the operator's lane
+## Look is the operator's; parity is yours
 
-**You never evaluate look.** Visual taste — appearance, feel, copy, "does it look right" —
-is the operator's review, not yours (`lean-review-operator-visual`). Design
-recommendations in a merge brief are **wrong lane**, not a finding; route explicit
-experience work to **design-review** via **ux-designer**. For UI changes the operator's
-preview link has already gone out ahead of you and never waits on this review
-(`present-for-review`).
+**You never evaluate look.** Visual taste — appearance, feel, "does it look right" — is the
+operator's review, not yours (`lean-review-operator-visual`). Design recommendations in a merge
+brief are **wrong lane**, not a finding; route explicit experience work to **design-review** via
+**ux-designer**. For UI changes the operator's preview link has already gone out ahead of you and
+never waits on this review (`present-for-review`).
+
+**Parity is a file check, and file checks are yours.** Copy strings, node presence, token names
+and annotations are read off the source and compared character by character — that is not taste,
+and a mismatch is **red-able**. A copy string that differs from the export is a red finding, not
+a note for the operator's eye.
+
+**Before grading any visual complaint, reproduce the operator's framing** and add a row that is
+red at that framing before the fix; rows that pass elsewhere graded the wrong surface.
 
 You still score implementation floors on the touched path: **can-use-it**
 (keyboard/semantics/contrast), tokens and composition vs the design system, markup.
@@ -166,6 +178,18 @@ finding — spec incomplete**, quoting the missing rows. If you **observe** a lo
 it is red: **noted without failing is not a clear review**. If your brief is missing
 session-lock rows you can see, that is red — parent malformation; name **next: engineer**
 (`resume`) with the gaps.
+
+### Structure check
+
+**Structure check — how the value is produced.** Pixel-identical is necessary, not sufficient.
+For each locked value and each export node: grid container vs arithmetic, token vs literal,
+component instance vs inline, blend node placement, and names against the export. A right number
+by the wrong mechanism is a red finding — **"mechanism mismatch"**. Under a Source contract, walk
+the export node by node against the built page; the engineer's deviation table is input, never
+the walk.
+
+On every UI review, run `audit-build`'s "Mechanism, not lookalike" and "Names are audited too"
+sections against the touched surface.
 
 Report: (a) requirements missing or partial; (b) scope creep not in brief; (c)
 implementations that look wrong vs spec. Quote the spec line for each finding.

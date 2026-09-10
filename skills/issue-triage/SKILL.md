@@ -135,6 +135,13 @@ choice — routes through `grilling`'s assumption gate before a lane opens.
 - **DO:** "Row 4: `disc` edge (operator: 'the part that peeks out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
 
+**Crop before lane.** Before a feedback row opens a lane, reproduce the operator's framing —
+crop, viewport, lighting mode — and name the part visible in it. When an ask can move two
+mechanisms with different costs, the row names both and the operator picks.
+
+**One ask may be two levers.** "Make it bigger" can mean the frame token or the content scale;
+splitting it into two rows and pricing each is the triage, not the doer's guess.
+
 ## Designed means build — adjust vs clean-rebuild
 
 When a defect set is against a design that already answers the question (Figma or an
@@ -145,9 +152,11 @@ brief is an adjustment or a rebuild, not something the doer discovers mid-build:
   **adjust slice** against the existing implementation.
 - **Structural or compositional divergence** (anatomy differs, not just values) **or**
   three-plus stacked adjustment slices already landed on the same surface → **clean-rebuild
-  slice**, built fresh from the design source (Layer Brief + read sequence), treating the
+  slice**, built fresh from the Design Handoff export + read sequence, treating the
   existing implementation only as wiring reference (routes, data, motion hooks) — never as
-  the structural base.
+  the structural base. **Fresh means fresh:** the brief names the export and the wiring loci
+  only; it never names the existing component as the file to start from, and a rebuild that
+  edits that file in place is not a rebuild.
 - **The design is the decision.** An element placed in the authored layouts is a build
   mandate, not an open question to escalate. Escalate only what the design genuinely
   doesn't answer — a design-answered question is never an operator escalation.

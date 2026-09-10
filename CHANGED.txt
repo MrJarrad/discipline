@@ -1,3 +1,54 @@
+1.73.0 — the export is the contract; reviewer structure check; State section; lesson ledger (2026-09-10)
+
+Five root problems from the 2026-09-09 nav rejection ship one release each with an
+enforcing test. **A1 — the source is the contract:** `skills/dispatch-brief/SKILL.md`
+gains `## Source contract (Design Handoff export)` above the lock table — the brief names
+the export path, node ids and companion schema + generated stamp and never re-describes
+the file; lock rows carry only what the file cannot (blend, behaviour, links, copy
+overrides); ACs get one **AC-S**, never per-node ACs; the engineer returns a deviation
+table (`export path · built value · reason`). Echoed in `agents/engineer.md`,
+`skills/capture-figma/SKILL.md` rung 0 (now "a Design Handoff export (Layer Brief)"),
+`skills/issue-triage/SKILL.md` and `output-styles/discipline.md`.
+**A2 — mechanism named:** a brief states how each locked value is produced — grid
+container vs col-span arithmetic, sizing token vs literal, component instance vs inline
+markup, which node carries `mix-blend-mode`; "on the grid" without the container is a
+steer to arithmetic. `issue-triage` adds "Crop before lane" and "One ask may be two
+levers"; `grilling`'s assumption gate adds the direction of a change and the mechanism
+that produces a value.
+**A3 — the reviewer checks mechanism:** `agents/reviewer.md` gains a Spec-axis
+`### Structure check` (a right number by the wrong mechanism is a red finding,
+"mechanism mismatch"), reproduces the operator's framing before grading a visual
+complaint, proves "pre-existing" against `main`, and never lets a probe share the
+build's constant. Look stays the operator's; **file parity** — copy strings, node
+presence, tokens, annotations — becomes the reviewer's red-able file check, and
+`audit-build` joins the reviewer's stack for UI.
+**A4 — slicing stops carrying the first mistake:** every continuation or slice brief
+carries `## State (untrusted draft; verify)`, prior-slice choices are claims to
+re-verify, one component per sonnet dispatch (`model-routing`), fresh-means-fresh
+rebuilds name the export and wiring loci only, the "never edit tests" fence carries the
+fixture/golden-path repoint exception, and doer verification servers move to `:3220+`
+with `:3210` (operator dev server) and `:3211` (hoverboard viewer) reserved —
+`hooks/scripts/workflow-lint.mjs` protects both.
+**A5 — lessons ship or say why not:** new `hooks/scripts/lesson-ledger.mjs` lints
+`encoded: <semver> | pre-1.73.0 | queued | skipped(<reason>)` on every
+`fleet/lessons/*.md` and `fleet/rulings/*.md`;
+`hooks/bin/commit-gate.mjs` runs it with `--release` when a staged change bumps
+`.claude-plugin/plugin.json`, warn-and-skips when the vault is absent, and is on by default
+with `DISCIPLINE_LEDGER_GATE=0` as the opt-out. Index files are exempt by the house
+convention (`<folder>/<folder>.md`, `fleet-<folder>.md`, or `kind: index`). `wrap`,
+`vault-write` and `skill-authoring` (new `## Lesson intake`) carry the rule.
+
+Dispositions applied by the vault backfill lane (jhd-vault PR, same release).
+Lessons encoded in this version: hoverboard rounds 4–7 items 1, 2, 3, 8;
+review-evidence-lessons items 1, 2; all four items on
+`projects/jhd-discipline/jhd-discipline-handover.md`; and the "mechanism" candidate from
+`projects/portfolio/portfolio-handover.md`. Marked `skipped`: hoverboard items 4, 5, 6, 9
+(hoverboard-rig-specific) and review-evidence-lessons items 3, 5, 6, 7
+(harness-specific).
+
+New law tests: `hooks/scripts/source-contract-law.test.mjs` (28) and
+`hooks/scripts/lesson-ledger.test.mjs` (14), plus five commit-gate cases.
+
 1.72.0 — grilling assumption gate, generalised beyond materials (2026-09-09)
 
 Added an assumption gate to `grilling`: before any brief (build or fix round) that

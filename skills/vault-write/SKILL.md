@@ -131,6 +131,18 @@ tags: []
 ---
 ```
 
+**`fleet/lessons/` and `fleet/rulings/` carry one more mandatory key: `encoded:`** — the
+plugin version that shipped the rule, or `pre-1.73.0` \| `queued` \| `skipped(<reason>)`.
+A lesson nobody encoded is a lesson nobody follows; `hooks/scripts/lesson-ledger.mjs` lints
+the field and the commit gate — on by default, `DISCIPLINE_LEDGER_GATE=0` to opt out —
+refuses a release bump while any `queued` remains. Index files
+are exempt: a file whose stem equals its folder (`fleet/lessons/lessons.md`) or its `fleet-`
+form (`fleet/lessons/fleet-lessons.md`), plus any file whose frontmatter carries `kind: index`.
+
+```yaml
+encoded: 1.73.0       # | pre-1.73.0 | queued | skipped(hoverboard-rig-specific)
+```
+
 `reference` records are the one place frontmatter stays mandatory and richer — see
 **References are a typed write too**, below.
 

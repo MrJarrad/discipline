@@ -199,7 +199,8 @@ token for yet.
 This replaces improvising a tool per task. Read down the ladder; stop at the first rung
 that answers the question:
 
-0. **A Layer Brief export, when one exists for the target — primary anatomy source.**
+0. **A Design Handoff export (Layer Brief), when one exists for the target — primary anatomy
+   source, and the contract itself.**
    An operator-provided or banked per-layer anatomy brief (format reference:
    `projects/capture-figma/artifacts/layer-brief-plugin/` in the vault — a Figma plugin
    that walks a frame and emits, per layer, its name/type, placed instance props, sizing

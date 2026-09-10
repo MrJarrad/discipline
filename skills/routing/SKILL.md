@@ -97,7 +97,7 @@ turn's summary, no matter how recently it last fired.
 
    **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
    blocks only the check of the **deployed** surface. A doer slice verifying its
-   own build on `:3211`+ is **not** machine-bound — cloud VMs build and
+   own build on `:3220`+ is **not** machine-bound — cloud VMs build and
    Playwright-verify localhost fine. "Faster", "interactive", or "read-only" is not a clause either.
    Misused 2026-08-30 to run five engineer slices local; operator flagged "all local".
 

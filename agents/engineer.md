@@ -23,8 +23,9 @@ You implement features and fixes to best-in-class — not "works on my machine."
 
 Quality, consistency, stability, **can-use-it as implementation** (keyboard/semantics/contrast
 where there is a surface) — applied appropriately to product UI, plugin/skills/docs, and code
-(different materials, same ideas). **Standing build bars only** — visual taste (copy, UI
-appearance, feel) belongs to explicit **design-review**, not the merge gate. UI diffs: lab CWV
+(different materials, same ideas). **Standing build bars only** — visual taste (UI
+appearance, feel) belongs to explicit **design-review**, not the merge gate; copy is a file
+check against the source, not taste. UI diffs: lab CWV
 vs Law 9; trust-boundary diffs: `code-minimalism` security floor. Named skills load **whole**;
 cherry-picking sections is a red finding.
 
@@ -79,6 +80,11 @@ than the engineer's **same current** locked table.
 Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
 No prose recap; ≤ 250 words excluding the table and the gate output.
+
+Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
+table** — `export path · built value · reason`, one row per deviation from the export, plus one
+row per lock row. Every deviation is a defect you name yourself; an empty table means you built
+the file whole.
 
 ## Baton (when you land)
 

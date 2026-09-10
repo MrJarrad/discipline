@@ -27,13 +27,29 @@ correction immediately.
 Figma-backed work names file+node and requires the doer to load `capture-figma` — **do
 not paste the resolved instance-prop table**. Name the node; live props win.
 
+## Source contract (Design Handoff export)
+
+When a Design Handoff export exists, the export is the contract — whole. The brief names
+the export path, the node ids it covers, and the companion export's schema + generated stamp; it says:
+build every node, token, copy string and annotation in the file; list every deviation as a defect. The
+brief never re-describes the file. Lock rows carry only what the file cannot: blend, behaviour, links,
+copy overrides. A brief that paraphrases the export instead of pointing at it is malformed — do not
+`Agent`.
+
+```markdown
+## Source contract
+- Export: <abs path> · nodes: <#id, #id> · companion: <schema N, generated <stamp>>
+- AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
+```
+
 ## Locked decisions (session — quoted, not paraphrased)
 
 Every non-trivial dispatch brief carries a **Locked decisions** block from `grilling`.
 Same bar as governing rulings: **a paraphrase is not compliance.**
 
-**The locked table is the spec — and the brief must copy it whole.** The **first brief**
-after a lock must copy the **whole** locked table into ACs. A slice brief ("just nav") of
+**The locked table is the spec — and the brief must copy it whole.** Under a Source contract the
+export is the spec and the lock table is the operator's rulings on top; both are copied whole. The
+**first brief** after a lock must copy the **whole** locked table into ACs. A slice brief ("just nav") of
 a whole-surface lock is the origin of partial implement + reviews on the wrong spec —
 **malformed — do not `Agent`.**
 
@@ -63,8 +79,19 @@ before the row goes into a brief.
 - **DO:** "Row 4: `disc` edge (the thing is named `disc`; operator: 'the part that peeks
   out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
+**Mechanism named.** A brief states how each locked value is produced, not only what it
+measures. Must be named whenever present: a grid — `display: grid` container and children placed
+by `grid-column`, never col-span arithmetic; frame dimensions — the sizing token, never a
+literal; a repeated part — the component instance, never inline markup; blend — which node
+carries `mix-blend-mode` and whether it is absolute or fixed. "On the grid" without the container
+is a steer to arithmetic (portfolio nav, 2026-09-10).
+
+- **DO:** "Nav sits on the page grid: the `<header>` is the `display: grid` container, links placed by `grid-column`"
+- **DON'T:** "Nav on the grid"
+
 - **Locked decisions → ACs:** **one AC per locked row** (operator-deferred rows named
-  explicitly in the brief). Acceptance criteria must trace to these rows — **every locked row**, or an explicit operator-deferred row named in the brief.
+  explicitly in the brief), plus **AC-S** when a Source contract exists — never expanded into
+  per-node ACs. Acceptance criteria must trace to these rows — **every locked row**, or an explicit operator-deferred row named in the brief.
 - **DO:** Site-wide lock → brief ACs list every surface (or named deferral).
 - **DON'T:** Brief "nav clip-mask" when the lock was site-wide.
 - **DON'T:** Read "scope to one coherent slice" (Caps below) as permission to drop locked
@@ -168,7 +195,7 @@ maps each tier to a model and a thinking budget — this skill only requires the
   surface** or present-for-review — cloud egress 403s `*.workers.dev`; (b) machine-bound
   stacks — `:4411` capture listener, Capture.app helper, figma-daemon, interactive-auth
   MCPs; (c) this machine's own state. A doer slice verifying its **own build** on
-  `:3211`+ is **not** machine-bound — that goes cloud; nor is "faster", "interactive", or
+  `:3220`+ is **not** machine-bound — that goes cloud; nor is "faster", "interactive", or
   "read-only". A local dispatch on an overlay-less repo is a named fallback in the brief,
   never the default reach.
 - An outgrown or mis-surfaced lane gets a deliberate handoff: wrap evidence into a fresh
@@ -184,7 +211,7 @@ type at hand.
 |---|---|
 | Build / fix | `quality` + `test-first` (+ `design-craft` + `markup-standard` if UI is touched) |
 | Build against Figma | `capture-figma` (+ build/fix skills above) |
-| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` if UI is touched) |
+| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` + `audit-build` if UI is touched) |
 | Research | `research-synthesis` |
 | Capture | `capture-figma` or `capture-website` |
 | Motion | `motion` |
@@ -225,9 +252,10 @@ Every full-tool vehicle brief carries this standard language:
 
 ## Ports
 
-Doers run verification servers on `:3211` and up. The operator's live dev server on
-`:3210` is never started, stopped, or reused by a dispatched agent — state that boundary
-in the brief, don't assume the doer infers it.
+Doers run verification servers on `:3220` and up. Two ports are reserved and never started,
+stopped, or reused by a dispatched agent: **`:3210` the operator's live dev server** and
+**`:3211` the hoverboard viewer**. State that boundary in the brief, don't assume the doer
+infers it.
 
 ## Notes ledger — survive compaction
 
@@ -252,7 +280,14 @@ that already dropped them.
 - **Commit incrementally** is mandatory brief language: the agent commits after each
   coherent slice so a long run strands nothing uncommitted.
 - A continuation never reuses the prior round's labels — mint new labels each round.
-  Brief the continuation to treat the working tree as an untrusted draft to verify.
+- **Every continuation or slice brief carries `## State (untrusted draft; verify)`.** It lists
+  what prior slices claim landed — sha, mechanism, values — marked as claims. Prior-slice
+  implementation choices are never passed forward as fact: the doer re-verifies each against the
+  Source contract and lock before building on it; a wrong mechanism inherited from slice 1 is
+  slice 2's red finding, not its baseline.
+- **One component per sonnet dispatch.** A sonnet brief covers one component; a whole-surface
+  brief goes to `opus` with the reach justified. Splitting a surface across sonnet slices to fit
+  the model is how slice 1's mistakes become slice 2's baseline.
 
 ## Three-layer briefs (standing law — not reprinted each dispatch)
 
@@ -292,7 +327,7 @@ inventing a shape per dispatch.
 | # | Field | What it is |
 |---|---|---|
 | 1 | **Final sha** | the commit the evidence certifies |
-| 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line` |
+| 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line`. Under a Source contract the engineer also returns a **deviation table** (`export path · built value · reason`) — one row per deviation, plus one row per lock row |
 | 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
 | 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent` |
@@ -323,7 +358,9 @@ bare merge verdict. **Merge condition: deterministic gates green + no red findin
 remitted by the parent. Behaviour claims require `[runtime]` or `[test]` evidence in the
 finding; a diff-only behaviour claim is red. Look and feel are the operator's lane —
 rendered agent evidence for a Figma/reference match goes to **ux-designer**, and a review
-that **notes** a lock miss without failing it is not a clear review.
+that **notes** a lock miss without failing it is not a clear review. **File parity (copy,
+nodes, tokens, mechanism) is the reviewer's Structure check, not ux-designer's** — it is read
+off the source, so it is red-able, not taste.
 
 ## Scope fence
 
@@ -333,6 +370,10 @@ is out of bounds — files, repos, or concerns the agent must not touch. For any
 default is the orchestrator reviews and pushes. A dispatched agent never edits settings,
 permissions, hooks, or plugin config (`~/.claude/**`, `.claude/settings*.json`) — a blocked
 or denied command is a finding to return to the parent, never a workaround.
+
+**"Never edit tests" carries one exception: repointing a fixture or golden path** the change
+deliberately moves. Repoint the path, keep the assertion, and name the repoint in the evidence
+return. Weakening, deleting, or skipping an assertion is never the exception.
 
 ## Reviewer-gate sequencing
 
@@ -361,6 +402,11 @@ agent starts working, not re-mapping.
     part, code convention, library/approach, behaviour, content, data shape,
     naming) → grilled (assumption gate) or operator-skipped; none invented, none
     coined
+[ ] Design Handoff export exists → `## Source contract` block names the export path, node ids and
+    companion schema + generated stamp, with AC-S; the brief points at the file and never
+    paraphrases it — a paraphrasing brief is malformed, do not dispatch
+[ ] Mechanism named for every locked value — grid container, sizing token, component
+    instance, blend node; "on the grid" without the container is a steer to arithmetic
 [ ] Locked decisions block present — operator verbatim + technical translation per row
 [ ] Brief copies **whole** locked table into ACs — **one AC per locked row** (deferrals explicit); slice brief of whole-surface lock → malformed, do not dispatch
 [ ] Work batch named if scoped — batch ≠ narrower lock; caps do not drop locked rows
@@ -371,7 +417,7 @@ agent starts working, not re-mapping.
     persona (model): task`; a local dispatch's brief carries one of the three legitimate
     clauses (`routing` rule 9): verifying the **deployed surface**/present-for-review,
     a machine-bound stack, or this machine's own state — a slice verifying its own
-    `:3211`+ build is **not** machine-bound and goes cloud
+    `:3220`+ build is **not** machine-bound and goes cloud
 [ ] Reviewer brief names its **review tier** — `LIGHT` by default, `FULL` only with the
     justification argued — and requires 2–3 unannounced re-derived probes plus audit of
     the rest, enumeration/precedent/determinism claims verified in full, and every
@@ -394,9 +440,13 @@ agent starts working, not re-mapping.
 [ ] Brief carries verified file:line loci, baselines, and key-file hashes
 [ ] Branch/cwd stated; out-of-bounds named; push policy stated
 [ ] "commit incrementally" stated explicitly; continuation gets fresh labels
+[ ] Continuation or slice brief carries `## State (untrusted draft; verify)` — prior-slice
+    claims listed as claims, re-verified against the Source contract and lock, never inherited
+[ ] One component per sonnet dispatch; a whole-surface brief goes to opus with the reach justified
 [ ] Vehicle chosen at lane open (not per task): cloud is the assumed vehicle for doer lanes (confirmed overlay-carrying repo), `workflow.mjs` spec for phased/parallel runs; local only on one of the three scoped clauses; resumed lanes stay on their existing surface
 [ ] Unproven mechanism: prototype lane briefed before the build lane
-[ ] Ports stated: doer verification on :3211+, operator's :3210 untouched
+[ ] Ports stated: doer verification on :3220+; the reserved :3210 operator dev server and
+    :3211 hoverboard viewer untouched
 [ ] Merge briefs: merge condition stated (deterministic gates green + no red finding open); tree on main + worktrees pruned; evidence in-repo
 [ ] Full-tool/general-purpose vehicle brief carries the anti-delegation clause: "you ARE the doer" — no Agent calls, no spawn-and-wait
 ```

@@ -95,6 +95,9 @@ recorded as a flagged deviation, not silently left.
 
 ## Mechanism, not lookalike
 
+**The reviewer runs this section and "Names are audited too" on every UI review** — its
+Structure check is these two sections applied to the touched surface.
+
 Pixel-identical values are necessary but insufficient for fidelity. Audit **how** a value is
 produced — whether it's a spacer component vs baked padding, a style binding vs hardcoded size,
 a grid span vs computed width. A build can render pixel-identical while encoding the wrong
