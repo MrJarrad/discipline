@@ -106,6 +106,12 @@ the index actually lists every memory file present (no orphaned files, no index 
 pointing at deleted ones), and any feedback or preference surfaced this session that
 should outlive it has been written down, not left in this session's transcript alone.
 
+**Lessons ship or say why not.** Every file in `fleet/lessons/` and `fleet/rulings/` carries
+`encoded: <semver> | pre-1.73.0 | queued | skipped(<reason>)`. A lesson written this session is
+either encoded into the plugin in the same session or marked `queued` with the release it is
+waiting on — a lesson with no `encoded:` field is a wrap failure. Run
+`node <plugin>/hooks/scripts/lesson-ledger.mjs <vault-root>` and fix what it names.
+
 ### 4. Toolkit — committed and versioned (Claude plugin)
 
 Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
@@ -117,6 +123,10 @@ Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
 - If `.claude-plugin/plugin.json` version should bump for a behavior change, bump it
   in the same commit set, and update the marketplace/cache mirror so the installed
   plugin matches the repo.
+- **Release checklist:** the commit gate refuses a `plugin.json` bump while any lesson or
+  ruling is still `queued`, and `CHANGED.txt` names the lessons this version encoded. Run
+  `node hooks/scripts/lesson-ledger.mjs <vault-root> --release <ver>` before the release
+  commit and set each shipped lesson's `encoded:` to that version.
 - If the Cursor snapshot tree (`~/JHD/ai/discipline-cursor`) was also edited this
   session, commit that repo separately — its version fields are its own concern.
 

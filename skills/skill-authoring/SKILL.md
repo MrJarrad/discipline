@@ -130,6 +130,16 @@ description on those).
 User-invoked orchestrators call model-invoked primitives via explicit load instructions
 ("load `grilling`") — never duplicate the primitive's procedure in the orchestrator.
 
+## Lesson intake
+
+A lesson lands as **one commit** carrying all five: the rule ≤ 80 words placed at the acting
+moment (the section the reader is in when the decision is made, not an appendix); a DO/DON'T
+pair; one verbatim assertion in a `*-law.test.mjs`; a `CHANGED.txt` line; and `encoded: <ver>`
+set on the vault lesson or ruling. Fewer than five is a lesson written, not shipped.
+
+- **DO:** rule in `dispatch-brief`'s Ports section + DO/DON'T + `dispatch-law.test.mjs` assertion + CHANGED line + `encoded: 1.73.0`
+- **DON'T:** a fleet lesson file with a good rule in it and nothing in the plugin
+
 ## Checklist before shipping a skill
 
 ```
@@ -140,6 +150,8 @@ User-invoked orchestrators call model-invoked primitives via explicit load instr
 [ ] Positive framing; negation only with paired positive target
 [ ] Invocation choice explicit: model vs operator-only
 [ ] Environment not restated when lookup is cheap
+[ ] Lesson intake complete: rule at the acting moment, DO/DON'T pair, verbatim law assertion,
+    CHANGED line, `encoded:` set — one commit
 ```
 
 ## Relationship to siblings

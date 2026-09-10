@@ -139,3 +139,109 @@ test("non-commit commands pass through untouched even with no marker", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ---- Lesson-ledger gate ---------------------------------------------------
+// A release commit (staged plugin.json version bump) must not land while a
+// fleet lesson or ruling is still `queued`.
+
+// A real git repo with the plugin manifest staged at `version`, plus a green
+// typecheck script so only the ledger gate can deny.
+function makeReleaseRepo(version) {
+  const dir = mkdtempSync(join(tmpdir(), "commit-gate-release-"));
+  const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+  git("init", "-q");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "fixture", scripts: { typecheck: 'node -e "process.exit(0)"' } }, null, 2),
+  );
+  mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
+  writeFileSync(join(dir, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "d", version: "1.72.0" }, null, 2));
+  git("add", "-A");
+  git("commit", "-qm", "base");
+  writeFileSync(join(dir, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "d", version }, null, 2));
+  git("add", "-A");
+  return dir;
+}
+
+// Fixture vault carrying one lesson at the given `encoded:` value.
+function makeVault(encoded) {
+  const root = mkdtempSync(join(tmpdir(), "commit-gate-vault-"));
+  mkdirSync(join(root, "fleet", "lessons"), { recursive: true });
+  writeFileSync(join(root, "fleet", "lessons", "a.md"), `---\nname: a\nencoded: ${encoded}\n---\n\nbody\n`);
+  return root;
+}
+
+test("release commit with a queued lesson is denied, naming the release and the record", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const vault = makeVault("queued");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
+      DISCIPLINE_LEDGER_GATE: "1",
+      DISCIPLINE_VAULT_ROOT: vault,
+    });
+    assert.match(result.stdout, /permissionDecision":"deny"/);
+    assert.match(result.stdout, /Lesson-ledger gate/);
+    assert.match(result.stdout, /1\.73\.0/);
+    assert.match(result.stdout, /a\.md/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test("release commit with an encoded ledger passes the gate", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const vault = makeVault("1.73.0");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
+      DISCIPLINE_LEDGER_GATE: "1",
+      DISCIPLINE_VAULT_ROOT: vault,
+    });
+    assert.equal(result.stdout, "", "clean ledger emits no deny JSON");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test("an absent vault root warns and skips rather than blocking the release", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.73.0"', {
+      DISCIPLINE_LEDGER_GATE: "1",
+      DISCIPLINE_VAULT_ROOT: join(tmpdir(), "no-such-vault-root-abc"),
+    });
+    assert.equal(result.stdout, "", "absent vault must not deny the commit");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a commit that stages no version bump never runs the ledger", () => {
+  const dir = makeReleaseRepo("1.72.0"); // manifest rewritten, version unchanged
+  const vault = makeVault("queued");
+  try {
+    const result = runGate(dir, 'git commit -m "chore: reformat manifest"', {
+      DISCIPLINE_LEDGER_GATE: "1",
+      DISCIPLINE_VAULT_ROOT: vault,
+    });
+    assert.equal(result.stdout, "", "only a version bump is a release commit");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test("the ledger gate stays off unless DISCIPLINE_LEDGER_GATE=1", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const vault = makeVault("queued");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.73.0"', { DISCIPLINE_VAULT_ROOT: vault });
+    assert.equal(result.stdout, "", "gate ships off by default while the vault is backfilled");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
+  }
+});

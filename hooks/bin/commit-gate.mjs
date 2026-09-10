@@ -23,11 +23,24 @@
    the class of bug that left shape-stress and stress-plan untriggerable
    for their whole lives, proposals/INTEGRATION-REPORT.md:87-95) denies the
    commit with the file and defect named, before it ever lands. */
+/* Third, independent gate on the same hook: LESSON LEDGER GATE. A commit whose
+   staged changes bump `.claude-plugin/plugin.json`'s version is a release, and
+   a release must not ship while a fleet lesson or ruling is still `queued`
+   (problem 5, 2026-09-10: nine hoverboard lessons written and never shipped).
+   The gate runs hooks/scripts/lesson-ledger.mjs against the vault at
+   $DISCIPLINE_VAULT_ROOT (default ~/JHD/vault/main) with --release <new
+   version>, and denies the commit with the ledger's own report when it fails.
+   Warn-and-skip when the vault root is absent: cloud runners have no vault,
+   and gating a release on a tree that isn't there would block every one of
+   them. Enabled by $DISCIPLINE_LEDGER_GATE=1 while the live vault is being
+   backfilled — the field is not yet universal, so the gate ships off by
+   default and turns on with the backfill. */
 import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
+import { lintLessonLedger, formatLedgerReport } from "../scripts/lesson-ledger.mjs";
 import { runTypecheckSync } from "./run-typecheck.mjs";
 
 function readHookInput() {
@@ -83,6 +96,43 @@ if (touchesSkills) {
   const frontmatterResult = checkSkillsDir(join(cwd, "skills"));
   if (!frontmatterResult.ok) {
     deny(`Frontmatter gate: invalid skill frontmatter — commit blocked.\n${frontmatterResult.summary}`);
+  }
+}
+
+// Lesson-ledger gate — only when this commit's staged changes bump the
+// plugin version (a release commit), and only when explicitly enabled.
+const PLUGIN_MANIFEST = ".claude-plugin/plugin.json";
+
+// The `version` value on the staged (+) side of the manifest diff, or null
+// when this commit does not change it. Reading the diff rather than the
+// working file is what distinguishes a release commit from any other commit
+// that happens to touch the manifest.
+function stagedVersionBump(repoCwd) {
+  const diff = spawnSync("git", ["-C", repoCwd, "diff", "--cached", "--", PLUGIN_MANIFEST], { encoding: "utf8" });
+  if (diff.status !== 0 || !diff.stdout) return null;
+  const added = diff.stdout.match(/^\+\s*"version":\s*"([^"]+)"/m);
+  return added ? added[1] : null;
+}
+
+if (process.env.DISCIPLINE_LEDGER_GATE === "1") {
+  const bumpedTo = stagedVersionBump(cwd);
+  if (bumpedTo) {
+    let vaultRoot = process.env.DISCIPLINE_VAULT_ROOT;
+    if (!vaultRoot) vaultRoot = join(homedir(), "JHD", "vault", "main");
+    if (!existsSync(vaultRoot)) {
+      console.error(
+        `Lesson-ledger gate: vault root ${vaultRoot} is absent (cloud runner?) — skipping the ` +
+        `ledger check for release ${bumpedTo}. Set DISCIPLINE_VAULT_ROOT to gate on a vault elsewhere.`,
+      );
+    } else {
+      const ledger = lintLessonLedger(vaultRoot, { release: bumpedTo });
+      if (!ledger.ok) {
+        deny(
+          `Lesson-ledger gate: release ${bumpedTo} cannot ship while the ledger is unclean — ` +
+          `lessons ship or say why not.\n${formatLedgerReport(ledger, vaultRoot)}`,
+        );
+      }
+    }
   }
 }
 
