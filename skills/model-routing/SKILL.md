@@ -38,7 +38,7 @@ flowchart TD
 | Cell | Default pick |
 |---|---|
 | Trivial / mechanical | `haiku` |
-| Standard implement / fix / tests / most PR work | `sonnet` |
+| Standard implement / fix / tests / most PR work | `sonnet` — **one component per brief**; a whole-surface brief goes to `opus`, justified |
 | Design/UX **implementation** against a locked Figma/spec | `sonnet` |
 | Design/UX **taste / visual judgment** (no locked answer) | `opus` — justify |
 | Research / competitive / cited facts | `sonnet` with tool access and a cited-retrieval evidence contract — never a "cheaper because cheaper" downgrade to haiku |

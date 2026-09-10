@@ -552,13 +552,13 @@ test("lintSpec: a prompt mentioning a dev server without naming a port warns", (
 });
 
 test("lintSpec: the same prompt naming a port does not warn", () => {
-  const spec = serverSpec({ prompt: "Start the dev server on port 3211 and screenshot the hero." });
+  const spec = serverSpec({ prompt: "Start the dev server on port 3220 and screenshot the hero." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
 });
 
 test("lintSpec: a :NNNN form counts as naming a port", () => {
-  const spec = serverSpec({ prompt: "Run the dev server at localhost:3211 and screenshot the hero." });
+  const spec = serverSpec({ prompt: "Run the dev server at localhost:3220 and screenshot the hero." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
 });
@@ -573,19 +573,19 @@ test("lintSpec: a prompt telling an agent to use :3210 warns", () => {
 });
 
 test("lintSpec: 'never' in the same sentence as :3210 is the leave-it-running exemption", () => {
-  const spec = serverSpec({ prompt: "Run your server on :3211 — never touch the operator's :3210." });
+  const spec = serverSpec({ prompt: "Run your server on :3220 — never touch the operator's :3210." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
 });
 
 test("lintSpec: 'leave' in the same sentence as :3210 is the exemption", () => {
-  const spec = serverSpec({ prompt: "Use :3211 for verification. Leave :3210 running as it is." });
+  const spec = serverSpec({ prompt: "Use :3220 for verification. Leave :3210 running as it is." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
 });
 
 test("lintSpec: 'do not touch' in the same sentence as :3210 is the exemption", () => {
-  const spec = serverSpec({ prompt: "Verify on :3211 and do not touch :3210." });
+  const spec = serverSpec({ prompt: "Verify on :3220 and do not touch :3210." });
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
   assert.deepEqual(warnings, []);
 });
@@ -596,8 +596,14 @@ test("lintSpec: an exemption in a DIFFERENT sentence does not cover the offendin
   assert.ok(warnings.some((w) => /3210/.test(w)), warnings.join("\n"));
 });
 
-test("lintSpec: ports 3288 and 3260 are protected on the same terms", () => {
-  for (const port of ["3288", "3260"]) {
+test("lintSpec: the reserved :3211 hoverboard viewer is protected like :3210", () => {
+  const spec = serverSpec({ prompt: "Screenshot the hero at localhost:3211." });
+  const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
+  assert.ok(warnings.some((w) => /3211/.test(w)), warnings.join("\n"));
+});
+
+test("lintSpec: ports 3211, 3288 and 3260 are protected on the same terms", () => {
+  for (const port of ["3211", "3288", "3260"]) {
     const spec = serverSpec({ prompt: `Restart the service on :${port} once you are done.` });
     const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });
     assert.ok(warnings.some((w) => w.includes(port)), `${port}: ${warnings.join("\n")}`);

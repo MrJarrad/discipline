@@ -323,10 +323,10 @@ export function protectedCheckoutHit(cwd) {
 }
 
 // Ports the operator owns and keeps running. :3210 is the portfolio dev server
-// the fleet's own charters already fence off ("Verification servers you start
-// run on :3211 and up — never the operator's live :3210", agents/engineer.md);
+// and :3211 the hoverboard viewer — both reserved by the fleet's own port law
+// ("Doers run verification servers on :3220 and up", skills/dispatch-brief);
 // :3288 and :3260 are the sibling live services named in the same triage.
-export const PROTECTED_PORTS = ["3210", "3288", "3260"];
+export const PROTECTED_PORTS = ["3210", "3211", "3288", "3260"];
 
 // The documented heuristic, deliberately crude: a protected port is fine to
 // NAME — briefs should name it, to fence it off — so the flag fires unless the
@@ -406,14 +406,14 @@ export function lintPromptServers(prompt, { locus, label } = {}) {
   const who = `${locus}${label ? ` "${label}"` : ""}`;
 
   if (DEV_SERVER_RE.test(prompt) && !PORT_NAMED_RE.test(prompt)) {
-    warnings.push(`spec-lint: ${who} prompt tells the agent about a dev server but names no port — a doer left to choose reuses the one already running. State the port: doers verify on :3211 and up, the operator's :3210 is never started, stopped, or reused.`);
+    warnings.push(`spec-lint: ${who} prompt tells the agent about a dev server but names no port — a doer left to choose reuses the one already running. State the port: doers verify on :3220 and up; the reserved :3210 operator dev server and :3211 hoverboard viewer are never started, stopped, or reused.`);
   }
 
   for (const sentence of sentences(prompt)) {
     if (LEAVE_IT_RE.test(sentence)) continue;
     for (const port of PROTECTED_PORTS) {
       if (!sentence.includes(port)) continue;
-      warnings.push(`spec-lint: ${who} prompt names protected port ${port} in a sentence that is not a leave-it-running instruction ("${sentence.trim().slice(0, 80)}") — that port is the operator's live server. Point the agent at :3211+ instead, or say "never"/"leave"/"do not touch" in the same sentence.`);
+      warnings.push(`spec-lint: ${who} prompt names protected port ${port} in a sentence that is not a leave-it-running instruction ("${sentence.trim().slice(0, 80)}") — that port is the operator's live server. Point the agent at :3220+ instead, or say "never"/"leave"/"do not touch" in the same sentence.`);
     }
   }
   return { warnings };

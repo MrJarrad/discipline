@@ -29,7 +29,8 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 - `shape-stress` interview mode (this skill is the interview primitive)
 - A brief (build **or** fix round) assumes a property the operator could settle in
   one line — a material or part, a code convention, a library or approach, an
-  expected behaviour, a content or copy choice, a data shape, a naming choice
+  expected behaviour, a content or copy choice, a data shape, a naming choice, the
+  direction of a change, the mechanism that produces a value
 
 **Not for:** typo fixes, clear bugfixes with repro, explicit "just build it" / skip
 grill. A fix round whose target is such an assumable property is **in scope** — the
@@ -39,8 +40,8 @@ bugfix carve-out does not exempt it.
 
 Before any brief that would otherwise assume a property the operator could settle in
 one line — a material or part, a code convention, a library or approach choice, an
-expected behaviour, a content or copy choice, a data shape, a naming choice — list
-every such property and ask them as one grilling round in the standard ❓/➡️ format,
+expected behaviour, a content or copy choice, a data shape, a naming choice, the
+direction of a change, the mechanism that produces a value — list every such property and ask them as one grilling round in the standard ❓/➡️ format,
 one recommended answer each. This applies to feedback and fix rounds too: a fix
 targeting one of these properties is not exempt from the gate.
 
