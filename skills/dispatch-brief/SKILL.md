@@ -42,6 +42,10 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 - AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
 ```
 
+The doer loads **`handoff-to-code`** under a Source contract — it owns reading the pair,
+mapping each binding through its `codeSyntax.WEB` name, and the deviation table. Name it in
+the brief's skills line; `capture-figma` covers only what the pair cannot carry.
+
 ## Locked decisions (session — quoted, not paraphrased)
 
 Every non-trivial dispatch brief carries a **Locked decisions** block from `grilling`.
