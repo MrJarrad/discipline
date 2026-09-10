@@ -1,6 +1,6 @@
 ---
 name: capture-figma
-description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, template layouts, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels; copy is its own mandatory audit lane, never waved through as "just content." Not for capturing live websites — that's capture-website; not for motion-tool sources (Jitter, AE, Lottie, Figma motion timelines) — that's capture-motion-source; not for auditing a built page against Figma — that's audit-build.
+description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, template layouts, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels; copy is its own mandatory audit lane, never waved through as "just content." Not for capturing live websites — that's capture-website; not for motion-tool sources (Jitter, AE, Lottie, Figma motion timelines) — that's capture-motion-source; not for auditing a built page against Figma — that's audit-build; not for building code from a design-handoff export pair — that's handoff-to-code.
 ---
 
 # Figma Extraction
@@ -75,7 +75,10 @@ or which step below supplies the mechanics:
      of the brief's per-layer lines rather than a fresh tool-walk to reconstruct the
      same tree — MCP/REST still supply what the brief doesn't carry (screenshots,
      interactions, copy classification, spot-verified binding proofs).
-5. **Values last.** Variables and tokens (The order, below: variables → styles →
+5. **Values last.** **When a `design-handoff` + `design-system-handoff` export pair exists
+   for the target, the values pass is not run here at all — load `handoff-to-code`, which
+   maps every binding through its `codeSyntax.WEB` name and owns the deviation table.**
+   Otherwise: variables and tokens (The order, below: variables → styles →
    metadata → screenshots) are the closing pass, not the opening one, because in a
    system that's flowing correctly a token update propagates globally and simply —
    values only mean something once 1-4 are already understood. Every dimension,
@@ -294,27 +297,15 @@ require the desktop app to be open at all. Reach for the desktop MCP lane instea
 for **live selection** — a human-in-loop walk where nothing is yet pinned to a node id,
 or the operator is actively clicking around the canvas to find the right node.
 
-## Export shape — what the active exporter and REST lane produce
+## Export shape — read it in `handoff-to-code`
 
-The active exporter's export (contract: `references/figma-agent-plugin-brief.md`) and the
-REST lane's snapshot both carry more than a flat token list — extraction reads all of it:
-
-- **Stable ids for rename detection.** Variables and styles carry an OPTIONAL `id`
-  (Figma's persistent id); components carry `key`, which already served this purpose.
-  When an id is present on both sides of a sync, the listener correlates by id first —
-  a renamed entry reads as a rename, never as a spurious removed+added pair. Treat a
-  file's ids as available-but-optional: older exports without them fall back to
-  name-only diffing, and that fallback is not itself a defect.
-- **Components, standalone and sets, with full prop schemas.** Standalone components and
-  component sets each carry their typed prop schema (VARIANT props with their option
-  list, BOOLEAN/TEXT/INSTANCE_SWAP props with defaults and, for INSTANCE_SWAP,
-  preferred component keys) — read this as the props API (Step 4), not a flat list.
-- **Per-variant layer bindings — the component-internals chain.** Each variant in a
-  component set may carry `bindings`: an array of `{ layer, property, value }` recording
-  which layer *inside* the component instance binds which property to which variable
-  (alias) or holds it raw. This is the anatomy walk (see "Anatomy — components are
-  composition trees") made machine-readable — read a variant's bindings before assuming
-  its internals are uniform across the matrix.
+What an export carries beyond a flat token list — optional stable `id`s for rename
+detection, typed component prop schemas, per-variant layer `bindings`, per-variable
+`responsiveBehavior` — and how those become code lives in **`handoff-to-code`**, which owns
+consuming an export pair. Load it whenever a `design-handoff` markdown + `design-system-handoff`
+JSON pair exists for the target. The active exporter's own contract stays at
+`references/figma-agent-plugin-brief.md`; this skill keeps the lanes that read the file
+itself.
 
 ## Copy lane — mandatory, equal to variables and geometry
 

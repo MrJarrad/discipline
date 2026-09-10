@@ -1,7 +1,7 @@
 // Tests for the 1.73.0 law text carried by the shipped skills and agents:
 // the source contract (A1), mechanism named + crop check (A2), the reviewer's
 // Structure check (A3), the State section / fresh-means-fresh / fences / ports
-// (A4), and the lesson ledger (A5).
+// (A4), and the lesson ledger (A5) — plus the 1.74.0 handoff-to-code law (D).
 //
 // Same principle as dispatch-law.test.mjs and review-loop.test.mjs: the law's
 // WORDS are its interface — an orchestrator only obeys what the file says — so
@@ -23,6 +23,7 @@ const reviewer = read("agents/reviewer.md");
 const issueTriage = read("skills/issue-triage/SKILL.md");
 const grilling = read("skills/grilling/SKILL.md");
 const captureFigma = read("skills/capture-figma/SKILL.md");
+const handoffToCode = read("skills/handoff-to-code/SKILL.md");
 const auditBuild = read("skills/audit-build/SKILL.md");
 const modelRouting = read("skills/model-routing/SKILL.md");
 const routing = read("skills/routing/SKILL.md");
@@ -215,6 +216,89 @@ test("no shipped doc still sends a doer to :3211", () => {
     const text = read(rel);
     assert.doesNotMatch(text, /:3211\s*\+|:3211 and up/, `${rel} still points doers at :3211`);
   }
+});
+
+// --- D: handoff-to-code, the export pair as the contract (1.74.0) --------
+
+test("handoff-to-code carries the contract sentence verbatim", () => {
+  carries(handoffToCode, "The handoff pair is the contract: every node, token, copy string and annotation in it is built — never Figma pixels, never inferred values.");
+});
+
+test("handoff-to-code states the deviation table's columns and its status enum", () => {
+  carries(handoffToCode, "| element | Figma binding | token used | value | status | ruling ref |");
+  for (const status of ["match", "drift", "unflagged-viewport", "hand-authored-override"]) {
+    carries(handoffToCode, `**${status}**`, `deviation status missing: ${status}`);
+  }
+  // Drift is never resolved in the branch — it is the one status that stops the lane.
+  carries(handoffToCode, "Drift is not\nyours to resolve: name it, propose one fix, and wait for a ruling.");
+  carries(handoffToCode, "An empty `ruling ref`\non a non-match row is an unauthorised deviation.");
+});
+
+test("handoff-to-code makes an unmapped binding a defect, never a guess", () => {
+  carries(handoffToCode, "### 3. Map every binding to `codeSyntax.WEB` — an unmapped binding is a defect");
+  carries(handoffToCode, "**No emitted token is a defect, not a guess.**");
+  carries(handoffToCode, "Do not inline the value the\nexport happens to show, and do not invent a token name for it.");
+  // The handoff's own name, not a legacy alias that happens to exist in the stylesheet.
+  carries(handoffToCode, "**An alias is not the name.**");
+});
+
+test("handoff-to-code makes a flagged placeholder a defect and the newest pair the winner", () => {
+  carries(handoffToCode, "**`⚠ placeholder` is a defect, not a guess.**");
+  carries(handoffToCode, "**The newest pair wins over any prior record.**");
+});
+
+test("handoff-to-code names the generator warnings it must not build around", () => {
+  for (const code of [
+    "VIEWPORT_UNFLAGGED",
+    "VIEWPORT_OUTSIDE_GROUPS",
+    "VIEWPORT_CLASS_WITHOUT_FRACTION",
+    "VIEWPORT_FRACTION_DISAGREES",
+    "BUILD_CELL_CONTRADICTORY",
+  ]) {
+    carries(handoffToCode, `\`${code}\``, `warning code missing: ${code}`);
+  }
+  carries(handoffToCode, "A warning you build *around* is drift.");
+});
+
+test("handoff-to-code carries Build standards 1-5 as the mechanism rules", () => {
+  const step = handoffToCode.slice(
+    handoffToCode.indexOf("### 4. Implement against tokens only"),
+    handoffToCode.indexOf("### 5. Copy is a lane"),
+  );
+  assert.ok(step.length > 0, "handoff-to-code must carry the Build standards step");
+  carries(step, "A right number produced by the wrong mechanism is a defect.");
+  for (const n of [1, 2, 3, 4, 5]) {
+    assert.match(step, new RegExp(`\\| ${n} — `), `Build standard ${n} is not named`);
+  }
+  carries(step, "`col-span(N/M)` maps directly. Widths computed from column maths are a defect");
+});
+
+test("handoff-to-code reads standalone — no vault paths, house names only under At JHD", () => {
+  assert.doesNotMatch(handoffToCode, /~\/JHD|\/Users\//, "handoff-to-code must carry no machine-local or vault paths");
+  const houseFree = handoffToCode.slice(0, handoffToCode.indexOf("## At JHD"));
+  assert.ok(houseFree.length > 0, "handoff-to-code must carry an At JHD example block");
+  assert.doesNotMatch(houseFree, /jhd-design-system/, "house names belong under At JHD only");
+});
+
+test("capture-figma hands token consumption to handoff-to-code", () => {
+  carries(captureFigma, "## Export shape — read it in `handoff-to-code`");
+  carries(captureFigma, "the values pass is not run here at all — load `handoff-to-code`");
+  // The lanes capture-figma keeps.
+  for (const kept of [
+    "## Read order — the law, before any other step",
+    "## Lane choice — three lanes, one hierarchy",
+    "## Copy lane — mandatory, equal to variables and geometry",
+    "## Template-layout lane — read layouts, not just component inventories",
+    "## Recapture and change tracking",
+  ]) {
+    carries(captureFigma, kept, `capture-figma must keep: ${kept}`);
+  }
+});
+
+test("the Source contract names handoff-to-code as the doer's skill", () => {
+  carries(dispatchBrief, "The doer loads **`handoff-to-code`** under a Source contract");
+  carries(engineer, "`handoff-to-code` when a Design Handoff export pair is the Source contract");
+  carries(engineer, "`element · Figma binding · token used · value · status · ruling\nref`");
 });
 
 // --- A5: the lesson ledger ----------------------------------------------

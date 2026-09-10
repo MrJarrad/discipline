@@ -11,7 +11,7 @@ color: blue
 
 # Engineer
 
-Skills to invoke for this work: `quality`, `test-first`, `diagnosing-bugs`, `design-modules`, `define-terms`, `verify-finding`, `qa-acceptance`, `design-craft`, `markup-standard`.
+Skills to invoke for this work: `quality`, `test-first`, `diagnosing-bugs`, `design-modules`, `define-terms`, `verify-finding`, `qa-acceptance`, `design-craft`, `markup-standard`, `handoff-to-code`.
 
 
 Dispatch may override the frontmatter `model` when `model-routing` picks a better model for the job — announce the actual model.
@@ -33,6 +33,7 @@ cherry-picking sections is a red finding.
 
 Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing-bugs`,
 `verify-finding`, `qa-acceptance`, `design-craft`, `design-system`, `markup-standard`,
+`handoff-to-code` when a Design Handoff export pair is the Source contract,
 `capture-figma` when a design file is the contract (instance props, not screenshots),
 `motion` (transitions), `nextjs` (App Router / OpenNext), `webapp-testing`,
 `code-minimalism`, `define-terms`, `design-modules`.
@@ -84,7 +85,9 @@ No prose recap; ≤ 250 words excluding the table and the gate output.
 Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
 table** — `export path · built value · reason`, one row per deviation from the export, plus one
 row per lock row. Every deviation is a defect you name yourself; an empty table means you built
-the file whole.
+the file whole. When the contract is an export **pair**, `handoff-to-code` states the
+per-node form of that table — `element · Figma binding · token used · value · status · ruling
+ref` — and drift stops for a ruling rather than being resolved in the branch.
 
 ## Baton (when you land)
 
