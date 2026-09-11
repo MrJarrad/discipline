@@ -30,6 +30,7 @@ const style = flow(read("output-styles/discipline.md"));
 const styleRaw = read("output-styles/discipline.md");
 const dispatchBrief = flow(read("skills/dispatch-brief/SKILL.md"));
 const dispatchBriefRaw = read("skills/dispatch-brief/SKILL.md");
+const doerRulesRaw = read("doer-rules.md");
 const agentFiles = readdirSync(join(repo, "agents")).filter((f) => f.endsWith(".md"));
 const agents = agentFiles.map((f) => [`agents/${f}`, flow(read(`agents/${f}`))]);
 const agentsRaw = agentFiles.map((f) => [`agents/${f}`, read(`agents/${f}`)]);
@@ -154,9 +155,9 @@ test("borrowed rules are credited", () => {
 
 const FIXED_RETURN_HEADING = "## Fixed evidence return";
 
-test("dispatch-brief owns the fixed evidence return shape", () => {
-  assert.ok(dispatchBriefRaw.includes(FIXED_RETURN_HEADING), "section must exist by that name");
-  const section = flow(dispatchBriefRaw.slice(dispatchBriefRaw.indexOf(FIXED_RETURN_HEADING)));
+test("doer-rules owns the fixed evidence return shape", () => {
+  assert.ok(doerRulesRaw.includes(FIXED_RETURN_HEADING), "section must exist by that name");
+  const section = flow(doerRulesRaw.slice(doerRulesRaw.indexOf(FIXED_RETURN_HEADING)));
   for (const field of [
     /final sha/i,
     /per-criterion|per-AC/i,
@@ -175,7 +176,7 @@ test("every agent references the fixed return instead of inventing its own", () 
   for (const [name, text] of agents) {
     assert.match(
       text,
-      /dispatch-brief.{0,80}Fixed evidence return|Fixed evidence return.{0,80}dispatch-brief/is,
+      /doer-rules.{0,80}Fixed evidence return|Fixed evidence return.{0,80}doer-rules/is,
       `${name} must point at the one shape`,
     );
   }
@@ -203,17 +204,19 @@ test("dispatch-brief states a target brief length", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
 });
 
-test("the dispatch checklist gates the fixed return, skill-names-only, and brief length", () => {
-  const checklist = flow(dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Checklist before dispatch")));
-  assert.match(checklist, /Fixed evidence return/i);
-  assert.match(checklist, /restate/i);
-  assert.match(checklist, /brief length|words/i);
+test("the eight-item list gates the contract pointer, skill-names-only, and done-when", () => {
+  const checklist = flow(dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")));
+  assert.match(checklist, /Contract pointed at/i);
+  assert.match(checklist, /restated/i);
+  assert.match(checklist, /Done-when/i);
+  const items = (dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")).match(/^\[ \]/gm) || []);
+  assert.equal(items.length, 8, `the list is ${items.length} items; the ratified count is 8`);
 });
 
 // --- AC6: out of scope, must not appear ----------------------------------
 
 test("nothing in the touched law mentions subagent token roll-up or budgets", () => {
-  const docs = [["style", styleRaw], ["dispatch-brief", dispatchBriefRaw], ...agentsRaw];
+  const docs = [["style", styleRaw], ["dispatch-brief", dispatchBriefRaw], ["doer-rules", doerRulesRaw], ...agentsRaw];
   for (const [name, text] of docs) {
     assert.doesNotMatch(text, /token roll-?up|subagent (?:token|budget)/i, `${name} is out of scope`);
   }

@@ -24,12 +24,14 @@ const shippedDocs = () => [
     .filter((f) => f.endsWith(".md"))
     .map((f) => `output-styles/${f}`),
   "operator-rules.md",
+  "doer-rules.md",
   "README.md",
 ];
 
 const reviewer = read("agents/reviewer.md");
 const routing = read("skills/routing/SKILL.md");
 const dispatchBrief = read("skills/dispatch-brief/SKILL.md");
+const doerRules = read("doer-rules.md");
 const modelRouting = read("skills/model-routing/SKILL.md");
 const presentForReview = read("skills/present-for-review/SKILL.md");
 const wrap = read("skills/wrap/SKILL.md");
@@ -115,16 +117,16 @@ test("the operator preview link precedes agent review and never gates on it", ()
 
 // --- Locked row 4: notes ledger + effort tier ----------------------------
 
-test("dispatch-brief carries the notes-ledger rule", () => {
-  assert.match(dispatchBrief, /notes ledger/i);
-  assert.match(dispatchBrief, /compact/i);
-  assert.match(dispatchBrief, /re-read/i);
+test("doer-rules carries the notes-ledger rule", () => {
+  assert.match(doerRules, /notes ledger/i);
+  assert.match(doerRules, /compact/i);
+  assert.match(doerRules, /re-read/i);
 });
 
 test("dispatch-brief carries an effort tier field and checklist line", () => {
-  assert.match(dispatchBrief, /routine \| contested \| high-stakes|routine \\\| contested/i);
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /effort tier/i);
+  const persona = dispatchBrief.slice(dispatchBrief.indexOf("## Persona + model"));
+  assert.match(persona, /routine \| contested \| high-stakes|routine \\\| contested/i);
+  assert.match(persona, /effort tier/i);
 });
 
 test("model-routing maps all three effort tiers to model and thinking budget", () => {

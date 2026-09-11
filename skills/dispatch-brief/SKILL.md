@@ -20,7 +20,7 @@ malformed — do not `Agent`. Doer law is `doer-rules.md`.
 | 1 | Handoff export pair | the export | `## Source contract`, lock rows | one-pass binding diff |
 | 2 | Figma, no export | the file+node | `capture-figma`, live node read | `audit-build` vs node |
 | 3 | Reference site/shot | capture folder | capture path, match list | diff vs capture |
-| 4 | Itemisation, bug, one-liner | the operator's words | one quoted lock row each; grill an assuming row | every row demonstrated |
+| 4 | Itemisation, bug, one-liner | the operator's words | one quoted lock row each; grill assumptions | every row demonstrated |
 | 5 | Feel or taste ask | none yet | `grilling`; no brief yet | the lock itself |
 | 6 | Plugin/skill/release ask | the ask quoted | gates, version | gates green |
 | 7 | Fix round | feedback + original contract | sha reviewed | feedback rows cleared |
@@ -41,7 +41,7 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 - AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
 ```
 
-The doer loads `handoff-to-code`.
+The doer loads **`handoff-to-code`** under a Source contract.
 
 ## Locked decisions
 
@@ -53,10 +53,10 @@ The doer loads `handoff-to-code`.
 ```
 
 Operator column: verbatim, never a summary, naming the thing as defined wherever it's
-defined (layer, component, class, token) — never a synonym (`define-terms`). One AC per
-locked row, deferrals named; slicing a whole-surface lock is malformed. Under a
-Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole,
-plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
+defined (layer, component, class, token) — never a synonym (`define-terms`). Under a
+Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
+One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs;
+slicing a whole-surface lock is malformed.
 
 ## The brief — four parts
 
