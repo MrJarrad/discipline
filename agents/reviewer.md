@@ -224,7 +224,8 @@ open. The parent remits; you never merge, and you never tell the operator it's d
 
 Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+The `Open gaps` field is "none" or a list — never "nothing blocking." No prose recap;
+≤ 250 words excluding the table and the gate output.
 
 ## Baton (next owner — never Agent)
 

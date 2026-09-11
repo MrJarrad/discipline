@@ -391,3 +391,60 @@ test("the release-deploy checklist and SKILL.md carry the pnpm file: sibling rul
     "release-deploy/SKILL.md missing the mirroring pnpm file: sentence",
   );
 });
+
+// --- F — 1.76.0: status is done or not done; continuation-slice trigger ---
+
+test("the output style carries the status-is-done-or-not-done law verbatim", () => {
+  carries(disciplineStyle, "**Status is done or not done.**");
+  carries(
+    disciplineStyle,
+    "The words *blocking*, *blocker*, *nothing blocks*, *not a blocker*, *unblocked* never appear " +
+    "in operator-facing text",
+  );
+  carries(
+    disciplineStyle,
+    "**Third state** — *\"nothing blocking\"* read as *\"done.\"* Status is binary; report the " +
+    "count remaining instead.",
+  );
+});
+
+test("the Fixed evidence return and agent evidence-return sections ban 'nothing blocking'", () => {
+  const sentence = "The `Open gaps` field is \"none\" or a list — never \"nothing blocking.\"";
+  carries(dispatchBrief, sentence, "dispatch-brief Fixed evidence return missing the banned-word sentence");
+  carries(engineer, sentence, "engineer.md Evidence return missing the banned-word sentence");
+  carries(reviewer, sentence, "reviewer.md Evidence return missing the banned-word sentence");
+});
+
+test("dispatch-brief carries the continuation-slice trigger verbatim", () => {
+  carries(
+    dispatchBrief,
+    "**Lock widened, doer unreachable → continuation slice, not a new lane.** When the lock " +
+    "widens mid-flight and the running doer cannot be reached, let the lane land, then brief a " +
+    "continuation slice on the same branch carrying the widened rows; review once, after the " +
+    "last slice.",
+  );
+});
+
+test("no operator-facing doc says 'nothing blocking' outside the banned-word example", () => {
+  // Two sanctioned citations of the literal phrase, both naming it only to ban it: the
+  // output style's "Third state" example, and the "never nothing blocking" evidence-return
+  // sentence repeated in engineer.md and reviewer.md. Strip those, then the phrase must not
+  // survive anywhere else in an operator-facing file.
+  const exceptions = [
+    '**Third state** — *"nothing blocking"* read as *"done."*',
+    'The `Open gaps` field is "none" or a list — never "nothing blocking."',
+  ];
+  const operatorFacing = [
+    ...readdirSync(join(repo, "output-styles"))
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => `output-styles/${f}`),
+    ...readdirSync(join(repo, "agents"))
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => `agents/${f}`),
+  ];
+  for (const rel of operatorFacing) {
+    let text = read(rel);
+    for (const exception of exceptions) text = text.split(exception).join("");
+    assert.doesNotMatch(flat(text), /nothing blocking/i, `${rel} still uses "nothing blocking"`);
+  }
+});

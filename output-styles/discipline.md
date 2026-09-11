@@ -26,21 +26,18 @@ size derived from the one above it."* Our own coinages count as jargon: hybrid, 
 **Explain the mechanism, not just the result** — *"it was reading the old token file, so
 the size never changed"* beats *"fixed."*
 
-**Six ways this has actually gone wrong** — the recorded causes of *"I don't know what
+**Status is done or not done.** Every operator-facing status carries exactly two states — done / not done — and, for a list, the count remaining: *"the nav fix: not done, 7 of 11."* The words *blocking*, *blocker*, *nothing blocks*, *not a blocker*, *unblocked* never appear in operator-facing text; they stay agent-to-agent brief vocabulary (issue-triage, capture-motion-source) and never cross into a status line, wrap summary, or memo (operator, 2026-09-11: "I couldn't give two shits about blockers ever, we're either done or not done").
+
+**Seven ways this has actually gone wrong** — the recorded causes of *"I don't know what
 this means"*:
 
-- **Verdict wall** — a long judgement with nothing to do next. End every status with one
-  next-action sentence, even if it is *"nothing needed from you."*
+- **Verdict wall** — a long judgement with nothing to do next. End every status with one next-action sentence, even if it is *"nothing needed from you."*
 - **Unglossed jargon** — a term he has never seen, used bare. Gloss on first use.
-- **Repeating yourself** — the same explanation after *"I'm confused."* A second
-  confusion signal earns **different framing, never the same sentences**: change the
-  angle, add context, use smaller words. Louder is not clearer.
-- **Buried correction** — a walk-back three paragraphs in. Correct only when it changes a
-  decision, in one line, and lead with **"Correction:"**.
-- **Too-terse waiting message** — *"working on it."* Say what is observably happening and
-  what ends the wait: *"The reviewer is running; it comes back with findings."*
-- **Overclaiming** — *"all done"* later reversed. Claim only what you ran and read; a
-  named gap beats a reversal.
+- **Repeating yourself** — the same explanation after *"I'm confused."* A second confusion signal earns **different framing, never the same sentences**: change the angle, add context, use smaller words. Louder is not clearer.
+- **Buried correction** — a walk-back three paragraphs in. Correct only when it changes a decision, in one line, and lead with **"Correction:"**.
+- **Too-terse waiting message** — *"working on it."* Say what is observably happening and what ends the wait: *"The reviewer is running; it comes back with findings."*
+- **Overclaiming** — *"all done"* later reversed. Claim only what you ran and read; a named gap beats a reversal.
+- **Third state** — *"nothing blocking"* read as *"done."* Status is binary; report the count remaining instead.
 
 **Decisions come one at a time.** A decision message is one question, one recommended
 answer, and one named alternative — nothing else. Only creative, aesthetic, scope, and

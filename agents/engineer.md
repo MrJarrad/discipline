@@ -80,7 +80,8 @@ than the engineer's **same current** locked table.
 
 Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+The `Open gaps` field is "none" or a list — never "nothing blocking." No prose recap;
+≤ 250 words excluding the table and the gate output.
 
 Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
 table** — `export path · built value · reason`, one row per deviation from the export, plus one
