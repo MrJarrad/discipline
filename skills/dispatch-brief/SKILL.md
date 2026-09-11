@@ -127,7 +127,10 @@ Standing fleet rulings are quoted separately (below). Locked decisions are **thi
 repo has it) must be **green before a reviewer is solicited** — a reviewer handed a red
 build returns immediately without reviewing. The engineer brief states the gates; the
 reviewer brief cites them as met. Model judgement is for the residual those gates cannot
-express, never a substitute for running them.
+express, never a substitute for running them. A consumer of a `file:` sibling dependency
+runs `pnpm install --force` first and asserts the installed copy's identity (a header
+stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
+copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
 
 **Review tier — `LIGHT` is the standing default; `FULL` is the exception the brief must
 argue** (operator, 2026-09-07: *"way too much agent reviewing going on generally"*).
@@ -427,6 +430,7 @@ agent starts working, not re-mapping.
     the rest, enumeration/precedent/determinism claims verified in full, and every
     finding independently re-validated; round cap of 3 stated
 [ ] Deterministic gates (build, typecheck, suite/CI) green before a reviewer is solicited
+[ ] file: sibling consumer → pnpm install --force + installed-copy assert before gates
 [ ] Reviewer brief names the lock's **live path**, not only the copied snapshot
 [ ] Effort tier named — `routine | contested | high-stakes` — and mapped via model-routing
 [ ] Notes-ledger path named for long dispatches: append before compaction, re-read after

@@ -22,6 +22,7 @@ Parent procedure: [`skills/release-deploy/SKILL.md`](../SKILL.md).
 - [ ] **Typecheck** green on the artifact — evidence: `<output>`
 - [ ] **Build** green — evidence: `<output>`
 - [ ] **Tests** green — evidence: `<output>`
+- [ ] `file:` sibling consumers run `pnpm install --force` and assert the installed copy before any gate or deploy; deploys verify the deployed artifact.
 - [ ] Artifact is immutable + identifiable: `<version/hash>`
 
 ### 2. Deploy — dark, flag OFF

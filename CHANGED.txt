@@ -1,3 +1,26 @@
+1.75.0 — handoff-to-code is generated from handoff-css@7f51638; mirror drift test; pnpm file: lesson encoded (2026-09-11)
+
+`skills/handoff-to-code/SKILL.md` is no longer hand-maintained in this repo — it is a byte
+copy of handoff-css's own `skills/handoff-to-code/dist/claude-plugin/SKILL.md`, taken at
+`main` sha `7f51638a3123ca79b5cc9aca0b5b7939350c80db` (handoff-css `v0.3.0`, merged
+2026-09-11: export contract P14, one-skill-every-host Lock 2, `conform` P16, the P15
+rounding rule, and schema 9). `hooks/scripts/source-contract-law.test.mjs` confirms every
+ratified sentence still survives in the copied file. New
+`hooks/scripts/handoff-to-code-mirror.test.mjs` guards future drift: with
+`$HANDOFF_CSS_ROOT` (default `~/JHD/handoff-css/main`) present, it byte-compares the
+plugin's copy against the package's dist file and asserts every entry in the package's own
+`test/skill-law-sentences.mjs` survives; absent, it skips with the reason printed, or fails
+under `DISCIPLINE_MIRROR_STRICT=1`.
+
+Encodes `fleet/lessons/pnpm-file-deps-are-copied-2026-09-11.md` (the portfolio design-system
+deploy that shipped a stale token because `pnpm install` without `--force` is a no-op on a
+`file:` sibling): `skills/dispatch-brief/SKILL.md`'s "Deterministic gates precede review"
+paragraph and pre-dispatch checklist, and `skills/release-deploy/SKILL.md` §1 Build plus
+`skills/release-deploy/references/DEPLOY-CHECKLIST.md` §1, now all state the rule —
+`pnpm install --force` and an installed-copy identity assert precede any gate or deploy for
+a `file:` sibling consumer. `source-contract-law.test.mjs` gains block E asserting both
+sentences verbatim.
+
 1.74.0 — handoff-to-code: the export pair is the contract (2026-09-10)
 
 New skill `skills/handoff-to-code/SKILL.md`. Where 1.73.0 made the brief point at a

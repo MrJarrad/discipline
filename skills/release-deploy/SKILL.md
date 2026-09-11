@@ -39,6 +39,8 @@ each step is independently reversible, and rehearse the rollback *before* you sh
   will actually ship. No "should work" — see `quality` (verify before claiming).
 - The artifact is **immutable and identifiable** (version/tag/hash). You must be able to say
   exactly what is in production and diff it against the last-good release.
+- A `file:` sibling consumer runs `pnpm install --force` and asserts the installed copy before
+  any gate or deploy — pnpm copies `file:` deps into its store, so a plain install is a no-op.
 - Record the **last-known-good** version *before* you ship — that's your rollback target.
 
 ### 2. Deploy — dark, behind an off flag
