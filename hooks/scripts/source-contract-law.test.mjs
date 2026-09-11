@@ -116,7 +116,7 @@ test("prompt-craft carries the mechanism-named rule verbatim", () => {
   carries(promptCraft, '"On the grid" without the container is a steer to arithmetic (portfolio nav, 2026-09-10).');
 });
 
-test("the mechanism rule ships with a DO/DON'T pair and a checklist line", () => {
+test("the mechanism rule ships with a DO/DON'T pair", () => {
   const mech = promptCraft.slice(promptCraft.indexOf("## Mechanism named"));
   assert.match(mech, /\*\*DO:\*\*/);
   assert.match(mech, /\*\*DON'T:\*\*/);
@@ -363,7 +363,7 @@ test("dispatch-brief carries the pnpm file: sibling lesson verbatim", () => {
     "asserts the installed copy's identity (a header stamp or one token grep under " +
     "`node_modules/<pkg>/`) before any gate or deploy — pnpm copies `file:` deps into " +
     "its store, so a plain install is a no-op (portfolio, 2026-09-11).";
-  carries(dispatchBrief, sentence, "dispatch-brief missing the pnpm file: lesson sentence");
+  carries(doerRules, sentence, "doer-rules missing the pnpm file: lesson sentence");
   carries(
     deployChecklist,
     "[ ] `file:` sibling consumers run `pnpm install --force` and assert the installed copy before any gate or deploy; deploys verify the deployed artifact.",

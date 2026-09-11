@@ -11,20 +11,20 @@ description: >-
 ## The one rule
 
 **The brief points at the contract; it never restates it.** A paraphrasing brief is
-malformed — do not `Agent`. Doer law is `doer-rules.md`.
+malformed — do not `Agent`. Doer law: `doer-rules.md`.
 
 ## Pick the contract
 
 | # | Operator gives | Contract | Parent adds | Verified by |
 |---|---|---|---|---|
 | 1 | Handoff export pair | the export | `## Source contract`, lock rows | one-pass binding diff |
-| 2 | Figma, no export | the file+node | `capture-figma`, live node read | `audit-build` vs node |
-| 3 | Reference site/shot | capture folder | capture path, match list | diff vs capture |
-| 4 | Itemisation, bug, one-liner | the operator's words | one quoted lock row each; grill assumptions | every row demonstrated |
-| 5 | Feel or taste ask | none yet | `grilling`; no brief yet | the lock itself |
-| 6 | Plugin/skill/release ask | the ask quoted | gates, version | gates green |
-| 7 | Fix round | feedback + original contract | sha reviewed | feedback rows cleared |
-| 8 | Research, blue-sky | the question, whole | givens fixed, unknown invited (`prompt-craft` altitude 2) | sourced options + recommendation |
+| 2 | Figma, no export | the file+node | `capture-figma`, live read | `audit-build` vs node |
+| 3 | Reference site/shot | capture folder | path, match list | diff vs capture |
+| 4 | Itemisation, bug, one-liner | the operator's words | a quoted lock row each; grill assumptions | each row demonstrated |
+| 5 | Feel or taste ask | none yet | `grilling`; no brief yet | the lock |
+| 6 | Plugin/skill/release | the ask quoted | gates, version | gates green |
+| 7 | Fix round | feedback + original contract | sha reviewed | rows cleared |
+| 8 | Research, blue-sky | the question, whole | givens fixed, unknown invited (`prompt-craft` alt 2) | sourced options + recommendation |
 
 ## Source contract
 
@@ -53,14 +53,14 @@ The doer loads **`handoff-to-code`** under a Source contract.
 ```
 
 Operator column: verbatim, never a summary, naming the thing as defined wherever it's
-defined (layer, component, class, token) — never a synonym (`define-terms`). Under a
+defined (layer, class, token) — never a synonym (`define-terms`). Under a
 Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
-One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs;
-slicing a whole-surface lock is malformed.
+One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
+Slicing a whole-surface lock is malformed.
 
 ## The brief — four parts
 
-- **Goal** — what exists when done, one line.
+- **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer first.
 - **Constraints** — rulings quoted, gates, skills, push policy.
 - **Done-when** — the contract's own verification.
@@ -69,10 +69,9 @@ slicing a whole-surface lock is malformed.
 
 ## What the parent does not add
 
-One coherent batch instead of phases; the scenario row's "verified by" instead of
-measurement matrices and evidence READMEs; skill **names**, never restated procedure, no
-ruling beyond one DO/DON'T pair; `doer-rules.md`'s Fixed evidence return, not
-per-brief contracts.
+One batch, not phases; the scenario row's "verified by", not measurement matrices or
+evidence READMEs; skill **names**, never restated procedure, and no ruling beyond one
+DO/DON'T pair; `doer-rules.md`'s Fixed evidence return, not per-brief contracts.
 
 ## Reviewer brief
 
@@ -81,16 +80,13 @@ engineer's same current locked table, the lock's **live path**, and the tier —
 default, `FULL` argued. Unnamed tier defaults to `LIGHT`. Rounds cap at 3; merge is gates
 green + no red finding.
 
-Deterministic gates are green **before a reviewer is solicited**. A consumer of a `file:` sibling dependency
-runs `pnpm install --force` first and asserts the installed copy's identity (a header
-stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
-copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
+Deterministic gates are green **before a reviewer is solicited** (`doer-rules.md` states what a gate run requires).
 
 ## Persona + model
 
-Label: `persona-(model)` from `model-routing`; `description` leads with the
-surface — `cloud — persona (model): task`, or `local` (`routing` rule 9). Model is
-explicit, never inherited. Effort tier: `routine | contested | high-stakes`.
+Label: `persona-(model)` from `model-routing`; `description` leads with the surface —
+`cloud — persona (model): task`, or `local` (`routing` rule 9). Model explicit, never
+inherited. Effort tier: `routine | contested | high-stakes`.
 
 ## State (untrusted draft; verify)
 
@@ -107,7 +103,7 @@ last slice.
 
 ```
 [ ] Contract pointed at by scenario row, not restated
-[ ] Operator rulings verbatim, one lock row each
+[ ] Operator rulings verbatim, a lock row each
 [ ] Repo, branch, cwd; `doer-rules.md`
 [ ] Gates green before review
 [ ] Model, surface-prefixed description, tier

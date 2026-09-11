@@ -27,6 +27,10 @@ it never restates what is here.
   uncommitted.
 - Deterministic gates (build, typecheck, suite, CI where the repo has it) are green on the
   sha you hand over.
+- A consumer of a `file:` sibling dependency
+  runs `pnpm install --force` first and asserts the installed copy's identity (a header
+  stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
+  copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
 
 ## Fixed evidence return
 

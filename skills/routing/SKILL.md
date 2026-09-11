@@ -251,6 +251,11 @@ Same-domain follow-ups to the **same** persona are parent `SendMessage` to the s
 baton handoffs per the table above — parent dispatches on completion ping, not optional
 parent memory.
 
+**Context continuity — primers.** Every repeated workstream has a vault primer at
+`projects/<name>/primers/<workstream>-primer.md`; the brief's Context names it as **FIRST
+READ** so the doer starts working, not re-mapping. Spawn fresh only for a new domain, or
+when a prior transcript is past useful size.
+
 ## Verification hooks
 
 - **Baton (parent-only):** engineer landed → parent `Agent`-dispatches reviewer once
