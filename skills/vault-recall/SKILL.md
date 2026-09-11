@@ -33,7 +33,7 @@ not the aspect.
   `~/JHD/ai/discipline-cursor` (Cursor snapshot) → jhd-discipline (not legacy
   `projects/discipline`).
 - **Doing repeated work in a workstream** (a repo you keep dispatching into) → read
-  `projects/<name>/primers/<workstream>-primer.md` first — the dispatch-brief skill
+  `projects/<name>/primers/<workstream>-primer.md` first — the `routing` skill
   requires it be cited as FIRST READ. If no primer exists yet, that's a signal to write
   one after the dispatch, not to skip the read.
 - **Checking cross-project doctrine or a binding rule** → `~/JHD/vault/fleet/rulings/`.

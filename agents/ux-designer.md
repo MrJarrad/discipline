@@ -47,7 +47,9 @@ Use chrome-devtools / browser tools for live viewport evidence.
 
 ## Evidence return
 
-Use the **Fixed evidence return** shape defined in `dispatch-brief` — final sha,
+Standing rules: `doer-rules.md` — read it whole.
+
+Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
 No prose recap; ≤ 250 words excluding the table and the gate output.
 

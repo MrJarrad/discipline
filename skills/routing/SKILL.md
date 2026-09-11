@@ -115,8 +115,8 @@ turn's summary, no matter how recently it last fired.
    in the brief, never the default reach. **Visible on every dispatch:** the `Agent`
    `description` leads with the surface — `cloud — persona (model): task` / `local —
    persona (model): task` — and a local brief carries the one-clause machine-bound
-   justification; mechanic and checklist item live in `dispatch-brief`'s "Persona +
-   model" section — this rule is the law, that skill is the enforcement point.
+   justification; the mechanic lives in `dispatch-brief`'s "Persona + model" section —
+   this rule is the law, that skill is the enforcement point.
 10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
    table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
    set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
@@ -177,6 +177,25 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 | "should we adopt this skill/plugin", "is this repo worth installing", external skill/plugin/MCP server up for adoption | Researcher | skill-review, research-synthesis |
 | "pause", "I need to pause", "wind down", "stop for now", "let's stop here", "resume", "pick up where we left off", "carry on from the snapshot" | Orchestrator (no dispatch) | pause-resume |
 
+## Dispatch vehicle
+
+- Single doer: `Agent` with the right `subagent_type`, background by default, on the
+  surface rule 9 picks.
+- Multi-phase / parallel doers / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
+- Vehicle is chosen **when the lane opens**, not per task.
+
+## Work-type skills (the brief names these)
+
+| Work type | Required skills |
+|---|---|
+| Build / fix | `quality` + `test-first` (+ `design-craft` + `markup-standard` if UI is touched) |
+| Build against a handoff export pair | `handoff-to-code` |
+| Build against Figma | `capture-figma` (+ build/fix skills above) |
+| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` + `audit-build` if UI is touched) |
+| Research | `research-synthesis` |
+| Capture | `capture-figma` or `capture-website` |
+| Motion | `motion` |
+
 ## Domain-library table (which skills the brief must name)
 
 | Domain in play | Load |
@@ -223,8 +242,8 @@ the main session reads everything and routes all work; standing specialists are 
 
 **Persona — you are the doer.** Implement. **NEVER call `Agent`.** Do not re-dispatch
 the **same** persona. Extended explicitly to full-tool general-purpose vehicles (no
-named persona) in `dispatch-brief`'s anti-delegation clause — same law, same wording,
-briefed there so every general-purpose dispatch carries it. **Baton:** when the handoff table names the next owner, land, name
+named persona) in `doer-rules.md` — a plain `Agent` dispatch with full tools and no named
+persona is still a doer, not a second orchestrator: no `Agent` calls, no spawn-and-wait. **Baton:** when the handoff table names the next owner, land, name
 **next owner** in your evidence return, and stop. The harness notifies the parent; the
 parent dispatches on the completion notification.
 

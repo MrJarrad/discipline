@@ -137,7 +137,7 @@ moment (the section the reader is in when the decision is made, not an appendix)
 pair; one verbatim assertion in a `*-law.test.mjs`; a `CHANGED.txt` line; and `encoded: <ver>`
 set on the vault lesson or ruling. Fewer than five is a lesson written, not shipped.
 
-- **DO:** rule in `dispatch-brief`'s Ports section + DO/DON'T + `dispatch-law.test.mjs` assertion + CHANGED line + `encoded: 1.73.0`
+- **DO:** rule in `doer-rules.md`'s Ports section + DO/DON'T + `dispatch-law.test.mjs` assertion + CHANGED line + `encoded: 1.73.0`
 - **DON'T:** a fleet lesson file with a good rule in it and nothing in the plugin
 
 ## Checklist before shipping a skill
@@ -159,6 +159,6 @@ set on the vault lesson or ruling. Fewer than five is a lesson written, not ship
 | Skill | Owns |
 | --- | --- |
 | `prompt-craft` | Wording inside **task briefs** for doers |
-| `dispatch-brief` | Brief **structure**, locked decisions, evidence contract |
+| `dispatch-brief` | Brief **structure** — contract pointer, four parts, eight items |
 | `grilling` | Experience interview primitive — don't restate here |
 | `vault-write` | Where artifacts land in the vault |
