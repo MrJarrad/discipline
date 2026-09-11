@@ -1,3 +1,14 @@
+1.77.0 — dispatch-brief rewritten to four parts; doer-rules.md is tier 1 (2026-09-11)
+
+Two tiers replace one 4,612-word skill. Tier 1 `doer-rules.md` (repo root) carries the
+standing law every dispatched agent reads whole: you are the doer, repo and safety, the
+Fixed evidence return, ports, notes ledger. Tier 2 `skills/dispatch-brief/SKILL.md` is
+under 900 words — one rule (the brief points at the contract, never restates it), an
+eight-scenario contract table, Goal / Context / Constraints / Done-when, and one
+eight-item list before dispatch. Vehicle + work-type skill tables moved to `routing`;
+neutral wording and the mechanism-named rule moved to `prompt-craft`. New
+`brief-shape-law.test.mjs` pins the ceilings and the counts.
+
 1.76.0 — status-is-done-or-not-done and retarget-is-a-continuation-slice encoded (2026-09-11)
 
 Encodes `fleet/rulings/status-is-done-or-not-done-2026-09-11.md` (operator: "we're either
