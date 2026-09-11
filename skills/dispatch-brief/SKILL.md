@@ -53,7 +53,7 @@ The doer loads **`handoff-to-code`** under a Source contract.
 ```
 
 Operator column: verbatim, never a summary, naming the thing as defined wherever it's
-defined (layer, class, token) — never a synonym (`define-terms`). Under a
+defined (layer, component, class, token) — never a synonym (`define-terms`). Under a
 Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
 One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
 Slicing a whole-surface lock is malformed.
