@@ -26,6 +26,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 - `routing` — decide WHO handles the work; chain-loads the three below
 - `model-routing` · `dispatch-brief` · `prompt-craft`
+- `doer-rules.md` — standing rules every dispatched doer carries
 
 **Discovery & shaping** — `discover-scope` · `shape-stress` · `define-terms` · `doc-formats` · `issue-triage` · `prototype`
 

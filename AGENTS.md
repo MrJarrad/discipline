@@ -3,6 +3,9 @@
 This repo carries **always-on discipline rules** under `.cursor/rules/` so Cloud Agents
 get invariants / routing / operator voice **without** the Mac home plugin.
 
+`doer-rules.md` (repo root) is the standing rules file every dispatched doer reads whole;
+it syncs into target repos' `.cursor/rules/` with the rest.
+
 ## Cloud Environment (jhd-fleet)
 Repo-file `.cursor/environment.json` auto-applies when you start Cloud from **this**
 repo (or any other Phase-1 Fleet remote). **One repo on disk** — install links

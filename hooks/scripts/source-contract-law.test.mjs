@@ -18,6 +18,8 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
 
 const dispatchBrief = read("skills/dispatch-brief/SKILL.md");
+const doerRules = read("doer-rules.md");
+const promptCraft = read("skills/prompt-craft/SKILL.md");
 const engineer = read("agents/engineer.md");
 const reviewer = read("agents/reviewer.md");
 const issueTriage = read("skills/issue-triage/SKILL.md");
@@ -48,6 +50,7 @@ const shippedDocs = () => [
     .filter((f) => f.endsWith(".md"))
     .map((f) => `output-styles/${f}`),
   "operator-rules.md",
+  "doer-rules.md",
   "README.md",
 ];
 
@@ -76,8 +79,8 @@ test("dispatch-brief ships the Source contract brief-template field", () => {
 
 test("the source contract sits above the lock table, which becomes rulings on top", () => {
   assert.ok(
-    dispatchBrief.indexOf("## Source contract (Design Handoff export)") <
-      dispatchBrief.indexOf("## Locked decisions (session"),
+    dispatchBrief.indexOf("## Source contract") <
+      dispatchBrief.indexOf("## Locked decisions"),
     "the Source contract section precedes Locked decisions",
   );
   carries(dispatchBrief, "Under a Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.");
@@ -85,13 +88,12 @@ test("the source contract sits above the lock table, which becomes rulings on to
 
 test("AC-S is one AC, never expanded per node", () => {
   carries(dispatchBrief, "plus **AC-S** when a Source contract exists — never expanded into per-node ACs");
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /Source contract/);
-  assert.match(checklist, /AC-S/);
+  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
+  assert.match(checklist, /Contract pointed at/);
 });
 
 test("the engineer returns a deviation table under a Source contract", () => {
-  carries(dispatchBrief, "the engineer also returns a **deviation table** (`export path · built value · reason`)");
+  carries(doerRules, "the engineer also returns a **deviation table** (`export path · built value · reason`)");
   carries(engineer, "`export path · built value · reason`, one row per deviation from the export, plus one row per lock row");
 });
 
@@ -105,21 +107,19 @@ test("the output style glosses the export-is-the-contract rule", () => {
 
 // --- A2: mechanism named + crop check ------------------------------------
 
-test("dispatch-brief carries the mechanism-named rule verbatim", () => {
-  carries(dispatchBrief, "A brief states how each locked value is produced, not only what it measures.");
-  carries(dispatchBrief, "a grid — `display: grid` container and children placed by `grid-column`, never col-span arithmetic");
-  carries(dispatchBrief, "frame dimensions — the sizing token, never a literal");
-  carries(dispatchBrief, "a repeated part — the component instance, never inline markup");
-  carries(dispatchBrief, "blend — which node carries `mix-blend-mode` and whether it is absolute or fixed");
-  carries(dispatchBrief, '"On the grid" without the container is a steer to arithmetic (portfolio nav, 2026-09-10).');
+test("prompt-craft carries the mechanism-named rule verbatim", () => {
+  carries(promptCraft, "A brief states how each locked value is produced, not only what it measures.");
+  carries(promptCraft, "a grid — `display: grid` container and children placed by `grid-column`, never col-span arithmetic");
+  carries(promptCraft, "frame dimensions — the sizing token, never a literal");
+  carries(promptCraft, "a repeated part — the component instance, never inline markup");
+  carries(promptCraft, "blend — which node carries `mix-blend-mode` and whether it is absolute or fixed");
+  carries(promptCraft, '"On the grid" without the container is a steer to arithmetic (portfolio nav, 2026-09-10).');
 });
 
-test("the mechanism rule ships with a DO/DON'T pair and a checklist line", () => {
-  const mech = dispatchBrief.slice(dispatchBrief.indexOf("**Mechanism named.**"));
+test("the mechanism rule ships with a DO/DON'T pair", () => {
+  const mech = promptCraft.slice(promptCraft.indexOf("## Mechanism named"));
   assert.match(mech, /\*\*DO:\*\*/);
   assert.match(mech, /\*\*DON'T:\*\*/);
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /Mechanism named/);
 });
 
 test("issue-triage reproduces the operator's framing before a lane opens", () => {
@@ -156,7 +156,7 @@ test("look stays the operator's while file parity is the reviewer's", () => {
   assert.match(reviewer, /never evaluates? look/i, "the reviewer still never evaluates look");
   carries(reviewer, "Copy strings, node presence, token names and annotations are read off the source and compared character by character");
   carries(reviewer, "a mismatch is **red-able**");
-  carries(dispatchBrief, "**File parity (copy, nodes, tokens, mechanism) is the reviewer's Structure check, not ux-designer's**");
+  carries(reviewer, "**Parity is a file check, and file checks are yours.**");
 });
 
 test("the reviewer proves pre-existing against main and never shares the build's constant", () => {
@@ -166,7 +166,7 @@ test("the reviewer proves pre-existing against main and never shares the build's
 
 test("audit-build is on the reviewer's stack and its mechanism section is the Structure check", () => {
   assert.match(reviewer, /Skills to invoke for this work:[^\n]*`audit-build` when UI is touched/);
-  assert.match(dispatchBrief, /\| Review \|[^\n]*`audit-build`/);
+  assert.match(routing, /\| Review \|[^\n]*`audit-build`/);
   carries(auditBuild, '**The reviewer runs this section and "Names are audited too" on every UI review**');
 });
 
@@ -181,15 +181,11 @@ test("dispatch-brief carries the State-section rule verbatim", () => {
   carries(dispatchBrief, "**Every continuation or slice brief carries `## State (untrusted draft; verify)`.**");
   carries(dispatchBrief, "It lists what prior slices claim landed — sha, mechanism, values — marked as claims.");
   carries(dispatchBrief, "Prior-slice implementation choices are never passed forward as fact: the doer re-verifies each against the Source contract and lock before building on it; a wrong mechanism inherited from slice 1 is slice 2's red finding, not its baseline.");
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /State \(untrusted draft; verify\)/);
+  assert.match(dispatchBrief, /## State \(untrusted draft; verify\)/);
 });
 
 test("one component per sonnet dispatch, in both the brief skill and model-routing", () => {
-  carries(dispatchBrief, "**One component per sonnet dispatch.**");
   carries(modelRouting, "**one component per brief**; a whole-surface brief goes to `opus`, justified");
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /One component per sonnet dispatch/);
 });
 
 test("fresh means fresh: a clean rebuild names the export and the wiring loci only", () => {
@@ -198,16 +194,13 @@ test("fresh means fresh: a clean rebuild names the export and the wiring loci on
 });
 
 test("the scope fence carries the fixture/golden-path repoint exception", () => {
-  carries(dispatchBrief, '**"Never edit tests" carries one exception: repointing a fixture or golden path** the change deliberately moves.');
-  carries(dispatchBrief, "Weakening, deleting, or skipping an assertion is never the exception.");
+  carries(doerRules, '**"Never edit tests" carries one exception: repointing a fixture or golden path** the change deliberately moves.');
+  carries(doerRules, "Weakening, deleting, or skipping an assertion is never the exception.");
 });
 
 test("doer ports are :3220 and up, with both reserved ports named", () => {
-  carries(dispatchBrief, "Doers run verification servers on `:3220` and up.");
-  carries(dispatchBrief, "**`:3210` the operator's live dev server** and **`:3211` the hoverboard viewer**");
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /:3220\+/);
-  assert.match(checklist, /:3211 hoverboard viewer/);
+  carries(doerRules, "Doers run verification servers on `:3220` and up.");
+  carries(doerRules, "**`:3210` the operator's live dev server** and **`:3211` the hoverboard viewer**");
   assert.match(routing, /own build on `:3220`\+ is \*\*not\*\* machine-bound/);
   assert.match(webappTesting, /:3220\+/);
 });
@@ -350,7 +343,7 @@ test("the ratified rule texts have not grown past their ratified length", () => 
     text.split(/\n\s*\n/).find((para) => flat(para).includes(flat(anchor)));
   const bars = [
     ["source contract", dispatchBrief, "When a Design Handoff export exists", 87],
-    ["mechanism named", dispatchBrief, "A brief states how each locked value is produced", 108],
+    ["mechanism named", promptCraft, "A brief states how each locked value is produced", 108],
     ["structure check", reviewer, "Pixel-identical is necessary, not sufficient", 80],
     ["crop before lane", issueTriage, "Before a feedback row opens a lane", 50],
   ];
@@ -370,11 +363,11 @@ test("dispatch-brief carries the pnpm file: sibling lesson verbatim", () => {
     "asserts the installed copy's identity (a header stamp or one token grep under " +
     "`node_modules/<pkg>/`) before any gate or deploy — pnpm copies `file:` deps into " +
     "its store, so a plain install is a no-op (portfolio, 2026-09-11).";
-  carries(dispatchBrief, sentence, "dispatch-brief missing the pnpm file: lesson sentence");
+  carries(doerRules, sentence, "doer-rules missing the pnpm file: lesson sentence");
   carries(
-    dispatchBrief,
-    "[ ] file: sibling consumer → pnpm install --force + installed-copy assert before gates",
-    "dispatch-brief checklist missing the file: sibling line",
+    deployChecklist,
+    "[ ] `file:` sibling consumers run `pnpm install --force` and assert the installed copy before any gate or deploy; deploys verify the deployed artifact.",
+    "DEPLOY-CHECKLIST.md missing the file: sibling checklist line",
   );
 });
 
@@ -410,7 +403,7 @@ test("the output style carries the status-is-done-or-not-done law verbatim", () 
 
 test("the Fixed evidence return and agent evidence-return sections ban 'nothing blocking'", () => {
   const sentence = "The `Open gaps` field is \"none\" or a list — never \"nothing blocking.\"";
-  carries(dispatchBrief, sentence, "dispatch-brief Fixed evidence return missing the banned-word sentence");
+  carries(doerRules, sentence, "doer-rules Fixed evidence return missing the banned-word sentence");
   carries(engineer, sentence, "engineer.md Evidence return missing the banned-word sentence");
   carries(reviewer, sentence, "reviewer.md Evidence return missing the banned-word sentence");
 });

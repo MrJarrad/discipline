@@ -324,7 +324,7 @@ export function protectedCheckoutHit(cwd) {
 
 // Ports the operator owns and keeps running. :3210 is the portfolio dev server
 // and :3211 the hoverboard viewer — both reserved by the fleet's own port law
-// ("Doers run verification servers on :3220 and up", skills/dispatch-brief);
+// ("Doers run verification servers on :3220 and up", doer-rules.md);
 // :3288 and :3260 are the sibling live services named in the same triage.
 export const PROTECTED_PORTS = ["3210", "3211", "3288", "3260"];
 

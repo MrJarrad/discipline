@@ -36,15 +36,16 @@ test("routing scopes the egress gap to the deployed surface, not slice builds", 
   );
 });
 
-test("dispatch-brief's vehicle section mirrors the same egress-gap scoping", () => {
-  assert.match(dispatchBrief, /deployed surface/);
-  assert.match(dispatchBrief, /own build[\s\S]{0,40}\*\*not\*\* machine-bound/i);
+test("routing owns the vehicle section and the egress-gap scoping", () => {
+  assert.match(routing, /deployed surface/);
+  assert.match(routing, /own build[\s\S]{0,40}\*\*not\*\* machine-bound/i);
+  assert.match(routing, /## Dispatch vehicle/);
+  assert.match(routing, /workflow\.mjs/);
 });
 
-test("dispatch-brief's checklist gates the machine-bound justification on the scoped list", () => {
-  const checklist = dispatchBrief.slice(dispatchBrief.indexOf("## Checklist before dispatch"));
-  assert.match(checklist, /deployed surface/);
-  assert.match(checklist, /review tier/i, "brief must name FULL or LIGHT review tier");
+test("the reviewer brief section names the review tier", () => {
+  const reviewerBrief = dispatchBrief.slice(dispatchBrief.indexOf("## Reviewer brief"));
+  assert.match(reviewerBrief, /tier/i, "brief must name FULL or LIGHT review tier");
 });
 
 test("review tiers are named FULL and LIGHT in both the brief skill and the reviewer", () => {
@@ -64,6 +65,3 @@ test("cloud-dispatch keeps fix rounds warm in the same session", () => {
   assert.match(cloudDispatch, /same session/i);
 });
 
-test("prototype-first is a dispatch-time step for unproven mechanisms", () => {
-  assert.match(dispatchBrief, /prototype/i);
-});

@@ -4,7 +4,7 @@ description: >-
   How to dispatch a headless doer to Claude cloud via the RemoteTrigger routines
   API — one routine per dispatch, run + watch, evidence, cleanup. Use before any
   cloud doer dispatch (RemoteTrigger create/run). Not for gates or machine-bound
-  work (use `Agent` locally per `dispatch-brief`'s vehicle section); not for
+  work (use `Agent` locally per `routing` rule 9); not for
   `Agent isolation:"remote"` — that path silently falls back local, never use it.
 ---
 
@@ -18,7 +18,7 @@ it for the probe history; this skill states the procedure only.
 ## Anti-triggers
 
 - Gates, machine-bound work (`:4411` capture listener, present-for-review, interactive-auth
-  MCPs) → local `Agent`, per `dispatch-brief`'s vehicle section.
+  MCPs) → local `Agent`, per `routing` rule 9.
 - `Agent` `isolation:"remote"` — undocumented, no gating table, no fallback contract.
   Re-probed 2026-08-28 with every prerequisite fixed: it still silently ran **local**
   with no error. Do not build the way of working on it; re-probe only when Anthropic

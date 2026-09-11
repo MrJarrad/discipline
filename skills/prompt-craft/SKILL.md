@@ -57,6 +57,31 @@ Invite high-quality exploration without pre-deciding the answer. The shape the o
 
 Do **not** paste execution-style acceptance tests into a strategy brief — they force shallow compliance instead of exploration.
 
+Altitude 2 is `dispatch-brief` scenario 8 (research / blue-sky): the question whole, the
+givens fixed, the unknown invited, and a sourced return with options, a recommendation and
+a fallback.
+
+## Neutral wording never steers
+
+State the question and the constraints. Never a predicted answer. If you name a
+candidate — a tool, a library, an approach — label it explicitly as **a hypothesis to
+refute, on equal footing with unnamed alternatives**, not a preferred answer wearing a
+disguise. "Investigate whether X is the cause (one hypothesis among several — the fix
+may lie elsewhere)" is neutral. "Fix the bug in X" when X is unconfirmed is a steer. If
+you catch a steer after dispatch, send the correction immediately — don't wait for the
+agent to finish.
+
+## Mechanism named
+
+A brief states how each locked value is produced, not only what it measures. Must be named whenever present: a grid — `display: grid` container and children placed
+by `grid-column`, never col-span arithmetic; frame dimensions — the sizing token, never a
+literal; a repeated part — the component instance, never inline markup; blend — which node
+carries `mix-blend-mode` and whether it is absolute or fixed. "On the grid" without the container
+is a steer to arithmetic (portfolio nav, 2026-09-10).
+
+- **DO:** "Nav sits on the page grid: the `<header>` is the `display: grid` container, links placed by `grid-column`"
+- **DON'T:** "Nav on the grid"
+
 ## Brief to skills, not around them
 
 **Three-layer briefs:** always-on holds the floor; skills hold method (load **whole**, no

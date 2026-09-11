@@ -60,7 +60,7 @@ already strong or the blast radius is high.
 - Otherwise escalate only after a cheaper model **demonstrably failed** on this task. Record it in the brief ("sonnet run X produced Y, wrong because Z").
 - "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
 
-## Checklist (extends dispatch-brief)
+## Checklist (extends dispatch-brief's eight-item list)
 
 ```
 [ ] model set explicitly on the dispatch (never inherited)
