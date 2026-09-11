@@ -1,3 +1,18 @@
+1.76.0 — status-is-done-or-not-done and retarget-is-a-continuation-slice encoded (2026-09-11)
+
+Encodes `fleet/rulings/status-is-done-or-not-done-2026-09-11.md` (operator: "we're either
+done or not done" — never a third "blocking" state) and
+`fleet/lessons/retarget-is-a-continuation-slice-2026-09-11.md` (a lock widened mid-flight,
+doer unreachable, is delivered as a continuation slice on the same branch, not a wait or a
+re-dispatch). `output-styles/discipline.md`'s "Say it so it lands" gains the "Status is done
+or not done" law paragraph and a "Third state" entry in the ways-this-has-gone-wrong list;
+`skills/dispatch-brief/SKILL.md`'s "Fixed evidence return" bans "nothing blocking" from the
+`Open gaps` field (mirrored in `agents/engineer.md` and `agents/reviewer.md`), and its "Caps
+and continuity" section states the continuation-slice trigger. New law-test block in
+`hooks/scripts/source-contract-law.test.mjs` asserts all three sentences verbatim plus a
+negative sweep: no operator-facing file still says "nothing blocking" outside the one
+banned-word citation. Both vault notes set `encoded: 1.76.0`.
+
 1.75.0 — handoff-to-code is generated from handoff-css@7f51638; mirror drift test; pnpm file: lesson encoded (2026-09-11)
 
 `skills/handoff-to-code/SKILL.md` is no longer hand-maintained in this repo — it is a byte

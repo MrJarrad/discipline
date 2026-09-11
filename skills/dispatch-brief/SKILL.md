@@ -295,6 +295,10 @@ that already dropped them.
 - **One component per sonnet dispatch.** A sonnet brief covers one component; a whole-surface
   brief goes to `opus` with the reach justified. Splitting a surface across sonnet slices to fit
   the model is how slice 1's mistakes become slice 2's baseline.
+- **Lock widened, doer unreachable → continuation slice, not a new lane.** When the lock
+  widens mid-flight and the running doer cannot be reached, let the lane land, then brief a
+  continuation slice on the same branch carrying the widened rows; review once, after the
+  last slice.
 
 ## Three-layer briefs (standing law — not reprinted each dispatch)
 
@@ -338,6 +342,8 @@ inventing a shape per dispatch.
 | 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
 | 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent` |
+
+**The `Open gaps` field is "none" or a list — never "nothing blocking."**
 
 **No prose recap, no narrative** — the table and the gate output are the report. Budget:
 **≤ 250 words**, excluding the per-criterion table and the verbatim gate output. Over
