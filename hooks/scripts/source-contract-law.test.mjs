@@ -31,6 +31,8 @@ const webappTesting = read("skills/webapp-testing/SKILL.md");
 const wrap = read("skills/wrap/SKILL.md");
 const vaultWrite = read("skills/vault-write/SKILL.md");
 const skillAuthoring = read("skills/skill-authoring/SKILL.md");
+const releaseDeploy = read("skills/release-deploy/SKILL.md");
+const deployChecklist = read("skills/release-deploy/references/DEPLOY-CHECKLIST.md");
 const disciplineStyle = read("output-styles/discipline.md");
 
 // Every agent-consumed doc the plugin ships — used for the stale-law sweep.
@@ -358,4 +360,34 @@ test("the ratified rule texts have not grown past their ratified length", () => 
     const count = flat(para).split(" ").filter(Boolean).length;
     assert.ok(count <= bar, `${name} rule is ${count} words — ratified length is ${bar}`);
   }
+});
+
+// --- E — 1.75.0: pnpm file: sibling lesson encoded -------------------------
+
+test("dispatch-brief carries the pnpm file: sibling lesson verbatim", () => {
+  const sentence =
+    "A consumer of a `file:` sibling dependency runs `pnpm install --force` first and " +
+    "asserts the installed copy's identity (a header stamp or one token grep under " +
+    "`node_modules/<pkg>/`) before any gate or deploy — pnpm copies `file:` deps into " +
+    "its store, so a plain install is a no-op (portfolio, 2026-09-11).";
+  carries(dispatchBrief, sentence, "dispatch-brief missing the pnpm file: lesson sentence");
+  carries(
+    dispatchBrief,
+    "[ ] file: sibling consumer → pnpm install --force + installed-copy assert before gates",
+    "dispatch-brief checklist missing the file: sibling line",
+  );
+});
+
+test("the release-deploy checklist and SKILL.md carry the pnpm file: sibling rule", () => {
+  carries(
+    deployChecklist,
+    "[ ] `file:` sibling consumers run `pnpm install --force` and assert the installed copy before any gate or deploy; deploys verify the deployed artifact.",
+    "DEPLOY-CHECKLIST.md missing the file: sibling checklist line",
+  );
+  carries(
+    releaseDeploy,
+    "A `file:` sibling consumer runs `pnpm install --force` and asserts the installed copy before " +
+    "any gate or deploy — pnpm copies `file:` deps into its store, so a plain install is a no-op.",
+    "release-deploy/SKILL.md missing the mirroring pnpm file: sentence",
+  );
 });

@@ -41,8 +41,9 @@ when the pair is silent — not instead of it.
 | Generated tokens + theme | The CSS the JSON produced. The only place a value is stated in code. |
 | Generated report | The audit trail. Its responsive/aliases section (§10) is where every warning is named. |
 
-The fifth, optional input is the operator's lock table: rulings **on top of** the pair,
-carrying only what the file cannot — blend modes, behaviour, links, copy overrides.
+The fifth, optional input is the **ruling list** for the task: decisions **on top of** the
+pair, carrying only what the file cannot — blend modes, behaviour, links, copy overrides.
+Anything else in that list is a paraphrase of the pair, and the pair wins.
 
 ## Steps
 
@@ -64,6 +65,15 @@ Then check the JSON's `schemaVersion` against the generator config's declared ve
 unlisted version is rejected by the generator on purpose — a superseded schema still parses,
 so silence would be the dangerous outcome. Vendoring the export in the consuming repo is what
 makes the run reproducible from the repo alone.
+
+One command checks all of it, plus the shape of both files:
+
+```
+handoff-css validate <export>.json <design-handoff>.md
+```
+
+An **error** stops you — a malformed export, or a `COMPANION_STATE_MISMATCH`. A **warning**
+is a decision waiting on a human: read it, carry it into your deviation table, and build.
 
 **Done when** all three hashes reconcile and the schema version is one the config declares.
 
@@ -149,7 +159,25 @@ variant, and the node lines carry each string verbatim. Build the strings as wri
   section states what moved since the last export — read it, then build the current strings.
 - **A copy section with zero findings still exists and says so.** Silence is not a report.
 
-### 6. Return a deviation table, and stop for a ruling on drift
+### 6. Check the built CSS back against the pair
+
+Before the deviation table, run the check in the other direction:
+
+```
+handoff-css conform --export <export>.json --handoff <design-handoff>.md \
+                    --tokens <generated tokens>.css --css <your stylesheets…>
+```
+
+It reads what you built and says which of it the pair does not state: a `var()` name the
+export never publishes (`UNKNOWN_NAME`), a device sample pasted as a literal
+(`SAMPLE_PX_LITERAL`), column maths where the brief says `col-span N/M` (`GRID_ARITHMETIC`),
+a `⚠ placeholder` string shipped as copy (`PLACEHOLDER_COPY`). Red fails; amber is a row in
+your table with a reason. It reads CSS only — a binding that lives in markup is still yours
+to check by hand.
+
+**Done when** the run is red-free, or every red has a deviation row and a ruling.
+
+### 7. Return a deviation table, and stop for a ruling on drift
 
 One row per node whose built value did not come straight from the pair, plus one row per lock
 row:
