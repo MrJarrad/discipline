@@ -88,7 +88,7 @@ if (!rootPresent) {
     `skill sets — onlyInPlugin: ${JSON.stringify(onlyInPlugin)}, onlyInCursor: ${JSON.stringify(onlyInCursor)}; ` +
     `drifted SKILL.md content: ${JSON.stringify(drifted)}`;
 
-  // Known-stale by design today (25/44 shared skills content-drifted, 4 name-mismatches —
+  // Known-stale by design today (this test computes the live shared/drifted/name-mismatch counts —
   // discipline-cursor's README pins "aligned with v1.39.0"; the plugin is well past that).
   // This is NOT this lane's fix: it is reported here so the drift is a standing, re-runnable
   // fact rather than a one-off audit. Default run reports and does not fail the release gate;
