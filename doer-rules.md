@@ -57,7 +57,8 @@ severity-ranked findings with their re-validation; the researcher's `file:line` 
 cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats a false
 "done" — a fail row with evidence is a complete return.
 
-**Status is done or not done.** Report the count remaining, never a third state.
+Operator-facing status vocabulary — see `output-styles/discipline.md` § Status is done or
+not done.
 
 ## Ports
 

@@ -1,3 +1,78 @@
+1.79.0 — dead references removed, one home per law, ceilings with reference offload (2026-09-12)
+
+Foundations hardening, W4. Four dispatches on one branch.
+
+**Dead references.** `design-taste-frontend` (README, `design-craft`, `routing`) and
+`impeccable` (README, `design-review`) were named in shipped docs but ship no folder — an
+agent reaching for either finds nothing and improvises. Both removed at every site; routing's
+greenfield row went with the first, since that lane has no skill behind it. All 11 skill
+folders no routing table named were traced: every one is live and chain-loaded by a sibling,
+so none was retired and each is now routed. `hooks/scripts/skill-reference-integrity.test.mjs`
+is the standing guard — every `skills/<name>` path and sibling link resolves, the retired
+names never reappear, and no skill folder goes unrouted.
+
+**One home per law.** Five laws had up to eight copies each. Homes: `doer-rules.md` for the
+`Agent` prohibition, the Open-gaps wording and the doer port range; `output-styles/discipline.md`
+for operator-facing status; `agents/reviewer.md` § Round cap for the review round cap. Every
+other site is a one-line pointer naming file and section — no paraphrase left to drift.
+`hooks/scripts/law-single-source.test.mjs` pins each law three ways: verbatim at its home,
+absent from every other shipped doc, pointer present at each former copy site.
+
+**Ceilings, met by offload.** Eleven files slimmed, nothing deleted — 24 new `references/*.md`
+carry the moved material, and `agents/references/` is new so an agent charter ceilings the
+same way a skill does:
+
+  capture-figma   9,578 -> 1,200      routing         3,254 -> 1,103 (ceiling 1,150)
+  motion          5,470 ->   978      wrap            3,115 ->   795
+  reviewer        2,017 -> 1,199      markup-standard 2,778 -> 1,024
+  vault-write     2,394 ->   641      banana          2,273 ->   567
+  nextjs          2,082 -> 1,140      prompt-craft    1,811 ->   633
+  issue-triage    1,693 ->   638
+
+`hooks/scripts/skill-ceilings.test.mjs` holds each ceiling on the BODY, requires a
+`references/` directory carrying real weight (a ceiling met by deletion fails), checks every
+`references/` link resolves, and records each file's frontmatter word count so the trigger
+surface cannot be raided to pay for the body. `handoff-to-code` is untouched: it is a byte
+mirror of handoff-css's `dist/claude-plugin/SKILL.md` and slims at its source repo.
+
+**Agent dispatch gate.** `hooks/bin/agent-dispatch-gate.mjs`, PreToolUse on `Agent|Task`,
+denies a dispatch naming the failing item: description must read `cloud — persona (model):
+task` (routing rule 9 + model-routing), `model` must be set explicitly, and the prompt must be
+under 600 words with markdown table rows excluded — counting a locked table would push the
+parent to slice the lock to fit, the malformed brief rule 10 forbids. `Explore` and `Plan` are
+exempt as parent reconnaissance. Three laws that were prompt-trusted since 1.74.0 are now
+mechanical.
+
+**Cursor retired** (operator ruling). `cursor-corpus-drift.test.mjs` removed along with every
+mention of Cursor as a surface, the `discipline-cursor` sibling and the `sync-discipline-*`
+scripts. `.cursor/rules/` stays — that path is where the always-on layer lives in a product
+repo regardless of editor, and AGENTS.md and `sync-doer-rules.mjs` now each say so in one line
+so the next reader does not read it as an editor dependency.
+
+**Fleet scripts rehomed (partly).** `scripts/jhd-container-clone.sh` moved into this repo —
+body byte-identical, only a provenance header added; it is pure git/rsync with no payload or
+editor dependency, so `new-product` now names a real path instead of a placeholder.
+`sync-discipline-into-product.sh` did NOT move: it is inert without the `rules/*.mdc` +
+`templates/*/` payload it copies, and that payload is the Cursor-era always-on corpus this
+release just retired — importing it would have un-retired Cursor and restored a second,
+competing routing law one commit after single-sourcing the first.
+`hooks/scripts/fleet-scripts.test.mjs` asserts every command path `new-product` names exists,
+that no placeholder survives, and that the skill does not hand a doer an overlay command it
+cannot run. The overlay payload's home is an open decision.
+
+**Evidence-archive rule.** Written into `present-for-review` and `wrap` at the moments evidence
+piles up: evidence and probes never live in a product repo; a round's evidence goes to
+`~/JHD/vault/main/estate/captures/<product>-evidence/` with a manifest row via
+`scripts/evidence-archive.mjs`.
+
+`handoff-to-code-mirror.test.mjs` reconciled: byte-identical to the 1.78.0 version, so there
+was no regression — the "0 tests" reading came from the absent-root path, which registered one
+skipped test and reported `pass 0` while the suite stayed green. The plugin-side assertions now
+run unconditionally; only the cross-repo byte-compare stays conditional on the sibling checkout.
+
+Suite: 601 checks green (`node --test hooks/scripts/`).
+
+
 1.78.0 — doer-rules sync, corpus drift test, mirror guard (2026-09-12)
 
 `hooks/scripts/sync-doer-rules.mjs` writes `doer-rules.md` into a target product repo's

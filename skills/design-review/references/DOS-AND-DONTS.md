@@ -12,5 +12,5 @@
 - **Don't invent a footer, nav item, or section** — experience recs stay within the locked surface unless scope expands.
 - **Don't duplicate standing can-use-it** (keyboard, semantics, contrast) unless the brief opts into people-with-AT depth.
 - **Don't treat synthetic as verdict** — no "users will hate this."
-- **Don't depend on missing `impeccable` `critique.md`** — heuristics live here and in sibling skills.
+- **Don't reach for a critique file outside this skill** — heuristics live here and in sibling skills.
 - **Don't score merge-gate taste** on copy, UI appearance, or feel — route explicit experience work to **design-review**.

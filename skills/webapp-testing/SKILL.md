@@ -21,7 +21,7 @@ This skill is the `quality` "verify before claiming" bar made re-runnable for a 
 - You need a **visual-regression guard**: a screenshot that must keep matching a committed baseline so a CSS or layout drift fails the build.
 - You need to **assert rendered state at real viewports** — element present/visible, text content, count, ARIA role, mobile vs desktop layout.
 - You need to test behavior **under controlled conditions** — a mocked slow/failing API, a specific server response, an empty vs populated state.
-- You're verifying **the portfolio site (dev `:3210`, doer servers `:3220+`)** and the acceptance criterion is "it still does X," not "here's what it looked like once."
+- You're verifying **the portfolio site** (ports per `doer-rules.md` § Ports) and the acceptance criterion is "it still does X," not "here's what it looked like once."
 
 ## When NOT to use — hand back
 
@@ -63,7 +63,7 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 
 ## The loop — red before green, every time
 
-1. **Detect the target.** Confirm the dev server is up and the port (`:3210` portfolio dev, `:3211` hoverboard viewer, `:3220+` doer servers, or the URL given). Don't test against a server you didn't confirm is running.
+1. **Detect the target.** Confirm the dev server is up and the port — the doer range and the reserved ports are in `doer-rules.md` § Ports; otherwise the URL the brief gives. Don't test against a server you didn't confirm is running.
 2. **Write the assertion first, watch it fail for the right reason.** Point it at the behavior; run it; confirm the failure message names the real gap (element missing, text wrong, snapshot mismatch) — not a typo, a bad selector, or a down server. A test never seen red is not yet evidence.
 3. **Make it green and stable.** Run it 2–3× — a test that passes once and fails once is flaky and worthless; fix the wait condition or the mask until it's deterministic.
 4. **Leave it re-runnable.** The script, its baselines, and how to run it are the deliverable. State the exact command and what a pass proves.

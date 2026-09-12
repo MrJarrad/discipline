@@ -22,6 +22,7 @@ const doerRules = read("doer-rules.md");
 const promptCraft = read("skills/prompt-craft/SKILL.md");
 const engineer = read("agents/engineer.md");
 const reviewer = read("agents/reviewer.md");
+const uxDesigner = read("agents/ux-designer.md");
 const issueTriage = read("skills/issue-triage/SKILL.md");
 const grilling = read("skills/grilling/SKILL.md");
 const captureFigma = read("skills/capture-figma/SKILL.md");
@@ -201,8 +202,15 @@ test("the scope fence carries the fixture/golden-path repoint exception", () => 
 test("doer ports are :3220 and up, with both reserved ports named", () => {
   carries(doerRules, "Doers run verification servers on `:3220` and up.");
   carries(doerRules, "**`:3210` the operator's live dev server** and **`:3211` the hoverboard viewer**");
-  assert.match(routing, /own build on `:3220`\+ is \*\*not\*\* machine-bound/);
-  assert.match(webappTesting, /:3220\+/);
+});
+
+// 1.79.0: the port assignment is DEFINED once, in doer-rules § Ports. The two docs
+// that used to restate it now point at it — a pointer keeps the reader one hop from
+// the live numbers instead of one hop from a stale copy.
+test("routing and webapp-testing point at the Ports section rather than restating it", () => {
+  assert.match(routing, /own build on its own port \(`doer-rules\.md` § Ports\) is \*\*not\*\* machine-bound/);
+  assert.match(webappTesting, /`doer-rules\.md` § Ports/);
+  assert.doesNotMatch(webappTesting, /:3220\+ doer servers/);
 });
 
 test("no shipped doc still sends a doer to :3211", () => {
@@ -401,11 +409,19 @@ test("the output style carries the status-is-done-or-not-done law verbatim", () 
   );
 });
 
-test("the Fixed evidence return and agent evidence-return sections ban 'nothing blocking'", () => {
+test("the Fixed evidence return bans 'nothing blocking' at its one home", () => {
   const sentence = "The `Open gaps` field is \"none\" or a list — never \"nothing blocking.\"";
   carries(doerRules, sentence, "doer-rules Fixed evidence return missing the banned-word sentence");
-  carries(engineer, sentence, "engineer.md Evidence return missing the banned-word sentence");
-  carries(reviewer, sentence, "reviewer.md Evidence return missing the banned-word sentence");
+});
+
+// 1.79.0: engineer.md and reviewer.md carried a verbatim copy of the sentence above.
+// A copied law drifts silently; a pointer cannot. Both now point, and the pointer
+// itself is pinned so a future edit cannot quietly drop the reference.
+test("the agent evidence-return sections point at doer-rules for the Open gaps wording", () => {
+  const pointer = "see `doer-rules.md` § Fixed evidence return";
+  for (const [name, text] of [["engineer", engineer], ["reviewer", reviewer], ["ux-designer", uxDesigner]]) {
+    carries(text, pointer, `${name}.md must point at the Fixed evidence return section`);
+  }
 });
 
 test("dispatch-brief carries the continuation-slice trigger verbatim", () => {
@@ -440,4 +456,49 @@ test("no operator-facing doc says 'nothing blocking' outside the banned-word exa
     for (const exception of exceptions) text = text.split(exception).join("");
     assert.doesNotMatch(flat(text), /nothing blocking/i, `${rel} still uses "nothing blocking"`);
   }
+});
+
+// --- G — 1.79.0: evidence and probes never live in a product repo ---------
+// W3c's standing process has a repo side (scripts/evidence-archive.mjs, a law
+// test, .gitignore) and a plugin side: the two skills that run at the moments
+// evidence piles up must say where it goes, or the repo side is the only thing
+// holding the line and it only fires after the fact.
+
+test("present-for-review and wrap both send round evidence to the vault captures", () => {
+  const presentForReview = read("skills/present-for-review/SKILL.md");
+  const wrap = read("skills/wrap/SKILL.md");
+  carries(presentForReview, "**Evidence never lands in the product repo.**");
+  carries(wrap, "**Evidence and probes never live in a product repo.**");
+  for (const [name, text] of [["present-for-review", presentForReview], ["wrap", wrap]]) {
+    assert.match(
+      text,
+      /~\/JHD\/vault\/main\/estate\/captures\/<product>-evidence\//,
+      `${name} must name the archive path`,
+    );
+    assert.match(text, /scripts\/evidence-archive\.mjs/, `${name} must name the mover`);
+    assert.match(text, /manifest/i, `${name} must require the manifest row`);
+  }
+});
+
+// --- H — 1.79.0: Cursor is retired as a surface (operator ruling) ----------
+// The corpus-drift test and every "Cursor snapshot tree" instruction are gone.
+// `.cursor/rules/` stays: that path is where the always-on layer lives in a
+// product repo regardless of editor, and the docs now say so rather than
+// leaving the directory name reading as an editor dependency.
+
+test("no shipped doc names Cursor as a surface or the retired sibling repo", () => {
+  for (const rel of shippedDocs()) {
+    const text = read(rel);
+    assert.doesNotMatch(text, /discipline-cursor/, `${rel} still names the retired repo`);
+    assert.doesNotMatch(text, /jhd-cursor-discipline/, `${rel} still names the retired remote`);
+    assert.doesNotMatch(text, /sync-discipline-into-product/, `${rel} still names the retired sync script path`);
+    // "Cursor" as a product name, not "cursor" the pointer or the `.cursor/` path.
+    const surfaceMentions = (flat(text).match(/Cursor/g) || []).length;
+    assert.equal(surfaceMentions, 0, `${rel} still names Cursor as a surface`);
+  }
+});
+
+test("the .cursor/rules path survives, and says why the name is historical", () => {
+  assert.match(read("AGENTS.md"), /`\.cursor\/rules\/` is\s+the always-on layer's path regardless of editor/);
+  assert.match(read("hooks/scripts/sync-doer-rules.mjs"), /regardless of editor/);
 });

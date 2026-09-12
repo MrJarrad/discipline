@@ -51,13 +51,14 @@ Standing rules: `doer-rules.md` — read it whole.
 
 Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+For the word budget and the no-prose-recap rule, see `doer-rules.md` § Fixed evidence
+return.
 
 ## Baton (when visual evidence exists)
 
 After rendered evidence is attached, name **next: parent** in your evidence return and
 **stop** — name **next: reviewer** only when a correctness change also landed in your
-slice. **NEVER call `Agent`.** Do **not** tell the operator it's done: for UI work the
+slice — see `doer-rules.md` § You are the doer. Do **not** tell the operator it's done: for UI work the
 operator is **first eyes** and the parent sends the preview link at engineer-done
 (`present-for-review`), concurrent with any review and never gated on it. Ready is the
 **merge condition** — deterministic gates green and no **red finding** open — remitted by

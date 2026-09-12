@@ -30,7 +30,7 @@ not the aspect.
   → **capture-app** (never default to capture-figma). `portfolio/main` → portfolio;
   `skillz/main` → skillz; `~/JHD/jhd-design-system` → house web package (Skillz extract —
   read skillz tray); `~/JHD/ai/discipline/main` (Claude plugin, live) and
-  `~/JHD/ai/discipline-cursor` (Cursor snapshot) → jhd-discipline (not legacy
+  the discipline plugin repo → jhd-discipline (not legacy
   `projects/discipline`).
 - **Doing repeated work in a workstream** (a repo you keep dispatching into) → read
   `projects/<name>/primers/<workstream>-primer.md` first — the `routing` skill

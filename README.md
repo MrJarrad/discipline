@@ -30,7 +30,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 **Discovery & shaping** — `discover-scope` · `shape-stress` · `define-terms` · `doc-formats` · `issue-triage` · `prototype`
 
-**Design & build** — `design-craft` · `design-system` · `design-taste-frontend` · `motion` · `markup-standard` · `design-modules` · `architect-systems` · `code-minimalism` · `impeccable` · `nextjs`
+**Design & build** — `design-craft` · `design-system` · `motion` · `markup-standard` · `design-modules` · `architect-systems` · `code-minimalism` · `nextjs`
 
 **Capture & audit** — `capture-figma` · `handoff-to-code` · `capture-website` · `audit-build`
 

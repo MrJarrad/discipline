@@ -32,7 +32,7 @@ New product — <name>
 - [ ] Container clone → ~/JHD/<name>/main
 - [ ] Discipline sync
 - [ ] Thin fleet wrapper in product repo
-- [ ] Register in jhd-cursor-discipline (config, infer tables)
+- [ ] Register in the fleet config (config, infer tables)
 - [ ] GitHub App can see the new remote (same day)
 - [ ] Web: consume house package (no vendoring)
 ```
@@ -67,7 +67,7 @@ Pick a name that will not collide with parked fleet remotes (`config/jhd-repos.j
 ### 3. Container clone
 
 ```bash
-bash ~/JHD/ai/discipline-cursor/scripts/jhd-container-clone.sh \
+bash ~/JHD/ai/discipline/main/scripts/jhd-container-clone.sh \
   MrJarrad/<name> ~/JHD/<name>
 ```
 
@@ -77,15 +77,16 @@ long-lived branches.
 
 If clone parks bare-only, finish `main/` after README exists on default branch.
 
-### 4. Discipline sync
+### 4. Discipline overlay
 
-```bash
-bash ~/JHD/ai/discipline-cursor/scripts/sync-discipline-into-product.sh \
-  ~/JHD/<name>/main <kind>
-```
+Land the overlay slice for the repo's `<kind>` (`product`, `portfolio`, `capture`,
+`orbit-tools`, `figma-labs`). First commit slice: `AGENTS.md` + `.cursor/rules/` + README +
+fleet wrapper. `.cursor/rules/` is the always-on layer's path in every product repo
+regardless of editor — the directory name is historical, not an editor dependency.
 
-`<kind>` from `config/jhd-repos.json` (`product`, `portfolio`, `capture`, …).
-First commit slice: `AGENTS.md` + `.cursor/rules/` + README + fleet wrapper.
+**The overlay payload has no home in this repo yet** — it moved out with the archived
+sibling and is an open decision, so do not improvise a rules set. What this repo does own is
+the standing-law half of the overlay, below.
 
 Then sync the plugin's standing law into the new repo's rules directory:
 
@@ -105,9 +106,9 @@ Copy pattern from `~/JHD/portfolio/main`:
 - `scripts/jhd-fleet-install.sh` — thin wrapper: set `JHD_FLEET_PRIMARY=<name>`,
   clone discipline only if SoT install missing, then `exec` discipline install
 
-### 6. Register in `jhd-cursor-discipline`
+### 6. Register in the fleet config
 
-PR on `~/JHD/ai/discipline-cursor` — do not mix vault files into this commit:
+PR on the fleet config repo — do not mix vault files into this commit:
 
 | File | Add |
 |---|---|
@@ -117,7 +118,7 @@ PR on `~/JHD/ai/discipline-cursor` — do not mix vault files into this commit:
 | `rules/invariants.mdc` | Disk smell table row |
 | `rules/routing.mdc` | Continuity infer + disk path |
 | `templates/product-cloud/.cursor/rules/` | Mirror invariants/routing infer |
-| Other template routing copies | portfolio-dot-cursor, capture-dot-cursor, … if they carry infer lines |
+| Other template routing copies | the per-product rules templates, if they carry infer lines |
 | `skills/wrap/SKILL.md` | Handover infer row |
 | `skills/vault-recall/SKILL.md` | Product infer |
 | `commands/handover.md` | Product infer |
