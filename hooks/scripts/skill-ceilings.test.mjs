@@ -42,6 +42,7 @@ const pathsFor = (skill) =>
 
 const CEILINGS = [
   { skill: "capture-figma", ceiling: 1200, before: 9703, frontmatterWords: 123 },
+  { skill: "routing", ceiling: 1150, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   { skill: "agents/reviewer.md", ceiling: 1200, before: 2017, frontmatterWords: 72 },
