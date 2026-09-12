@@ -87,6 +87,15 @@ bash ~/JHD/ai/discipline-cursor/scripts/sync-discipline-into-product.sh \
 `<kind>` from `config/jhd-repos.json` (`product`, `portfolio`, `capture`, …).
 First commit slice: `AGENTS.md` + `.cursor/rules/` + README + fleet wrapper.
 
+Then sync the plugin's standing law into the new repo's rules directory:
+
+```bash
+node ~/JHD/ai/discipline/main/hooks/scripts/sync-doer-rules.mjs ~/JHD/<name>/main
+```
+
+Writes `.cursor/rules/doer-rules.mdc` (frontmatter + verbatim `doer-rules.md` body). Re-run
+after any `doer-rules.md` edit so cloud doers on the product repo stay current.
+
 ### 5. Thin fleet wrapper (in the **product** repo)
 
 Copy pattern from `~/JHD/portfolio/main`:
