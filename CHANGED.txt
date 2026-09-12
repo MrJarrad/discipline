@@ -18,7 +18,7 @@ other site is a one-line pointer naming file and section — no paraphrase left 
 `hooks/scripts/law-single-source.test.mjs` pins each law three ways: verbatim at its home,
 absent from every other shipped doc, pointer present at each former copy site.
 
-**Ceilings, met by offload.** Eleven files slimmed, nothing deleted — 25 new `references/*.md`
+**Ceilings, met by offload.** Eleven files slimmed, nothing deleted — 24 new `references/*.md`
 carry the moved material, and `agents/references/` is new so an agent charter ceilings the
 same way a skill does:
 

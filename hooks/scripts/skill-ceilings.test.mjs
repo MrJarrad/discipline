@@ -41,7 +41,7 @@ const pathsFor = (skill) =>
     : { doc: `skills/${skill}/SKILL.md`, references: join(repo, "skills", skill, "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "skills", skill, rel) };
 
 const CEILINGS = [
-  { skill: "capture-figma", ceiling: 1200, before: 9703, frontmatterWords: 123 },
+  { skill: "capture-figma", ceiling: 1200, before: 9578, frontmatterWords: 123 },
   { skill: "routing", ceiling: 1150, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
