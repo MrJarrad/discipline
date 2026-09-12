@@ -13,272 +13,102 @@ description: >-
 
 # Routing — who does the work
 
-The orchestrator's job is dispatch. Doing work inline that a persona or skill
-owns is a routing failure **even if the output is correct** — it starves the
-fleet, bypasses skill discipline, and makes usage unauditable. Skills do not
-auto-fire; the always-on identity gate in `rules/routing.mdc` is what every
-turn sees. Evidence: in the week of 26 Jul–1 Aug, the orchestrator ran its own
-Explore agent 18 times while Researcher was dispatched once and 14 of 30 skills
-never fired. 16 Aug 2026: the parent classified hover scatter as “do directly”
-and queued the chat as the doer — that hatch is deleted.
+The orchestrator's job is dispatch. Doing work inline that a persona or skill owns is a
+routing failure **even if the output is correct**.
 
 ## Load order (mandatory, before ANY dispatch)
 
-1. This skill — pick the persona and mandatory skills from the tables below.
-2. `model-routing` — run the job-shape × complexity × efficiency tree; set `Agent` model explicitly.
-3. `dispatch-brief` — structure the brief.
-4. `prompt-craft` — write its words at the right altitude.
+1. This skill — persona + mandatory skills from the tables below.
+2. `model-routing` — the job-shape × complexity tree; set `Agent` model explicitly.
+3. `dispatch-brief` — structure the brief.  4. `prompt-craft` — write its words.
 
-A dispatch made without all four loaded is malformed. This chain is loaded via real
-Skill tool invocations **every time** — never replayed from session memory or a prior
-turn's summary, no matter how recently it last fired.
+A dispatch made without all four loaded is malformed. Loaded via real Skill invocations
+**every time**, never replayed from session memory.
 
 ## Hard rules (non-negotiable)
 
-1. **Research never stays home.** Any lookup, comparison, market/competitor
-   question, "what's the best X", "cutting edge", or sourced question about the
-   live world → dispatch **Researcher**, whose method is `research-synthesis`
-   (WebSearch + WebFetch; never training memory). Never answer research from
-   memory; never substitute Explore/general-purpose for live-world research.
-2. **Figma reads go through `capture-figma` on the dispatched persona.** A pasted
-   figma.com URL, "fresh sync", "the figma version", "discrepancies with figma", or
-   any need for instance `componentProperties`, tokens/variables/variants/component
-   names/copy from a design file → brief names file+node; the **doer** loads
-   `capture-figma` and reads via REST (`scripts/figma-node.mjs` /
-   `scripts/figma-capture.mjs`, or banked capture JSON). Parent capture-figma
-   **locates** only (file key, node id, frame; MCP ping the tab is fine). A brief that
-   pastes the finished prop table is a steer — name the node; live props win. Figma
-   screenshots in chat are context, never a substitute.
-3. **Built-vs-design checks go through `audit-build`** ("the blocks are off",
-   "doesn't match figma", post-port verification) — dispatched to UX Designer.
-4. **Live-site references go through `capture-website`** ("look at this site",
-   "like pentagram does", any external URL offered as a reference).
-5. **Explore/Plan are reconnaissance only.** The orchestrator may use built-in
-   Explore/Plan for its own codebase orientation before writing a brief — never
-   as a substitute for work a persona owns, and never for anything the operator
-   asked to be researched, designed, built, reviewed, or released.
-6. **The fleet merges and ships, never the orchestrator** (operator ruling,
-   2026-07-26). **The reviewer informs; CI and the parent decide.** Reviewer returns
-   severity-ranked findings (red / amber / note), never a bare merge verdict and never
-   a write. **Merge condition: deterministic gates green + no red finding open** —
-   the parent remits, loading **`present-for-review`** first when a live product
-   exists, then dispatching merge execution to Engineer (mid-stream integration) or
-   Release Ops (release-gated). **Engineer complete is not merged.** After engineer
-   lands, solicit review before the operator hears "fixed" — except on the small-fix
-   path (single file, no behaviour claim, gates green), which ships on engineer
-   verification + parent check with no reviewer (`lean-review-operator-visual`).
-   **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
-   for the tier and round-cap law.
-7. **Grill before dispatch.** Non-trivial build/design: if the decision frontier is
-   not empty, load `grilling` and lock the tree (experience questions, recommended
-   answers) before `Agent`. Cannot write ACs without inventing requirements → grill,
-   not dispatch. Explicit operator skip ("just build it") is the only bypass. Locked
-   decisions go verbatim into every brief.
-8. **Baton — parent-only `Agent`.** **Only the orchestrator `Agent`-dispatches.** When the handoff
-   table names the next owner, the **parent** `Agent`-dispatches them on the system completion
-   notification — do not wait for the operator to "notice." Default `run_in_background`;
-   **end the turn** after dispatch — do not AwaitShell/poll the specialist. Specialists
-   are doers (`doer-rules.md` § You are the doer) — they land, name the next owner in evidence, and stop. Parent
-   silence **after the completion ping** is a routing failure. Waiting **inside** the
-   dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
-   grilling, operator voice, every `Agent` dispatch, merge remittance when the merge
-   condition is met).
-9. **Dispatch surface — operator's rule: "if a task can be done in cloud, it is."**
-   Every dispatched agent is a doer — build, fix, verify, triage, review, audit,
-   research alike; the cloud default covers all of them, and the only test is
-   capability, never lane taxonomy. Why: the operator works in transit — a dropped main
-   session is cheap (orchestration resumes), a dropped local doer dies mid-lane.
+Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](references/HARD-RULES.md).
 
-   **Local is justified by exactly three needs**, named in one clause in the brief:
-   (a) **verifying the deployed surface** or presenting it for review — the only
-   operator-facing surface is the deployed URL, and cloud egress 403s `*.workers.dev`;
-   (b) **machine-bound stacks** — `:4411` capture listener, Capture.app helper,
-   figma-daemon, interactive-auth MCPs; (c) **this machine's own state**.
-
-   **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
-   blocks only the check of the **deployed** surface. A doer slice verifying its
-   own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound — cloud VMs build and
-   Playwright-verify localhost fine. "Faster", "interactive", or "read-only" is not a clause either.
-   Misused 2026-08-30 to run five engineer slices local; operator flagged "all local".
-
-   **The surface is chosen
-   when a lane opens, not per task** — same-domain follow-ups resume the standing
-   specialist on whatever surface it already lives; never bounce a domain between local
-   and cloud mid-stream (context is the asset). **Outgrown/mis-surfaced lane = explicit
-   handoff:** wrap the lane's evidence into a fresh brief on the right surface and
-   re-dispatch — a deliberate handoff with a named context cost, not a retroactive
-   routing failure. **Overlay gate (front-loaded precondition):** cloud dispatch
-   requires the target repo to already carry committed discipline overlays — cloud
-   doers get only what the repo commits, the local plugin does not travel. No overlays
-   means overlay refresh (`plugin-update-syncs-everywhere`) is the standing blocker to
-   clear before dispatch; a local dispatch on an overlay-less repo is a named fallback
-   in the brief, never the default reach. **Visible on every dispatch:** the `Agent`
-   `description` leads with the surface — `cloud — persona (model): task` / `local —
-   persona (model): task` — and a local brief carries the one-clause machine-bound
-   justification; the mechanic lives in `dispatch-brief`'s "Persona + model" section —
-   this rule is the law, that skill is the enforcement point.
-10. **`review-the-lock-not-the-slice`.** **First failure point (parent brief):** the locked
-   table is the spec — **the brief must copy it whole.** One AC per locked row; a slice AC
-   set against a whole-surface lock is **malformed — do not `Agent`**. Parent does not
-   write a slice brief of a whole-surface lock. **Work batches ≠ spec width** — caps must
-   not drop locked rows (see `dispatch-brief`). **Paired briefs:** engineer and reviewer
-   briefs share the **same current locked table** — never dispatch reviewer on an earlier
-   narrower table, and the reviewer brief names the lock's **live path** so the reviewer
-   re-reads it rather than trusting the snapshot — a drifted spec is a **red finding**.
-   **Noted without failing is not a clear review** (e.g. notes wrap-as-one-blob and clears
-   it). Then: engineer covers every row (or operator-deferred). Do **not** solicit review
-   until every locked row is claimed or deferred. Spec incomplete → **red**. Operator widens lock mid-flight → parent **retargets** standing engineer; an
-   in-flight review of the old slice is **not** protected — do **not** answer with *Review
-   is already running on that slice. No second pass.*
-11. **Dispatch on the completion notification only.** Harness resume/reconnect prompts
-   after a background specialist are noise — **not leftover**, not unfinished plugin work.
-   Parent `Agent`-dispatches the next owner on the **completion notification**. Re-sending
-   or re-polling can **double-dispatch**. Never assign "resume the agent" or "send a
-   message to unstick" as operator homework. Do not revert baton to a blocking in-turn
-   dispatch to dodge notification handling.
-12. **"pause"/"resume" load `pause-resume`, not `wrap`.** "pause", "I need to pause",
-   "wind down", "stop for now", "let's stop here" → no new dispatches, stop running
-   agents at their next safe point, bank a one-screen snapshot, confirm in one line.
-   "resume", "pick up where we left off", "carry on from the snapshot" → read the
-   snapshot, re-dispatch each interrupted lane as a fresh continuation. Pause is not
-   `wrap` — wrap remains the full session close.
+1. **Research never stays home** — live-world lookup or comparison → **Researcher** (`research-synthesis`); never from memory, never Explore instead.
+2. **Figma reads go through `capture-figma` on the dispatched persona** — the brief names file+node, the **doer** reads live; the parent **locates** only.
+3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
+5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
+6. **The fleet merges and ships, never the orchestrator. The reviewer informs; CI and the parent decide.** Findings are severity-ranked, never a write. **Merge condition: gates green + no red finding open**, remitted by the parent. **Engineer complete is not merged.** One review per change, LIGHT by default (`agents/reviewer.md`).
+7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; locked decisions go verbatim into the brief.
+8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches, on the **completion notification**; `run_in_background`, then **end the turn**. Specialists are doers (`doer-rules.md` § You are the doer). Silence after the ping, or waiting **inside** the turn, is a routing failure.
+9. **Dispatch surface — "if a task can be done in cloud, it is."** The test is capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface is picked **when a lane opens**; `description` leads `cloud — ` / `local — `.
+10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed — do not `Agent`**. Engineer and reviewer carry the **same current locked table** and the lock's **live path**. No review until every row is claimed or deferred.
+11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending **double-dispatches**. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
 
 ## Baton handoff table
 
-| Just finished | Next owner (parent `Agent`-dispatches on completion notification) |
+| Just finished | Next owner (parent dispatches on the completion notification) |
 |---|---|
-| Engineer landed, **UI change** | **Operator** — preview link goes out first (`present-for-review`); reviewer runs concurrently and never gates the link |
-| Engineer landed (behaviour / plugin / product change) | **Reviewer**, once deterministic gates are green — a red build is not review-ready |
+| Engineer landed, **UI change** | **Operator** — preview link first (`present-for-review`); review runs concurrently, never gates it |
+| Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green — a red build is not review-ready |
 | Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge |
-| Reviewer returns **red** findings | **Engineer** (`resume`) with the red findings — this is round 2 |
-| Reviewer returns **amber / note** only | Merge condition met — parent's call whether amber is fixed now or taken as a follow-up lane; notes need no action |
-| **Round 3 returns with red still open** | **Operator** — the loop **halts** at the cap (`agents/reviewer.md` § Round cap). Parent presents the open findings for a decision |
-| Look/feel / match Figma / match reference | **UX Designer** for agent evidence (the reviewer never evaluates look) |
-| Merge condition met (gates green, no red) | If live product the operator signs → parent loads **`present-for-review`**, then merge execution — engineer mid-stream or Release Ops; parent remits; no operator Merge click |
-
-**Persona:** name the next owner in evidence (`doer-rules.md` § You are the doer). **Orchestrator:**
-default `run_in_background`, **end the turn** after dispatch, `Agent` next owner on the
-completion notification. Same-persona follow-ups use parent `SendMessage` resume of.
+| Reviewer returns **red** | **Engineer** (`resume`) with the red findings — round 2 |
+| Reviewer returns **amber / note** only | Merge condition met; parent's call on amber, notes need no action |
+| **Round 3 returns with red still open** | **Operator** — the loop **halts** at the cap (`agents/reviewer.md` § Round cap) |
+| Look/feel / match Figma or a reference | **UX Designer** for agent evidence (the reviewer never evaluates look) |
+| Merge condition met | Live product → **`present-for-review`**, then parent remits merge |
 
 ## Persona dispatch table
 
-| Work smells like (operator's actual phrasing) | Dispatch | Mandatory skills in the brief |
+| Work smells like | Dispatch | Mandatory skills in the brief |
 |---|---|---|
-| "research…", "dispatch the researcher", "did research look at…", "worth researching", "cutting edge", "best in class way to", compare/market/competitor | **Researcher** | research-synthesis |
-| "implement", "build", "fix", "refactor", "bring v2 in", "remove X and replace with Y" | **Engineer** | quality, verify-finding, test-first, qa-acceptance (+ design-craft, markup-standard when UI; **capture-figma** when Figma is the contract) |
-| "match the figma", "discrepancies", "feels too big", "the animation feels off", "make it look right", contract/fidelity UI | **UX Designer** | design-craft, capture-figma or audit-build (rule 2/3), motion |
-| "design-review", "review the experience", "user-test this" | **UX Designer** | **design-review** (whole), audit-build when Figma/system fidelity in scope |
-| engineer landed, "is it fixed?", "is it working?", "quality review", "tech review", verify the change | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard — build bars only |
-| "review this", "ready to merge", "check before shipping" | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard — build bars only |
-| "release", "deploy", "push to production", "ship it", "get it live" (post-review) | **Release Ops** | quality, qa-acceptance, release-deploy |
-| plan approved → dispatch briefs; "sort the tasks", "shape dispatches", "triage" | **Project Manager** (dispatch automatically when a plan is approved, not on request) | issue-triage |
-| "quick concept", "explore the X approach", "v2 of Y to explore", state-machine / data-shape question | Engineer or UX Designer | prototype |
-| hard/intermittent bug, "still broken", "not picking up", second failed fix | Engineer | diagnosing-bugs |
-| "should we adopt this skill/plugin", "is this repo worth installing", external skill/plugin/MCP server up for adoption | Researcher | skill-review, research-synthesis |
-| "pause", "I need to pause", "wind down", "stop for now", "let's stop here", "resume", "pick up where we left off", "carry on from the snapshot" | Orchestrator (no dispatch) | pause-resume |
+| "research", "cutting edge", compare/market | **Researcher** | research-synthesis |
+| "implement", "build", "fix", "refactor" | **Engineer** | quality, verify-finding, test-first, qa-acceptance (+ design-craft, markup-standard when UI; **capture-figma** when Figma is the contract) |
+| "match the figma", "feels too big", "animation feels off" | **UX Designer** | design-craft, capture-figma or audit-build, motion |
+| "design-review", "user-test this" | **UX Designer** | **design-review** (whole), audit-build when fidelity is in scope |
+| "is it fixed?", "review this", "ready to merge" | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard — build bars only |
+| "release", "deploy", "ship it" (post-review) | **Release Ops** | quality, qa-acceptance, release-deploy |
+| plan approved; "triage" | **Project Manager** (automatic on approval) | issue-triage |
+| "quick concept", "explore the X approach" | Engineer or UX Designer | prototype |
+| "still broken", second failed fix | Engineer | diagnosing-bugs |
+| "should we adopt this skill/plugin" | Researcher | skill-review, research-synthesis |
+| "pause", "resume" | Orchestrator (no dispatch) | pause-resume |
 
 ## Dispatch vehicle
 
-- Single doer: `Agent` with the right `subagent_type`, background by default, on the
-  surface rule 9 picks.
-- Multi-phase / parallel doers / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
-- Cloud doer (rule 9 default): load `cloud-dispatch` — RemoteTrigger routines API, one routine per dispatch.
+- Single doer: `Agent` with the right `subagent_type`, background, on the surface rule 9 picks.
+- Multi-phase / parallel / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
+- Cloud doer (rule 9 default): load `cloud-dispatch` — RemoteTrigger routines, one per dispatch.
 - Vehicle is chosen **when the lane opens**, not per task.
 
 ## Work-type skills (the brief names these)
 
 | Work type | Required skills |
 |---|---|
-| Build / fix | `quality` + `test-first` (+ `design-craft` + `markup-standard` if UI is touched) |
-| Build against a handoff export pair | `handoff-to-code` |
-| Build against Figma | `capture-figma` (+ build/fix skills above) |
-| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` + `audit-build` if UI is touched) |
+| Build / fix | `quality` + `test-first` (+ `design-craft` + `markup-standard` if UI) |
+| Handoff export pair | `handoff-to-code` |
+| Against Figma | `capture-figma` |
+| Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` + `audit-build` if UI) |
 | Research | `research-synthesis` |
-| Capture | `capture-figma` (design file) · `capture-website` (live site) · `capture-motion-source` (Jitter/AE/Lottie/reference video) |
+| Capture | `capture-figma` · `capture-website` · `capture-motion-source` |
 | Motion | `motion` |
-| Shaping a system into modules | `architect-systems` (where the seams go) then `design-modules` (what sits behind each seam) |
-| Writing a typed markdown artifact (SCOPE, DOCUMENTATION) | `doc-formats` |
+| Splitting a system | `architect-systems` then `design-modules` |
+| Typed markdown artifact | `doc-formats` |
 
 ## Domain-library table (which skills the brief must name)
 
-| Domain in play | Load |
-|---|---|
-| SEO / meta / sitemap / schema / rankings / content structure | the relevant `seo-*` skill; `seo-audit` before any site launch |
-| Shipping web UI | design-system (house package), design-craft, markup-standard, quality (Law 9 lab CWV on UI diffs), webapp-testing |
-| Next.js project (App Router, "use cache", OpenNext, RSC) | nextjs + next-devtools-mcp (per-project), plus workers-best-practices/wrangler for the Cloudflare side; design-system + markup-standard + webapp-testing as with any web UI |
-| JHD web UI (tokens, Action, theme, conformance) | design-system (house package `@jhd/design-system` — not the Geist/Vite starter) |
-| New JHD product / new GitHub remote / “new app in the fleet” | new-product |
-| Workers / Pages / KV / D1 / R2 / wrangler | workers-best-practices, wrangler (+ durable-objects, agents-sdk, sandbox-sdk, cloudflare-email-service as applicable) |
-| Security-sensitive surfaces (auth, input, payments) | quality + code-minimalism safety floor on path touched — not a separate OWASP skill |
-| Image generation / creative direction | banana |
-| Editing an existing image (identity-preserving) | qwen-edit |
-| Brand video / motion content | remotion, ffmpeg, playwright-recording, elevenlabs/acestep as needed, runpod for GPU |
-| Apple platform project (occasional but real) | the Apple suite (swift/swiftui/ios/macos…, testing, security, release-review — the iOS-scoped versions). Web project → web equivalents above; never cross-load |
-| Meetings / ops ("what's on my plate", transcripts) | ops-inbox, which chains summarise-meeting |
-| Memory (prior decisions, learnings) | vault-recall before deriving; vault-write to land |
-| Raw ask, requirements still forming — "new concept", "I'd like to explore" | discover-scope |
-| Settled idea to shape into a plan, or stress an existing plan | shape-stress (chains grilling) |
-| Fuzzy or colliding terms — "what I mean by X", operator corrects a part name | define-terms |
-| User-facing copy (App Store, marketing, onboarding, microcopy, errors, changelogs) | brand-voice |
-| Changing the skill library, agent charters, or AGENTS.md itself | agent-ops (the eval gate) + skill-authoring (the writing) |
-| Non-trivial build/design before dispatch | grilling (frontier empty or explicit skip) |
+Once a domain is in play the brief names its skills — SEO, web UI, Next.js, Workers, Apple,
+image and video, vault memory, discovery, vocabulary, copy, skill-library work. The table is
+[LIBRARIES.md](references/LIBRARIES.md); a brief naming no domain skill for a domain in play
+is malformed.
 
 ## Identity gate (before any tool)
 
-You are the **orchestrator** unless this turn is a dispatched persona brief
-(`subagent_type` engineer | ux-designer | reviewer | researcher | releaseops |
-project-manager, or the prompt begins “You are the Engineer/UX Designer/…”).
+You are the **orchestrator** unless this turn is a dispatched persona brief (`subagent_type`
+engineer | ux-designer | reviewer | researcher | releaseops | project-manager, or a prompt
+beginning "You are the Engineer/…").
 
-**Orchestrator — read and route. Do not build.**
+**Orchestrator — read and route. Do not build.** Allowed: Read, Grep, Glob, browser tools,
+capture-figma (locator only), vault-recall, `EnterPlanMode`, `Agent`, vault-write / wrap.
+**Forbidden in a product repo:** Edit, Write, NotebookEdit, mutating Bash.
 
-- Allowed: Read, Grep, Glob, browser tools, capture-figma (locator only), vault-recall, `EnterPlanMode`, `Agent`, vault-write / wrap.
-- Parent capture-figma locates; stuffing a completed instance-prop table into the brief is a routing failure equal to “I'll just edit it here.”
-- **Forbidden in a product repo:** Edit, Write, NotebookEdit, mutating Bash. Hover, nav, type, Capture, Orbit — none of those files open here.
-- Classify → **`grilling`** if frontier not empty → **`Agent`**. Default `run_in_background`.
-  **End the turn** after dispatch — do not poll the specialist. **`SendMessage`** the
-  standing specialist for that domain this session; spawn only for a new domain. **Only
-  the orchestrator dispatches** — on completion notification, `Agent` the next owner.
-- Log the dispatch as `"Persona (model): …"`.
+**Persona — you are the doer.** See `doer-rules.md` § You are the doer. Never re-dispatch the
+**same** persona; same-domain follow-ups are parent `SendMessage`.
 
-Operator ruling 2026-08-16 (`fleet/rulings/2026-08-16-orchestrator-reads-routes.md`):
-the main session reads everything and routes all work; standing specialists are resumed.
-- DO: “Dispatch Engineer, resume the hover one.”
-- DON’T: “This is one file, I’ll just edit it here.”
-- DO: “Frame 2138:5030. Load capture-figma. Read each placed Media `col-span` and ColPush.”
-- DON’T: “Write this 16-row table into homeRows.”
-
-**Persona — you are the doer.** Implement; see `doer-rules.md` § You are the doer. Do not
-re-dispatch the **same** persona. That section extends explicitly to full-tool
-general-purpose vehicles: a plain `Agent` dispatch with full tools and no named persona is
-still a doer, not a second orchestrator. **Baton:** when the handoff table names the next owner, land, name
-**next owner** in your evidence return, and stop. The harness notifies the parent; the
-parent dispatches on the completion notification.
-
-Same-domain follow-ups to the **same** persona are parent `SendMessage` to the standing agent. Cross-persona
-baton handoffs per the table above — parent dispatches on completion ping, not optional
-parent memory.
-
-**Context continuity — primers.** Every repeated workstream has a vault primer at
-`projects/<name>/primers/<workstream>-primer.md`; the brief's Context names it as **FIRST
-READ** so the doer starts working, not re-mapping. Spawn fresh only for a new domain, or
-when a prior transcript is past useful size.
-
-## Verification hooks
-
-- **Baton (parent-only):** engineer landed → parent `Agent`-dispatches reviewer once
-  deterministic gates are green; red findings → parent `Agent`-dispatches engineer
-  (`resume`); feel/render gap → parent `Agent`-dispatches ux-designer for agent evidence;
-  merge condition met → parent **`present-for-review`** when live product, then merge
-  remittance; **round 3 with red still open → halt and present to the operator**.
-  Specialists are doers (`doer-rules.md` § You are the doer). Parent silence **after the completion ping** is a
-  routing failure. Waiting **inside** the dispatch turn is also a routing failure.
-- **Engineer complete → reviewer.** Orchestrator must not relay engineer "done"/"fixed"/"parity" to the operator. **Merge is CI green + no red finding**, remitted by the parent — not a reviewer verdict relayed onward. **Brief gate first:** whole locked table in ACs — slice brief of whole-surface lock → malformed, do not dispatch (`review-the-lock-not-the-slice`). **Paired briefs:** reviewer brief = **same current locked table** as engineer, and names the lock's **live path** so the reviewer re-reads it; noted without failing is not a clear review. Do **not** solicit review until engineer claims **every locked row** or names operator-deferred rows.
-- **Lock widened mid-flight:** parent retargets engineer; old-slice in-flight review is not the gate. Operator is **never mute** — status vs lock (in vs missing).
-- **Behaviour claims** need `[runtime]` or `[test]` evidence in the reviewer's finding — diff-only on a behaviour claim is a red finding.
-- **UI reviews** include a console error check on touched routes (uncaught errors and
-  `console.error`) — same standing red class as lab CWV on UI work.
-- **Look and feel are the operator's lane** — the reviewer never evaluates look. Rendered agent evidence for a Figma/reference match goes to ux-designer; the operator's own preview link goes out at engineer-done and never waits on review.
-- Reviewer: a change whose brief mandated skills must show those invocations in
-  the transcript — missing evidence is a quality failure, send back.
-- `wrap`: report personas/skills invoked this session against these tables;
-  any mandated-skill zero on relevant work is a defect to log.
+Full tool lists, the 2026-08-16 ruling with its DO/DON'T pairs, primers, and every
+verification hook: [GATE-AND-HOOKS.md](references/GATE-AND-HOOKS.md).

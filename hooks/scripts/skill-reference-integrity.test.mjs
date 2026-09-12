@@ -71,8 +71,25 @@ test("no shipped doc names a retired skill", () => {
 
 // --- Orphans: a shipped skill no routing table names is unreachable -------
 
-test("every shipped skill folder is named in routing", () => {
-  const routing = read("skills/routing/SKILL.md");
-  const orphans = skillNames.filter((name) => !routing.includes(name));
+// "Routed" means reachable through the routing skill. 1.79.0 moved the
+// domain-library lookup into routing's own references/ under the ceiling work, so
+// the sweep reads routing plus everything routing points at — the law is unchanged,
+// only the file the row happens to live in.
+test("every shipped skill folder is named in routing or a reference routing points at", () => {
+  const dir = join(repo, "skills", "routing");
+  const referencesDir = join(dir, "references");
+  const corpus = [readFileSync(join(dir, "SKILL.md"), "utf8")];
+  if (existsSync(referencesDir)) {
+    for (const file of readdirSync(referencesDir).filter((f) => f.endsWith(".md"))) {
+      // Only a reference SKILL.md actually links is part of the routing surface.
+      assert.ok(
+        corpus[0].includes(`references/${file}`),
+        `skills/routing/references/${file} is not linked from routing's SKILL.md`,
+      );
+      corpus.push(readFileSync(join(referencesDir, file), "utf8"));
+    }
+  }
+  const surface = corpus.join("\n");
+  const orphans = skillNames.filter((name) => !surface.includes(name));
   assert.deepEqual(orphans, [], `unrouted skill folders: ${orphans.join(", ")}`);
 });
