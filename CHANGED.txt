@@ -30,6 +30,25 @@ capture-figma survive in the body, so no retarget was needed. New gate
 directory carrying more words than the ceiling (a ceiling met by deletion fails), and
 checks every `references/` link resolves.
 
+Ceilings, dispatch 3 of 4. `routing` 3,254 -> 1,103 (ceiling 900 NOT reached — see below),
+`wrap` 3,115 -> 795, `agents/reviewer.md` 2,017 -> 1,199, `markup-standard` 2,778 -> 1,024,
+`vault-write` 2,394 -> 641, `banana` 2,273 -> 567, `nextjs` 2,082 -> 1,140, `prompt-craft`
+1,811 -> 633, `issue-triage` 1,693 -> 638. Fifteen new `references/*.md` carry the moved
+material; `agents/references/` is new, so an agent charter now ceilings the same way a skill
+does. `skill-ceilings.test.mjs` also pins each file's frontmatter word count, so a later trim
+cannot buy body room out of the trigger surface.
+
+`routing` stops at 1,103: below that, either the persona dispatch table (the skill's whole
+job) or the baton table (pinned by review-loop) has to go, so routing is left out of the
+CEILINGS table rather than shipping a red gate or an invented ceiling. `handoff-to-code` is
+untouched — it is a byte mirror of handoff-css's `dist/claude-plugin/SKILL.md` and the mirror
+guard asserts byte-identity, so it has to be slimmed at its source repo, not here.
+
+W4 item 7: the evidence-archive rule is written into `present-for-review` and `wrap` — two
+lines each at the moment evidence piles up, naming
+`~/JHD/vault/main/estate/captures/<product>-evidence/`, `scripts/evidence-archive.mjs` and the
+manifest row — and pinned in source-contract-law.
+
 `hooks/scripts/handoff-to-code-mirror.test.mjs` reconciled: byte-identical to the 1.78.0
 version, so there was no regression — the "0 tests" reading came from the absent-root
 path, which registered one skipped test and reported `pass 0` while the suite stayed

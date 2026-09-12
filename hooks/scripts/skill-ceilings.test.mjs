@@ -41,10 +41,16 @@ const pathsFor = (skill) =>
     : { doc: `skills/${skill}/SKILL.md`, references: join(repo, "skills", skill, "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "skills", skill, rel) };
 
 const CEILINGS = [
-  { skill: "capture-figma", ceiling: 1200, before: 9703 },
-  { skill: "motion", ceiling: 1000, before: 5552 },
-  { skill: "wrap", ceiling: 900, before: 3115 },
-  { skill: "agents/reviewer.md", ceiling: 1200, before: 2017 },
+  { skill: "capture-figma", ceiling: 1200, before: 9703, frontmatterWords: 123 },
+  { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
+  { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
+  { skill: "agents/reviewer.md", ceiling: 1200, before: 2017, frontmatterWords: 72 },
+  { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
+  { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
+  { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
+  { skill: "nextjs", ceiling: 1200, before: 2082, frontmatterWords: 75 },
+  { skill: "prompt-craft", ceiling: 1200, before: 1811, frontmatterWords: 56 },
+  { skill: "issue-triage", ceiling: 1200, before: 1693, frontmatterWords: 65 },
 ];
 
 for (const { skill, ceiling, before } of CEILINGS) {
@@ -79,17 +85,20 @@ for (const { skill, ceiling, before } of CEILINGS) {
   });
 }
 
+// The description is the trigger surface: shorten it and the skill stops firing,
+// which is a worse failure than a long body. `frontmatterWords` is each file's count
+// as it stood before the slim, so a later trim that buys body room out of the trigger
+// fails here instead of passing the ceiling quietly.
 test("the frontmatter description is never squeezed to buy body room", () => {
-  // Trigger surface, pinned by routing and the frontmatter check. Recorded here
-  // so a future trim of a ceilinged skill cannot quietly shorten it instead.
-  for (const { skill } of CEILINGS) {
+  for (const { skill, frontmatterWords } of CEILINGS) {
     const text = read(pathsFor(skill).doc);
     const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
-    assert.ok(match, `skills/${skill}/SKILL.md has no frontmatter`);
+    assert.ok(match, `${skill} has no frontmatter`);
     assert.match(match[1], /description:/, `${skill} frontmatter carries no description`);
+    const count = match[1].split(/\s+/).filter(Boolean).length;
     assert.ok(
-      match[1].split(/\s+/).filter(Boolean).length > 40,
-      `${skill} description looks truncated — the ceiling is on the body, not the trigger`,
+      count >= frontmatterWords,
+      `${skill} frontmatter is ${count} words, was ${frontmatterWords} — the ceiling is on the body, not the trigger`,
     );
   }
 });
