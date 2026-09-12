@@ -4,7 +4,11 @@ This repo carries **always-on discipline rules** under `.cursor/rules/` so Cloud
 get invariants / routing / operator voice **without** the Mac home plugin.
 
 `doer-rules.md` (repo root) is the standing rules file every dispatched doer reads whole;
-it syncs into target repos' `.cursor/rules/` with the rest.
+it syncs into target repos' `.cursor/rules/` with the rest via
+`node hooks/scripts/sync-doer-rules.mjs <target-repo-path> [...]`, which writes
+`.cursor/rules/doer-rules.mdc` (frontmatter + verbatim body) into each target — run it
+after any `doer-rules.md` edit and after standing up a new product (see
+`skills/new-product/SKILL.md`).
 
 ## Cloud Environment (jhd-fleet)
 Repo-file `.cursor/environment.json` auto-applies when you start Cloud from **this**
