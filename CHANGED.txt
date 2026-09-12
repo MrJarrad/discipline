@@ -1,3 +1,16 @@
+1.78.0 — doer-rules sync, corpus drift test, mirror guard (2026-09-12)
+
+`hooks/scripts/sync-doer-rules.mjs` writes `doer-rules.md` into a target product repo's
+`.cursor/rules/doer-rules.mdc` (frontmatter + verbatim body), closing the gap AGENTS.md
+had promised since 1.77.0; run for portfolio and jhd-design-system (each committed on
+`chore/doer-rules-1.78.0`, not pushed). `hooks/scripts/cursor-corpus-drift.test.mjs`
+compares the plugin's `skills/` against `discipline-cursor`'s corpus skill-by-skill —
+today it reports (non-fatal by default, `DISCIPLINE_MIRROR_STRICT=1` to gate) 4
+skill-set mismatches and 25 drifted `SKILL.md` files; the corpus itself is not touched in
+this release. `hooks/scripts/handoff-to-code-mirror.test.mjs` (shipped 1.75.0) verified
+already correct — byte-compares the plugin's `skills/handoff-to-code/SKILL.md` against
+handoff-css's `dist/claude-plugin` copy and fails on drift.
+
 1.77.0 — dispatch-brief rewritten to four parts; doer-rules.md is tier 1 (2026-09-11)
 
 Two tiers replace one 4,612-word skill. Tier 1 `doer-rules.md` (repo root) carries the
