@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Syncs this plugin's `doer-rules.md` (repo root) into a target product repo's
-// `.cursor/rules/doer-rules.mdc`, as AGENTS.md:5-6 promises ("it syncs into target
-// repos' `.cursor/rules/` with the rest"). Cursor rule files need an `.mdc`
+// `.cursor/rules/doer-rules.mdc` — the always-on layer's path in every product repo,
+// regardless of editor; the directory name is historical. Rule files need an `.mdc`
 // frontmatter block (description + alwaysApply); the body is byte-identical to
 // `doer-rules.md` below the frontmatter, so drift between plugin and product
 // copies is trivially greppable (the body after the closing `---` matches).

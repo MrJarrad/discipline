@@ -34,10 +34,9 @@ listener family):
 | `~/JHD/skillz/main` | `projects/skillz/skillz-handover.md` |
 | `~/JHD/jhd-design-system` | package under Skillz — wrap **jhd-discipline** + **skillz** (no dedicated tray yet) |
 | `~/JHD/ai/discipline/main` | `projects/jhd-discipline/jhd-discipline-handover.md` |
-| `~/JHD/ai/discipline-cursor` | `projects/jhd-discipline/jhd-discipline-handover.md` |
 | Vault-only | Cockpit only — do not wipe a product file |
 
-Plugin state (Claude live plugin, or the Cursor snapshot) goes to **jhd-discipline**, never legacy `projects/discipline`.
+Plugin state goes to **jhd-discipline**, never legacy `projects/discipline`.
 
 On wrap:
 
@@ -101,8 +100,6 @@ Uncommitted toolkit work is a wrap failure, not a note for next time. Verify:
   commit and set each shipped lesson's `encoded:` to that version.
   The gate is on by default; `DISCIPLINE_LEDGER_GATE=0` is the only opt-out, for a run that
   must not consult a vault at all (an absent vault already warns and skips).
-- If the Cursor snapshot tree (`~/JHD/ai/discipline-cursor`) was also edited this
-  session, commit that repo separately — its version fields are its own concern.
 
 ### 5. Vault/Obsidian hygiene — structure conformance, thing-then-aspect
 

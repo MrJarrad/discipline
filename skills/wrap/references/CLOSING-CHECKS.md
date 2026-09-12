@@ -58,8 +58,7 @@ through origin, and fast-forward the other clone. Also check for stale
 
 A plugin version bump is drift unless `.claude-plugin/plugin.json` matches what you
 shipped this session **and** every product checkout that consumes Claude overlays is
-updated in the same catchup — a bump nobody installed is unfinished work. If the Cursor
-snapshot tree was edited, its own version fields stay that repo's concern.
+updated in the same catchup — a bump nobody installed is unfinished work.
 
 **Two surfaces, both current.** The plugin ships from the GitHub marketplace
 (`MrJarrad/discipline` main) and is installed on both surfaces — Claude Code on the Mac
@@ -72,4 +71,4 @@ other drift.
 
 **Thin overlays, not scattered copies.** Product repos carry a thin tripwire `CLAUDE.md`
 block (floor + plugin-presence self-check), never a full rules copy — overlay scatter is
-the named anti-pattern (it is why the operator left the Cursor site session).
+the named anti-pattern.

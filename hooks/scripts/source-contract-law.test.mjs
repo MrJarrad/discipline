@@ -479,3 +479,26 @@ test("present-for-review and wrap both send round evidence to the vault captures
     assert.match(text, /manifest/i, `${name} must require the manifest row`);
   }
 });
+
+// --- H — 1.79.0: Cursor is retired as a surface (operator ruling) ----------
+// The corpus-drift test and every "Cursor snapshot tree" instruction are gone.
+// `.cursor/rules/` stays: that path is where the always-on layer lives in a
+// product repo regardless of editor, and the docs now say so rather than
+// leaving the directory name reading as an editor dependency.
+
+test("no shipped doc names Cursor as a surface or the retired sibling repo", () => {
+  for (const rel of shippedDocs()) {
+    const text = read(rel);
+    assert.doesNotMatch(text, /discipline-cursor/, `${rel} still names the retired repo`);
+    assert.doesNotMatch(text, /jhd-cursor-discipline/, `${rel} still names the retired remote`);
+    assert.doesNotMatch(text, /sync-discipline-into-product/, `${rel} still names the retired sync script path`);
+    // "Cursor" as a product name, not "cursor" the pointer or the `.cursor/` path.
+    const surfaceMentions = (flat(text).match(/Cursor/g) || []).length;
+    assert.equal(surfaceMentions, 0, `${rel} still names Cursor as a surface`);
+  }
+});
+
+test("the .cursor/rules path survives, and says why the name is historical", () => {
+  assert.match(read("AGENTS.md"), /`\.cursor\/rules\/` is\s+the always-on layer's path regardless of editor/);
+  assert.match(read("hooks/scripts/sync-doer-rules.mjs"), /regardless of editor/);
+});

@@ -42,8 +42,7 @@ Material reached only through a pointer escapes context load at the price of one
 pointer line. Material with no pointer rides entirely on cognitive load.
 
 **Pick model-invocation** when the agent must reach the skill on its own, or another
-skill must compose it. **Pick user-invocation** (`disable-model-invocation: true` in
-Cursor/Claude) when only the operator should fire it — zero context load, operator is
+skill must compose it. **Pick user-invocation** (`disable-model-invocation: true`) when only the operator should fire it — zero context load, operator is
 the index.
 
 Shared reference two user-invoked skills both need → plain file outside the skill
