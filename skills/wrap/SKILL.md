@@ -183,6 +183,10 @@ grep -rn "/private/tmp/\|/tmp/claude-" <changed-paths> 2>/dev/null
 A hit here is not automatically a bug — a session may legitimately discuss a scratch
 path in prose about *this* session — but every hit needs a look before wrap closes.
 
+**Evidence and probes never live in a product repo.** Before closing, each touched product's
+round evidence is archived to `~/JHD/vault/main/estate/captures/<product>-evidence/` with a
+manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is drift to name.
+
 ## Report
 
 **Operator-facing (default):** compact outcomes — what's banked, what's next. Follow handover

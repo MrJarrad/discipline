@@ -457,3 +457,25 @@ test("no operator-facing doc says 'nothing blocking' outside the banned-word exa
     assert.doesNotMatch(flat(text), /nothing blocking/i, `${rel} still uses "nothing blocking"`);
   }
 });
+
+// --- G — 1.79.0: evidence and probes never live in a product repo ---------
+// W3c's standing process has a repo side (scripts/evidence-archive.mjs, a law
+// test, .gitignore) and a plugin side: the two skills that run at the moments
+// evidence piles up must say where it goes, or the repo side is the only thing
+// holding the line and it only fires after the fact.
+
+test("present-for-review and wrap both send round evidence to the vault captures", () => {
+  const presentForReview = read("skills/present-for-review/SKILL.md");
+  const wrap = read("skills/wrap/SKILL.md");
+  carries(presentForReview, "**Evidence never lands in the product repo.**");
+  carries(wrap, "**Evidence and probes never live in a product repo.**");
+  for (const [name, text] of [["present-for-review", presentForReview], ["wrap", wrap]]) {
+    assert.match(
+      text,
+      /~\/JHD\/vault\/main\/estate\/captures\/<product>-evidence\//,
+      `${name} must name the archive path`,
+    );
+    assert.match(text, /scripts\/evidence-archive\.mjs/, `${name} must name the mover`);
+    assert.match(text, /manifest/i, `${name} must require the manifest row`);
+  }
+});

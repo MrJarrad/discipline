@@ -41,7 +41,7 @@ available and what you're reading, not by habit:
    styles, and component/layer-binding exports with full mode coverage, the ACTIVE exporter
    lives in **`~/JHD/figma-plugins/main/capture-figma`** at `figma-sync/` (import
    `~/JHD/figma-plugins/main/capture-figma/figma-sync/manifest.json` in Figma
-   Development). Contract: `references/figma-agent-plugin-brief.md`. Each **Sync** POSTs
+   Development). Each **Sync** POSTs
    the same payload to **both** the **capture-ingest** Worker
    (`~/JHD/figma-plugins/main/capture-figma/ingest-worker` → R2 + `jhd-vault`
    `estate/captures/live/`) when a Bearer is saved, and the local **capture listener**

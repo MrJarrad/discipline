@@ -39,6 +39,10 @@ and you do **not** wait for review. For non-UI work — the merge condition is m
 as the agreed update when the locked table was wider
 (`review-the-lock-not-the-slice`); say what is in and what is still missing.
 
+**Evidence never lands in the product repo.** A round's renders, probes and reports go to
+`~/JHD/vault/main/estate/captures/<product>-evidence/` with a manifest row — `scripts/evidence-archive.mjs`
+moves them and a repo law test fails on new evidence or probe files in-tree.
+
 ### 2. Identify the live product
 
 **Completion criterion:** Product named from workspace / handover / cockpit
