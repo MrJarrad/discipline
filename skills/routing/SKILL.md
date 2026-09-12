@@ -78,7 +78,7 @@ turn's summary, no matter how recently it last fired.
    table names the next owner, the **parent** `Agent`-dispatches them on the system completion
    notification — do not wait for the operator to "notice." Default `run_in_background`;
    **end the turn** after dispatch — do not AwaitShell/poll the specialist. Specialists
-   **NEVER call `Agent`** — they land, name the next owner in evidence, and stop. Parent
+   are doers (`doer-rules.md` § You are the doer) — they land, name the next owner in evidence, and stop. Parent
    silence **after the completion ping** is a routing failure. Waiting **inside** the
    dispatch turn is also a routing failure. Parent is **not a waiting room** (still owns
    grilling, operator voice, every `Agent` dispatch, merge remittance when the merge
@@ -97,7 +97,7 @@ turn's summary, no matter how recently it last fired.
 
    **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
    blocks only the check of the **deployed** surface. A doer slice verifying its
-   own build on `:3220`+ is **not** machine-bound — cloud VMs build and
+   own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound — cloud VMs build and
    Playwright-verify localhost fine. "Faster", "interactive", or "read-only" is not a clause either.
    Misused 2026-08-30 to run five engineer slices local; operator flagged "all local".
 
@@ -152,11 +152,11 @@ turn's summary, no matter how recently it last fired.
 | Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge |
 | Reviewer returns **red** findings | **Engineer** (`resume`) with the red findings — this is round 2 |
 | Reviewer returns **amber / note** only | Merge condition met — parent's call whether amber is fixed now or taken as a follow-up lane; notes need no action |
-| **Round 3 returns with red still open** | **Operator** — the loop **halts**. Parent presents the open findings for a decision. No round 4, no re-brief |
+| **Round 3 returns with red still open** | **Operator** — the loop **halts** at the cap (`agents/reviewer.md` § Round cap). Parent presents the open findings for a decision |
 | Look/feel / match Figma / match reference | **UX Designer** for agent evidence (the reviewer never evaluates look) |
 | Merge condition met (gates green, no red) | If live product the operator signs → parent loads **`present-for-review`**, then merge execution — engineer mid-stream or Release Ops; parent remits; no operator Merge click |
 
-**Persona:** name the next owner in evidence; **NEVER call `Agent`.** **Orchestrator:**
+**Persona:** name the next owner in evidence (`doer-rules.md` § You are the doer). **Orchestrator:**
 default `run_in_background`, **end the turn** after dispatch, `Agent` next owner on the
 completion notification. Same-persona follow-ups use parent `SendMessage` resume of.
 
@@ -247,10 +247,10 @@ the main session reads everything and routes all work; standing specialists are 
 - DO: “Frame 2138:5030. Load capture-figma. Read each placed Media `col-span` and ColPush.”
 - DON’T: “Write this 16-row table into homeRows.”
 
-**Persona — you are the doer.** Implement. **NEVER call `Agent`.** Do not re-dispatch
-the **same** persona. Extended explicitly to full-tool general-purpose vehicles (no
-named persona) in `doer-rules.md` — a plain `Agent` dispatch with full tools and no named
-persona is still a doer, not a second orchestrator: no `Agent` calls, no spawn-and-wait. **Baton:** when the handoff table names the next owner, land, name
+**Persona — you are the doer.** Implement; see `doer-rules.md` § You are the doer. Do not
+re-dispatch the **same** persona. That section extends explicitly to full-tool
+general-purpose vehicles: a plain `Agent` dispatch with full tools and no named persona is
+still a doer, not a second orchestrator. **Baton:** when the handoff table names the next owner, land, name
 **next owner** in your evidence return, and stop. The harness notifies the parent; the
 parent dispatches on the completion notification.
 
@@ -270,7 +270,7 @@ when a prior transcript is past useful size.
   (`resume`); feel/render gap → parent `Agent`-dispatches ux-designer for agent evidence;
   merge condition met → parent **`present-for-review`** when live product, then merge
   remittance; **round 3 with red still open → halt and present to the operator**.
-  Specialists **NEVER call `Agent`**. Parent silence **after the completion ping** is a
+  Specialists are doers (`doer-rules.md` § You are the doer). Parent silence **after the completion ping** is a
   routing failure. Waiting **inside** the dispatch turn is also a routing failure.
 - **Engineer complete → reviewer.** Orchestrator must not relay engineer "done"/"fixed"/"parity" to the operator. **Merge is CI green + no red finding**, remitted by the parent — not a reviewer verdict relayed onward. **Brief gate first:** whole locked table in ACs — slice brief of whole-surface lock → malformed, do not dispatch (`review-the-lock-not-the-slice`). **Paired briefs:** reviewer brief = **same current locked table** as engineer, and names the lock's **live path** so the reviewer re-reads it; noted without failing is not a clear review. Do **not** solicit review until engineer claims **every locked row** or names operator-deferred rows.
 - **Lock widened mid-flight:** parent retargets engineer; old-slice in-flight review is not the gate. Operator is **never mute** — status vs lock (in vs missing).

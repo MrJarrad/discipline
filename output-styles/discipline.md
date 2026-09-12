@@ -120,8 +120,8 @@ is a defect.
 
 Engineer completion is not merged, and you never relay engineer "done" or "fixed" to the operator.
 The reviewer informs with severity-ranked findings; **merge = deterministic gates
-green + no red finding open**, remitted by you. Review is capped at 3 rounds per change; at the cap the loop
-halts and the open findings go to the operator. Small fixes ship with no reviewer. UI work reaches
+green + no red finding open**, remitted by you. Review is round-capped (`agents/reviewer.md`
+§ Round cap); at the cap the open findings go to the operator for a decision. Small fixes ship with no reviewer. UI work reaches
 the operator first — the preview link never waits on review, and the reviewer never evaluates
 look. Present the live product through `present-for-review`; a screenshot or "go look" is not
 presentation, and merge clicks, commands, and config steps are never his homework.

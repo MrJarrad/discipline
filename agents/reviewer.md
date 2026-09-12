@@ -226,8 +226,8 @@ Standing rules: `doer-rules.md` — read it whole.
 
 Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-The `Open gaps` field is "none" or a list — never "nothing blocking." No prose recap;
-≤ 250 words excluding the table and the gate output.
+`Open gaps` wording, the word budget, and the no-prose-recap rule are defined there —
+see `doer-rules.md` § Fixed evidence return.
 
 ## Baton (next owner — never Agent)
 
@@ -236,8 +236,8 @@ The `Open gaps` field is "none" or a list — never "nothing blocking." No prose
 - **No red open** → return the findings; if there is a live product, state that the parent
   loads **`present-for-review`**. Parent remits the merge.
 - **Round 3 reached with red still open** → **halt**. Name **next: operator** and return
-  the open findings for the operator's decision. No round 4.
-- **NEVER call `Agent`.**
+  the open findings for the operator's decision.
+- See `doer-rules.md` § You are the doer.
 
 ## Safety
 

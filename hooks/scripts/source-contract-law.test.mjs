@@ -22,6 +22,7 @@ const doerRules = read("doer-rules.md");
 const promptCraft = read("skills/prompt-craft/SKILL.md");
 const engineer = read("agents/engineer.md");
 const reviewer = read("agents/reviewer.md");
+const uxDesigner = read("agents/ux-designer.md");
 const issueTriage = read("skills/issue-triage/SKILL.md");
 const grilling = read("skills/grilling/SKILL.md");
 const captureFigma = read("skills/capture-figma/SKILL.md");
@@ -201,8 +202,15 @@ test("the scope fence carries the fixture/golden-path repoint exception", () => 
 test("doer ports are :3220 and up, with both reserved ports named", () => {
   carries(doerRules, "Doers run verification servers on `:3220` and up.");
   carries(doerRules, "**`:3210` the operator's live dev server** and **`:3211` the hoverboard viewer**");
-  assert.match(routing, /own build on `:3220`\+ is \*\*not\*\* machine-bound/);
-  assert.match(webappTesting, /:3220\+/);
+});
+
+// 1.79.0: the port assignment is DEFINED once, in doer-rules § Ports. The two docs
+// that used to restate it now point at it — a pointer keeps the reader one hop from
+// the live numbers instead of one hop from a stale copy.
+test("routing and webapp-testing point at the Ports section rather than restating it", () => {
+  assert.match(routing, /own build on its own port \(`doer-rules\.md` § Ports\) is \*\*not\*\* machine-bound/);
+  assert.match(webappTesting, /`doer-rules\.md` § Ports/);
+  assert.doesNotMatch(webappTesting, /:3220\+ doer servers/);
 });
 
 test("no shipped doc still sends a doer to :3211", () => {
@@ -401,11 +409,19 @@ test("the output style carries the status-is-done-or-not-done law verbatim", () 
   );
 });
 
-test("the Fixed evidence return and agent evidence-return sections ban 'nothing blocking'", () => {
+test("the Fixed evidence return bans 'nothing blocking' at its one home", () => {
   const sentence = "The `Open gaps` field is \"none\" or a list — never \"nothing blocking.\"";
   carries(doerRules, sentence, "doer-rules Fixed evidence return missing the banned-word sentence");
-  carries(engineer, sentence, "engineer.md Evidence return missing the banned-word sentence");
-  carries(reviewer, sentence, "reviewer.md Evidence return missing the banned-word sentence");
+});
+
+// 1.79.0: engineer.md and reviewer.md carried a verbatim copy of the sentence above.
+// A copied law drifts silently; a pointer cannot. Both now point, and the pointer
+// itself is pinned so a future edit cannot quietly drop the reference.
+test("the agent evidence-return sections point at doer-rules for the Open gaps wording", () => {
+  const pointer = "see `doer-rules.md` § Fixed evidence return";
+  for (const [name, text] of [["engineer", engineer], ["reviewer", reviewer], ["ux-designer", uxDesigner]]) {
+    carries(text, pointer, `${name}.md must point at the Fixed evidence return section`);
+  }
 });
 
 test("dispatch-brief carries the continuation-slice trigger verbatim", () => {

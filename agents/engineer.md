@@ -82,8 +82,8 @@ Standing rules: `doer-rules.md` — read it whole.
 
 Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
 per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-The `Open gaps` field is "none" or a list — never "nothing blocking." No prose recap;
-≤ 250 words excluding the table and the gate output.
+`Open gaps` wording, the word budget, and the no-prose-recap rule are defined there —
+see `doer-rules.md` § Fixed evidence return.
 
 Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
 table** — `export path · built value · reason`, one row per deviation from the export, plus one
@@ -95,12 +95,12 @@ ref` — and drift stops for a ruling rather than being resolved in the branch.
 ## Baton (when you land)
 
 When your slice is landed (commit pushed if brief authorized) and the deterministic gates
-are green, name **next: reviewer** in your evidence return and **stop**. **NEVER call
-`Agent`.** Do **not** tell the operator it is fixed — merge is the parent's call once the
+are green, name **next: reviewer** in your evidence return and **stop** — see
+`doer-rules.md` § You are the doer. Do **not** tell the operator it is fixed — merge is the parent's call once the
 gates are green and no **red finding** is open. The harness notifies the parent; the
 parent dispatches the reviewer on the completion notification, and for UI work sends the
 operator the preview link at the same time — that link never waits on the review.
 
-Review is capped at **3 rounds per change**. A round that comes back red is a fix round,
-not a re-litigation: address the red findings and the regressions they touch. Amber is
-the parent's call; notes need no action.
+The round cap is in `agents/reviewer.md` § Round cap. A round that comes back red is a fix
+round, not a re-litigation: address the red findings and the regressions they touch. Amber
+is the parent's call; notes need no action.

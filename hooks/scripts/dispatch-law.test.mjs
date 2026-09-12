@@ -31,14 +31,14 @@ test("routing scopes the egress gap to the deployed surface, not slice builds", 
   assert.match(routing, /egress[- ]gap/i);
   assert.match(
     routing,
-    /own build[\s\S]{0,40}\*\*not\*\* machine-bound/i,
+    /own build[\s\S]{0,80}\*\*not\*\* machine-bound/i,
     "the 2026-08-30 failure mode must be named as a non-justification",
   );
 });
 
 test("routing owns the vehicle section and the egress-gap scoping", () => {
   assert.match(routing, /deployed surface/);
-  assert.match(routing, /own build[\s\S]{0,40}\*\*not\*\* machine-bound/i);
+  assert.match(routing, /own build[\s\S]{0,80}\*\*not\*\* machine-bound/i);
   assert.match(routing, /## Dispatch vehicle/);
   assert.match(routing, /workflow\.mjs/);
 });

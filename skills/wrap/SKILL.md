@@ -196,10 +196,11 @@ and where rulings landed. Log personas/skills invoked against routing tables
 Log the session's **dispatch tally** — `cloud N / local M` — with each local dispatch's
 one-clause machine-bound justification spot-listed (`routing` rule 9); an unjustified local
 count, or a cloud share trending down session over session, is drift to name, not skip.
-Log **review rounds per change** — `<change>: N of 3` — including changes that took the
-small-fix no-reviewer path (`0`) and any that **halted at the cap** with findings still
-open. Rounds are the loop's health signal: a session trending toward 3 rounds per change
-means the briefs or the gates are failing upstream, and that is drift to name here.
+Log **review rounds per change** — `<change>: N of <cap>` against the cap in
+`agents/reviewer.md` § Round cap — including changes that took the small-fix no-reviewer
+path (`0`) and any that **halted at the cap** with findings still open. Rounds are the
+loop's health signal: a session trending toward the cap on every change means the briefs
+or the gates are failing upstream, and that is drift to name here.
 
 ## Handover prose: compact, redact, reference, name the next step (absorbed from paperclip-work-products)
 
