@@ -182,6 +182,7 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 - Single doer: `Agent` with the right `subagent_type`, background by default, on the
   surface rule 9 picks.
 - Multi-phase / parallel doers / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
+- Cloud doer (rule 9 default): load `cloud-dispatch` — RemoteTrigger routines API, one routine per dispatch.
 - Vehicle is chosen **when the lane opens**, not per task.
 
 ## Work-type skills (the brief names these)
@@ -193,8 +194,10 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 | Build against Figma | `capture-figma` (+ build/fix skills above) |
 | Review | `qa-acceptance` + `verify-finding` (+ `markup-standard` + `audit-build` if UI is touched) |
 | Research | `research-synthesis` |
-| Capture | `capture-figma` or `capture-website` |
+| Capture | `capture-figma` (design file) · `capture-website` (live site) · `capture-motion-source` (Jitter/AE/Lottie/reference video) |
 | Motion | `motion` |
+| Shaping a system into modules | `architect-systems` (where the seams go) then `design-modules` (what sits behind each seam) |
+| Writing a typed markdown artifact (SCOPE, DOCUMENTATION) | `doc-formats` |
 
 ## Domain-library table (which skills the brief must name)
 
@@ -203,7 +206,6 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 | SEO / meta / sitemap / schema / rankings / content structure | the relevant `seo-*` skill; `seo-audit` before any site launch |
 | Shipping web UI | design-system (house package), design-craft, markup-standard, quality (Law 9 lab CWV on UI diffs), webapp-testing |
 | Next.js project (App Router, "use cache", OpenNext, RSC) | nextjs + next-devtools-mcp (per-project), plus workers-best-practices/wrangler for the Cloudflare side; design-system + markup-standard + webapp-testing as with any web UI |
-| Greenfield marketing/portfolio surface with NO house design system | design-taste-frontend (when a design system exists, design-craft + design-system govern — never both paths at once) |
 | JHD web UI (tokens, Action, theme, conformance) | design-system (house package `@jhd/design-system` — not the Geist/Vite starter) |
 | New JHD product / new GitHub remote / “new app in the fleet” | new-product |
 | Workers / Pages / KV / D1 / R2 / wrangler | workers-best-practices, wrangler (+ durable-objects, agents-sdk, sandbox-sdk, cloudflare-email-service as applicable) |
@@ -214,6 +216,11 @@ completion notification. Same-persona follow-ups use parent `SendMessage` resume
 | Apple platform project (occasional but real) | the Apple suite (swift/swiftui/ios/macos…, testing, security, release-review — the iOS-scoped versions). Web project → web equivalents above; never cross-load |
 | Meetings / ops ("what's on my plate", transcripts) | ops-inbox, which chains summarise-meeting |
 | Memory (prior decisions, learnings) | vault-recall before deriving; vault-write to land |
+| Raw ask, requirements still forming — "new concept", "I'd like to explore" | discover-scope |
+| Settled idea to shape into a plan, or stress an existing plan | shape-stress (chains grilling) |
+| Fuzzy or colliding terms — "what I mean by X", operator corrects a part name | define-terms |
+| User-facing copy (App Store, marketing, onboarding, microcopy, errors, changelogs) | brand-voice |
+| Changing the skill library, agent charters, or AGENTS.md itself | agent-ops (the eval gate) + skill-authoring (the writing) |
 | Non-trivial build/design before dispatch | grilling (frontier empty or explicit skip) |
 
 ## Identity gate (before any tool)

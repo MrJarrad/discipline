@@ -57,8 +57,8 @@ Cherry-picked from the `obra/superpowers` framework (v6.1.1), which triggers ski
 dependably. Verified against the cloned source:
 
 - Description-as-trigger + no-workflow-summary rule, with the "one review vs two" failure
-  case — `skills/writing-skills/SKILL.md`.
-- Match-the-form-to-the-failure / don't-add-nuance-clauses — `skills/writing-skills/SKILL.md`
+  case — `superpowers:skills/writing-skills/SKILL.md`.
+- Match-the-form-to-the-failure / don't-add-nuance-clauses — `superpowers:skills/writing-skills/SKILL.md`
   ("Match the Form to the Failure") and `CLAUDE.md` (tuned Red-Flags/rationalization content).
 
 **Not adopted here (see the follow-up issue):** superpowers' load-bearing reliability lever
