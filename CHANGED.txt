@@ -1,3 +1,5 @@
+1.79.1 — handoff-to-code mirror from handoff-css 0.4.1 (v9 hints), Build-standards law test decoupled from table-vs-list formatting (2026-09-12)
+
 1.79.0 — dead references removed, one home per law, ceilings with reference offload (2026-09-12)
 
 Foundations hardening, W4. Four dispatches on one branch.

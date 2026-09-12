@@ -270,9 +270,19 @@ test("handoff-to-code carries Build standards 1-5 as the mechanism rules", () =>
   );
   assert.ok(step.length > 0, "handoff-to-code must carry the Build standards step");
   carries(step, "A right number produced by the wrong mechanism is a defect.");
-  for (const n of [1, 2, 3, 4, 5]) {
-    assert.match(step, new RegExp(`\\| ${n} — `), `Build standard ${n} is not named`);
-  }
+  // The law is the five standards' substance, not a `| N — ` table layout —
+  // each is asserted by a stable phrase from its own text so the byte-mirror
+  // from handoff-css survives a table-vs-list formatting change.
+  const buildStandards = [
+    "Repeated property combinations", // 1
+    "content *is* what the element says", // 2
+    "Token-first values", // 3
+    "Component boundaries match the design", // 4
+    "frames are CSS Grid containers", // 5
+  ];
+  buildStandards.forEach((phrase, i) => {
+    carries(step, phrase, `Build standard ${i + 1} is not named`);
+  });
   carries(step, "`col-span(N/M)` maps directly. Widths computed from column maths are a defect");
 });
 
