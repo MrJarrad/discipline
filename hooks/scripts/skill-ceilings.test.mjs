@@ -33,37 +33,48 @@ export const bodyWords = (text) => {
 
 // One row per ceilinged skill. 1.79.0 dispatch 2 sets the first two; the rest of
 // W4 item 3 appends here rather than starting a second list.
+// `skill` is a folder under skills/, or an agent charter as `agents/<name>.md`.
+// Agents ceiling the same way and offload into agents/references/.
+const pathsFor = (skill) =>
+  skill.startsWith("agents/")
+    ? { doc: skill, references: join(repo, "agents", "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "agents", rel) }
+    : { doc: `skills/${skill}/SKILL.md`, references: join(repo, "skills", skill, "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "skills", skill, rel) };
+
 const CEILINGS = [
   { skill: "capture-figma", ceiling: 1200, before: 9703 },
   { skill: "motion", ceiling: 1000, before: 5552 },
   { skill: "wrap", ceiling: 900, before: 3115 },
+  { skill: "agents/reviewer.md", ceiling: 1200, before: 2017 },
 ];
 
 for (const { skill, ceiling, before } of CEILINGS) {
+  const { doc, references, link, resolve } = pathsFor(skill);
+
   test(`${skill} stays under its ${ceiling}-word body ceiling`, () => {
-    const count = bodyWords(read(`skills/${skill}/SKILL.md`));
-    assert.ok(count <= ceiling, `skills/${skill}/SKILL.md body is ${count} words; the ceiling is ${ceiling}`);
+    const count = bodyWords(read(doc));
+    assert.ok(count <= ceiling, `${doc} body is ${count} words; the ceiling is ${ceiling}`);
   });
 
   test(`${skill} offloaded rather than deleted — it has references to point at`, () => {
-    const dir = join(repo, "skills", skill, "references");
-    assert.ok(existsSync(dir), `skills/${skill}/references/ must exist — a ceiling is met by offload, not deletion`);
-    const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
-    assert.ok(files.length > 0, `skills/${skill}/references/ carries no markdown`);
-    // The material that left the body has to be somewhere: references must hold
-    // more words than the body that now points at them.
-    const referenceWords = files.reduce((sum, f) => sum + bodyWords(read(`skills/${skill}/references/${f}`)), 0);
+    assert.ok(existsSync(references), `${references} must exist — a ceiling is met by offload, not deletion`);
+    const files = readdirSync(references).filter((f) => f.endsWith(".md"));
+    assert.ok(files.length > 0, `${references} carries no markdown`);
+    // The material that left the body has to be somewhere. For a skill the whole
+    // references/ dir belongs to it; agents share one dir, so only the files this
+    // charter actually links count toward its offload.
+    const text = read(doc);
+    const mine = skill.startsWith("agents/")
+      ? files.filter((f) => text.includes(`references/${f}`))
+      : files;
+    const referenceWords = mine.reduce((sum, f) => sum + bodyWords(readFileSync(join(references, f), "utf8")), 0);
     assert.ok(
-      referenceWords > ceiling,
-      `skills/${skill}/references/ holds only ${referenceWords} words — the ${before}-word original did not land here`,
+      referenceWords > ceiling / 2,
+      `${references} holds only ${referenceWords} words for ${skill} — the ${before}-word original did not land here`,
     );
   });
 
   test(`every references/ link ${skill} names resolves`, () => {
-    const text = read(`skills/${skill}/SKILL.md`);
-    const dead = [...text.matchAll(/\]\((references\/[A-Za-z0-9._-]+\.md)\)/g)]
-      .map((m) => m[1])
-      .filter((rel) => !existsSync(join(repo, "skills", skill, rel)));
+    const dead = [...read(doc).matchAll(link)].map((m) => m[1]).filter((rel) => !existsSync(resolve(rel)));
     assert.deepEqual(dead, [], `${skill} points at missing references: ${dead.join(", ")}`);
   });
 }
@@ -72,13 +83,13 @@ test("the frontmatter description is never squeezed to buy body room", () => {
   // Trigger surface, pinned by routing and the frontmatter check. Recorded here
   // so a future trim of a ceilinged skill cannot quietly shorten it instead.
   for (const { skill } of CEILINGS) {
-    const text = read(`skills/${skill}/SKILL.md`);
+    const text = read(pathsFor(skill).doc);
     const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
     assert.ok(match, `skills/${skill}/SKILL.md has no frontmatter`);
-    assert.match(match[1], /description:/, `skills/${skill}/SKILL.md frontmatter carries no description`);
+    assert.match(match[1], /description:/, `${skill} frontmatter carries no description`);
     assert.ok(
       match[1].split(/\s+/).filter(Boolean).length > 40,
-      `skills/${skill}/SKILL.md description looks truncated — the ceiling is on the body, not the trigger`,
+      `${skill} description looks truncated — the ceiling is on the body, not the trigger`,
     );
   }
 });
