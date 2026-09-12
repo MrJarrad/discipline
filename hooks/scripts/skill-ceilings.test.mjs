@@ -36,6 +36,7 @@ export const bodyWords = (text) => {
 const CEILINGS = [
   { skill: "capture-figma", ceiling: 1200, before: 9703 },
   { skill: "motion", ceiling: 1000, before: 5552 },
+  { skill: "wrap", ceiling: 900, before: 3115 },
 ];
 
 for (const { skill, ceiling, before } of CEILINGS) {
