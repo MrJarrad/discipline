@@ -106,6 +106,8 @@ wrong mechanism is a defect.
 5. `[Grid]` frames are CSS Grid containers — children placed by `grid-column: span N`.
    `col-span(N/M)` maps directly. Widths computed from column maths are a defect even when
    they measure right.
+6. Alignment is written from the container's `alignItems`/`justifyContent` and the child's
+   `alignSelf`/`justifySelf` as stated, never inferred.
 
 **Done when** every node in scope is built and each standard applied or deviation-noted.
 
