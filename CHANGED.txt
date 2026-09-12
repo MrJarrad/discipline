@@ -19,6 +19,17 @@ its home, absent from every other shipped doc, pointer present at each former co
 source-contract-law's port and "nothing blocking" tests were retargeted to that split
 with no assertion dropped.
 
+Ceilings, dispatch 2 of 4. `capture-figma` 9,578 → 1,200 body words and `motion` 5,470 →
+978, by offload not deletion: 8,728 and 4,518 words moved whole into
+`skills/capture-figma/references/{READ-ORDER,LANES-AND-TOOLS,READ-STEPS,COPY-AND-TEMPLATES,DELTAS-AND-ARTIFACTS}.md`
+and `skills/motion/references/{BUILD,REVIEW,GLOSSARY}.md`. Each SKILL.md keeps the trigger,
+the one rule per section, the decision points and the pointers. Both frontmatter
+`description` blocks are byte-identical to 1.78.0. All eight sentences the law tests pin in
+capture-figma survive in the body, so no retarget was needed. New gate
+`hooks/scripts/skill-ceilings.test.mjs` holds each ceiling, requires a `references/`
+directory carrying more words than the ceiling (a ceiling met by deletion fails), and
+checks every `references/` link resolves.
+
 `hooks/scripts/handoff-to-code-mirror.test.mjs` reconciled: byte-identical to the 1.78.0
 version, so there was no regression — the "0 tests" reading came from the absent-root
 path, which registered one skipped test and reported `pass 0` while the suite stayed

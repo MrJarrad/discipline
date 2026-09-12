@@ -34,6 +34,7 @@ export const bodyWords = (text) => {
 // One row per ceilinged skill. 1.79.0 dispatch 2 sets the first two; the rest of
 // W4 item 3 appends here rather than starting a second list.
 const CEILINGS = [
+  { skill: "capture-figma", ceiling: 1200, before: 9703 },
   { skill: "motion", ceiling: 1000, before: 5552 },
 ];
 
