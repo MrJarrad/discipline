@@ -1,3 +1,31 @@
+1.79.0 (in progress) — dead references removed; one home per law (2026-09-12)
+
+Dispatch 1 of 4. `design-taste-frontend` (README, `design-craft`, `routing`) and
+`impeccable` (README, `design-review`) were named in shipped docs but ship no folder;
+both removed at every site, and routing's greenfield row went with the first — that lane
+has no skill behind it. All 11 skill folders no routing table named were traced: every
+one is live and chain-loaded by a sibling, so none is retired and each is now routed —
+capture-motion-source, architect-systems, design-modules, doc-formats in the work-type
+table; discover-scope, shape-stress, define-terms, brand-voice, agent-ops,
+skill-authoring in the domain-library table; cloud-dispatch under Dispatch vehicle.
+`hooks/scripts/skill-reference-integrity.test.mjs` is the standing guard.
+
+Five laws had up to eight copies each. Homes: `doer-rules.md` for the `Agent`
+prohibition, the Open-gaps wording and the doer port range; `output-styles/discipline.md`
+for operator-facing status; `agents/reviewer.md` § Round cap for the review round cap.
+Every other site is a one-line pointer naming file and section — no paraphrase left to
+drift. `hooks/scripts/law-single-source.test.mjs` pins each law three ways: verbatim at
+its home, absent from every other shipped doc, pointer present at each former copy site.
+source-contract-law's port and "nothing blocking" tests were retargeted to that split
+with no assertion dropped.
+
+`hooks/scripts/handoff-to-code-mirror.test.mjs` reconciled: byte-identical to the 1.78.0
+version, so there was no regression — the "0 tests" reading came from the absent-root
+path, which registered one skipped test and reported `pass 0` while the suite stayed
+green. The plugin-side assertions (skill present, frontmatter name, not truncated) now
+run unconditionally; only the cross-repo byte-compare stays conditional on the sibling
+checkout.
+
 1.78.0 — doer-rules sync, corpus drift test, mirror guard (2026-09-12)
 
 `hooks/scripts/sync-doer-rules.mjs` writes `doer-rules.md` into a target product repo's

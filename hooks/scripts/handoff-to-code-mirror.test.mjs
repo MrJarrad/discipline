@@ -5,6 +5,14 @@
 // ratified SENTENCES survive, this proves the whole file is byte-identical
 // and that every law sentence in the package's own test list survives too.
 //
+// 1.79.0 reconciliation: the file is byte-identical to the version merged in
+// 1.78.0 — there was no regression. What made it look like "0 tests" is the
+// absent-root path below: it registered ONE skipped test and nothing else, so
+// `node --test` reported `pass 0` for this file and the suite still went green.
+// A guard that can report zero assertions is a guard you stop trusting, so the
+// plugin-side assertions now run unconditionally and only the cross-repo
+// comparison is conditional on the sibling checkout.
+//
 // Root resolution: `$HANDOFF_CSS_ROOT` env var, else `~/JHD/handoff-css/main`.
 // - Root absent: skip with the reason printed, UNLESS `DISCIPLINE_MIRROR_STRICT=1`,
 //   in which case absence is a failure (used in CI / release gating where the
@@ -30,6 +38,16 @@ const root =
   process.env.HANDOFF_CSS_ROOT || join(homedir(), "JHD", "handoff-css", "main");
 const strict = process.env.DISCIPLINE_MIRROR_STRICT === "1";
 const rootPresent = existsSync(root);
+
+// Runs on every machine, checkout or no checkout: the thing being mirrored has
+// to be there and has to be the handoff-to-code skill. Without this the file
+// contributes no assertion at all when the sibling repo is absent.
+test("the plugin ships the handoff-to-code skill the mirror guards", () => {
+  assert.ok(existsSync(pluginSkillPath), `${pluginSkillPath} is missing`);
+  const pluginText = readFileSync(pluginSkillPath, "utf8");
+  assert.match(pluginText, /^---\r?\n[\s\S]*?name: handoff-to-code\r?\n/, "frontmatter name is not handoff-to-code");
+  assert.ok(pluginText.length > 2000, `${pluginSkillPath} is ${pluginText.length} bytes — truncated copy`);
+});
 
 if (!rootPresent) {
   const reason = `handoff-css root ${root} is absent — set HANDOFF_CSS_ROOT to point at a checkout.`;
