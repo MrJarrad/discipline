@@ -78,6 +78,13 @@ The best work is the work you never made. Stop at the first sufficient rung.
 Review for deletion, not just correctness. Prefer the platform primitive over a
 hand-rolled reinvention of it.
 
+## Gate tiering — this file owns "gates"
+
+**Per commit, run typecheck plus the tests the change touches** — not the full suite.
+**Run the full suite once** before `next: reviewer`, and once in CI. **Never re-run an
+identical gate while diagnosing** — cite `lean-verification-loops`'s 3-pass cap by name
+and change the input on the next pass, not the rerun count.
+
 ## Standing tech checks (in this file — not separate skills)
 
 Apply on the path touched when the diff class matches:

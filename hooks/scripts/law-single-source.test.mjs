@@ -75,6 +75,46 @@ const LAWS = [
     pointer: "`agents/reviewer.md` § Round cap",
     pointedFrom: ["agents/engineer.md", "output-styles/discipline.md", "skills/routing/SKILL.md", "skills/wrap/SKILL.md"],
   },
+  {
+    law: "gate tiering (per-commit vs full-suite)",
+    home: "skills/quality/SKILL.md",
+    definition: "**Per commit, run typecheck plus the tests the change touches** — not the full suite.",
+    elsewhere: /per commit,? run typecheck plus the tests the change touches/i,
+    pointer: "`skills/quality/SKILL.md` § Gate tiering",
+    pointedFrom: ["doer-rules.md"],
+  },
+  {
+    law: "never end a turn waiting on a background gate",
+    home: "doer-rules.md",
+    definition: "**Never end a turn waiting on a background run.** Run gates in the foreground, or poll a\n  background run with a bounded wait inside the same turn",
+    elsewhere: /never end a turn waiting on a background run/i,
+    pointer: "`doer-rules.md` § You are the doer",
+    pointedFrom: [],
+  },
+  {
+    law: "engineer's own lock-row count before next: reviewer",
+    home: "doer-rules.md",
+    definition: "**Before `next: reviewer`, count the lock rows against your own per-criterion table**",
+    elsewhere: /count the lock rows against (your own|the) per-criterion table/i,
+    pointer: "`doer-rules.md` § Fixed evidence return",
+    pointedFrom: [],
+  },
+  {
+    law: "never kill, restart, or reuse a process you did not start",
+    home: "doer-rules.md",
+    definition: "**Never kill, restart, or reuse a process or port you did not start**",
+    elsewhere: /never kill, restart,? or reuse a process/i,
+    pointer: "`doer-rules.md` § Ports",
+    pointedFrom: [],
+  },
+  {
+    law: "a SendMessage from the parent is a legitimate continuation",
+    home: "doer-rules.md",
+    definition: "**A `SendMessage` from the parent session is a legitimate continuation of the brief**",
+    elsewhere: /`SendMessage` from the parent session is a legitimate continuation/i,
+    pointer: "`doer-rules.md` § You are the doer",
+    pointedFrom: [],
+  },
 ];
 
 for (const { law, home, definition, elsewhere, pointer, pointedFrom } of LAWS) {
