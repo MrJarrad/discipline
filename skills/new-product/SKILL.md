@@ -66,10 +66,9 @@ Pick a name that will not collide with parked fleet remotes (`config/jhd-repos.j
 
 ### 3. Container clone
 
-Clone into the container layout with the fleet's `jhd-container-clone.sh`:
-
 ```bash
-bash <fleet-scripts>/jhd-container-clone.sh MrJarrad/<name> ~/JHD/<name>
+bash ~/JHD/ai/discipline/main/scripts/jhd-container-clone.sh \
+  MrJarrad/<name> ~/JHD/<name>
 ```
 
 **Workspace is always `~/JHD/<name>/main`.** Never edit the container root.
@@ -80,11 +79,14 @@ If clone parks bare-only, finish `main/` after README exists on default branch.
 
 ### 4. Discipline overlay
 
-Land the overlay slice for the repo's `<kind>` (`config/jhd-repos.json` — `product`,
-`portfolio`, `capture`, …) using the fleet overlay tooling. First commit slice:
-`AGENTS.md` + `.cursor/rules/` + README + fleet wrapper. `.cursor/rules/` is the always-on
-layer's path in every product repo regardless of editor — the directory name is historical,
-not an editor dependency.
+Land the overlay slice for the repo's `<kind>` (`product`, `portfolio`, `capture`,
+`orbit-tools`, `figma-labs`). First commit slice: `AGENTS.md` + `.cursor/rules/` + README +
+fleet wrapper. `.cursor/rules/` is the always-on layer's path in every product repo
+regardless of editor — the directory name is historical, not an editor dependency.
+
+**The overlay payload has no home in this repo yet** — it moved out with the archived
+sibling and is an open decision, so do not improvise a rules set. What this repo does own is
+the standing-law half of the overlay, below.
 
 Then sync the plugin's standing law into the new repo's rules directory:
 

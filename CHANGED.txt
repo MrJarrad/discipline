@@ -49,6 +49,17 @@ scripts. `.cursor/rules/` stays — that path is where the always-on layer lives
 repo regardless of editor, and AGENTS.md and `sync-doer-rules.mjs` now each say so in one line
 so the next reader does not read it as an editor dependency.
 
+**Fleet scripts rehomed (partly).** `scripts/jhd-container-clone.sh` moved into this repo —
+body byte-identical, only a provenance header added; it is pure git/rsync with no payload or
+editor dependency, so `new-product` now names a real path instead of a placeholder.
+`sync-discipline-into-product.sh` did NOT move: it is inert without the `rules/*.mdc` +
+`templates/*/` payload it copies, and that payload is the Cursor-era always-on corpus this
+release just retired — importing it would have un-retired Cursor and restored a second,
+competing routing law one commit after single-sourcing the first.
+`hooks/scripts/fleet-scripts.test.mjs` asserts every command path `new-product` names exists,
+that no placeholder survives, and that the skill does not hand a doer an overlay command it
+cannot run. The overlay payload's home is an open decision.
+
 **Evidence-archive rule.** Written into `present-for-review` and `wrap` at the moments evidence
 piles up: evidence and probes never live in a product repo; a round's evidence goes to
 `~/JHD/vault/main/estate/captures/<product>-evidence/` with a manifest row via
