@@ -115,6 +115,14 @@ const LAWS = [
     pointer: "`doer-rules.md` § You are the doer",
     pointedFrom: [],
   },
+  {
+    law: "build-identity proof runs a real install in a scratch tree",
+    home: "agents/reviewer.md",
+    definition: "**A build-identity proof runs each arm in its own scratch tree with a real package install**",
+    elsewhere: /build-identity proof runs each arm in its own scratch tree with a real package install/i,
+    pointer: "`agents/reviewer.md` § Evidence",
+    pointedFrom: [],
+  },
 ];
 
 for (const { law, home, definition, elsewhere, pointer, pointedFrom } of LAWS) {
