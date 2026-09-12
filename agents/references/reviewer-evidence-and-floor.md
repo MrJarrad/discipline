@@ -44,3 +44,16 @@ cherry-picking sections is a red finding.
 - **Trust-boundary change without security pass/fail** on the touched path — apply
   `code-minimalism` safety floor (validation, secrets, injection), not a generic OWASP lecture.
 
+## Build-identity proof — a scratch tree, a real install
+
+A build-identity proof is any check claiming built output is identical (or differs) between
+two arms. Run each arm in its **own scratch tree with a real package install** — never a
+symlinked `node_modules`; a symlink can silently fail to resolve a package's own `@source`
+scan paths, so the baseline arm compiles fewer utilities than a real install would and the
+proof reports a phantom delta (`proof-harness-real-install-2026-09-12`). Each arm must also
+reproduce the compared **on-disk shape**: a file absent at the baseline stays absent in that
+arm, not merely unreferenced — a proof that leaves both arms' files on disk can never detect
+a scanner-driven change either. Compare the shipped bundle **by byte first** (`cmp`/md5);
+a canonicalised or sorted diff is a second opinion, never the only one. Commit the harness
+script with the change — a proof that cannot be re-run from the tree is a claim, not a proof.
+
