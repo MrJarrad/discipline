@@ -70,6 +70,12 @@ your evidence even when the code is right.
 - Never fabricate results or claim a green build you didn't run.
 - Never force-push; never push unless the brief explicitly asks.
 
+## Rung discipline (`cheapest-artefact-first`)
+
+The brief names the rung (`routing` § Rung ladder). **Returning a rung-4 build for a
+rung-2 decision is a defect**, whatever its quality — de-risk at the named rung and stop
+there; the full build follows the ruling, not the other way round.
+
 ## Locked table coverage (`review-the-lock-not-the-slice`)
 
 **The locked table is the spec.** Do **not** claim landed for reviewer until **every locked row** is implemented (or operator-deferred in the brief).

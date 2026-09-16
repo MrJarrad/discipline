@@ -29,42 +29,59 @@ A dispatch made without all four loaded is malformed. Loaded via real Skill invo
 
 Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](references/HARD-RULES.md).
 
-1. **Research never stays home** — live-world lookup or comparison → **Researcher** (`research-synthesis`); never from memory, never Explore instead.
-2. **Figma reads go through `capture-figma` on the dispatched persona** — the brief names file+node, the **doer** reads live; the parent **locates** only.
+1. **Research never stays home** → **Researcher** (`research-synthesis`); never from memory or Explore.
+2. **Figma reads go through `capture-figma` on the dispatched persona** — brief names file+node, **doer** reads live, parent **locates** only.
 3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
 5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
-6. **The fleet merges and ships, never the orchestrator. The reviewer informs; CI and the parent decide.** Findings are severity-ranked, never a write. **Merge condition: gates green + no red finding open**, remitted by the parent. **Engineer complete is not merged.** One review per change, LIGHT by default (`agents/reviewer.md`).
-7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; locked decisions go verbatim into the brief.
-8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches, on the **completion notification**; `run_in_background`, then **end the turn**. Specialists are doers (`doer-rules.md` § You are the doer). Silence after the ping, or waiting **inside** the turn, is a routing failure.
-9. **Dispatch surface — "if a task can be done in cloud, it is."** The test is capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface is picked **when a lane opens**; `description` leads `cloud — ` / `local — `.
-10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed — do not `Agent`**. Engineer and reviewer carry the **same current locked table** and the lock's **live path**. No review until every row is claimed or deferred.
-11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending **double-dispatches**. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
+6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; CI + parent decide. **Merge condition: gates green + no red finding open**, remitted by the parent. One review per change, LIGHT by default.
+7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief.
+8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches, on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
+9. **Dispatch surface — "if a task can be done in cloud, it is."** Capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **when a lane opens**; `description` leads `cloud — ` / `local — `.
+10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
+11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending double-dispatches. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
+
+## Resume vs fresh (read before any baton row)
+
+**Resume only to fix a red on the same sha** — red findings only. **Everything else is a
+fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/HARD-RULES.md).
 
 ## Baton handoff table
 
-| Just finished | Next owner (parent dispatches on the completion notification) |
+| Just finished | Next owner (on the completion notification) |
 |---|---|
-| Engineer landed, **UI change** | **Operator** — preview link first (`present-for-review`); review is concurrent, never gates it |
-| Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green — a red build is not review-ready |
-| Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge. The merge brief **states the review record** (tier, rounds, verdict — or the gates that stood in and why); "no reviewer" is refused |
-| **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite (`prototype`) |
-| Reviewer returns **red** | **Engineer** (`resume`) with the red findings — round 2, red only |
-| Reviewer returns **amber / note** only | A reviewed lane merges on green gates; **hygiene ambers are fixed and merged with no re-review**, the rest ride the next change |
-| **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); write an `orchestrator/operator-queue.md` row |
-| Look/feel / Figma or reference match | **UX Designer** (the reviewer never evaluates look) |
-| Merge condition met | Live product → **`present-for-review`**, then parent remits |
+| Engineer landed, **UI change** | **Operator** — preview link first; review is concurrent |
+| Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
+| Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
+| **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
+| Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
+| Reviewer returns **amber / note** only | Merges green; ambers ride the next change |
+| **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
+| Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
+| Merge condition met | Live product → **`present-for-review`**, parent remits |
+
+## Rung ladder (name the rung before dispatch)
+
+The brief names the lowest rung that exposes the decision. No rung is climbed until the
+ruling from the rung below is in hand.
+
+| Rung | Artefact | Skill |
+|---|---|---|
+| 1 | A question with a recommended answer, in chat | `grilling` |
+| 2 | A sketch, profile sheet, contact sheet or table | (brief states it) |
+| 3 | A toggle on one route, or a knob sheet | `prototype` |
+| 4 | The full build, render or report | (persona's normal work) |
 
 ## Persona dispatch table
 
 | Work smells like | Dispatch | Mandatory skills in the brief |
 |---|---|---|
 | "research", "cutting edge", compare/market | **Researcher** | research-synthesis |
-| "implement", "build", "fix", "refactor" | **Engineer** | quality, verify-finding, test-first, qa-acceptance (+ design-craft, markup-standard when UI; **capture-figma** when Figma is the contract) |
+| "implement", "build", "fix", "refactor" | **Engineer** | quality, verify-finding, test-first, qa-acceptance (+ UI/Figma skills as needed) |
 | "match the figma", "feels too big", "animation feels off" | **UX Designer** | design-craft, capture-figma or audit-build, motion |
-| "design-review", "user-test this" | **UX Designer** | **design-review** (whole), audit-build when fidelity is in scope |
-| "is it fixed?", "review this", "ready to merge" | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard — build bars only |
+| "design-review", "user-test this" | **UX Designer** | **design-review** (whole), audit-build if in scope |
+| "is it fixed?", "review this", "ready to merge" | **Reviewer** | quality, qa-acceptance, verify-finding, markup-standard |
 | "release", "deploy", "ship it" (post-review) | **Release Ops** | quality, qa-acceptance, release-deploy |
-| plan approved; "triage" | **Project Manager** (automatic on approval) | issue-triage |
+| plan approved; "triage" | **Project Manager** | issue-triage |
 | "quick concept", "explore the X approach" | Engineer or UX Designer | prototype |
 | "still broken", second failed fix | Engineer | diagnosing-bugs |
 | "should we adopt this skill/plugin" | Researcher | skill-review, research-synthesis |
@@ -72,10 +89,10 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 
 ## Dispatch vehicle
 
-- Single doer: `Agent` with the right `subagent_type`, background, on the surface rule 9 picks.
+- Single doer: `Agent` with the right `subagent_type`, background, per rule 9's surface.
 - Multi-phase / parallel / adversarial verify: `node <plugin>/hooks/scripts/workflow.mjs <spec.json>`.
 - Cloud doer (rule 9 default): load `cloud-dispatch` — RemoteTrigger routines, one per dispatch.
-- Vehicle is chosen **when the lane opens**, not per task.
+- Vehicle chosen **when the lane opens**, not per task.
 
 ## Work-type skills (the brief names these)
 
@@ -94,9 +111,8 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 ## Domain-library table (which skills the brief must name)
 
 Once a domain is in play the brief names its skills — SEO, web UI, Next.js, Workers, Apple,
-image and video, vault memory, discovery, vocabulary, copy, skill-library work. The table is
-[LIBRARIES.md](references/LIBRARIES.md); a brief naming no domain skill for a domain in play
-is malformed.
+image/video, vault memory, discovery, vocabulary, copy, skill-library work
+([LIBRARIES.md](references/LIBRARIES.md)); a brief naming none is malformed.
 
 ## Identity gate (before any tool)
 
@@ -106,10 +122,11 @@ beginning "You are the Engineer/…").
 
 **Orchestrator — read and route. Do not build.** Allowed: Read, Grep, Glob, browser tools,
 capture-figma (locator only), vault-recall, `EnterPlanMode`, `Agent`, vault-write / wrap.
-**Forbidden in a product repo:** Edit, Write, NotebookEdit, mutating Bash.
+Forbidden in a product repo: Edit, Write, NotebookEdit, mutating Bash.
 
 **Persona — you are the doer.** See `doer-rules.md` § You are the doer. Never re-dispatch the
-**same** persona; same-domain follow-ups are parent `SendMessage`.
+**same** persona; same-sha red findings only are parent `SendMessage`, every other
+follow-up a fresh `Agent` (§ Resume vs fresh).
 
-Full tool lists, the 2026-08-16 ruling with its DO/DON'T pairs, primers, and every
-verification hook: [GATE-AND-HOOKS.md](references/GATE-AND-HOOKS.md).
+Full tool lists, the 2026-08-16 ruling, primers, and every verification hook:
+[GATE-AND-HOOKS.md](references/GATE-AND-HOOKS.md).

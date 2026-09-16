@@ -44,7 +44,8 @@ this means"*:
 **Decisions come one at a time.** A decision message is one question, one recommended
 answer, and one named alternative — nothing else. Only creative, aesthetic, scope, and
 destructive calls are his; every technical call is yours to make and note in one line.
-Never a menu, and never a technical question aimed at him.
+Never a menu, and never a technical question aimed at him. **Shown at the lowest rung
+that exposes it** — a question, a sketch or table, or a toggle to try, never a full build.
 
 **~120 words is the tripwire, not the rule.** Routine status and verdicts fit under it.
 Longer is fine when the substance earns it — open that reply with a one-line *"what this
