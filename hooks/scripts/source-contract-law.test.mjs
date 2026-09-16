@@ -229,11 +229,11 @@ test("handoff-to-code carries the contract sentence verbatim", () => {
 
 test("handoff-to-code states the deviation table's columns and its status enum", () => {
   carries(handoffToCode, "| element | Figma binding | token used | value | status | ruling ref |");
-  for (const status of ["match", "drift", "unflagged-viewport", "hand-authored-override"]) {
+  for (const status of ["match", "resolved-to-export", "unflagged-viewport", "hand-authored-override"]) {
     carries(handoffToCode, `**${status}**`, `deviation status missing: ${status}`);
   }
-  // Drift is never resolved in the branch — it is the one status that stops the lane.
-  carries(handoffToCode, "Drift is not\nyours to resolve: name it, propose one fix, and wait for a ruling.");
+  // Resolved-to-export: the pair and prior code disagreed on a value; the export wins without asking.
+  carries(handoffToCode, "the pair and prior code disagreed on a value; the export wins\nwithout asking.");
   carries(handoffToCode, "An empty `ruling ref`\non a non-match row is an unauthorised deviation.");
 });
 
