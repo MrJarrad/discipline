@@ -39,6 +39,7 @@ when the pair is silent — not instead of it.
 | `*-design-system-handoff.json` | Companion: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
 | `handoff.config.mjs` | Consumer policy — schema versions, viewport units, aliases, paths. |
 | Generated tokens + theme | The CSS the JSON produced — the only place a value is stated. |
+| Generated style classes | `styles.generated.css` (schema 12+) — one class per Figma style. Bind the class; never re-author its declarations. |
 | Generated report | Audit trail; §10 names every warning. |
 
 The fifth, optional input is the **ruling list**: decisions on top of the pair — blend modes,
@@ -71,6 +72,7 @@ regenerate and commit first. Read the responsive/aliases report, one warning per
 | `VIEWPORT_CLASS_WITHOUT_FRACTION` | Build the per-mode value. |
 | `VIEWPORT_FRACTION_DISAGREES` | Report both numbers; description won, fix is a design-file edit. |
 | `BUILD_CELL_CONTRADICTORY` | Build as generated — a plugin fix, not a code fix. |
+| `UNCONVERTED` / `build.status: unresolved` | Build the raw value as generated; file the missing divisor against the plugin as a deviation — never hand-divide. |
 
 A warning you build *around* is drift. A warning you build *through* — emitting the token as
 generated, naming it in your deviation table — is correct.
@@ -108,6 +110,10 @@ wrong mechanism is a defect.
    they measure right.
 6. Alignment is written from the container's `alignItems`/`justifyContent` and the child's
    `alignSelf`/`justifySelf` as stated, never inferred.
+7. A Spacer instance never renders a DOM node — the export's `spacer(edge:start|end|both|mid)`
+   marker says which: `start`/`end` builds as `margin-block-start`/`-end` (or inline) on the
+   block it edges, `mid` (between siblings) builds as the container's `gap`, always token-bound,
+   never a literal.
 
 **Done when** every node in scope is built and each standard applied or deviation-noted.
 
@@ -122,6 +128,10 @@ The **Content Outline** is the copy inventory; node lines carry each string verb
 - **A copy section with zero findings still exists and says so.** Silence is not a report.
 
 ### 6. Check the built CSS back against the pair
+
+Before running it, enumerate every rendering of the export's nodes — grep for the style
+classes, slot names, and any file that duplicates a component's markup — and run `conform`
+against all of them. A pass on the component file alone leaves sibling renderings unchecked.
 
 `handoff-css conform --export <export>.json --handoff <design-handoff>.md --tokens <tokens>.css
 --css <stylesheets…>` flags what the pair does not state: an unpublished `var()`
@@ -141,8 +151,9 @@ One row per node whose value did not come straight from the pair, plus one per l
 `status` is one of:
 
 - **match** — built exactly as the pair states.
-- **drift** — the pair and the code disagree and the code won. **Stop here.** Drift is not
-  yours to resolve: name it, propose one fix, and wait for a ruling.
+- **resolved-to-export** — the pair and prior code disagreed on a value; the export wins
+  without asking. Ask only when the export binds no token where one is expected, or building
+  the export's value breaks something — never over plain value drift.
 - **unflagged-viewport** — a `VIEWPORT_UNFLAGGED` (or sibling); built as generated, the
   missing signal filed against the design file.
 - **hand-authored-override** — the stylesheet declares the property, the generator reported
@@ -160,6 +171,24 @@ A schema-v9 brief adds hints beyond `col-span N/M` — grid `col()`/`row()`, `as
 mechanism rule. Full table and grammar: `references/schema-v9-hints.md`
 (`schema/design-handoff.v9.grammar.md` is the grammar it reads). Worked read:
 `references/worked-example.md`. Rename ids and prop schemas: `references/export-shape.md`.
+
+## Style classes (export schema 12+, 2026-09-12)
+
+From schema 12 the companion states its own CSS: every style carries a `cssClass`
+(`selector` + `declarations[]` already bound to `var(--token, fallback)`), every TEXT
+style a type ramp v2, and a weight STRING its `fontWeightNumeric`. The generator writes
+them to `styles.generated.css` verbatim (handoff-css P21/P22).
+
+**Bind the generated class.** `<h2 class="title-style1-200">` — do not re-author its
+font-size, line-height, letter-spacing or weight anywhere, and do not keep a
+hand-authored `@utility` of the same name: Tailwind compiles `@utility title-style1-200`
+to the same `.title-style1-200`, so the two are one selector from two files and the
+report's §11 lists every such shadow for deletion.
+
+Two class-level findings in §11 are **export defects, not yours to patch**:
+`STYLE_CLASS_LITERAL` (a value frozen outside a `var()` that the style itself binds) and
+`STYLE_CLASS_UNSCOPED` (a selector that is the style's bare leaf name). Report them; a
+rewritten selector or an invented `var()` in your branch is a deviation.
 
 ## At JHD
 

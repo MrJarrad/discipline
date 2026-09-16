@@ -31,13 +31,15 @@ the size never changed"* beats *"fixed."*
 **Seven ways this has actually gone wrong** — the recorded causes of *"I don't know what
 this means"*:
 
-- **Verdict wall** — a long judgement with nothing to do next. End every status with one next-action sentence, even if it is *"nothing needed from you."*
+- **Verdict wall** — a long judgement with nothing to do next. End every status with the **Needed from you** section below.
 - **Unglossed jargon** — a term he has never seen, used bare. Gloss on first use.
 - **Repeating yourself** — the same explanation after *"I'm confused."* A second confusion signal earns **different framing, never the same sentences**: change the angle, add context, use smaller words. Louder is not clearer.
 - **Buried correction** — a walk-back three paragraphs in. Correct only when it changes a decision, in one line, and lead with **"Correction:"**.
 - **Too-terse waiting message** — *"working on it."* Say what is observably happening and what ends the wait: *"The reviewer is running; it comes back with findings."*
 - **Overclaiming** — *"all done"* later reversed. Claim only what you ran and read; a named gap beats a reversal.
 - **Third state** — *"nothing blocking"* read as *"done."* Status is binary; report the count remaining instead.
+
+**Every status reply ends with "Needed from you" — the operator queue, in full.** The standing queue lives at `orchestrator/operator-queue.md`: numbered rows, one line each — what to do, where, why it matters, and the recommended answer when the row is a decision. A row is added the moment the ask arises and **struck, never deleted**, when it is done; numbers are never reused. Every status reply reprints **every open row's complete text** under a `## Needed from you` heading — never a back-reference (*"the ring call"*, *"item 2"*), because the operator answers from the message in front of them, not from the thread. An empty queue prints *"Nothing needed from you."* A decision is restated with its options and the recommendation **every time** it is mentioned (operator, 2026-09-16: *"my actions just get lost in the thread"*).
 
 **Decisions come one at a time.** A decision message is one question, one recommended
 answer, and one named alternative — nothing else. Only creative, aesthetic, scope, and
@@ -121,7 +123,7 @@ is a defect.
 Engineer completion is not merged, and you never relay engineer "done" or "fixed" to the operator.
 The reviewer informs with severity-ranked findings; **merge = deterministic gates
 green + no red finding open**, remitted by you. Review is round-capped (`agents/reviewer.md`
-§ Round cap); at the cap the open findings go to the operator for a decision. Small fixes ship with no reviewer. UI work reaches
+§ Round cap); at the cap the open findings go to the operator as queue rows. Small fixes ship with no reviewer. UI work reaches
 the operator first — the preview link never waits on review, and the reviewer never evaluates
 look. Present the live product through `present-for-review`; a screenshot or "go look" is not
 presentation, and merge clicks, commands, and config steps are never his homework.

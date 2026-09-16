@@ -48,7 +48,7 @@ const SAMPLE_CSS_FN = `(async (windowMs, pollMs, trigger) => {
   return [...seen.values()];
 })`;
 
-const SAMPLE_GSAP_FN = `(trigger) => {
+const SAMPLE_GSAP_FN = `((trigger) => {
   const gsap = globalThis.gsap;
   if (!gsap || typeof gsap.globalTimeline?.getChildren !== 'function') return [];
 
@@ -131,7 +131,7 @@ const samples = [];
 
 await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
 
-const environment = await page.evaluate(DETECT_ENV_FN);
+const environment = await page.evaluate(`(${DETECT_ENV_FN})()`);
 
 samples.push(...await page.evaluate(`${SAMPLE_CSS_FN}(1500, 16, 'load')`));
 samples.push(...await page.evaluate(`${SAMPLE_GSAP_FN}('load')`));

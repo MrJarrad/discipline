@@ -37,18 +37,40 @@ const presentForReview = read("skills/present-for-review/SKILL.md");
 const wrap = read("skills/wrap/SKILL.md");
 const disciplineStyle = read("output-styles/discipline.md");
 
-// --- Locked row 1: hard cap of three review rounds ------------------------
+// --- Locked row 1: one review round, capped at two -------------------------
+// 1.81.0 (`lean-lane-cadence-2026-09-16`): the cap dropped from three rounds to
+// one, with round 2 reserved for a red finding. Amber and note ride the next
+// change on that surface instead of buying a round.
 
-test("reviewer names the three-round cap and the halt-and-present behaviour", () => {
-  assert.match(reviewer, /cap: 3 review rounds per\s+change/i);
-  assert.match(reviewer, /round 4|fourth round/i);
+test("reviewer names the one-round default, the two-round cap and the halt", () => {
+  assert.match(reviewer, /One review round is the default/i);
+  assert.match(reviewer, /cap: 2 review rounds per change/i);
+  assert.match(reviewer, /round 2 exists only for a red finding/i);
+  assert.match(reviewer, /there is no round 3/i);
   assert.match(reviewer, /halt/i);
+});
+
+test("amber and note ride the next change rather than buying a round", () => {
+  assert.match(reviewer, /amber and note ride the next change on that surface/i);
+  assert.match(reviewer, /notes ledger/i);
 });
 
 test("routing's baton table halts the loop at the cap and presents to the operator", () => {
   const baton = routing.slice(routing.indexOf("## Baton handoff table"));
-  assert.match(baton, /round 3|third round/i);
+  assert.match(baton, /round 2/i);
   assert.match(baton, /operator/i, "cap handoff goes to the operator, not another round");
+});
+
+test("a prototype lane batons to the operator, never to a reviewer", () => {
+  const baton = routing.slice(routing.indexOf("## Baton handoff table"), routing.indexOf("## Persona dispatch table"));
+  assert.match(baton, /prototype/i);
+  assert.match(baton, /no reviewer, no suite/i);
+});
+
+test("a merge dispatch states the review record", () => {
+  assert.match(routing, /states the review record/i);
+  assert.match(read("agents/releaseops.md"), /\*\*The brief states the review record\*\*/);
+  assert.match(read("skills/release-deploy/SKILL.md"), /The merge brief states the review record/);
 });
 
 test("wrap records review rounds per change", () => {

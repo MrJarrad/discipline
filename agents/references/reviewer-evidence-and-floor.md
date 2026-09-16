@@ -57,3 +57,14 @@ a scanner-driven change either. Compare the shipped bundle **by byte first** (`c
 a canonicalised or sorted diff is a second opinion, never the only one. Commit the harness
 script with the change — a proof that cannot be re-run from the tree is a claim, not a proof.
 
+
+## Fix gates and before-renders (2026-09-12, hoverboard round 8)
+
+**A fix gate's floor sits between the pre-fix and the fixed reading, with named headroom.**
+A floor set below the pre-fix reading stays green when the fix is reverted, so it guards
+nothing. Every new row proves red on the exact before-state via a **fail-first injection of
+the lever it guards** — never via a shared revert that several rows lean on.
+
+**A "before" render comes from the before sha.** Shoot it from a checkout of the before
+commit in a throwaway worktree, never from a flag toggle or a re-run of the after build;
+md5 the before/after pair before citing either as provenance.

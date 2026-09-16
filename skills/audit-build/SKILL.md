@@ -90,6 +90,11 @@ recorded as a flagged deviation, not silently left.
   computed px, converting explicitly.
 - **Aspect vs height rule**: a media block may be governed by an aspect ratio *or* a
   viewport-height stop — check which before calling its size wrong.
+- **Borders: measure painted, not specified.** A border width is floored to a whole CSS px
+  at every device scale, so a `2.5px` token measures `2px` and is **not** a defect. Read the
+  painted width (`getBoundingClientRect` on the box vs its content, or a device-pixel screen
+  read), compare that against `round(down, token, 1px)`, and only call the *token* wrong when
+  the specified value itself disagrees with the design.
 - **Restraint check**: if the built value uses a larger ramp step than any design template
   uses, that's a defect even if it "looks fine" — templates set the ceiling.
 

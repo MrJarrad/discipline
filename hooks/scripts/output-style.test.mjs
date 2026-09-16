@@ -119,8 +119,14 @@ test("(e) walk-backs lead with 'Correction:'", () => {
   assert.match(style, /lead(?:s|ing)? with \*\*?"?Correction:/i);
 });
 
-test("(f) every status ends with one next-action sentence", () => {
-  assert.match(style, /next-action sentence/i);
+// 1.81.0 (`operator-queue-visible-2026-09-16`): the bare "one next-action
+// sentence" was superseded — a status ends with the operator queue printed in
+// full, because a back-reference is what got lost in the thread.
+test("(f) every status ends with the operator queue printed in full", () => {
+  assert.match(style, /Needed from you/i);
+  assert.match(style, /operator-queue\.md/);
+  assert.match(style, /never a back-reference/i);
+  assert.match(style, /Nothing needed from you/i);
 });
 
 test("(g) waiting messages state what is observably happening", () => {
