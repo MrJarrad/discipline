@@ -22,6 +22,12 @@ safely and verify reality matches the claim.
 ## Preconditions (all required)
 
 - Review complete with **no red finding open** on record (or the small-fix path taken)
+- **The brief states the review record** — tier, rounds, last verdict; on the small-fix path,
+  the gates that stood in for review and why (single file, no behaviour claim). A merge brief
+  that says "no reviewer" and nothing else is refused by the harness, and rightly: a merge is
+  only as good as the record behind it. Fix and merge are **separate dispatches** until the
+  fix has been reviewed, and a merge this session was refused is never handed to a peer
+  session to run instead.
 - Typecheck/tests green on the **exact HEAD** being released
 - Working tree clean
 - Scope named (branch or commit range) — release exactly that

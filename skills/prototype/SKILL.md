@@ -32,6 +32,10 @@ Getting the branch wrong wastes the whole prototype. If ambiguous and the reques
 4. **Skip polish** — no tests, minimal error handling, no abstractions beyond the question.
 5. **Surface state** — after every action (logic) or variant switch (UI), show full relevant state.
 6. **Delete or absorb when done** — fold the validated decision into real code or delete; don't let it rot in the repo.
+7. **No suite until the pick** — a prototype lane runs **no test suite and no review round**: it renders the variants and returns them for the operator's choice. Identity or defaults checks are a one-line hash, not a suite. The suite (and the reviewer) arrive once, at bake, on the chosen variant (`lean-lane-cadence`, 2026-09-16).
+   - **DO:** four knob variants rendered, one `md5` line proving the defaults arm unchanged, returned for a pick.
+   - **DON'T:** prove byte-identity and run 30/30 on every variant before the operator has picked anything.
+8. **No screenshots — the operator looks.** Put the variants in front of them (route, relaunch, re-run) and let them pick; the operator is the cheapest visual gate.
 
 ---
 
@@ -40,6 +44,8 @@ Getting the branch wrong wastes the whole prototype. If ambiguous and the reques
 Capture the **answer** durably: a commit message, an ADR, the dispatch brief or a vault note, or a `NOTES.md` next to the prototype with the question it answered. If the requester is around, a quick conversation suffices; if not, leave the placeholder before deleting.
 
 Suggest the next step: shape the validated decision with `shape-stress`, or if it's already clear enough, hand it straight to dispatch as a vertical slice.
+
+The baton from a prototype lane is **engineer → operator**, never a reviewer (`routing`).
 
 ---
 

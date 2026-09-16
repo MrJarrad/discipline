@@ -41,6 +41,8 @@ Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing
 ## Definition of done
 
 - Change does what the task asked — **verified by running it** (build, typecheck, tests).
+- Gate cadence — what runs per commit, what runs once per lane, and the prototype exemption
+  — is defined in `doer-rules.md` § Repo and safety.
 - **Deterministic gates green before you hand off.** Build, typecheck, and the suite (CI
   where the repo has it) must pass on the sha you hand over — a reviewer solicited on a
   red build returns immediately without reviewing, and that burns a round.
@@ -90,7 +92,13 @@ table** — `export path · built value · reason`, one row per deviation from t
 row per lock row. Every deviation is a defect you name yourself; an empty table means you built
 the file whole. When the contract is an export **pair**, `handoff-to-code` states the
 per-node form of that table — `element · Figma binding · token used · value · status · ruling
-ref` — and drift stops for a ruling rather than being resolved in the branch.
+ref`.
+
+**A value drift resolves to the export, and is not a question.** Where the export and the
+code disagree on a value, rebind to the export and list the row as resolved-to-export. You
+stop and ask the operator only when the export **binds no token where one is expected**, or
+when building the export's value **makes something not work** — never to re-litigate a
+number the export already states (operator ruling 2026-09-13).
 
 ## Baton (when you land)
 

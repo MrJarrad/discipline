@@ -36,7 +36,7 @@ is called closed.
 Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). Walk them in order;
 a skipped section is a wrap failure, not a judgement call.
 
-1. **HANDOVER** — cockpit patch + one file per touched project, replaced not appended. Never one rewrite standing in for several projects.
+1. **HANDOVER** — cockpit patch + one file per touched project, replaced not appended. Never one rewrite standing in for several projects. Every handover, and the cockpit's link, carries the **operator queue verbatim** (`orchestrator/operator-queue.md`, every open row's full text).
 2. **Rulings** — landed with lineage, same-action verified, placed thing-then-aspect.
 3. **Memory** — fleet lessons and the auto-memory index current. **Lessons ship or say why not.** Every file in `fleet/lessons/` and `fleet/rulings/` carries `encoded: <semver> | pre-1.73.0 | queued | skipped(<reason>)`. A lesson written this session is either encoded into the plugin in the same session or marked `queued` with the release it waits on — a lesson with no `encoded:` field is a wrap failure. Run `node <plugin>/hooks/scripts/lesson-ledger.mjs <vault-root>` and fix what it names.
 4. **Toolkit** — the plugin repo committed and versioned, installed copy matching. **Release checklist:** the commit gate refuses a `plugin.json` bump while any lesson or ruling is still `queued`, and `CHANGED.txt` names the lessons this version encoded.

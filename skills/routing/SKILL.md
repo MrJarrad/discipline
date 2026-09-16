@@ -44,14 +44,15 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 
 | Just finished | Next owner (parent dispatches on the completion notification) |
 |---|---|
-| Engineer landed, **UI change** | **Operator** — preview link first (`present-for-review`); review runs concurrently, never gates it |
+| Engineer landed, **UI change** | **Operator** — preview link first (`present-for-review`); review is concurrent, never gates it |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green — a red build is not review-ready |
-| Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge |
-| Reviewer returns **red** | **Engineer** (`resume`) with the red findings — round 2 |
-| Reviewer returns **amber / note** only | Merge condition met; parent's call on amber, notes need no action |
-| **Round 3 returns with red still open** | **Operator** — the loop **halts** at the cap (`agents/reviewer.md` § Round cap) |
-| Look/feel / match Figma or a reference | **UX Designer** for agent evidence (the reviewer never evaluates look) |
-| Merge condition met | Live product → **`present-for-review`**, then parent remits merge |
+| Engineer landed, **small fix** (single file, no behaviour claim, gates green) | **No reviewer** — engineer verification + parent check, then merge. The merge brief **states the review record** (tier, rounds, verdict — or the gates that stood in and why); "no reviewer" is refused |
+| **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite (`prototype`) |
+| Reviewer returns **red** | **Engineer** (`resume`) with the red findings — round 2, red only |
+| Reviewer returns **amber / note** only | A reviewed lane merges on green gates; **hygiene ambers are fixed and merged with no re-review**, the rest ride the next change |
+| **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); write an `orchestrator/operator-queue.md` row |
+| Look/feel / Figma or reference match | **UX Designer** (the reviewer never evaluates look) |
+| Merge condition met | Live product → **`present-for-review`**, then parent remits |
 
 ## Persona dispatch table
 

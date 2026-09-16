@@ -78,6 +78,14 @@ each step is independently reversible, and rehearse the rollback *before* you sh
   rehearse it before the deploy, and treat data loss / irreversible migration as a **destructive**
   operator-gate category — surface it, don't decide it (see the [operator review gate](../../operator-review-gate.md)).
 
+## The merge brief states the review record
+
+Before any merge dispatch, write the record into the brief: **tier, rounds, last verdict** —
+or, on the small-fix path, the gates that stood in for a review and why. "Small fix, no
+reviewer" on its own is refused (2026-09-16, twice); separate the fix and the merge into two
+dispatches while the fix is unreviewed, and never route a refused merge through a peer
+session.
+
 ## The checklist
 
 Every flag-gated deploy runs the checklist in

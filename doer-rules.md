@@ -21,6 +21,10 @@ it never restates what is here.
 ## Repo and safety
 
 - Work in the branch and cwd the brief names; stay inside the named bounds.
+- **One worktree name per lane, and you remove only your own.** A worktree name encodes the
+  lane kind and the sha — `upload-<sha>`, `review-r<n>-<sha>`, `fix-<sha>-<topic>` — so two
+  lanes on one sha never share a tree, and never the bare sha (a finishing lane deleted a
+  live reviewer's tree, portfolio 2026-09-15).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`,
@@ -34,6 +38,11 @@ it never restates what is here.
 - Deterministic gates (build, typecheck, suite, CI where the repo has it) are green on the
   sha you hand over. Gate tiering — which gates run per commit vs once before hand-off —
   is defined in `skills/quality/SKILL.md` § Gate tiering.
+- **Touched gates per row; one full suite per lane.** Each commit re-runs only the gates that
+  read what it changed; the **full suite runs once per lane**, on the final sha, foreground,
+  with the timeout set to the suite's length. **Never two full suites at once on one machine** —
+  stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`):
+  it renders, returns, and the suite runs once at bake, after the operator's pick.
 - **Never kill, restart, or reuse a process or port you did not start** — a running server,
   watcher, or background job belongs to whoever launched it; the same rule the Ports
   section applies to servers extends to every process.
@@ -66,6 +75,13 @@ Non-code lanes map the same five: the reviewer's per-criterion rows are its
 severity-ranked findings with their re-validation; the researcher's `file:line` is the
 cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats a false
 "done" — a fail row with evidence is a complete return.
+
+**The operator is the cheapest visual gate.** When acceptance is how a change looks or feels
+— UI, plugin UI, motion, type, a prototype — the return's evidence is **the link to the
+running build** (or the relaunch/re-run instruction), not renders. Build no screenshot
+harness, row scan, or pixel diff to prove look. Agent measurement is reserved for what the
+operator cannot see by looking: geometry against a lock row, token binding, stacking/blend
+physics, gates (operator, 2026-09-16).
 
 Operator-facing status vocabulary — see `output-styles/discipline.md` § Status is done or
 not done.

@@ -33,6 +33,31 @@ skill reads and implements whichever law is loaded; it does not own any of them.
 
 **The one rule:** a raw colour, type size, radius, or space is a bug. Need something the contract lacks? Add the token in the **package** (or propose it), then reference it — never inline around it.
 
+**Border tokens paint at whole CSS pixels.** Chromium floors a used border width to a whole
+CSS px at **every** device scale — a `2.5px` token paints `2px` at DSR 1, 2 and 3; `1.5px`
+paints `1px`. Layout geometry (`inset`, `padding`) does not floor. So half-pixel tokens stay
+as authored, and any geometry that must **coincide** with a painted border rounds the same
+way — `round(down, <token>, 1px)`, never a device-pixel step, which is wrong on retina
+(measured 2026-09-16; Safari/Firefox unverified).
+
+- **DO:** `--nav-hairline: 2.5px` for the border, `round(down, var(--nav-hairline), 1px)` for the ring that sits on it.
+- **DON'T:** round the token itself to `2px`, or divide by the device scale.
+
+**One implementation per component or block.** Each Figma component/block maps to exactly one
+file exporting it; routes, blocks and animation wrappers compose that instance and never
+re-render its markup or restate its text styles. Variation goes through the component's own
+props/variants, matching the export's variant axes. A second rendering is a defect whatever
+its motive — and a conform lane names the **design**, not a file: enumerate every rendering
+of it in the repo (grep the style classes, the slot names, any file duplicating the markup)
+and conform all of them (operator ruling 2026-09-14).
+
+**Spacers are margins.** A `SpacerVertical` / `SpacerTop` / `SpacerBottom` instance is a
+design-time proxy for space **outside** a component, because Figma auto-layout has no margin.
+First or last child of a block → `margin-block-start` / `-end` on that block, bound to the
+instance's `space/spacer-*` token, never a literal; between two siblings → the frame's
+`gap` / `row-gap`, token-bound. **A Spacer never renders a DOM node.** A block's own
+`pad:$space/spacer-*` stays padding (operator ruling 2026-09-13).
+
 **Dark mode is a token swap**, not per-component `dark:` colour overrides. Tokens are declared once; a theme class flips values. Components reference stable names.
 
 **Consumers supply Suisse** via `--font-suisse`. Font files stay with each app — do not vendor font copies into the package.

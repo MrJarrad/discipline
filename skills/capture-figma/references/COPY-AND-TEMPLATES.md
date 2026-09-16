@@ -68,3 +68,14 @@ stopping at a component-set inventory of what exists on the page.
   template instantiates answers "what's used here"; it doesn't answer "how is this page
   built" — the ordered block sequence, the frame's mode vector, and prop tables per
   instance (Step 3/4) are still required for a template read to count as complete.
+
+## The template-layout contract, in full
+
+A template read is the four-pass page-layout contract — context, composition, blocks as
+instances, values as chains — applied to **the whole template frame**, never narrowed to the
+region that prompted the read. States authored as sibling frames are first-class, each
+captured as its own layout. An inventory answers "what's used here", not "how is this page
+built".
+
+A live audit once missed a designed nav copy change because the bank's copy was waved
+through as "just a content difference" — the origin of the copy lane's no-exemption rule.

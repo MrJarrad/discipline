@@ -40,13 +40,13 @@ Two rules decide whether a values read is honest:
 
 ## Rule zero — operator-supplied Figma renders are 2x retina, always ÷2
 
-Any PNG the operator hands you as a design contract (not read live through `get_screenshot`/`get_metadata`) is a **retina 2x render by default**. **Divide every measurement taken off such a render by 2 before it becomes a px value.** Confirm the multiplier once against the target's known native width, then run the ÷2 as a checklist over **every sized element** — font sizes, paddings, gaps, radii, icon/control dimensions, the container's own size. The plugin UI shipped two consecutive oversized rounds because the ÷2 reached body text and panel width but not padding, gaps or label sizes: eyeballing proportions cannot catch a numeric 2x residual.
+Any PNG the operator hands you as a design contract (not read live through `get_screenshot`/`get_metadata`) is a **retina 2x render by default**. **Divide every measurement taken off such a render by 2 before it becomes a px value.** Confirm the multiplier once against the target's known native width, then run the ÷2 as a checklist over **every sized element** — font sizes, paddings, gaps, radii, icon/control dimensions, the container itself. Eyeballing proportions cannot catch a numeric 2x residual.
 
 ## Lane choice — three lanes, one hierarchy
 
 Pick by what's available, not by habit. Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md).
 
-1. **Portability floor — MCP.** Any file, nothing installed beyond the desktop bridge; also the right tool for a quick live check against whatever is on screen.
+1. **Portability floor — MCP.** Any file, nothing installed beyond the desktop bridge; also the quick live check against whatever is on screen.
 2. **REST, when `FIGMA_TOKEN` exists** — no active-tab constraint, no lazy-page gaps, real `?version=` pinning. Prefer it **whenever the node id is already known**.
 3. **Capture Figma sync plugin** — variables, styles and layer bindings at full mode coverage, plus the banked `copy` array and `changes.jsonl`.
 
@@ -63,23 +63,31 @@ Read down; stop at the first rung that answers the question.
 
 ## Export shape — read it in `handoff-to-code`
 
-What an export carries beyond a flat token list — stable `id`s, typed prop schemas, per-variant layer `bindings`, per-variable `responsiveBehavior` — and how it becomes code lives in **`handoff-to-code`**. Load it whenever a `design-handoff` + `design-system-handoff` pair exists for the target.
+What an export carries beyond a flat token list — stable `id`s, typed prop schemas, per-variant layer `bindings`, per-variable `responsiveBehavior` — and how it becomes code lives in **`handoff-to-code`**; load it whenever an export pair exists for the target.
 
 ## Copy lane — mandatory, equal to variables and geometry
 
-Text is a fifth layer, not a footnote. A live audit missed a designed nav copy change because the bank's copy was waved through as "just a content difference." **That exemption is never available.** Read the top-level `copy` array as a full inventory; read a copy delta from `changes.jsonl` as you would a `layer_binding_*` delta. A copy section with zero findings still exists and says so. Mechanics and the manual fallback: [COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md).
+Text is a fifth layer, not a footnote. Copy is never waved through as "just a content difference" — **that exemption is never available.** Read the top-level `copy` array as a full inventory, and a copy delta from `changes.jsonl` as you would a `layer_binding_*` delta. A copy section with zero findings still exists and says so ([COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md)).
 
 ## Template-layout lane — read layouts, not just component inventories
 
-A template read is the four-pass page-layout contract — context, composition, blocks as instances, values as chains — applied to **the whole template frame**, never narrowed to the region that prompted the read. States authored as sibling frames are first-class, each captured as its own layout. An inventory answers "what's used here", not "how is this page built" ([COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md)).
+A template read applies the four-pass page-layout contract to **the whole template frame**, never the region that prompted it; sibling-frame states are first-class. Full contract: [COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md).
 
 ## Operator-intent rule
 
-When the operator says a design file was updated, that outranks a historical ruling the bank might seem to confirm. Recapture that layer; don't verify-then-dismiss against stale history.
+When the operator says a design file was updated, that outranks a historical ruling the bank might seem to confirm. Recapture that layer; never verify-then-dismiss against stale history.
 
 ## Verification rule
 
-Emission questions (does this token reach rendered output?) are answered by **curling served CSS from a fresh client**, never a stale tab or cached preview. Artifacts **diff exports**, never re-derive. A claim about "what changed" with no fresh export or served response behind it is not verified.
+Emission questions (does this token reach rendered output?) are answered by **curling served CSS from a fresh client**, never a stale tab or cached preview. Artifacts **diff exports**, never re-derive. A claim about "what changed" with no fresh export behind it is not verified.
+
+## Semantics are never asked of the design file
+
+Heading levels and element tags are decided in code from page structure (`markup-standard`); a design file authors text **styles**. **Never file a memo asking a designer to annotate semantics** — the operator ruled per-instance heading annotation out as design tech debt (2026-09-16). An export's `semantic(<tag>)` hint is guidance, not a spec.
+
+## Plugin fixes land in the repo, not the in-app editor
+
+A Figma plugin's source of truth is `figma-plugins/main/handoff/<plugin>/`: fix there, rebuild `code.js`, import from `manifest.json` (Plugins → Development). A dev plugin gets no PropsKit, so `ui.html` carries plain equivalents and `figma.showUI(html, { themeColors: true })` — a showUI option, not a manifest field. `ui.html` changes need a re-run, `manifest.json` changes a remove + re-import.
 
 ## Translate, never transcribe
 
@@ -87,11 +95,9 @@ Figma px are inputs to the *system*, not literals: map a measured 64px title to 
 
 ## Recapture and change tracking
 
-A capture that can't be compared to the next one is half-done. Four rules; procedure, the two output artifacts and the caveats: [DELTAS-AND-ARTIFACTS.md](references/DELTAS-AND-ARTIFACTS.md).
-
-- **Pin every capture** — the datetime, plus the operator-named version label when there is one. Untimestamped cannot be compared later.
-- **Stable paths, updated in place** — one vault path per file forever; git is the diff engine. Never `capture-v2.md` side-by-side.
-- **Scope before recapturing** — the affected layers, not everything.
-- **Diff on names, not node ids**, and write the capture sorted so reorder churn can't drown the real deltas.
+A capture that can't be compared to the next one is half-done: **pin every capture**, keep
+**stable paths updated in place**, **scope before recapturing**, and **diff on names, not
+node ids**. All four in full, with procedure, the two output artifacts and the caveats:
+[DELTAS-AND-ARTIFACTS.md](references/DELTAS-AND-ARTIFACTS.md).
 
 Read a delta in the listener's vocabulary — per-mode changes, renames, `alias_repointed`, `binding_broken`/`binding_added`, `layer_binding_*`, `copy_*` — never ad-hoc prose.

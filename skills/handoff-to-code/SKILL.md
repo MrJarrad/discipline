@@ -39,6 +39,7 @@ when the pair is silent — not instead of it.
 | `*-design-system-handoff.json` | Companion: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
 | `handoff.config.mjs` | Consumer policy — schema versions, viewport units, aliases, paths. |
 | Generated tokens + theme | The CSS the JSON produced — the only place a value is stated. |
+| Generated style classes | `styles.generated.css` (schema 12+) — one class per Figma style. Bind the class; never re-author its declarations. |
 | Generated report | Audit trail; §10 names every warning. |
 
 The fifth, optional input is the **ruling list**: decisions on top of the pair — blend modes,
@@ -160,6 +161,24 @@ A schema-v9 brief adds hints beyond `col-span N/M` — grid `col()`/`row()`, `as
 mechanism rule. Full table and grammar: `references/schema-v9-hints.md`
 (`schema/design-handoff.v9.grammar.md` is the grammar it reads). Worked read:
 `references/worked-example.md`. Rename ids and prop schemas: `references/export-shape.md`.
+
+## Style classes (export schema 12+, 2026-09-12)
+
+From schema 12 the companion states its own CSS: every style carries a `cssClass`
+(`selector` + `declarations[]` already bound to `var(--token, fallback)`), every TEXT
+style a type ramp v2, and a weight STRING its `fontWeightNumeric`. The generator writes
+them to `styles.generated.css` verbatim (handoff-css P21/P22).
+
+**Bind the generated class.** `<h2 class="title-style1-200">` — do not re-author its
+font-size, line-height, letter-spacing or weight anywhere, and do not keep a
+hand-authored `@utility` of the same name: Tailwind compiles `@utility title-style1-200`
+to the same `.title-style1-200`, so the two are one selector from two files and the
+report's §11 lists every such shadow for deletion.
+
+Two class-level findings in §11 are **export defects, not yours to patch**:
+`STYLE_CLASS_LITERAL` (a value frozen outside a `var()` that the style itself binds) and
+`STYLE_CLASS_UNSCOPED` (a selector that is the style's bare leaf name). Report them; a
+rewritten selector or an invented `var()` in your branch is a deviation.
 
 ## At JHD
 

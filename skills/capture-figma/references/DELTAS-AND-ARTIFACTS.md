@@ -173,3 +173,9 @@ capture listener's `GET /changes?n=` serve the equivalent recapture-delta role �
 above is the portability floor: it never depends on either script, so the steps are
 complete and self-sufficient on any file with no token and no listener running — but when
 a faster lane is available, prefer it here too.
+## The four recapture rules, in full
+
+- **Pin every capture** — the datetime, plus the operator-named version label when there is one. Untimestamped cannot be compared later.
+- **Stable paths, updated in place** — one vault path per file forever; git is the diff engine. Never `capture-v2.md` side-by-side.
+- **Scope before recapturing** — the affected layers, not everything.
+- **Diff on names, not node ids**, and write the capture sorted so reorder churn can't drown the real deltas.

@@ -26,6 +26,18 @@ element whose name describes the content — `nav`, `main`, `article`, `section`
 `figure`, `button`, `a`, `ul`/`ol`, `table` — before reaching for a `div` plus ARIA. ARIA
 patches a gap; it never substitutes for an element that already exists.
 
+**Semantics are decided in code, never authored in the design file.** The heading outline
+comes from the page's own structure — one `<h1>`, then `<h2>`/`<h3>` by nesting — and the
+element from what the content *is*. A design file authors text **styles**; it is never asked
+to annotate heading levels or tags per instance, and a `semantic(<tag>)` hint arriving in an
+export is **guidance, not a spec** — following it is not required and departing from it is
+not a deviation (operator ruling 2026-09-16: per-instance heading annotation is "a huge
+amount of design tech debt").
+
+**One implementation per component.** A second file re-rendering the same design — an
+animated branch, a block-local paragraph render, a wrapper that restates the text styles —
+is a defect; wrappers compose the component's instance (`design-system`).
+
 The full element-by-element table, the Tailwind class-discipline rules, and the **Exceed
 tier** (what "beyond this skill's own floor" means and when it applies) are in
 [ELEMENTS-AND-CLASSES.md](references/ELEMENTS-AND-CLASSES.md).

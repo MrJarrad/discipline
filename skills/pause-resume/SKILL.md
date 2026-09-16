@@ -29,7 +29,8 @@ down", "stop for now", "let's stop here".
    let the current commit land, then halt; do not kill mid-edit.
 3. **Bank a one-screen snapshot** into `projects/<name>/<name>-handover.md`
    for each touched project: in-flight lanes + their shas, dirty worktrees,
-   merged state, queued operator calls, and resume order.
+   merged state, resume order, and **the operator queue verbatim** — every open
+   `orchestrator/operator-queue.md` row's full text, not a count or a pointer.
 4. **Confirm in one line.** Name what's paused and that nothing runs until
    resume — no verdict wall.
 
