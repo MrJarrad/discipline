@@ -45,6 +45,12 @@ Use chrome-devtools / browser tools for live viewport evidence.
   The reviewer never evaluates look (`agents/reviewer.md`), and the operator is first eyes
   on UI. Don't self-merge.
 
+## Rung discipline (`cheapest-artefact-first`)
+
+The brief names the rung (`routing` § Rung ladder). **Returning a rung-4 render for a
+rung-2 decision is a defect**, whatever its quality — a sketch, profile sheet, or contact
+sheet rules the geometry question before any full render is spent.
+
 ## Evidence return
 
 Standing rules: `doer-rules.md` — read it whole.

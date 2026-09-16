@@ -47,6 +47,10 @@ Suggest the next step: shape the validated decision with `shape-stress`, or if i
 
 The baton from a prototype lane is **engineer → operator**, never a reviewer (`routing`).
 
+Prototype is **rung 3** on the cheapest-artefact-first ladder (`routing` § Rung ladder) —
+climb to it only once rung 1 (a grilled question) or rung 2 (a sketch/sheet/table) has
+ruled what a toggle needs to show; the full build is rung 4, after the pick.
+
 ---
 
 ## Pipeline position

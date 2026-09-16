@@ -131,6 +131,13 @@ Confirm shared understanding with the operator before dispatch or build.
   draft after each round.
 - **`dispatch-brief`** — carries the Locked decisions block verbatim into every brief.
 
+## Rung 1 of the cheapest-artefact ladder
+
+Grilling is **rung 1** — a question with a recommended answer, in chat — on the
+cheapest-artefact-first ladder (`routing` § Rung ladder). It is the cheapest de-risk there
+is: settle it here before any sketch, toggle, or build is spent on an assumption the
+operator could rule on in one line.
+
 ## Stop conditions
 
 - **Done:** frontier empty + operator confirms shared understanding (or explicit

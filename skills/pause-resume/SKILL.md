@@ -44,7 +44,9 @@ snapshot".
 1. Read the snapshot (`projects/<name>/<name>-handover.md`).
 2. Re-dispatch each interrupted lane as a **fresh continuation** — branch
    counts as an untrusted draft, per standing law, not a trusted resume-in-
-   place.
+   place. This is the same rule as `fresh-context-per-task`: resume-in-place
+   is reserved for a reviewer's red on the sha it just built, never for
+   picking a paused lane back up.
 3. Report what restarted, one line per lane.
 
 ## Not wrap
