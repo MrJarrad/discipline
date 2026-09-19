@@ -99,10 +99,17 @@ test("engineer and ux-designer name a rung-4 return for a rung-2 decision as a d
 });
 
 // --- version bump ------------------------------------------------------------
+// Converted on touch (1.83.0, gates-assert-mechanism-not-values-2026-09-19): a
+// gate pinning "== 1.82.0" re-anchors on every later release. The mechanism —
+// both files carry one matching semver, at or past 1.82.0 — is what's
+// asserted; the exact current number is queue-1830's fixture to check.
 
-test("plugin.json and marketplace.json are both bumped to 1.82.0", () => {
+test("plugin.json and marketplace.json carry one matching semver, at or past 1.82.0", () => {
   const plugin = JSON.parse(read(".claude-plugin/plugin.json"));
   const marketplace = JSON.parse(read(".claude-plugin/marketplace.json"));
-  assert.equal(plugin.version, "1.82.0");
-  assert.equal(marketplace.plugins[0].version, "1.82.0");
+  const semver = /^\d+\.\d+\.\d+$/;
+  assert.match(plugin.version, semver);
+  assert.equal(plugin.version, marketplace.plugins[0].version);
+  const [major, minor] = plugin.version.split(".").map(Number);
+  assert.ok(major > 1 || (major === 1 && minor >= 82), `${plugin.version} regressed before 1.82.0`);
 });

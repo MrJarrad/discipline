@@ -50,6 +50,10 @@ it never restates what is here.
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
   copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
+- **A gate's fixture is the contract, never a copy.** A test, probe or fixture reads the
+  banked export json, the design-system's generated tokens, or the ruling's constant file
+  **at run time**; a value hand-copied into the assertion is a defect, whatever else the
+  gate gets right (operator ruling 2026-09-19, `gates-assert-mechanism-not-values`).
 
 ## Fixed evidence return
 

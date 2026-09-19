@@ -18,13 +18,13 @@ malformed. Doer law: `doer-rules.md`.
 | # | Operator gives | Contract | Parent adds | Verified by |
 |---|---|---|---|---|
 | 1 | Handoff export pair | the export | `## Source contract`, lock rows | binding diff |
-| 2 | Figma, no export | the file+node | `capture-figma`, live read | `audit-build` |
+| 2 | Figma, no export | file+node | `capture-figma`, live read | `audit-build` |
 | 3 | Reference site/shot | capture folder | path, matches | diff vs capture |
-| 4 | Itemisation, bug, one-liner | operator's words | a quoted lock row each; grill | row demoed |
+| 4 | Itemisation, bug, one-liner | operator's words | quoted lock row; grill | row demoed |
 | 5 | Feel or taste ask | none yet | `grilling`, no brief | the lock |
 | 6 | Plugin/skill/release | ask quoted | gates, version | green |
 | 7 | Fix round | feedback + contract | sha reviewed | rows cleared |
-| 8 | Research, blue-sky | the question, whole | givens fixed, unknown invited | sourced recommendation |
+| 8 | Research, blue-sky | question, whole | givens fixed, unknown invited | sourced rec |
 
 ## Source contract
 
@@ -52,7 +52,7 @@ The doer loads **`handoff-to-code`** under a Source contract.
 | 1 | "<quote>" | <one line for the doer> |
 ```
 
-Operator column: verbatim, naming the thing as defined — never a synonym (`define-terms`).
+Operator column: verbatim, naming the thing as defined, never a synonym (`define-terms`).
 Under a Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
 One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
 
@@ -60,23 +60,24 @@ One AC per locked row, deferrals named, plus **AC-S** when a Source contract exi
 
 - **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer first.
-- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first; a failing one is out.
-- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack proving a look nobody has seen.
+- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
+- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack.
 
 **Target brief length: under 250 words**, excluding the lock table.
 
 ## What the parent does not add
 
 One batch, not phases; the scenario row's "verified by", not matrices; skill **names**, never
-restated procedure, no ruling beyond one DO/DON'T pair; `doer-rules.md` Fixed return.
+restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed return.
 
 ## Reviewer brief
 
-Same four parts; done-when is **diff the build against the contract**. Carries the locked table, the lock's live path, and the tier — `LIGHT` default, `FULL` argued. Unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green **before a reviewer is solicited**; merge is gates green + **no red finding**.
+Same four parts; done-when is **diff the build against the contract**. Carries the locked table, the lock's live path, and the tier — `LIGHT` default, `FULL` argued. Unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge is gates green + no red finding.
 
 ## Persona + model
 
-Label: `persona-(model)` from `model-routing`; `description` leads with surface — `cloud — persona (model): task` or `local` (`routing` rule 9). Effort tier: `routine | contested | high-stakes`.
+Label: `persona-(model)` from `model-routing`; `description` leads with surface — `cloud —
+persona (model): task` or `local` (`routing` rule 9). Effort tier: `routine | contested | high-stakes`.
 
 ## State (untrusted draft; verify)
 
