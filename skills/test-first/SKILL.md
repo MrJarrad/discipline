@@ -96,6 +96,28 @@ Repeat, one behavior at a time:
 
 Once the relevant tests pass, look for duplication to extract, shallow modules to deepen, or structure the new code revealed as wrong in the old code. Run the tests after every refactor step. **Never refactor while red** — get to green first, every time.
 
+## Gates assert the mechanism, never a copied value
+
+A test asserts **the mechanism** — grid placement by `grid-column` on a `display: grid`
+container, a property bound to the named token, a length equal to the ruling's constant —
+**never a value copied out of the contract into the test**. The contract (the banked
+export json, the design-system's generated tokens, the ruling's constant file) **is the
+fixture, read at run time** — a test that carries a copied number, stamp or hash from the
+contract is a defect; it re-reads the contract instead. A design change becomes a one-line
+change to the contract, never a re-anchoring pass over tests; a change that needs more than
+the contract touched means the gate was pinning. Comments describe mechanism, never
+enumerate the contract (operator ruling, 2026-09-19).
+
+```
+DON'T:
+  expect(nav.width).toBe(532); // pinned to the current export
+  // xl variant is col-span-6
+
+DO:
+  const expected = readExport(contractPath).nodes.nav.width;
+  expect(nav.width).toBe(expected); // placed by grid-column from the export
+```
+
 ## Checklist per cycle
 
 ```

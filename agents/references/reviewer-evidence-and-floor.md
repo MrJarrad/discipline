@@ -68,3 +68,17 @@ the lever it guards** — never via a shared revert that several rows lean on.
 **A "before" render comes from the before sha.** Shoot it from a checkout of the before
 commit in a throwaway worktree, never from a flag toggle or a re-run of the after build;
 md5 the before/after pair before citing either as provenance.
+
+## Gates assert the mechanism, not values (2026-09-19)
+
+**A comment enumerating the contract is red.** "The xl variant says col-span-6" restates
+export values in prose and goes stale the moment the export moves — red, whatever the
+surrounding code does.
+
+**A gate pinning a value instead of reading the contract at run time** (a copied number,
+stamp or hash from the export, the design-system's generated tokens, or a ruling's
+constant file) is **amber-or-red by blast radius**: amber on a narrow, low-churn fixture
+that a design change would touch rarely; red once the pin would re-anchor on the next
+ordinary contract change (the hoverboard footloop bake, 7 re-anchoring commits, is the
+red case). Existing pinning gates convert the next time their surface is touched, not as a
+standing project — the brief for that lane names the conversion.

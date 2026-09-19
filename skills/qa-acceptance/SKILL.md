@@ -50,7 +50,10 @@ Walk the list one AC at a time. For each:
   has to go hunting for.
 
 An AC with no evidence attached is an unverified AC, regardless of how
-confident the implementation feels.
+confident the implementation feels. **An AC verified by a value copied out of the contract
+into the test is unverified** — the check must read the contract at run time and assert
+the mechanism (grid placement, token binding, the ruling's constant), never a number, stamp
+or hash carried into the assertion by hand (operator ruling, 2026-09-19).
 
 ### 3. Block the close on any unmet or unverified AC
 
