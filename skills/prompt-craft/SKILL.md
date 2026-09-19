@@ -30,6 +30,19 @@ may lie elsewhere)" is neutral. "Fix the bug in X" when X is unconfirmed is a st
 you catch a steer after dispatch, send the correction immediately — don't wait for the
 agent to finish.
 
+## Outcomes and their measurement, never mechanisms (look/feel work)
+
+For a brief on how something looks or feels, state **what must be true and how it is
+measured at the operator's framing** — never the mechanism that produces it. How to
+build it is the doer's; a mechanism the parent wants considered is offered as "one
+option, not required," never prescribed as the approach (operator ruling 2026-09-18,
+`brief-carries-operator-words`). This sits beside, not against, "Mechanism named" below:
+that section names the *structural* mechanism a locked value must be built by (grid vs
+arithmetic, token vs literal) — this one keeps the *look/feel* solution open.
+
+- **DO:** "The rim stays within 1mm of the reference silhouette at the operator's crop; one option worth trying is an elastica solve, not required."
+- **DON'T:** "Run an elastica solver to compute the rim curve."
+
 ## Mechanism named
 
 A brief states how each locked value is produced, not only what it measures. Must be named whenever present: a grid — `display: grid` container and children placed

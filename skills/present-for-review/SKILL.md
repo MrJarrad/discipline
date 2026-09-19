@@ -4,7 +4,7 @@ description: >-
   Present the live product to the operator — full quit and relaunch the signed
   native app; for web, ready message plus one markdown hyperlink in chat — never
   spawn Browser windows or send the operator to Applications. Load at engineer-done
-  for UI work (the operator is first eyes; agent review runs concurrently and never
+  for UI work (the operator is first eyes; review runs after the yes and never
   gates the link), and when the merge condition is met for everything else;
   operator visual sign-off; "present it"; never "go check Applications."
 ---
@@ -19,12 +19,17 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 ## When the link goes out
 
 **UI work: the operator is first eyes.** The moment the build is up at
-engineer-done, the preview link goes to the operator. Agent review runs
-**concurrently** on the same change and **never gates the link** — nothing waits
-on a reviewer verdict to let the operator look (operator ruling 2026-08-31,
-reaffirmed 2026-09-07: *"before, you are first eyes"*). The operator judges
-feel and direction; the preview is explicitly uncertified, and the reviewer
-never evaluates look at all.
+engineer-done, the preview link goes to the operator — before any reviewer is
+dispatched. Review runs **after the operator's yes** and **never gates the
+link** — nothing waits on a reviewer verdict to let the operator look (operator
+ruling 2026-08-31, reaffirmed 2026-09-07: *"before, you are first eyes"*; ruling
+2026-09-19: *"in general, do you think it would be better to focus our review
+gates to once things are signed off?"* → *"yes, bank and encode it"*). The
+operator judges feel and direction; the preview is explicitly uncertified. A
+re-export or a "not right" restarts the build, not a review round. Mechanism-only
+changes (generator, plugin, probes, gates, refactors with nothing to look at)
+are reviewed immediately at engineer-done, as before. The reviewer never
+evaluates look at all.
 
 For UI work the operator is the cheapest visual gate (`doer-rules.md`) — agent visual
 evidence is never a prerequisite for the link, and never a substitute for it.
@@ -109,6 +114,7 @@ The message **ends with the `## Needed from you` queue in full** — every open
 
 ## Who loads this
 
-**Orchestrator / parent** — at engineer-done for UI work (first eyes, review
-concurrent), and when the merge condition is met for everything else. Personas do
+**Orchestrator / parent** — at engineer-done for UI work (first eyes; reviewer
+dispatched only after the operator's yes), and when the merge condition is met
+for everything else. Personas do
 not skip present by telling the operator to find the build.

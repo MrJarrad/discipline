@@ -13,6 +13,12 @@ description: >-
 **The brief points at the contract; it never restates it.** A paraphrasing brief is
 malformed. Doer law: `doer-rules.md`.
 
+**The brief carries the operator's words, never the parent's guesses**: the operator's
+words and images are the contract, quoted verbatim; no invented numbers; outcomes and
+their measurement, never mechanisms; a confirmed read-back (`grilling`) is quoted in the
+brief for any visual note; the parent's own additions are prefixed "parent:". Full rule
+and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
+
 ## Pick the contract
 
 | # | Operator gives | Contract | Parent adds | Verified by |
@@ -98,4 +104,7 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] Invariants stated; measurement ACs framing-checked
 [ ] Done-when in contract terms
 [ ] Push policy
+[ ] Every number sourced or knobbed
+[ ] No mechanism prescribed
+[ ] Parent additions marked "parent:"
 ```

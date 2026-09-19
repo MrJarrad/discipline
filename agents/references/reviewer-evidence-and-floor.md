@@ -82,3 +82,10 @@ that a design change would touch rarely; red once the pin would re-anchor on the
 ordinary contract change (the hoverboard footloop bake, 7 re-anchoring commits, is the
 red case). Existing pinning gates convert the next time their surface is touched, not as a
 standing project — the brief for that lane names the conversion.
+
+## Unsourced brief targets (2026-09-18)
+
+**Flag any target in the brief that has no source.** A number, threshold, or mechanism
+the brief states must trace to a lock letter, a reference measurement, a drawing, or a
+named knob — a target with no such source is a red finding, "unsourced target in brief"
+(operator ruling 2026-09-18, `brief-carries-operator-words`).
