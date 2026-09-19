@@ -16,7 +16,13 @@ on a moving tree or a red build certifies nothing.
 2. **One worktree, one agent.** Reviews certify a fixed sha with nobody else on the tree.
    Confirm the sha and that no engineer is mid-edit. This is a **precondition** to
    starting, not a caveat on the verdict (`review-evidence-lessons-2026-09-06`).
-3. **Round budget remains.** See the round cap below.
+3. **A look-lane review is solicited only with the operator's yes recorded.** For a
+   change the operator looks at, do not start until the yes on that build is on record
+   — a re-export or "not right" restarts the build, not a review round. Mechanism-only
+   changes (generator, plugin, probes, gates, refactors with nothing to look at) skip
+   this precondition and review immediately (operator ruling 2026-09-19,
+   `review-after-sign-off`).
+4. **Round budget remains.** See the round cap below.
 
 ## Review tier — LIGHT is the default
 

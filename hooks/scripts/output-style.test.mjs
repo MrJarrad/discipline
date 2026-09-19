@@ -206,19 +206,22 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
   assert.match(dispatchBrief, /beyond one DO\/DON'T pair|no more than one DO\/DON'T pair/i);
 });
 
+// Ceiling raised 900 -> 1000 and count raised 8 -> 11 at 1.84.0:
+// `brief-carries-operator-words-2026-09-18` added the one-rule paragraph and
+// three checklist items (sourced/knobbed, no-mechanism, parent-marked).
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 900, `dispatch-brief is ${count} words; the ceiling is 900`);
+  assert.ok(count <= 1000, `dispatch-brief is ${count} words; the ceiling is 1000`);
 });
 
-test("the eight-item list gates the contract pointer, skill-names-only, and done-when", () => {
+test("the eleven-item list gates the contract pointer, skill-names-only, and done-when", () => {
   const checklist = flow(dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")));
   assert.match(checklist, /Contract pointed at/i);
   assert.match(checklist, /restated/i);
   assert.match(checklist, /Done-when/i);
   const items = (dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")).match(/^\[ \]/gm) || []);
-  assert.equal(items.length, 8, `the list is ${items.length} items; the ratified count is 8`);
+  assert.equal(items.length, 11, `the list is ${items.length} items; the ratified count is 11`);
 });
 
 // --- AC6: out of scope, must not appear ----------------------------------

@@ -67,7 +67,7 @@ inventing a shape per dispatch.
 | 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line`. Under a Source contract the engineer also returns a **deviation table** (`export path · built value · reason`) — one row per deviation, plus one row per lock row |
 | 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
-| 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent` |
+| 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent`. **Engineer return for a UI change is `next: operator`, never `next: reviewer`** — the reviewer is solicited only after the operator's yes on that build (operator ruling 2026-09-19, `review-after-sign-off`); mechanism-only changes (generator, plugin, probes, gates, refactors with nothing to look at) keep `next: reviewer`. |
 
 **The `Open gaps` field is "none" or a list — never "nothing blocking."**
 

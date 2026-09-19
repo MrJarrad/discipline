@@ -131,9 +131,13 @@ test("no shipped doc still says done = reviewer PASS or carries a verdict-sense 
 
 // --- Locked row 3: operator is first eyes on UI --------------------------
 
-test("the operator preview link precedes agent review and never gates on it", () => {
+// Updated at 1.84.0 (`review-after-sign-off-2026-09-19`): review no longer runs
+// concurrent with the operator's look — it runs after the operator's yes, and
+// still never gates the link.
+test("the operator preview link precedes review, which now runs after the yes, and never gates on it", () => {
   assert.match(presentForReview, /first eyes/i);
-  assert.match(presentForReview, /concurrent/i);
+  assert.match(presentForReview, /runs after the yes/i);
+  assert.doesNotMatch(presentForReview, /agent review runs\s*\*\*concurrently\*\*/i);
   assert.match(presentForReview, /never gate/i);
 });
 

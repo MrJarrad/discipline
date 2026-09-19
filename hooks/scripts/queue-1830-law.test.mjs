@@ -66,10 +66,15 @@ test("doer-rules.md states the fixture-is-the-contract rule", () => {
 });
 
 // --- version bump ------------------------------------------------------------
+// Retro-applied at 1.84.0 touch (doer-rules.md: a pinning gate converts on
+// touch, same as the 1.82.0 test's pin converted in 1.83.0).
 
-test("plugin.json and marketplace.json are both bumped to 1.83.0", () => {
+test("plugin.json and marketplace.json carry one matching semver, at or past 1.83.0", () => {
   const plugin = JSON.parse(read(".claude-plugin/plugin.json"));
   const marketplace = JSON.parse(read(".claude-plugin/marketplace.json"));
-  assert.equal(plugin.version, "1.83.0");
-  assert.equal(marketplace.plugins[0].version, "1.83.0");
+  const semver = /^\d+\.\d+\.\d+$/;
+  assert.match(plugin.version, semver);
+  assert.equal(plugin.version, marketplace.plugins[0].version);
+  const [major, minor] = plugin.version.split(".").map(Number);
+  assert.ok(major > 1 || (major === 1 && minor >= 83), `${plugin.version} regressed before 1.83.0`);
 });

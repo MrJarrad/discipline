@@ -17,9 +17,12 @@ const doerRules = read("doer-rules.md");
 
 const words = (text) => text.split(/\s+/).filter(Boolean).length;
 
-test("the dispatch-brief skill stays under its 900-word ceiling", () => {
+// Ceiling raised 900 -> 1000 at 1.84.0: `brief-carries-operator-words-2026-09-18`
+// added the one-rule paragraph and three checklist items; the elaboration lives
+// in references/BRIEF-WORDS.md, offloaded rather than inlined in full.
+test("the dispatch-brief skill stays under its 1000-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 900, `dispatch-brief is ${count} words; the ceiling is 900`);
+  assert.ok(count <= 1000, `dispatch-brief is ${count} words; the ceiling is 1000`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -29,11 +32,13 @@ test("the scenario table has exactly eight rows", () => {
   assert.equal(rows.length, 8, `the scenario table has ${rows.length} rows; the ratified count is 8`);
 });
 
-test("the only checklist is eight items, and the old one is gone", () => {
+// Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
+// the sourced/knobbed, no-mechanism, and parent-marked checks.
+test("the only checklist is eleven items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 8, `the list is ${items.length} items; the ratified count is 8`);
+  assert.equal(items.length, 11, `the list is ${items.length} items; the ratified count is 11`);
 });
 
 test("the brief is four parts, each named", () => {

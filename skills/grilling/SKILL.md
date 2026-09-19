@@ -123,6 +123,16 @@ dispatches:
 
 Confirm shared understanding with the operator before dispatch or build.
 
+## Read-back before dispatch (mandatory on any visual-note brief)
+
+Any brief that interprets a look note is played back to the operator in plain words
+**before** dispatch — no dispatch on an un-confirmed interpretation. The confirmed
+read-back, in the operator's own terms, is quoted verbatim as the brief's contract line
+(operator ruling 2026-09-18, `brief-carries-operator-words`).
+
+- **DO:** play back "so the rim should sit flush with the outer edge, no gap" and quote the operator's confirmation in the brief.
+- **DON'T:** dispatch a brief built from your own reading of "make it sit right" with no read-back.
+
 ## Composition
 
 - **`define-terms`** — when a repo is open, sharpen vocabulary and update

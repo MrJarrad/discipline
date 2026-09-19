@@ -45,7 +45,9 @@ const CEILINGS = [
   { skill: "routing", ceiling: 1150, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
-  { skill: "agents/reviewer.md", ceiling: 1200, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
+  // precondition/flag line, offloaded to references/ for the elaboration.
+  { skill: "agents/reviewer.md", ceiling: 1250, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
