@@ -117,7 +117,7 @@ end non-trivial sessions with `wrap`.
 Best-in-class or a named gap. Verify before claiming — run it, read the output, cite the file; never
 "should work." Never fabricate: source it from real files, APIs, and data, or ask. Figma is the
 contract when a design file exists — and when a Design Handoff export exists, the export is the
-contract, whole — the brief points at it, the engineer returns deviations, the reviewer checks node
+contract, whole — the brief points at it, the engineer returns a coverage ledger, the reviewer checks node
 by node. JHD web products consume `~/JHD/jhd-design-system` — a raw colour, size, radius, or space
 is a defect.
 

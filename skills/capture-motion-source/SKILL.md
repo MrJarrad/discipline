@@ -106,6 +106,9 @@ export, and blocker-beats-placeholder for missing assets.
 
 ## Verification bar
 
+- Every cue and its timing is one row in the **coverage ledger** — a cue with no row is red,
+  and per-breakpoint or per-variant timing is a row per mode (`qa-acceptance` § The coverage
+  ledger).
 - Every number traces to a parsed value or a measured rect — none from eyeballing
   playback.
 - Timeline totals cross-check the stated duration.

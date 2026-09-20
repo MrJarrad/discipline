@@ -81,6 +81,10 @@ When the operator says a design file was updated, that outranks a historical rul
 
 Emission questions (does this token reach rendered output?) are answered by **curling served CSS from a fresh client**, never a stale tab or cached preview. Artifacts **diff exports**, never re-derive. A claim about "what changed" with no fresh export behind it is not verified.
 
+## Coverage is a ledger, not a findings list
+
+Every node read under the named file+node is one row in the **coverage ledger** — a node with no row is red, and per-device/per-variant variance is a row per mode, never one value. Rule and row shape: `qa-acceptance` § The coverage ledger.
+
 ## Semantics are never asked of the design file
 
 Heading levels and element tags are decided in code from page structure (`markup-standard`); a design file authors text **styles**. **Never file a memo asking a designer to annotate semantics** — the operator ruled per-instance heading annotation out as design tech debt (2026-09-16). An export's `semantic(<tag>)` hint is guidance, not a spec.

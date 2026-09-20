@@ -38,7 +38,7 @@ flowchart TD
 | Cell | Default pick |
 |---|---|
 | Trivial / mechanical | `haiku` |
-| Standard implement / fix / tests / most PR work | `sonnet` — **one component per brief**; a whole-surface brief goes to `opus`, justified |
+| Standard implement / fix / tests / most PR work | `sonnet` — **one contract unit per lane, always** (one export `COMPONENT_SET`, one captured page, one component): a brief covering more than one is **malformed at any model**, never a reason to escalate to `opus` (`dispatch-brief`) |
 | Design/UX **implementation** against a locked Figma/spec | `sonnet` |
 | Design/UX **taste / visual judgment** (no locked answer) | `opus` — justify |
 | Research / competitive / cited facts | `sonnet` with tool access and a cited-retrieval evidence contract — never a "cheaper because cheaper" downgrade to haiku |
@@ -59,6 +59,7 @@ already strong or the blast radius is high.
 - Use a stronger model **from the start** when the cell requires it (adversarial judge, novel high-blast-radius architecture).
 - Otherwise escalate only after a cheaper model **demonstrably failed** on this task. Record it in the brief ("sonnet run X produced Y, wrong because Z").
 - "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
+- **A wide brief is never an escalation.** Slice it into one-contract-unit lanes; the strongest model still misses what the brief never enumerated (operator ruling 2026-09-20, `accuracy-before-the-link`: *"You also used open on this task and outcome was sloppy"*).
 
 ## Checklist (extends dispatch-brief's eight-item list)
 

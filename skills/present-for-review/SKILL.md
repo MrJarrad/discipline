@@ -37,6 +37,21 @@ evidence is never a prerequisite for the link, and never a substitute for it.
 **Everything else** presents when the merge condition is met — deterministic
 gates green, no red finding open.
 
+## Before the link goes out
+
+**Pixel proof at the operator's framing, and a complete coverage ledger** — both in the doer's
+return before the link is sent (operator ruling 2026-09-20, `accuracy-before-the-link`):
+
+- A **headed screenshot at the operator's viewport and at each breakpoint family, with a pixel
+  assertion on the region built**. A `getComputedStyle` read is not proof that anything
+  painted — a footer that never painted reached the operator three times on computed-style
+  evidence.
+- A **coverage ledger** with a row for every item in the lane's contract (`qa-acceptance` §
+  The coverage ledger). A missing row is red; the parent sends nothing on a ledger with holes.
+
+Neither is a review and neither is shown to the operator: they gate the parent, not the link's
+speed. The operator still judges look, first and alone.
+
 ## Steps
 
 ### 1. Confirm the change is presentable

@@ -20,9 +20,12 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 900 -> 1000 at 1.84.0: `brief-carries-operator-words-2026-09-18`
 // added the one-rule paragraph and three checklist items; the elaboration lives
 // in references/BRIEF-WORDS.md, offloaded rather than inlined in full.
-test("the dispatch-brief skill stays under its 1000-word ceiling", () => {
+// Ceiling raised 1000 -> 1100 at 1.85.0: `accuracy-before-the-link` added the
+// one-contract-unit rule and the pixel-proof done-when; the elaboration lives in
+// references/ACCURACY.md.
+test("the dispatch-brief skill stays under its 1100-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1000, `dispatch-brief is ${count} words; the ceiling is 1000`);
+  assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -32,13 +35,14 @@ test("the scenario table has exactly eight rows", () => {
   assert.equal(rows.length, 8, `the scenario table has ${rows.length} rows; the ratified count is 8`);
 });
 
-// Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
+// Count raised 11 -> 13 at 1.85.0: one-contract-unit per lane and pixel proof in
+// done-when. Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
 // the sourced/knobbed, no-mechanism, and parent-marked checks.
-test("the only checklist is eleven items, and the old one is gone", () => {
+test("the only checklist is thirteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 11, `the list is ${items.length} items; the ratified count is 11`);
+  assert.equal(items.length, 13, `the list is ${items.length} items; the ratified count is 13`);
 });
 
 test("the brief is four parts, each named", () => {

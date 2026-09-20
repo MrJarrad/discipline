@@ -189,6 +189,9 @@ non-deterministic ordering as a script defect to fix before trusting a diff.
 
 ## House rules that survive every capture
 
+- Every captured region and measured token is one row in the **coverage ledger** — a region
+  with no row is red, and per-breakpoint variance is a row per breakpoint, never one value
+  (`qa-acceptance` § The coverage ledger).
 - Their radius/system values are *observations*, never precedents — no radius exceptions.
 - No provenance in downstream specs: the spec states the rule ("UI screens sit inset on
   black panels"), the reference note holds the attribution.

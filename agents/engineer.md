@@ -93,12 +93,22 @@ per-criterion table with `file:line`, gate output verbatim, open gaps, next owne
 `Open gaps` wording, the word budget, and the no-prose-recap rule are defined there —
 see `doer-rules.md` § Fixed evidence return.
 
-Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
-table** — `export path · built value · reason`, one row per deviation from the export, plus one
-row per lock row. Every deviation is a defect you name yourself; an empty table means you built
-the file whole. When the contract is an export **pair**, `handoff-to-code` states the
-per-node form of that table — `element · Figma binding · token used · value · status · ruling
-ref`.
+The return carries a **coverage ledger** — one row per item in the lane's contract, written
+before the work; a contract item with no row is a red finding and deviation is a status value,
+never a second table (`qa-acceptance` § The coverage ledger). Per-device, per-page and
+per-state variance is a row per mode or a filled mode column — one literal covering several
+contract modes is red even when one mode measures right.
+
+Under a **Source contract** (a Design Handoff export) an item is a node: `node id · binding ·
+token/class (codeSyntax.WEB) · built at file:line · measured value · status`, one row per node
+id in scope plus one per lock row, and when the export ships layout examples you derive a
+**page × state × device → visible set** table before building and check composition against
+it. House law, whole: `skills/handoff-to-code/references/coverage-ledger.md` (operator ruling
+2026-09-20, `accuracy-before-the-link`).
+
+**`status: match` means you saw it paint.** Each built region carries a headed screenshot at
+the operator's viewport and at each breakpoint family with a pixel assertion on that region; a
+`getComputedStyle` read is not proof.
 
 **A value drift resolves to the export, and is not a question.** Where the export and the
 code disagree on a value, rebind to the export and list the row as resolved-to-export. You
