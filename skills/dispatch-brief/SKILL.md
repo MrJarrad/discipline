@@ -19,6 +19,13 @@ their measurement, never mechanisms; a confirmed read-back (`grilling`) is quote
 brief for any visual note; the parent's own additions are prefixed "parent:". Full rule
 and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
 
+## Interrogate the brief
+
+Above trivial/small-fix, the brief is read as the doer would and answered against a fixed
+set before the lane opens; findings fix the brief. Run by a read-only `haiku` agent, or the
+parent inline for trivial/small-fix. Set and template: [INTERROGATE.md](references/INTERROGATE.md).
+The brief carries `## Interrogated`.
+
 ## Pick the contract
 
 | # | Operator gives | Contract | Parent adds | Verified by |
@@ -74,6 +81,7 @@ One AC per locked row, deferrals named, plus **AC-S** when a Source contract exi
 - **Context** — contract pointer, repo/branch/cwd, primer first.
 - **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
 - **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)).
+- **`## Interrogated`** — result, or "inline, clear" ([INTERROGATE.md](references/INTERROGATE.md)).
 
 **Target brief length: under 250 words**, excluding the lock table.
 
@@ -115,4 +123,5 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] Parent additions marked "parent:"
 [ ] One contract unit per lane
 [ ] Pixel proof at the operator's framing in done-when
+[ ] Brief interrogated (or inline, clear); `## Interrogated` recorded
 ```

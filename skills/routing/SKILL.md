@@ -21,8 +21,9 @@ routing failure **even if the output is correct**.
 1. This skill — persona + mandatory skills from the tables below.
 2. `model-routing` — the job-shape × complexity tree; set `Agent` model explicitly.
 3. `dispatch-brief` — structure the brief.  4. `prompt-craft` — write its words.
+5. **Interrogate the brief** (`dispatch-brief` § Interrogate the brief), then `Agent`.
 
-A dispatch made without all four loaded is malformed. Loaded via real Skill invocations
+A dispatch made without all five loaded is malformed. Loaded via real Skill invocations
 **every time**, never replayed from session memory.
 
 ## Hard rules (non-negotiable)
