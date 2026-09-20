@@ -1,6 +1,6 @@
 ---
 name: qa-acceptance
-description: The acceptance-criteria gate before shipping — walk every AC on the task/brief, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, or asked to confirm a change is ready to ship. Not for the mechanics of driving a browser or test run — that's webapp-testing; not for scoring a single codebase claim's confidence — that's verify-finding.
+description: The acceptance-criteria gate before shipping — enumerate the contract into a coverage ledger (one row per item, a missing row is red), walk every AC on the task/brief, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, writing the coverage ledger or evidence return for any lane, or asked to confirm a change is ready to ship. Not for the mechanics of driving a browser or test run — that's webapp-testing; not for scoring a single codebase claim's confidence — that's verify-finding.
 ---
 
 # QA Acceptance

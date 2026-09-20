@@ -20,6 +20,8 @@ rebuild shipped a feed that was never compared to the export, three times
 
 - **A node in scope with no row is red** — not an omission to catch at review. Scope is the
   export node ids the brief names, expanded to every descendant the export states.
+- **Scope stops at an `◆instance of` boundary** — the instance is one row (its own props and
+  bindings); the instanced component's insides are that component's own lane.
 - **Rows exist before the build.** The first four columns are filled from the export (`built at`
   as the file you will write); `measured value` and `status` are filled from the running build.
 - **Deviation is a status value, not a second table.** `status` is the skill's own enum —
@@ -41,8 +43,15 @@ collapsed literal is a second defect, not a fix.
 
 ## 3. Layout examples become a composition table first
 
-When the export ships layout-example frames, derive this table **before building**, from every
-example frame's `props()` and its children's `👁hidden` flags:
+**The layout-example export pair is a required input to every component-set lane that has
+one.** A component set's own export usually ships no example frames — they live in a separate
+example pair (`…-example-…` markdown + companion). The brief names that pair alongside the
+component's export; it travels with the lane as context, never as a second contract unit
+(`dispatch-brief` § references/ACCURACY.md). No example pair named and none exists → say so in
+the ledger; **no example pair named while one exists is a malformed brief**, stop and ask.
+
+Derive this table **before building**, from every example frame whose instances are the lane's
+component — its `props()` and its children's `👁hidden` flags:
 
 | page | state | device | visible set |
 | --- | --- | --- | --- |

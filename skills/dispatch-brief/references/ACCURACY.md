@@ -12,7 +12,14 @@ source. A whole-surface brief is not an `opus` job; it is a slicing failure. The
 and dispatches one lane per unit, each with its own ids, its own lock rows and its own coverage
 ledger (`qa-acceptance` § The coverage ledger).
 
-- **DO:** one lane per `COMPONENT_SET` — `#4719:258951 NavigationFooter`, nodes listed.
+**The layout-example pair travels with the lane as context, not as a second unit.** Examples
+of the lane's component live in their own export pair; the brief names it beside the
+component's export so the doer can derive the page × state × device composition table before
+building. Naming it is not widening the lane — omitting it, when one exists, is a malformed
+brief.
+
+- **DO:** one lane per `COMPONENT_SET` — `#4719:258951 NavigationFooter`, nodes listed, its
+  example pair named as context.
 - **DON'T:** *"rebuild the nav and footer site-wide"* — one lane, two component sets, no ledger
   that can be counted.
 

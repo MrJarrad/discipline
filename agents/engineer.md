@@ -119,11 +119,12 @@ number the export already states (operator ruling 2026-09-13).
 ## Baton (when you land)
 
 When your slice is landed (commit pushed if brief authorized) and the deterministic gates
-are green, name **next: reviewer** in your evidence return and **stop** — see
-`doer-rules.md` § You are the doer. Do **not** tell the operator it is fixed — merge is the parent's call once the
-gates are green and no **red finding** is open. The harness notifies the parent; the
-parent dispatches the reviewer on the completion notification, and for UI work sends the
-operator the preview link at the same time — that link never waits on the review.
+are green, name the next owner from `doer-rules.md` § Fixed evidence return row 5 and
+**stop** (`doer-rules.md` § You are the doer): a **UI change returns `next: operator`** — the reviewer is solicited only after the
+operator's yes — and a mechanism-only change returns `next: reviewer`. Do **not** tell the
+operator it is fixed; merge is the parent's call once the gates are green and no **red
+finding** is open. The harness notifies the parent, which sends the operator the preview link
+once the two proofs above are in your return.
 
 The round cap is in `agents/reviewer.md` § Round cap. A round that comes back red is a fix
 round, not a re-litigation: address the red findings and the regressions they touch. Amber

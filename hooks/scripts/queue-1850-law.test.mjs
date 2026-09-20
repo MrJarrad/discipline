@@ -52,6 +52,12 @@ test("handoff-to-code's house overlay carries the node ledger, the mode rule and
   assert.match(overlay, /\*\*Every node id in scope gets one row, written before any code is written\.\*\*/);
   assert.match(overlay, /\*\*A node in scope with no row is red\*\*/);
   assert.match(overlay, /\| page \| state \| device \| visible set \|/);
+  assert.match(
+    overlay,
+    /\*\*The layout-example export pair is a required input to every component-set lane that has one\.\*\*/,
+  );
+  assert.match(overlay, /no example pair named while one exists is a malformed brief/);
+  assert.match(overlay, /\*\*Scope stops at an `◆instance of` boundary\*\* — the instance is one row/);
   assert.match(overlay, /carries a row per mode — or a mode column with every mode filled/);
 });
 
@@ -84,6 +90,10 @@ test("dispatch-brief makes a multi-unit brief malformed at any model", () => {
   assert.match(raw, /\[ \] One contract unit per lane/);
   const accuracy = flat(read("skills/dispatch-brief/references/ACCURACY.md"));
   assert.match(accuracy, /malformed at any model, at any effort tier/);
+  assert.match(
+    accuracy,
+    /\*\*The layout-example pair travels with the lane as context, not as a second unit\.\*\*/,
+  );
 });
 
 test("model-routing sends a wide brief to a slice, never to a bigger model", () => {
@@ -96,7 +106,7 @@ test("model-routing sends a wide brief to a slice, never to a bigger model", () 
 
 // --- (d) pixel proof at the operator's framing --------------------------------
 
-test("present-for-review gates the parent on pixel proof and a complete ledger, never the link's speed", () => {
+test("present-for-review holds the link for both proofs, and calls neither a review round", () => {
   const present = flat(read("skills/present-for-review/SKILL.md"));
   assert.match(present, /## Before the link goes out/);
   assert.match(
@@ -104,7 +114,10 @@ test("present-for-review gates the parent on pixel proof and a complete ledger, 
     /headed screenshot at the operator's viewport and at each breakpoint family, with a pixel assertion on the region built/,
   );
   assert.match(present, /A `getComputedStyle` read is not proof that anything painted/);
-  assert.match(present, /they gate the parent, not the link's speed/);
+  assert.match(present, /\*\*Neither is a review round\*\*/);
+  assert.match(present, /The link waits on these two proofs being in the doer's return — never on a reviewer verdict/);
+  const doer = flat(read("doer-rules.md"));
+  assert.match(doer, /\*\*it is not a review round\*\* — the link waits on these two proofs being in the return, never on a reviewer/);
 });
 
 test("doer-rules, dispatch-brief done-when and both charters require pixel proof over computed style", () => {
@@ -115,6 +128,15 @@ test("doer-rules, dispatch-brief done-when and both charters require pixel proof
   );
   carries("agents/engineer.md", "**`status: match` means you saw it paint.**");
   carries("agents/ux-designer.md", "**Rendered evidence is headed and pixel-asserted**");
+});
+
+test("qa-acceptance's description fires on the ledger, and the engineer's baton follows doer-rules row 5", () => {
+  const qaDescription = /^---\r?\n[\s\S]*?\r?\n---/.exec(read("skills/qa-acceptance/SKILL.md"))[0];
+  assert.match(qaDescription, /coverage ledger/);
+  assert.match(qaDescription, /one row per item|a missing row is red/);
+  const engineer = flat(read("agents/engineer.md"));
+  assert.match(engineer, /a \*\*UI change returns `next: operator`\*\*/);
+  assert.doesNotMatch(engineer, /name \*\*next: reviewer\*\* in your evidence return and \*\*stop\*\*/);
 });
 
 // --- version bump ------------------------------------------------------------

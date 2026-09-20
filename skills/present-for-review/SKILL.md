@@ -49,8 +49,9 @@ return before the link is sent (operator ruling 2026-09-20, `accuracy-before-the
 - A **coverage ledger** with a row for every item in the lane's contract (`qa-acceptance` §
   The coverage ledger). A missing row is red; the parent sends nothing on a ledger with holes.
 
-Neither is a review and neither is shown to the operator: they gate the parent, not the link's
-speed. The operator still judges look, first and alone.
+**Neither is a review round**, and neither is shown to the operator. The link waits on these
+two proofs being in the doer's return — never on a reviewer verdict. The operator still judges
+look, first and alone.
 
 ## Steps
 

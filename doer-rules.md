@@ -84,8 +84,8 @@ cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats
 node is a **headed screenshot at the operator's viewport and each breakpoint family, with a
 pixel assertion on the region built** — a `getComputedStyle` read is not proof that anything
 painted (operator ruling 2026-09-20, `accuracy-before-the-link`). This proves the node
-*rendered*; it never reviews how it looks and never delays the link — the operator still
-judges look, below.
+*rendered*; **it is not a review round** — the link waits on these two proofs being in the
+return, never on a reviewer. The operator still judges look, below.
 
 **The operator is the cheapest visual gate.** When acceptance is how a change looks or feels
 — UI, plugin UI, motion, type, a prototype — the return's evidence is **the link to the
