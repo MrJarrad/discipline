@@ -206,10 +206,10 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
   assert.match(dispatchBrief, /beyond one DO\/DON'T pair|no more than one DO\/DON'T pair/i);
 });
 
-// Ceiling raised 1100 -> 1150 and count raised 13 -> 14 at 1.86.0:
-// `brief-is-the-lever` added the Interrogate-the-brief pointer, the
-// `## Interrogated` field and one checklist item; the question set and
-// template live in references/INTERROGATE.md.
+// Count raised 13 -> 14 at 1.86.0: `brief-is-the-lever` added the
+// Interrogate-the-brief pointer, the `## Interrogated` field and one checklist
+// item; the question set and template live in references/INTERROGATE.md. The
+// word ceiling stayed at 1100 — the growth was paid for by trims elsewhere.
 // Ceiling raised 1000 -> 1100 and count raised 11 -> 13 at 1.85.0:
 // `accuracy-before-the-link` added the one-contract-unit rule and the pixel-proof
 // done-when; the elaboration lives in references/ACCURACY.md.
@@ -219,7 +219,7 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1150, `dispatch-brief is ${count} words; the ceiling is 1150`);
+  assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
 });
 
 test("the fourteen-item list gates the contract pointer, skill-names-only, and done-when", () => {

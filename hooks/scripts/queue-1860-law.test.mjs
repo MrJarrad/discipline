@@ -31,18 +31,21 @@ test("INTERROGATE.md exists and carries the fixed seven-question set and the tem
   assert.ok(existsSync(join(repo, path)), `${path} is missing`);
   const doc = flat(read(path));
   assert.match(doc, /## The fixed question set/);
+  // Q1 covers both design and build contract items — a brief pointing at code
+  // targets by glob (`nav-*.tsx`) is caught here too, not only Figma pointers.
+  assert.match(doc, /Can every contract item — design[^—]*or build[^?]*\?/);
+  assert.match(doc, /files\/components\/selectors touched, each named, never a glob/);
   for (const question of [
-    /Can every contract item be enumerated from the brief and its pointers alone\?/,
-    /Which numbers have no source or knob\?/,
+    /Which numbers lack a source or knob\?/,
     /Which mechanisms are unnamed\?/,
     /Where would the doer be forced to assume\?/,
-    /Is the done-when measurable at the operator's framing\?/,
+    /Is done-when measurable at the operator's framing\?/,
     /Is there exactly one contract unit\?/,
     /Which named skills are missing for the domain\?/,
   ]) {
     assert.match(doc, question);
   }
-  assert.match(doc, /a cheap agent \(`haiku`, read-only,? findings only/i);
+  assert.match(doc, /a read-only `haiku` agent, findings only/i);
   assert.match(doc, /the parent, inline/i);
   assert.match(doc, /## Interrogated/);
 });

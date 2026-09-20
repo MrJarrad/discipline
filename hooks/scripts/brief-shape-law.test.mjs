@@ -23,12 +23,12 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1000 -> 1100 at 1.85.0: `accuracy-before-the-link` added the
 // one-contract-unit rule and the pixel-proof done-when; the elaboration lives in
 // references/ACCURACY.md.
-// Ceiling raised 1100 -> 1150 at 1.86.0: `brief-is-the-lever` added the
-// Interrogate the brief pointer and the `## Interrogated` field; the question
-// set and template live in references/INTERROGATE.md.
-test("the dispatch-brief skill stays under its 1150-word ceiling", () => {
+// 1.86.0: `brief-is-the-lever` added the Interrogate the brief pointer and the
+// `## Interrogated` field, offloaded to references/INTERROGATE.md — the
+// ceiling stayed at 1100, the growth paid for by trims elsewhere in the file.
+test("the dispatch-brief skill stays under its 1100-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1150, `dispatch-brief is ${count} words; the ceiling is 1150`);
+  assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
 });
 
 test("the scenario table has exactly eight rows", () => {
