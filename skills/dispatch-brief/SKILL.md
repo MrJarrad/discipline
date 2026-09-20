@@ -47,7 +47,13 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 - AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
 ```
 
-The doer loads **`handoff-to-code`** under a Source contract.
+The doer loads **`handoff-to-code`** under a Source contract, plus the house ledger overlay
+`skills/handoff-to-code/references/coverage-ledger.md`.
+
+**One contract unit per lane, always** — one export `COMPONENT_SET`, one captured page, one
+component. A brief covering more than one is malformed at any model; the parent slices, one
+lane each. Every brief's done-when names the **coverage ledger** (`qa-acceptance`)
+([ACCURACY.md](references/ACCURACY.md)).
 
 ## Locked decisions
 
@@ -67,7 +73,7 @@ One AC per locked row, deferrals named, plus **AC-S** when a Source contract exi
 - **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer first.
 - **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
-- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack.
+- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)).
 
 **Target brief length: under 250 words**, excluding the lock table.
 
@@ -107,4 +113,6 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] Every number sourced or knobbed
 [ ] No mechanism prescribed
 [ ] Parent additions marked "parent:"
+[ ] One contract unit per lane
+[ ] Pixel proof at the operator's framing in done-when
 ```

@@ -64,7 +64,7 @@ inventing a shape per dispatch.
 | # | Field | What it is |
 |---|---|---|
 | 1 | **Final sha** | the commit the evidence certifies |
-| 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line`. Under a Source contract the engineer also returns a **deviation table** (`export path · built value · reason`) — one row per deviation, plus one row per lock row |
+| 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line`. Every lane also returns a **coverage ledger** — one row per item in its contract (`item · source ref · file:line · measured value · status`), written before the work; a contract item with no row is red and deviation is a status value, never a second table. Rule and row shape: `skills/qa-acceptance/SKILL.md` § The coverage ledger; the contract skill says what an item is |
 | 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
 | 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent`. **Engineer return for a UI change is `next: operator`, never `next: reviewer`** — the reviewer is solicited only after the operator's yes on that build (operator ruling 2026-09-19, `review-after-sign-off`); mechanism-only changes (generator, plugin, probes, gates, refactors with nothing to look at) keep `next: reviewer`. |
@@ -79,6 +79,13 @@ Non-code lanes map the same five: the reviewer's per-criterion rows are its
 severity-ranked findings with their re-validation; the researcher's `file:line` is the
 cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats a false
 "done" — a fail row with evidence is a complete return.
+
+**Pixel proof before the link.** Where the change has a look, the return's proof of a built
+node is a **headed screenshot at the operator's viewport and each breakpoint family, with a
+pixel assertion on the region built** — a `getComputedStyle` read is not proof that anything
+painted (operator ruling 2026-09-20, `accuracy-before-the-link`). This proves the node
+*rendered*; **it is not a review round** — the link waits on these two proofs being in the
+return, never on a reviewer. The operator still judges look, below.
 
 **The operator is the cheapest visual gate.** When acceptance is how a change looks or feels
 — UI, plugin UI, motion, type, a prototype — the return's evidence is **the link to the

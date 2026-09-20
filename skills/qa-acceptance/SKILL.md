@@ -1,6 +1,6 @@
 ---
 name: qa-acceptance
-description: The acceptance-criteria gate before shipping — walk every AC on the task/brief, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, or asked to confirm a change is ready to ship. Not for the mechanics of driving a browser or test run — that's webapp-testing; not for scoring a single codebase claim's confidence — that's verify-finding.
+description: The acceptance-criteria gate before shipping — enumerate the contract into a coverage ledger (one row per item, a missing row is red), walk every AC on the task/brief, verify each with evidence, and refuse to close or move to review while any AC is unmet or unverified. Use when marking an issue done, closing out an increment, writing the coverage ledger or evidence return for any lane, or asked to confirm a change is ready to ship. Not for the mechanics of driving a browser or test run — that's webapp-testing; not for scoring a single codebase claim's confidence — that's verify-finding.
 ---
 
 # QA Acceptance
@@ -76,6 +76,34 @@ When you do close the gate, the report lists **all** ACs — met with evidence,
 deferred with explicit sign-off, or (if the gate failed) blocked with the gap
 named. A report that only mentions the ACs that went well is not a gate, it's
 a highlight reel.
+
+## The coverage ledger — one row per contract item
+
+**Enumeration is the gate.** A list of what went wrong cannot show what was never looked at:
+the return carries a **coverage ledger** — one row per item in the lane's contract, written
+**before** the work, not assembled from the findings afterwards.
+
+| item | source ref | built at `file:line` | measured value | status |
+| --- | --- | --- | --- | --- |
+
+- **A contract item with no row is red.** Not an omission for the reviewer to catch.
+- **Status carries the deviation** — met · deviated (with the ruling ref) · not-built ·
+  unreached. There is no second table of deviations.
+- **Variance never collapses.** Where the contract states a different value per device, page,
+  state or mode, that is a row per mode (or a filled mode column); one literal covering
+  several contract modes is red even when one mode measures right.
+- **Measured means measured** — read off the running build, never copied from your own source.
+
+What an *item* is, per contract — the skill named owns the specialisation, this section owns
+the rule and the row shape:
+
+| Contract | One item is | Skill |
+| --- | --- | --- |
+| Design Handoff export pair | every node id in scope, plus composition per page × state × device | `handoff-to-code` (`references/coverage-ledger.md`) |
+| A live Figma file + node | every node read under the named file+node | `capture-figma` |
+| A captured website | every captured region and measured token | `capture-website` |
+| A motion source | every cue and its timing | `capture-motion-source` |
+| Plain code, native, docs | every acceptance criterion on the brief | this skill, § The AC gate |
 
 ## Figma-contracted UI reviews: the screenshot pair
 

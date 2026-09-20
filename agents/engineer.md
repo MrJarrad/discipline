@@ -93,12 +93,22 @@ per-criterion table with `file:line`, gate output verbatim, open gaps, next owne
 `Open gaps` wording, the word budget, and the no-prose-recap rule are defined there —
 see `doer-rules.md` § Fixed evidence return.
 
-Under a **Source contract** (a Design Handoff export), the return also carries a **deviation
-table** — `export path · built value · reason`, one row per deviation from the export, plus one
-row per lock row. Every deviation is a defect you name yourself; an empty table means you built
-the file whole. When the contract is an export **pair**, `handoff-to-code` states the
-per-node form of that table — `element · Figma binding · token used · value · status · ruling
-ref`.
+The return carries a **coverage ledger** — one row per item in the lane's contract, written
+before the work; a contract item with no row is a red finding and deviation is a status value,
+never a second table (`qa-acceptance` § The coverage ledger). Per-device, per-page and
+per-state variance is a row per mode or a filled mode column — one literal covering several
+contract modes is red even when one mode measures right.
+
+Under a **Source contract** (a Design Handoff export) an item is a node: `node id · binding ·
+token/class (codeSyntax.WEB) · built at file:line · measured value · status`, one row per node
+id in scope plus one per lock row, and when the export ships layout examples you derive a
+**page × state × device → visible set** table before building and check composition against
+it. House law, whole: `skills/handoff-to-code/references/coverage-ledger.md` (operator ruling
+2026-09-20, `accuracy-before-the-link`).
+
+**`status: match` means you saw it paint.** Each built region carries a headed screenshot at
+the operator's viewport and at each breakpoint family with a pixel assertion on that region; a
+`getComputedStyle` read is not proof.
 
 **A value drift resolves to the export, and is not a question.** Where the export and the
 code disagree on a value, rebind to the export and list the row as resolved-to-export. You
@@ -109,11 +119,12 @@ number the export already states (operator ruling 2026-09-13).
 ## Baton (when you land)
 
 When your slice is landed (commit pushed if brief authorized) and the deterministic gates
-are green, name **next: reviewer** in your evidence return and **stop** — see
-`doer-rules.md` § You are the doer. Do **not** tell the operator it is fixed — merge is the parent's call once the
-gates are green and no **red finding** is open. The harness notifies the parent; the
-parent dispatches the reviewer on the completion notification, and for UI work sends the
-operator the preview link at the same time — that link never waits on the review.
+are green, name the next owner from `doer-rules.md` § Fixed evidence return row 5 and
+**stop** (`doer-rules.md` § You are the doer): a **UI change returns `next: operator`** — the reviewer is solicited only after the
+operator's yes — and a mechanism-only change returns `next: reviewer`. Do **not** tell the
+operator it is fixed; merge is the parent's call once the gates are green and no **red
+finding** is open. The harness notifies the parent, which sends the operator the preview link
+once the two proofs above are in your return.
 
 The round cap is in `agents/reviewer.md` § Round cap. A round that comes back red is a fix
 round, not a re-litigation: address the red findings and the regressions they touch. Amber

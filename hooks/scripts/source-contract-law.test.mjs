@@ -93,9 +93,11 @@ test("AC-S is one AC, never expanded per node", () => {
   assert.match(checklist, /Contract pointed at/);
 });
 
-test("the engineer returns a deviation table under a Source contract", () => {
-  carries(doerRules, "the engineer also returns a **deviation table** (`export path · built value · reason`)");
-  carries(engineer, "`export path · built value · reason`, one row per deviation from the export, plus one row per lock row");
+// 1.85.0 (`accuracy-before-the-link`): the deviation table became the coverage
+// ledger and generalised past the export — the assertion moves with the law.
+test("the engineer returns a coverage ledger under a Source contract", () => {
+  carries(doerRules, "Every lane also returns a **coverage ledger** — one row per item in its contract");
+  carries(engineer, "one row per node id in scope plus one per lock row");
 });
 
 test("capture-figma's rung 0 names the Design Handoff export", () => {
@@ -103,7 +105,7 @@ test("capture-figma's rung 0 names the Design Handoff export", () => {
 });
 
 test("the output style glosses the export-is-the-contract rule", () => {
-  carries(disciplineStyle, "when a Design Handoff export exists, the export is the contract, whole — the brief points at it, the engineer returns deviations, the reviewer checks node by node.");
+  carries(disciplineStyle, "when a Design Handoff export exists, the export is the contract, whole — the brief points at it, the engineer returns a coverage ledger, the reviewer checks node by node.");
 });
 
 // --- A2: mechanism named + crop check ------------------------------------
@@ -140,7 +142,7 @@ test("reviewer carries the Structure check rule verbatim", () => {
   carries(reviewer, "**Structure check — how the value is produced.** Pixel-identical is necessary, not sufficient.");
   carries(reviewer, "For each locked value and each export node: grid container vs arithmetic, token vs literal, component instance vs inline, blend node placement, and names against the export.");
   carries(reviewer, 'A right number by the wrong mechanism is a red finding — **"mechanism mismatch"**.');
-  carries(reviewer, "Under a Source contract, walk the export node by node against the built page; the engineer's deviation table is input, never the walk.");
+  carries(reviewer, "Under a Source contract, walk the export node by node against the built page; the engineer's coverage ledger is input, never the walk.");
 });
 
 test("the Structure check lives inside the Spec axis", () => {
@@ -185,8 +187,11 @@ test("dispatch-brief carries the State-section rule verbatim", () => {
   assert.match(dispatchBrief, /## State \(untrusted draft; verify\)/);
 });
 
-test("one component per sonnet dispatch, in both the brief skill and model-routing", () => {
-  carries(modelRouting, "**one component per brief**; a whole-surface brief goes to `opus`, justified");
+// 1.85.0: one component per brief became one CONTRACT UNIT per lane, and a wide
+// brief is no longer an escalation to opus — it is malformed at any model.
+test("one contract unit per lane, in both the brief skill and model-routing", () => {
+  carries(modelRouting, "**one contract unit per lane, always**");
+  carries(dispatchBrief, "**One contract unit per lane, always**");
 });
 
 test("fresh means fresh: a clean rebuild names the export and the wiring loci only", () => {
@@ -311,7 +316,7 @@ test("capture-figma hands token consumption to handoff-to-code", () => {
 test("the Source contract names handoff-to-code as the doer's skill", () => {
   carries(dispatchBrief, "The doer loads **`handoff-to-code`** under a Source contract");
   carries(engineer, "`handoff-to-code` when a Design Handoff export pair is the Source contract");
-  carries(engineer, "`element · Figma binding · token used · value · status · ruling\nref`");
+  carries(engineer, "`node id · binding ·\ntoken/class (codeSyntax.WEB) · built at file:line · measured value · status`");
 });
 
 // --- A5: the lesson ledger ----------------------------------------------

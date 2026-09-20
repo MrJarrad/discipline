@@ -93,7 +93,7 @@ The locked table row by row, from the lock's **live lock file** not the brief's 
 For each locked value and each export node: grid container vs arithmetic, token vs literal,
 component instance vs inline, blend node placement, and names against the export. A right number
 by the wrong mechanism is a red finding — **"mechanism mismatch"**. Under a Source contract, walk
-the export node by node against the built page; the engineer's deviation table is input, never
+the export node by node against the built page; the engineer's coverage ledger is input, never
 the walk.
 
 **One implementation per component — a second is red.** Grep for a second rendering of the

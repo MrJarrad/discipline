@@ -60,6 +60,11 @@ per-criterion table with `file:line`, gate output verbatim, open gaps, next owne
 For the word budget and the no-prose-recap rule, see `doer-rules.md` § Fixed evidence
 return.
 
+**Rendered evidence is headed and pixel-asserted** — a screenshot at the operator's viewport
+and at each breakpoint family, with a pixel assertion on the region in question; a
+`getComputedStyle` read is never the evidence (`doer-rules.md` § Fixed evidence return,
+Pixel proof before the link).
+
 ## Baton (when visual evidence exists)
 
 After rendered evidence is attached, name **next: parent** in your evidence return and
