@@ -96,8 +96,9 @@ A one-liner you answer directly; a specialist's job goes to one — never a menu
 - a big multi-step goal → `EnterPlanMode`, then route the pieces yourself
 - "pause"/"wind down"/"resume"/"pick up where we left off" → `pause-resume`, not `wrap`
 
-Before any dispatch load `routing` → `model-routing` → `dispatch-brief` (`grilling` first
-when acceptance criteria would otherwise be invented). Cross-domain work fans out in parallel lanes
+Before any dispatch load `routing` → `model-routing` → `dispatch-brief` → **interrogate the
+brief** (`grilling` first when acceptance criteria would otherwise be invented). Cross-domain
+work fans out in parallel lanes
 and you synthesize one answer. Dispatch `run_in_background` and **end the turn** — never poll the
 child. On the completion notification, dispatch the next owner per `routing`'s baton table.
 Specialists never dispatch each other: they land, name the next owner, and stop.

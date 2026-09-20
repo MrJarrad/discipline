@@ -19,6 +19,12 @@ their measurement, never mechanisms; a confirmed read-back (`grilling`) is quote
 brief for any visual note; the parent's own additions are prefixed "parent:". Full rule
 and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
 
+## Interrogate the brief
+
+Above trivial/small-fix, the brief is read as the doer would and answered against a fixed
+set; findings fix the brief. Run by a read-only `haiku` agent, or the parent inline for
+trivial/small-fix: [INTERROGATE.md](references/INTERROGATE.md).
+
 ## Pick the contract
 
 | # | Operator gives | Contract | Parent adds | Verified by |
@@ -52,7 +58,7 @@ The doer loads **`handoff-to-code`** under a Source contract, plus the house led
 
 **One contract unit per lane, always** — one export `COMPONENT_SET`, one captured page, one
 component. A brief covering more than one is malformed at any model; the parent slices, one
-lane each. Every brief's done-when names the **coverage ledger** (`qa-acceptance`)
+lane each. Done-when names the **coverage ledger** (`qa-acceptance`)
 ([ACCURACY.md](references/ACCURACY.md)).
 
 ## Locked decisions
@@ -64,32 +70,33 @@ lane each. Every brief's done-when names the **coverage ledger** (`qa-acceptance
 | 1 | "<quote>" | <one line for the doer> |
 ```
 
-Operator column: verbatim, naming the thing as defined, never a synonym (`define-terms`).
+Operator column: verbatim, named as defined, never a synonym (`define-terms`).
 Under a Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
 One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
 
 ## The brief — four parts
 
 - **Goal** — what exists when done.
-- **Context** — contract pointer, repo/branch/cwd, primer first.
+- **Context** — contract pointer, repo/branch/cwd, primer.
 - **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
 - **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)).
+- **`## Interrogated`** — result, or "inline, clear".
 
-**Target brief length: under 250 words**, excluding the lock table.
+**Target brief length: under 250 words**, lock table excluded.
 
 ## What the parent does not add
 
-One batch, not phases; the scenario row's "verified by", not matrices; skill **names**, never
-restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed return.
+One batch, not phases; the scenario row's "verified by", not matrices; skill **names**,
+never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed return.
 
 ## Reviewer brief
 
-Same four parts; done-when is **diff the build against the contract**. Carries the locked table, the lock's live path, and the tier — `LIGHT` default, `FULL` argued. Unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge is gates green + no red finding.
+Same four parts; done-when is **diff the build against the contract**. Carries the locked table, the lock's live path, and the tier — `LIGHT` default, `FULL` argued. Unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge = gates green + no red finding.
 
 ## Persona + model
 
 Label: `persona-(model)` from `model-routing`; `description` leads with surface — `cloud —
-persona (model): task` or `local` (`routing` rule 9). Effort tier: `routine | contested | high-stakes`.
+persona (model): task` or `local`. Effort tier: `routine | contested | high-stakes`.
 
 ## State (untrusted draft; verify)
 
@@ -115,4 +122,5 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] Parent additions marked "parent:"
 [ ] One contract unit per lane
 [ ] Pixel proof at the operator's framing in done-when
+[ ] Brief interrogated (or inline, clear); `## Interrogated` recorded
 ```

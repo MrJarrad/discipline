@@ -57,7 +57,7 @@ already strong or the blast radius is high.
 ## Escalation rule
 
 - Use a stronger model **from the start** when the cell requires it (adversarial judge, novel high-blast-radius architecture).
-- Otherwise escalate only after a cheaper model **demonstrably failed** on this task. Record it in the brief ("sonnet run X produced Y, wrong because Z").
+- Otherwise escalate only after a cheaper model **demonstrably failed** on this task **and the brief passed the dispatch-brief interrogation** (`dispatch-brief` § Interrogate the brief). A failed lane on an un-interrogated brief is a brief defect, not a model defect — fix the brief and re-run the same tier before escalating. Record the failure in the brief ("sonnet run X produced Y, wrong because Z").
 - "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
 - **A wide brief is never an escalation.** Slice it into one-contract-unit lanes; the strongest model still misses what the brief never enumerated (operator ruling 2026-09-20, `accuracy-before-the-link`: *"You also used open on this task and outcome was sloppy"*).
 

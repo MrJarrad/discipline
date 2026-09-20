@@ -23,6 +23,9 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1000 -> 1100 at 1.85.0: `accuracy-before-the-link` added the
 // one-contract-unit rule and the pixel-proof done-when; the elaboration lives in
 // references/ACCURACY.md.
+// 1.86.0: `brief-is-the-lever` added the Interrogate the brief pointer and the
+// `## Interrogated` field, offloaded to references/INTERROGATE.md — the
+// ceiling stayed at 1100, the growth paid for by trims elsewhere in the file.
 test("the dispatch-brief skill stays under its 1100-word ceiling", () => {
   const count = words(dispatchBrief);
   assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
@@ -35,14 +38,15 @@ test("the scenario table has exactly eight rows", () => {
   assert.equal(rows.length, 8, `the scenario table has ${rows.length} rows; the ratified count is 8`);
 });
 
+// Count raised 13 -> 14 at 1.86.0: brief interrogation added one checklist item.
 // Count raised 11 -> 13 at 1.85.0: one-contract-unit per lane and pixel proof in
 // done-when. Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
 // the sourced/knobbed, no-mechanism, and parent-marked checks.
-test("the only checklist is thirteen items, and the old one is gone", () => {
+test("the only checklist is fourteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 13, `the list is ${items.length} items; the ratified count is 13`);
+  assert.equal(items.length, 14, `the list is ${items.length} items; the ratified count is 14`);
 });
 
 test("the brief is four parts, each named", () => {
