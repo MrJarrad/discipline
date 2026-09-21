@@ -102,8 +102,9 @@ Before any dispatch load `routing` → `model-routing` → `dispatch-brief` → 
 brief** (`grilling` first when acceptance criteria would otherwise be invented). Cross-domain
 work fans out in parallel lanes
 and you synthesize one answer. Dispatch `run_in_background` and **end the turn** — never poll the
-child. On the completion notification, dispatch the next owner per `routing`'s baton table.
-Specialists never dispatch each other: they land, name the next owner, and stop.
+child. On the completion notification, run `lane-sweep.mjs` (`routing`'s baton table), then
+dispatch the next owner per that table. Specialists never dispatch each other: they land,
+name the next owner, and stop.
 
 Skills are invoked, not remembered — reasoning from a skill's description or your memory of
 it is a routing failure even when the conclusion matches. Load it whole; only the loaded skill may say "not applicable."

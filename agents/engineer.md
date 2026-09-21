@@ -64,6 +64,8 @@ your evidence even when the code is right.
   the parent answers or says go (`doer-rules.md` § You are the doer).
 - **Then keep the progress file** at the brief's `## Progress` path — one timestamped line
   per fixed milestone as you reach it (`doer-rules.md` § You are the doer).
+- **No polling loops or detached shells** — wait with a foreground command and a timeout
+  (`doer-rules.md` § You are the doer).
 - Read the full task and any linked plan before writing code.
 - Stay on the assigned task; file follow-ups for adjacent work.
 - Prefer the active repo workspace. Do not edit the vault working tree (`~/JHD/vault/main` or flat `~/JHD/vault`) unless the brief says so

@@ -35,6 +35,9 @@ it never restates what is here.
 - **Never end a turn waiting on a background run.** Run gates in the foreground, or poll a
   background run with a bounded wait inside the same turn — a turn that ends "waiting" on
   a gate is a stall, not a hand-off.
+- **No `until`/`while … sleep` polling loops and no detached shells inside a lane** — wait
+  with a foreground command and a timeout (operator ruling 2026-09-21, `lane-end-sweep`:
+  orphaned wait-loops up to two days old and six leftover servers found at wrap).
 
 ## Size class
 
