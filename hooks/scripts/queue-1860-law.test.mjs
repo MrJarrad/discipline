@@ -3,7 +3,7 @@
 // information wouldn't be easy enough for cheaper models" + the refinement asking for
 // "a review of the brief before it's finalised ... to interrogate a brief before it's
 // picked up by an agent"). Brief interrogation: a fixed question set, run by a cheap
-// read-only agent (or the parent inline for trivial/small-fix) before any non-trivial
+// read-only agent (or the parent inline for line) before any non-trivial
 // dispatch, findings fix the brief, and model escalation after a failed lane requires
 // the brief already passed interrogation. One test per surface row, asserting the
 // rule's own sentence at its own home so a later edit that softens or drops one fails
@@ -61,11 +61,11 @@ test("dispatch-brief points at INTERROGATE.md and requires the `## Interrogated`
   assert.match(raw, /^\[ \] Brief interrogated \(or inline, clear\); `## Interrogated` recorded$/m);
 });
 
-test("dispatch-brief's checklist is fifteen items (raised 14 -> 15 at 1.88.0, `lane-progress-file`)", () => {
+test("dispatch-brief's checklist is sixteen items (raised 15 -> 16 at 1.89.0, `proportionality`)", () => {
   const brief = read("skills/dispatch-brief/SKILL.md");
   const list = brief.slice(brief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 15, `the list is ${items.length} items; the ratified count is 15`);
+  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
 });
 
 // --- model-routing: escalation precondition ---------------------------------

@@ -79,6 +79,10 @@ a highlight reel.
 
 ## The coverage ledger — one row per contract item
 
+**Ledger depth follows size class** (`doer-rules.md` § Size class): **line** — one row, no
+ledger; **component** — the full coverage ledger below plus its covering tests; **system** —
+today's full process. Naming the wrong depth for the class is a defect, not a shortcut.
+
 **Enumeration is the gate.** A list of what went wrong cannot show what was never looked at:
 the return carries a **coverage ledger** — one row per item in the lane's contract, written
 **before** the work, not assembled from the findings afterwards.

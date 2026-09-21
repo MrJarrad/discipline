@@ -2,7 +2,7 @@
 
 Operator ruling 2026-09-20, `brief-is-the-lever`: *"there's generally nothing that complex
 about frontend work that the right and accurate brief... wouldn't be easy enough for cheaper
-models."* The lever is the brief, not the model. Before any dispatch above trivial/small-fix,
+models."* The lever is the brief, not the model. Before any dispatch above line,
 the brief is read as the doer would — pointers followed, nothing assumed — and answered
 against a fixed set. Findings fix the brief; only then does the lane open.
 
@@ -20,16 +20,18 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 8. Model above sonnet: is the justification written, and does it name one of the two
    cases (`model-routing`: adversarial review of a change with fleet-wide blast radius, or
    novel architecture with no contract to point at)?
+9. Is the size class named (`line | component | system`, `doer-rules.md` § Size class),
+   and is the process the brief specifies proportionate to it?
 
 ## Who runs it
 
-**Above trivial/small-fix:** a read-only `haiku` agent, findings only, never `Agent`s further.
-**Trivial/small-fix:** the parent, inline.
+**Above line:** a read-only `haiku` agent, findings only, never `Agent`s further.
+**line:** the parent, inline.
 
 Template:
 
 ```
-Read <brief path/pasted brief> and its pointers only, as the doer would. Answer the eight
+Read <brief path/pasted brief> and its pointers only, as the doer would. Answer the nine
 questions in `dispatch-brief/references/INTERROGATE.md` § The fixed question set. Findings
 only, one line each, no fixes.
 ```

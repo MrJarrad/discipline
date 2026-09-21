@@ -220,19 +220,21 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
 // read-back each added real content (Persona + model paragraph, done-when line).
 // Ceiling raised 1200 -> 1250 and count raised 14 -> 15 at 1.88.0:
 // `lane-progress-file` added the `## Progress` field and its checklist row.
+// Ceiling raised 1250 -> 1350 and count raised 15 -> 16 at 1.89.0:
+// `proportionality` added the `Size:` field and its checklist row.
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1250, `dispatch-brief is ${count} words; the ceiling is 1250`);
+  assert.ok(count <= 1350, `dispatch-brief is ${count} words; the ceiling is 1350`);
 });
 
-test("the fifteen-item list gates the contract pointer, skill-names-only, and done-when", () => {
+test("the sixteen-item list gates the contract pointer, skill-names-only, and done-when", () => {
   const checklist = flow(dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")));
   assert.match(checklist, /Contract pointed at/i);
   assert.match(checklist, /restated/i);
   assert.match(checklist, /Done-when/i);
   const items = (dispatchBriefRaw.slice(dispatchBriefRaw.indexOf("## Before you dispatch")).match(/^\[ \]/gm) || []);
-  assert.equal(items.length, 15, `the list is ${items.length} items; the ratified count is 15`);
+  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
 });
 
 // --- AC6: out of scope, must not appear ----------------------------------

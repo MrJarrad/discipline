@@ -58,7 +58,7 @@ your evidence even when the code is right.
 
 ## How you work
 
-- **First step, above trivial/small-fix:** return `## Read-back` — the contract items you
+- **First step, above line:** return `## Read-back` — the contract items you
   will build (enumerated), the assumptions you would otherwise make, and your questions —
   then stop with `next: parent (go?)` before any edit. Continue in the same context once
   the parent answers or says go (`doer-rules.md` § You are the doer).

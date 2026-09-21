@@ -70,7 +70,7 @@ test("dispatch-brief's four-part brief carries a ## Progress path field", () => 
 });
 
 test("dispatch-brief's checklist gains the ## Progress row", () => {
-  carries("skills/dispatch-brief/SKILL.md", "[ ] `## Progress` path named (above trivial)");
+  carries("skills/dispatch-brief/SKILL.md", "[ ] `## Progress` path named (above line)");
 });
 
 // --- routing: the 30-minute cap and the stop + re-brief baton row ----------
