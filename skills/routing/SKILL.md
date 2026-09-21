@@ -63,6 +63,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
+| **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 
 ## Rung ladder (name the rung before dispatch)
 

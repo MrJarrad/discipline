@@ -29,9 +29,11 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1100 -> 1200 at 1.87.0: two operator rulings landed together —
 // `sonnet-default-ceiling` (Persona + model paragraph) and the doer read-back
 // (done-when addition) — real growth, not paid for by trims this round.
-test("the dispatch-brief skill stays under its 1200-word ceiling", () => {
+// Ceiling raised 1200 -> 1250 at 1.88.0: `lane-progress-file` added the
+// `## Progress` field and its checklist row — real growth.
+test("the dispatch-brief skill stays under its 1250-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1200, `dispatch-brief is ${count} words; the ceiling is 1200`);
+  assert.ok(count <= 1250, `dispatch-brief is ${count} words; the ceiling is 1250`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -45,11 +47,12 @@ test("the scenario table has exactly eight rows", () => {
 // Count raised 11 -> 13 at 1.85.0: one-contract-unit per lane and pixel proof in
 // done-when. Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
 // the sourced/knobbed, no-mechanism, and parent-marked checks.
-test("the only checklist is fourteen items, and the old one is gone", () => {
+// Count raised 14 -> 15 at 1.88.0: `lane-progress-file` added the `## Progress` checklist row.
+test("the only checklist is fifteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 14, `the list is ${items.length} items; the ratified count is 14`);
+  assert.equal(items.length, 15, `the list is ${items.length} items; the ratified count is 15`);
 });
 
 test("the brief is four parts, each named", () => {

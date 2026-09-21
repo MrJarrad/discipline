@@ -14,6 +14,15 @@ it never restates what is here.
   (operator ruling 2026-09-21: *"would it make sense to also introduce brief reading and
   playback with any question from the doer before commencing. I'm just conscious it's
   cheap to get the briefs clear, it's expensive to iterate or redo work"*).
+- **Progress is a file, not a stop.** Above trivial, keep a progress file at the path the
+  brief names (default `<lane evidence dir>/progress.md` in the vault). Append one
+  timestamped line at each fixed milestone as you reach it — never batch them at the end:
+  `read-back returned` · `red test written` · `cause found` · `green` · `gates green` ·
+  `uploaded/pushed`. The parent reads this file on any operator status ask; it never
+  replaces the fixed evidence return below. **No new milestone for 30 minutes** → the
+  parent stops the lane and re-briefs a fresh agent from the last recorded milestone
+  (operator ruling 2026-09-21, `lane-progress-file`: *"can we update discipline so
+  progress isn't so blind?"*).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.

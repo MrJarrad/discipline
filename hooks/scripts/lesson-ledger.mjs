@@ -86,19 +86,36 @@ function frontmatterValue(text, key) {
   return null;
 }
 
+// A queued file under fleet/rulings/ (never fleet/lessons/) is scope-eligible
+// for the named-only gate below — a lesson has no CHANGED.txt entry to name
+// it by, so lessons keep the unscoped (always-blocking) behaviour.
+function isRulingFile(file) {
+  return file.includes("/fleet/rulings/");
+}
+
 /**
  * @param {string} vaultRoot - absolute path to the vault working tree.
- * @param {{ release?: string }} [opts] - `release` makes `queued` a failure.
+ * @param {{ release?: string, namedRulings?: Iterable<string> }} [opts] -
+ *   `release` makes `queued` a failure. `namedRulings` (ruling filename
+ *   stems, e.g. from `namedRulingsFromChangedEntry`) scopes that failure for
+ *   fleet/rulings/*.md only: a queued ruling NOT in the set moves to
+ *   `queuedWarning` instead of blocking — the release names the ruling it
+ *   ships, it does not answer for every other session's open ruling
+ *   (operator ruling 2026-09-21, `lane-progress-file`). Omit `namedRulings`
+ *   to keep the prior unscoped behaviour (every queued file blocks).
+ *   `queued` under fleet/lessons/ is never scoped — always blocks.
  * @returns {{ files: string[], missing: {file: string}[],
  *   invalid: {file: string, value: string}[], queued: {file: string}[],
- *   release: string|null, ok: boolean }}
+ *   queuedWarning: {file: string}[], release: string|null, ok: boolean }}
  */
 export function lintLessonLedger(vaultRoot, opts = {}) {
   const release = opts.release ?? null;
+  const namedRulings = opts.namedRulings ? new Set(opts.namedRulings) : null;
   const files = LEDGER_DIRS.flatMap((dir) => ledgerFiles(vaultRoot, dir));
   const missing = [];
   const invalid = [];
   const queued = [];
+  const queuedWarning = [];
 
   for (const file of files) {
     let text;
@@ -116,11 +133,41 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
       invalid.push({ file, value });
       continue;
     }
-    if (value === "queued") queued.push({ file });
+    if (value !== "queued") continue;
+
+    if (namedRulings && isRulingFile(file)) {
+      const stem = file.split("/").pop().replace(/\.md$/, "");
+      if (namedRulings.has(stem)) queued.push({ file });
+      else queuedWarning.push({ file });
+    } else {
+      queued.push({ file });
+    }
   }
 
   const ok = missing.length === 0 && invalid.length === 0 && (!release || queued.length === 0);
-  return { files, missing, invalid, queued, release, ok };
+  return { files, missing, invalid, queued, queuedWarning, release, ok };
+}
+
+// Ruling names the CHANGED.txt top entry cites — `[[stem]]` wiki-links (the
+// house convention going forward) or an explicit `fleet/rulings/<stem>.md`
+// path. Only these can block a release under the named-only gate; any other
+// queued ruling is a warning, never a refusal.
+export function namedRulingsFromChangedEntry(entryText) {
+  const names = new Set();
+  for (const m of entryText.matchAll(/\[\[([^\]|#]+?)(?:\|[^\]]*)?\]\]/g)) {
+    names.add(m[1].trim().replace(/\.md$/, ""));
+  }
+  for (const m of entryText.matchAll(/fleet\/rulings\/([^\s)`'"]+?)\.md/g)) {
+    names.add(m[1]);
+  }
+  return names;
+}
+
+// The first entry (top of file to the first blank line) of a CHANGED.txt —
+// one release per entry, blank-line separated, newest first.
+export function topChangedEntry(changedText) {
+  const idx = changedText.indexOf("\n\n");
+  return idx === -1 ? changedText : changedText.slice(0, idx);
 }
 
 /** Human-readable report for a lintLessonLedger result. */
@@ -136,6 +183,9 @@ export function formatLedgerReport(result, vaultRoot) {
   if (result.release) {
     for (const { file } of result.queued) {
       lines.push(`  still queued:     ${rel(file)} — encode it in ${result.release} or mark skipped(<reason>)`);
+    }
+    for (const { file } of result.queuedWarning ?? []) {
+      lines.push(`  queued, unrelated to this release (warning only): ${rel(file)}`);
     }
   }
   const head = result.ok

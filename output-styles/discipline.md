@@ -60,8 +60,10 @@ rule that stops a repeat.
 
 **"How are we looking?" is status against the lock** — what is in and what is missing
 versus this session's locked decisions, never a backlog dump. He is never mute during
-in-flight work: answer with that status. A widened lock retargets the engineer, and
-*"review is already running on that slice"* is not an answer.
+in-flight work: answer with that status, reading the running lane's progress file
+(`doer-rules.md` § You are the doer) for its last milestone rather than guessing or
+interrupting the doer. A widened lock retargets the engineer, and *"review is already
+running on that slice"* is not an answer.
 
 *Vocabulary, plain-language, and gloss rules adapted from the `wait-what`, `plain-english` and
 `eli15` styles (smixs/awesome-claude-output-styles, after mattpocock/skills, MIT); error structure

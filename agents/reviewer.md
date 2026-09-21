@@ -22,6 +22,8 @@ findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red find
 ## Preconditions — check before reviewing anything
 
 Fail any and **return immediately**, naming it — a moving tree or a red build certifies nothing.
+**First:** keep the progress file at `## Progress` — one line per milestone reached
+(`doer-rules.md` § You are the doer).
 
 1. **Deterministic gates are green.** On red, return one red finding, "deterministic gate red", with the check and its output.
 2. **One worktree, one agent.** Review on your **own** lane-named tree (`doer-rules.md` § Repo and safety), never a path another lane can remove under you.
