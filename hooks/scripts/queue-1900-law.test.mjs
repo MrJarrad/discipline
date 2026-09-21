@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { matchProcess, parseEtimeSeconds } from "./lane-sweep.mjs";
+import { matchProcess, parseEtimeSeconds, shellExecutableBasename } from "./lane-sweep.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
@@ -186,4 +186,50 @@ test("parseEtimeSeconds handles mm:ss, hh:mm:ss, and dd-hh:mm:ss forms", () => {
   assert.equal(parseEtimeSeconds("01:00"), 60);
   assert.equal(parseEtimeSeconds("05:02:08"), 5 * 3600 + 2 * 60 + 8);
   assert.equal(parseEtimeSeconds("1-05:02:08"), 86400 + 5 * 3600 + 2 * 60 + 8);
+});
+
+// --- reviewer round 2, S1: session-dir rule scoped to shells only -----------
+// `lane-sweep.mjs:76` matched any process whose argv contained the session
+// dir — an editor or `tail` on a session file would have been killed. Fixed:
+// the rule applies only when the argv's leading executable, path-stripped,
+// is `sh`, `bash`, or `zsh`.
+
+test("vim opened on a file under the session dir, 5h old, is never matched", () => {
+  const proc = {
+    pid: 800,
+    etime: "05:00:00",
+    argv: "vim /session/dir/notes.md",
+  };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, false);
+  assert.match(result.reason, /not a shell/);
+});
+
+test("a real /bin/zsh -c shell referencing the session dir, 5h old, is still matched", () => {
+  const proc = {
+    pid: 801,
+    etime: "05:00:00",
+    argv: "/bin/zsh -c source /Users/x/.claude/shell-snapshots/snapshot-zsh-178 && /session/dir/task",
+  };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, true);
+  assert.equal(result.reason, "shell referencing session dir");
+});
+
+test("a node script running under the session dir is never matched", () => {
+  const proc = {
+    pid: 802,
+    etime: "05:00:00",
+    argv: "node /session/dir/scratchpad/script.mjs",
+  };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, false);
+  assert.match(result.reason, /not a shell/);
+});
+
+test("shellExecutableBasename strips path and login-shell leading dash", () => {
+  assert.equal(shellExecutableBasename("bash -c foo"), "bash");
+  assert.equal(shellExecutableBasename("/bin/zsh -c foo"), "zsh");
+  assert.equal(shellExecutableBasename("-zsh"), "zsh");
+  assert.equal(shellExecutableBasename("node script.mjs"), "node");
 });

@@ -43,6 +43,18 @@ export function parseEtimeSeconds(etime) {
   return days * 86400 + h * 3600 + m * 60 + s;
 }
 
+// The session-dir rule only ever sweeps a shell — `sh`/`bash`/`zsh`, path
+// stripped, leading `-` (login shell marker) stripped. Any other process
+// whose argv happens to mention the session dir (an editor, `tail`, a
+// `node` script reading a file under it) is left alone.
+const SHELL_BASENAMES = new Set(["sh", "bash", "zsh"]);
+
+export function shellExecutableBasename(argv) {
+  const first = argv.trim().split(/\s+/)[0] || "";
+  const stripped = first.startsWith("-") ? first.slice(1) : first;
+  return stripped.split("/").pop();
+}
+
 /**
  * @param {{pid: number, etime: string, argv: string}} proc
  * @param {Map<number, number[]>} listeningPortsByPid  pid -> [ports]
@@ -74,6 +86,13 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
   }
 
   if (sessionDir && argv.includes(sessionDir)) {
+    const base = shellExecutableBasename(argv);
+    if (!SHELL_BASENAMES.has(base)) {
+      // Any process whose argv happens to mention the session dir — an
+      // editor, `tail`, `node <script under the session dir>` — is never
+      // swept; only a shell invoked to run something there is.
+      return { match: false, reason: `not a shell (leading executable "${base || "?"}")` };
+    }
     const ageSeconds = parseEtimeSeconds(proc.etime);
     if (ageSeconds < 60) {
       return { match: false, reason: "excluded: shell younger than 60s" };
