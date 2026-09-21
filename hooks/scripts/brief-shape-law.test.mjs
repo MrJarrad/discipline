@@ -31,9 +31,11 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // (done-when addition) — real growth, not paid for by trims this round.
 // Ceiling raised 1200 -> 1250 at 1.88.0: `lane-progress-file` added the
 // `## Progress` field and its checklist row — real growth.
-test("the dispatch-brief skill stays under its 1250-word ceiling", () => {
+// Ceiling raised 1250 -> 1350 at 1.89.0: `proportionality` added the `Size:`
+// field, the verification-rule sentence, and a checklist row — real growth.
+test("the dispatch-brief skill stays under its 1350-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1250, `dispatch-brief is ${count} words; the ceiling is 1250`);
+  assert.ok(count <= 1350, `dispatch-brief is ${count} words; the ceiling is 1350`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -48,11 +50,12 @@ test("the scenario table has exactly eight rows", () => {
 // done-when. Count raised 8 -> 11 at 1.84.0: `brief-carries-operator-words-2026-09-18` added
 // the sourced/knobbed, no-mechanism, and parent-marked checks.
 // Count raised 14 -> 15 at 1.88.0: `lane-progress-file` added the `## Progress` checklist row.
-test("the only checklist is fifteen items, and the old one is gone", () => {
+// Count raised 15 -> 16 at 1.89.0: `proportionality` added the `Size:` checklist row.
+test("the only checklist is sixteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 15, `the list is ${items.length} items; the ratified count is 15`);
+  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
 });
 
 test("the brief is four parts, each named", () => {

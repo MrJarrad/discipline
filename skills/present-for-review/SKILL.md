@@ -53,6 +53,11 @@ return before the link is sent (operator ruling 2026-09-20, `accuracy-before-the
 two proofs being in the doer's return — never on a reviewer verdict. The operator still judges
 look, first and alone.
 
+**Pixel proof is scoped by size class** (`doer-rules.md` § Size class): **component** work's
+pixel proof is **one screenshot per Figma sample width (375 / 768 / 1280 / 1920), checked at
+a glance** — not a pixel-assertion battery across viewports and states; **line** carries no
+screenshot; **system** keeps the breakpoint-family proof above.
+
 ## Steps
 
 ### 1. Confirm the change is presentable

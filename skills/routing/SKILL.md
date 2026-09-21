@@ -40,6 +40,9 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 9. **Dispatch surface — "if a task can be done in cloud, it is."** Capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **when a lane opens**; `description` leads `cloud — ` / `local — `.
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
 11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending double-dispatches. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
+13. **CI runs the full suite/build once per PR, never inside each lane** — a lane's own gates
+    are only the touched ones its size class names (`doer-rules.md` § Size class). **The
+    parent sweeps verification servers at every lane end**; a lane stops only its own pids.
 
 ## Resume vs fresh (read before any baton row)
 
@@ -64,6 +67,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
+| **Any lane ends** | **Parent sweeps verification servers** (`:3220` and up); the lane stopped only its own pids (`doer-rules.md` § Size class) |
 
 ## Rung ladder (name the rung before dispatch)
 

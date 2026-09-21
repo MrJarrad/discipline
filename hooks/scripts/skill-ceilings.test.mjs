@@ -50,14 +50,18 @@ const CEILINGS = [
   // dispatch-brief, only the load-order pointer is here.
   // Ceiling raised 1200 -> 1250 at 1.87.0: the doer read-back added the
   // Resume-vs-fresh exception and a baton-table row (`sonnet-default-ceiling` queue).
-  { skill: "routing", ceiling: 1250, before: 3254, frontmatterWords: 90 },
+  // Ceiling raised 1250 -> 1350 at 1.89.0: `proportionality` added the
+  // CI-once/parent-sweep hard rule and a baton-table row.
+  { skill: "routing", ceiling: 1350, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
   // added real content, not restated elsewhere.
-  { skill: "agents/reviewer.md", ceiling: 1300, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1300 -> 1350 at 1.89.0: the progress-file line moved to its
+  // own first-step bullet (`proportionality`, riding amber).
+  { skill: "agents/reviewer.md", ceiling: 1350, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

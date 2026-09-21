@@ -5,16 +5,16 @@ it never restates what is here.
 
 ## You are the doer
 
-- **First step, above trivial/small-fix: read back before building.** Your first return is
+- **First step, above line: read back before building.** Your first return is
   `## Read-back` — the contract items you will build (enumerated), the assumptions you
   would otherwise make, and your questions — and you stop there with `next: parent (go?)`
   before any edit. The parent answers or says go; you continue **in the same context** —
   this continuation is the one non-red resume allowed (`routing` § Resume vs fresh).
-  Trivial/small-fix lanes fold the read-back into the evidence return without stopping
-  (operator ruling 2026-09-21: *"would it make sense to also introduce brief reading and
-  playback with any question from the doer before commencing. I'm just conscious it's
-  cheap to get the briefs clear, it's expensive to iterate or redo work"*).
-- **Progress is a file, not a stop.** Above trivial, keep a progress file at the path the
+  **line lanes fold the read-back into the evidence return without stopping** (§ Size
+  class below; operator ruling 2026-09-21: *"would it make sense to also introduce brief
+  reading and playback with any question from the doer before commencing. I'm just
+  conscious it's cheap to get the briefs clear, it's expensive to iterate or redo work"*).
+- **Progress is a file, not a stop.** Above line, keep a progress file at the path the
   brief names (default `<lane evidence dir>/progress.md` in the vault). Append one
   timestamped line at each fixed milestone as you reach it — never batch them at the end:
   `read-back returned` · `red test written` · `cause found` · `green` · `gates green` ·
@@ -22,7 +22,8 @@ it never restates what is here.
   replaces the fixed evidence return below. **No new milestone for 30 minutes** → the
   parent stops the lane and re-briefs a fresh agent from the last recorded milestone
   (operator ruling 2026-09-21, `lane-progress-file`: *"can we update discipline so
-  progress isn't so blind?"*).
+  progress isn't so blind?"*). **line lanes keep no progress file** (§ Size class below —
+  the same class that was "trivial/small-fix" before `proportionality`).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.
@@ -35,6 +36,30 @@ it never restates what is here.
 - **Never end a turn waiting on a background run.** Run gates in the foreground, or poll a
   background run with a bounded wait inside the same turn — a turn that ends "waiting" on
   a gate is a stall, not a hand-off.
+
+## Size class
+
+**Every brief names the change's size class; the class fixes the process** (operator ruling
+2026-09-21, `proportionality`: *"i'm not sure a cap is really solving the problem... i just
+really don't understand why anything should be taking this amount of time"* · on
+screenshots: *"i would make this really quick but also it's not hard to be thorough. like a
+quick confirmation at the size of the figma designs should be pretty quick to see any
+issues"* → *"that sounds good"*).
+
+| Class | Covers | Gates | Skills | Evidence | Screenshots | Upload |
+|---|---|---|---|---|---|---|
+| **line** | a value, selector, guard, copy string | only the tests that cover the line | the one skill that owns the domain | one row, no ledger | none | none |
+| **component** | one component set / one contract unit | touched gates per row; full suite once per lane | ≤ four skills named | coverage ledger + covering tests | one screenshot per Figma sample width (375 / 768 / 1280 / 1920), one per width, checked at a glance | one upload per batch of lanes, not per lane |
+| **system** | cross-component, pipeline, release | today's full process | as scoped by the brief | today's full process | today's full process | today's full process |
+
+**line**: read the one file, change it, run only the tests that cover it, commit — no build,
+no upload, no screenshots, no ledger beyond the one row; no read-back stop and no progress
+file (§ You are the doer above).
+
+**Full test suite, production build and deploy checks run once per PR in CI**, never inside
+each lane. **Verification inside a lane is one deterministic repro plus three reps**; a
+heavier sweep is its own lane after the fix. **No background runs inside a lane.** **Lanes
+stop only their own pids** — the parent sweeps verification servers at every lane end.
 
 ## Repo and safety
 

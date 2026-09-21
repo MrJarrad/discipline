@@ -108,7 +108,7 @@ test("doer-rules.md requires the read-back as the doer's first step", () => {
   const dr = flat(read("doer-rules.md"));
   assert.match(
     dr,
-    /First step, above trivial\/small-fix: read back before building/,
+    /First step, above line: read back before building/,
   );
   assert.match(dr, /`## Read-back`/);
   assert.match(dr, /next: parent \(go\?\)/);

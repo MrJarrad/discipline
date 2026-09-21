@@ -78,12 +78,12 @@ One AC per locked row, deferrals named, plus **AC-S** when a Source contract exi
 
 - **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer.
-- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
-- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)). **The read-back precedes the build**: above trivial/small-fix, the doer's first return is `## Read-back` and it stops for `next: parent (go?)` before any edit (`doer-rules.md` § You are the doer, operator ruling 2026-09-21).
+- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms, **`Size:`** (`line | component | system`, `doer-rules.md` § Size class) fixing the gate set, skill count, evidence, screenshots and upload policy for the lane. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
+- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)). **The read-back precedes the build**: above line, the doer's first return is `## Read-back` and it stops for `next: parent (go?)` before any edit (`doer-rules.md` § You are the doer, operator ruling 2026-09-21). **Verification inside a lane is one deterministic repro plus three reps** — a heavier sweep is its own lane, after the fix (`doer-rules.md` § Size class).
 - **`## Interrogated`** — result, or "inline, clear".
-- **`## Progress`** — the progress-file path, above trivial (`doer-rules.md` § You are the
+- **`## Progress`** — the progress-file path, above line (`doer-rules.md` § You are the
   doer). Default `<lane evidence dir>/progress.md` in the vault; name it explicitly when the
-  lane's evidence dir differs. Trivial/small-fix lanes omit this field.
+  lane's evidence dir differs. **line** lanes omit this field.
 
 **Target brief length: under 250 words**, lock table excluded.
 
@@ -130,5 +130,6 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] One contract unit per lane
 [ ] Pixel proof at the operator's framing in done-when
 [ ] Brief interrogated (or inline, clear); `## Interrogated` recorded
-[ ] `## Progress` path named (above trivial)
+[ ] `## Progress` path named (above line)
+[ ] `Size:` named (line | component | system) and the process matches it
 ```
