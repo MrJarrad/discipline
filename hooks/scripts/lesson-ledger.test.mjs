@@ -8,7 +8,12 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { lintLessonLedger, formatLedgerReport } from "./lesson-ledger.mjs";
+import {
+  lintLessonLedger,
+  formatLedgerReport,
+  namedRulingsFromChangedEntry,
+  topChangedEntry,
+} from "./lesson-ledger.mjs";
 
 const SCRIPT = join(import.meta.dirname, "lesson-ledger.mjs");
 
@@ -134,6 +139,65 @@ test("an encoded: line in the body below the frontmatter is not the field", () =
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// ---- named-only release scoping (2026-09-21, lane-progress-file) ---------
+
+test("a queued ruling not named by the release entry warns instead of blocking", () => {
+  withVault(
+    { "fleet/rulings/unrelated-topic.md": "queued", "fleet/rulings/named-one.md": "queued" },
+    (root) => {
+      const gated = lintLessonLedger(root, {
+        release: "1.88.0",
+        namedRulings: new Set(["named-one"]),
+      });
+      assert.equal(gated.ok, false, "the named ruling still blocks");
+      assert.equal(gated.queued.length, 1);
+      assert.match(gated.queued[0].file, /named-one\.md$/);
+      assert.equal(gated.queuedWarning.length, 1);
+      assert.match(gated.queuedWarning[0].file, /unrelated-topic\.md$/);
+      assert.match(formatLedgerReport(gated, root), /warning only.*unrelated-topic\.md/s);
+    },
+  );
+});
+
+test("a release entry that names none of the queued rulings passes clean", () => {
+  withVault({ "fleet/rulings/unrelated-topic.md": "queued" }, (root) => {
+    const gated = lintLessonLedger(root, { release: "1.88.0", namedRulings: new Set(["other-thing"]) });
+    assert.equal(gated.ok, true);
+    assert.equal(gated.queued.length, 0);
+    assert.equal(gated.queuedWarning.length, 1);
+  });
+});
+
+test("a queued lesson always blocks, named-scoping is rulings-only", () => {
+  withVault({ "fleet/lessons/unrelated-topic.md": "queued" }, (root) => {
+    const gated = lintLessonLedger(root, { release: "1.88.0", namedRulings: new Set(["named-one"]) });
+    assert.equal(gated.ok, false);
+    assert.equal(gated.queued.length, 1);
+    assert.equal(gated.queuedWarning.length, 0);
+  });
+});
+
+test("omitting namedRulings keeps the prior unscoped behaviour — every queued ruling blocks", () => {
+  withVault({ "fleet/rulings/unrelated-topic.md": "queued" }, (root) => {
+    const gated = lintLessonLedger(root, { release: "1.88.0" });
+    assert.equal(gated.ok, false);
+    assert.equal(gated.queued.length, 1);
+  });
+});
+
+test("namedRulingsFromChangedEntry reads [[stem]] wiki-links and fleet/rulings paths", () => {
+  const entry = "1.88.0 — ships [[2026-09-21-lane-progress-file]] and also fleet/rulings/2026-09-19-gates-assert-mechanism-not-values.md, unrelated text.";
+  const names = namedRulingsFromChangedEntry(entry);
+  assert.ok(names.has("2026-09-21-lane-progress-file"));
+  assert.ok(names.has("2026-09-19-gates-assert-mechanism-not-values"));
+  assert.equal(names.size, 2);
+});
+
+test("topChangedEntry stops at the first blank line", () => {
+  const text = "1.88.0 — first entry text\nmore of the first entry\n\n1.87.0 — second entry\n";
+  assert.equal(topChangedEntry(text), "1.88.0 — first entry text\nmore of the first entry");
 });
 
 // ---- CLI contract ---------------------------------------------------------

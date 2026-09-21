@@ -25,21 +25,32 @@
    commit with the file and defect named, before it ever lands. */
 /* Third, independent gate on the same hook: LESSON LEDGER GATE. A commit whose
    staged changes bump `.claude-plugin/plugin.json`'s version is a release, and
-   a release must not ship while a fleet lesson or ruling is still `queued`
-   (problem 5, 2026-09-10: nine hoverboard lessons written and never shipped).
-   The gate runs hooks/scripts/lesson-ledger.mjs against the vault at
-   $DISCIPLINE_VAULT_ROOT (default ~/JHD/vault/main) with --release <new
-   version>, and denies the commit with the ledger's own report when it fails.
-   Warn-and-skip when the vault root is absent: cloud runners have no vault,
-   and gating a release on a tree that isn't there would block every one of
-   them. On by default; $DISCIPLINE_LEDGER_GATE=0 is the documented opt-out for
-   a run that must not consult a vault at all. */
+   a release must not ship while a fleet lesson, or a ruling THIS RELEASE
+   NAMES, is still `queued` (problem 5, 2026-09-10: nine hoverboard lessons
+   written and never shipped). The gate runs hooks/scripts/lesson-ledger.mjs
+   against the vault at $DISCIPLINE_VAULT_ROOT (default ~/JHD/vault/main) with
+   --release <new version>, and denies the commit with the ledger's own report
+   when it fails. Warn-and-skip when the vault root is absent: cloud runners
+   have no vault, and gating a release on a tree that isn't there would block
+   every one of them. On by default; $DISCIPLINE_LEDGER_GATE=0 is the
+   documented opt-out for a run that must not consult a vault at all.
+   Scoped to the release (2026-09-21, `lane-progress-file`): a queued ruling
+   only blocks when CHANGED.txt's own top entry names it (`[[stem]]` or a
+   `fleet/rulings/<stem>.md` path) — any OTHER queued ruling, including one
+   from a session unrelated to this commit, is a warning in the gate's output,
+   never a refusal. Lessons are unaffected — a queued lesson still blocks
+   every release, same as before. */
 import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
-import { lintLessonLedger, formatLedgerReport } from "../scripts/lesson-ledger.mjs";
+import {
+  lintLessonLedger,
+  formatLedgerReport,
+  namedRulingsFromChangedEntry,
+  topChangedEntry,
+} from "../scripts/lesson-ledger.mjs";
 import { runTypecheckSync } from "./run-typecheck.mjs";
 
 function readHookInput() {
@@ -124,7 +135,14 @@ if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
         `ledger check for release ${bumpedTo}. Set DISCIPLINE_VAULT_ROOT to gate on a vault elsewhere.`,
       );
     } else {
-      const ledger = lintLessonLedger(vaultRoot, { release: bumpedTo });
+      let namedRulings;
+      try {
+        const changedTxt = readFileSync(join(cwd, "CHANGED.txt"), "utf8");
+        namedRulings = namedRulingsFromChangedEntry(topChangedEntry(changedTxt));
+      } catch {
+        namedRulings = new Set(); // no CHANGED.txt entry to name a ruling by — every queued ruling is a warning, not a block
+      }
+      const ledger = lintLessonLedger(vaultRoot, { release: bumpedTo, namedRulings });
       if (!ledger.ok) {
         deny(
           `Lesson-ledger gate: release ${bumpedTo} cannot ship while the ledger is unclean — ` +
