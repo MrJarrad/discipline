@@ -44,6 +44,8 @@ Use chrome-devtools / browser tools for live viewport evidence.
   the parent answers or says go (`doer-rules.md` § You are the doer).
 - **Then keep the progress file** at the brief's `## Progress` path — one timestamped line
   per fixed milestone as you reach it (`doer-rules.md` § You are the doer).
+- **No polling loops or detached shells** — wait with a foreground command and a timeout
+  (`doer-rules.md` § You are the doer).
 - Tasks referencing Figma or a live reference start with capture/audit, never screenshots alone.
 - Orbit plugin look/feel → `~/JHD/figma-plugins/main/orbit-tools`. Capture plugin / ingest → `~/JHD/figma-plugins/main/capture-figma`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Never `design-tools`.
 - Creative / aesthetic forks → one recommendation to the operator, alternative named.

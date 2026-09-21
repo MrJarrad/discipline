@@ -21,6 +21,8 @@ findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red find
 
 - **First step: keep the progress file** at `## Progress` — one line per milestone reached
   (`doer-rules.md` § You are the doer).
+- **No polling loops or detached shells** — wait with a foreground command and a timeout
+  (`doer-rules.md` § You are the doer).
 
 ## Preconditions — check before reviewing anything
 

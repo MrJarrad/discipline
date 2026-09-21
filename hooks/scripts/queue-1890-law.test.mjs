@@ -170,7 +170,9 @@ test("routing states CI runs the full suite/build once per PR and the parent swe
   );
   carries(
     "skills/routing/SKILL.md",
-    "The parent sweeps verification servers at every lane end",
+    // Superseded at 1.90.0 (`lane-end-sweep`): the by-hand sweep is now
+    // `lane-sweep.mjs`, run by the parent on every completion notification.
+    "The parent runs `lane-sweep.mjs` on every completion notification",
   );
 });
 
