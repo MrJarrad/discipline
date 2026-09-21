@@ -54,6 +54,17 @@ wrap failure — checkpoint-commit it (credit the session that made it), merge
 through origin, and fast-forward the other clone. Also check for stale
 `.git/*.lock` files (compare mtime to running git processes before removing).
 
+**The worktree fence.** On a bare-layout repo, wrap runs `git worktree list` per repo and
+confirms `main` is on `main` and every other entry sits under `worktrees/`. Cleanup never
+removes a worktree by grep/pattern over that list — an explicit path under `worktrees/`
+only, and `main` is never a removal target (`doer-rules.md` § Repo and safety). Prefer
+`hooks/scripts/lane-sweep.mjs --worktrees <repo>`, which lists worktrees under
+`<repo>/worktrees/` whose branch is merged into `origin/main` and removes only those,
+refusing any path outside `worktrees/` (operator lesson 2026-09-21,
+`never-remove-a-worktree-by-pattern`: a pattern-matched `git worktree remove --force`
+deleted four `main` trees across bare-layout repos, losing untracked state and killing the
+operator's live dev server).
+
 ## Version sync (Claude)
 
 A plugin version bump is drift unless `.claude-plugin/plugin.json` matches what you

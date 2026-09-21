@@ -27,7 +27,7 @@ const carries = (file, sentence) =>
 test("qa-acceptance is the ledger's one home: row shape, missing row red, variance never collapsed", () => {
   const qa = flat(read("skills/qa-acceptance/SKILL.md"));
   assert.match(qa, /## The coverage ledger — one row per contract item/);
-  assert.match(qa, /\| item \| source ref \| built at `file:line` \| measured value \| status \|/);
+  assert.match(qa, /\| item \| source ref \| built at `file:line` \| measured value \| mode \| status \|/);
   assert.match(qa, /\*\*A contract item with no row is red\.\*\*/);
   assert.match(qa, /one literal covering several contract modes is red/);
   assert.match(qa, /There is no second table of deviations\./);

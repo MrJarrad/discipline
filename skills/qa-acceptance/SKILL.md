@@ -87,8 +87,8 @@ today's full process. Naming the wrong depth for the class is a defect, not a sh
 the return carries a **coverage ledger** — one row per item in the lane's contract, written
 **before** the work, not assembled from the findings afterwards.
 
-| item | source ref | built at `file:line` | measured value | status |
-| --- | --- | --- | --- | --- |
+| item | source ref | built at `file:line` | measured value | mode | status |
+| --- | --- | --- | --- | --- | --- |
 
 - **A contract item with no row is red.** Not an omission for the reviewer to catch.
 - **Status carries the deviation** — met · deviated (with the ruling ref) · not-built ·
@@ -97,6 +97,33 @@ the return carries a **coverage ledger** — one row per item in the lane's cont
   state or mode, that is a row per mode (or a filled mode column); one literal covering
   several contract modes is red even when one mode measures right.
 - **Measured means measured** — read off the running build, never copied from your own source.
+- **Tokens carry a `mode` column** — light/dark/bttf (or whatever modes the contract
+  declares); a token row with the column blank or collapsed to one mode is the same
+  variance-collapse defect as a missing per-device row.
+
+### The eight row classes
+
+**Every ledger, at component or system depth, carries all eight classes — each present with
+its rows, or marked "none in scope."** A class silently dropped is the same defect as a
+missing row (operator ruling 2026-09-21, `eight-class-ledger`: the nav rebuild's "complete"
+ledgers covered classes 1–2 only; misses on tokens-per-mode, copy, behaviour and absence
+reached the live site).
+
+1. **Geometry and placement** — per device.
+2. **Tokens** — per mode (light/dark/bttf column, see above).
+3. **Copy** — every text string in the export and its layout examples, export vs built, per
+   route.
+4. **Links and targets** — href, mailto, clipboard payloads.
+5. **States, variants and prototype flows** — per instance.
+6. **Behaviour annotations** — every Interaction/Development note as a row with its proving
+   test or probe.
+7. **Semantics and a11y hints.**
+8. **Absence** — every retired lock row and every node the new export removed, proven not
+   present by test or grep, never assumed from the diff alone.
+
+The reviewer's spot check **samples across classes, never several rows from one** — one
+row per class at minimum, never five rows from class 1 standing in for the other seven
+(`agents/reviewer.md`).
 
 What an *item* is, per contract — the skill named owns the specialisation, this section owns
 the rule and the row shape:

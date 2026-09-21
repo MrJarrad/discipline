@@ -75,6 +75,17 @@ stop only their own pids** — the parent sweeps verification servers at every l
   lane kind and the sha — `upload-<sha>`, `review-r<n>-<sha>`, `fix-<sha>-<topic>` — so two
   lanes on one sha never share a tree, and never the bare sha (a finishing lane deleted a
   live reviewer's tree, portfolio 2026-09-15).
+- **Worktrees (bare-layout repos).** A mechanical or sync lane on a bare-layout repo
+  (canonical `.bare` + named worktree checkouts, e.g. `~/JHD/ai/discipline`) runs
+  `git worktree add worktrees/<name> -b <branch>` for its branch — **never** checks a branch
+  out inside `main`. A branch checked out in `main` is a red finding, whatever else the lane
+  got right. Prove the worktree with `git worktree list` before committing anything.
+  **`git worktree remove` takes an explicit path read from `git worktree list` and verified
+  under `<repo>/worktrees/`** — never a grep/pattern over the list, and `main` (or any path
+  not under `worktrees/`) is never a removal target, full stop (operator lesson 2026-09-21,
+  `never-remove-a-worktree-by-pattern`: a `grep | xargs git worktree remove --force` matched
+  `main` in four bare-layout repos and deleted them, losing untracked local state and killing
+  the operator's live dev server).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`,
