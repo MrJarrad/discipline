@@ -6,7 +6,7 @@
    3210 or 3211, and never one not listening), Playwright/headless Chromium,
    or any shell whose argv contains the session's task-output directory path.
 
-   Two safety fences, both required before anything is ever swept:
+   Safety fences, all required before anything is ever swept:
    - **own pid / ancestor pid** — the sweep never stops itself or the shell
      that launched it (or any process between it and init); computed by
      walking `ps -o ppid=` up from `process.pid` before matching starts.
@@ -14,6 +14,11 @@
      session dir" but was spawned less than a minute ago is skipped, since
      it may be the sweep's own freshly-spawned invocation rather than a real
      leftover.
+   - **cross-session guard on next servers and Playwright/headless
+     Chromium** — a young process (< 30 min) with a live parent (ppid != 1)
+     belongs to another lane running alongside this one, not this lane's own
+     leftover; matched only when orphaned (reparented to launchd, ppid == 1)
+     or old enough (>= 30 min) that any owning lane is long done.
 
    Exit 0 always. Nothing else is ever killed. Node built-ins only.
 
@@ -55,8 +60,19 @@ export function shellExecutableBasename(argv) {
   return stripped.split("/").pop();
 }
 
+// A next server or Playwright/headless Chromium process only ever belongs to
+// THIS lane's leftovers when it's either orphaned (reparented to launchd,
+// ppid === 1) or old enough (>= 30 min) that any owning lane is long done. A
+// young process with a live parent is another session's lane running
+// alongside this one.
+const CROSS_SESSION_AGE_SECONDS = 30 * 60;
+
+export function isOrphanOrOld(proc) {
+  return proc.ppid === 1 || parseEtimeSeconds(proc.etime) >= CROSS_SESSION_AGE_SECONDS;
+}
+
 /**
- * @param {{pid: number, etime: string, argv: string}} proc
+ * @param {{pid: number, ppid: number, etime: string, argv: string}} proc
  * @param {Map<number, number[]>} listeningPortsByPid  pid -> [ports]
  * @param {string} sessionDir
  * @param {Set<number>} excludePids  own pid + every ancestor pid up to init
@@ -74,6 +90,12 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
   if (isNextProcess) {
     const sweepablePort = ports.find((p) => p >= 3220);
     if (sweepablePort !== undefined) {
+      if (!isOrphanOrOld(proc)) {
+        return {
+          match: false,
+          reason: "excluded: next server has a live parent and is under 30 min old (another lane)",
+        };
+      }
       return { match: true, reason: "next server on swept port", port: sweepablePort };
     }
     // A next process not listening, or listening only on 3210/3211/<3220,
@@ -82,6 +104,12 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
   }
 
   if (/chromium_headless_shell|ms-playwright/.test(argv)) {
+    if (!isOrphanOrOld(proc)) {
+      return {
+        match: false,
+        reason: "excluded: browser has a live parent and is under 30 min old (another lane)",
+      };
+    }
     return { match: true, reason: "playwright / headless chromium" };
   }
 
@@ -106,17 +134,17 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
 // --- real-world data gathering ----------------------------------------------
 
 function listProcesses() {
-  // pid, elapsed time, full argv — one process per line.
-  const out = execFileSync("ps", ["-axo", "pid,etime,args"], { encoding: "utf8" });
+  // pid, parent pid, elapsed time, full argv — one process per line.
+  const out = execFileSync("ps", ["-axo", "pid,ppid,etime,args"], { encoding: "utf8" });
   const lines = out.split("\n").slice(1); // drop header
   const procs = [];
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const m = trimmed.match(/^(\d+)\s+(\S+)\s+(.*)$/);
+    const m = trimmed.match(/^(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/);
     if (!m) continue;
-    const [, pidStr, etime, argv] = m;
-    procs.push({ pid: Number(pidStr), etime, argv });
+    const [, pidStr, ppidStr, etime, argv] = m;
+    procs.push({ pid: Number(pidStr), ppid: Number(ppidStr), etime, argv });
   }
   return procs;
 }

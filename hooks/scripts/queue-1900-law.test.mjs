@@ -78,8 +78,8 @@ test("output-styles/discipline.md names the sweep on the completion notification
 
 // --- lane-sweep.mjs: the port fence, unit-tested with a fake process table -
 
-test("a next server on port 3220+ is matched and swept", () => {
-  const proc = { pid: 100, etime: "01:00:00", argv: "node .../next-server" };
+test("a next server on port 3220+, old enough, is matched and swept", () => {
+  const proc = { pid: 100, ppid: 900, etime: "01:00:00", argv: "node .../next-server" };
   const ports = new Map([[100, [3220]]]);
   const result = matchProcess(proc, ports, "/session/dir");
   assert.equal(result.match, true);
@@ -87,35 +87,88 @@ test("a next server on port 3220+ is matched and swept", () => {
 });
 
 test("a next process on port 3210 is never swept", () => {
-  const proc = { pid: 101, etime: "00:10:00", argv: "next-server (v14)" };
+  const proc = { pid: 101, ppid: 1, etime: "00:10:00", argv: "next-server (v14)" };
   const ports = new Map([[101, [3210]]]);
   assert.equal(matchProcess(proc, ports, "/session/dir").match, false);
 });
 
 test("a next process on port 3211 is never swept", () => {
-  const proc = { pid: 102, etime: "00:10:00", argv: "node bin/next start" };
+  const proc = { pid: 102, ppid: 1, etime: "00:10:00", argv: "node bin/next start" };
   const ports = new Map([[102, [3211]]]);
   assert.equal(matchProcess(proc, ports, "/session/dir").match, false);
 });
 
 test("a next process not listening on any port is never swept", () => {
-  const proc = { pid: 103, etime: "00:05:00", argv: "next dev" };
+  const proc = { pid: 103, ppid: 1, etime: "00:05:00", argv: "next dev" };
   const ports = new Map(); // no listening entry
   assert.equal(matchProcess(proc, ports, "/session/dir").match, false);
 });
 
-test("a next process listening on both 3210 and 3220+ is swept for the sweepable port only", () => {
-  const proc = { pid: 104, etime: "00:05:00", argv: "next-server" };
+test("a next process listening on both 3210 and 3220+, orphaned, is swept for the sweepable port only", () => {
+  const proc = { pid: 104, ppid: 1, etime: "00:05:00", argv: "next-server" };
   const ports = new Map([[104, [3210, 3221]]]);
   const result = matchProcess(proc, ports, "/session/dir");
   assert.equal(result.match, true);
   assert.equal(result.port, 3221);
 });
 
-test("headless chromium / playwright processes are matched regardless of port", () => {
+test("a next server under 30 min old with a live parent is skipped — another lane's server", () => {
+  const proc = { pid: 105, ppid: 900, etime: "00:05:00", argv: "node .../next-server" };
+  const ports = new Map([[105, [3220]]]);
+  const result = matchProcess(proc, ports, "/session/dir");
+  assert.equal(result.match, false);
+  assert.match(result.reason, /another lane/);
+});
+
+test("a next server orphaned (ppid 1) is matched even though it's young", () => {
+  const proc = { pid: 106, ppid: 1, etime: "00:01:00", argv: "node .../next-server" };
+  const ports = new Map([[106, [3220]]]);
+  assert.equal(matchProcess(proc, ports, "/session/dir").match, true);
+});
+
+test("a next server with a live parent but 31 min old is matched", () => {
+  const proc = { pid: 107, ppid: 900, etime: "00:31:00", argv: "node .../next-server" };
+  const ports = new Map([[107, [3220]]]);
+  assert.equal(matchProcess(proc, ports, "/session/dir").match, true);
+});
+
+test("headless chromium / playwright processes, old enough, are matched regardless of port", () => {
   const proc = {
     pid: 200,
-    etime: "00:02:00",
+    ppid: 900,
+    etime: "01:00:00",
+    argv: "/ms-playwright/chromium-1234/chrome-mac/chromium_headless_shell --headless",
+  };
+  assert.equal(matchProcess(proc, new Map(), "/session/dir").match, true);
+});
+
+test("a headless chromium under 30 min old with a live parent is skipped — another lane's browser", () => {
+  const proc = {
+    pid: 201,
+    ppid: 900,
+    etime: "00:00:01",
+    argv: "/ms-playwright/chromium-1234/chrome-mac/chromium_headless_shell --headless",
+  };
+  const result = matchProcess(proc, new Map(), "/session/dir");
+  assert.equal(result.match, false);
+  assert.match(result.reason, /another lane/);
+});
+
+test("a headless chromium orphaned (ppid 1) is matched even though it's young", () => {
+  const proc = {
+    pid: 202,
+    ppid: 1,
+    etime: "00:00:01",
+    argv: "/ms-playwright/chromium-1234/chrome-mac/chromium_headless_shell --headless",
+  };
+  assert.equal(matchProcess(proc, new Map(), "/session/dir").match, true);
+});
+
+test("a headless chromium with a live parent but 31 min old is matched", () => {
+  const proc = {
+    pid: 203,
+    ppid: 900,
+    etime: "00:31:00",
     argv: "/ms-playwright/chromium-1234/chrome-mac/chromium_headless_shell --headless",
   };
   assert.equal(matchProcess(proc, new Map(), "/session/dir").match, true);
