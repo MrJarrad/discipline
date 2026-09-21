@@ -6,6 +6,15 @@
    3210 or 3211, and never one not listening), Playwright/headless Chromium,
    or any shell whose argv contains the session's task-output directory path.
 
+   Two safety fences, both required before anything is ever swept:
+   - **own pid / ancestor pid** — the sweep never stops itself or the shell
+     that launched it (or any process between it and init); computed by
+     walking `ps -o ppid=` up from `process.pid` before matching starts.
+   - **younger than 60s** — a shell that matches "argv references the
+     session dir" but was spawned less than a minute ago is skipped, since
+     it may be the sweep's own freshly-spawned invocation rather than a real
+     leftover.
+
    Exit 0 always. Nothing else is ever killed. Node built-ins only.
 
    Usage:
@@ -15,13 +24,37 @@ import { execFileSync } from "node:child_process";
 
 // --- pure matcher: testable with a fake process/port table -----------------
 
+// ps etime is [[DD-]HH:]MM:SS. Parse to whole seconds.
+export function parseEtimeSeconds(etime) {
+  let rest = etime;
+  let days = 0;
+  if (rest.includes("-")) {
+    const [d, r] = rest.split("-");
+    days = Number(d) || 0;
+    rest = r;
+  }
+  const parts = rest.split(":").map(Number);
+  let h = 0;
+  let m = 0;
+  let s = 0;
+  if (parts.length === 3) [h, m, s] = parts;
+  else if (parts.length === 2) [m, s] = parts;
+  else if (parts.length === 1) [s] = parts;
+  return days * 86400 + h * 3600 + m * 60 + s;
+}
+
 /**
- * @param {{pid: number, etimeSeconds: number, argv: string}} proc
+ * @param {{pid: number, etime: string, argv: string}} proc
  * @param {Map<number, number[]>} listeningPortsByPid  pid -> [ports]
  * @param {string} sessionDir
+ * @param {Set<number>} excludePids  own pid + every ancestor pid up to init
  * @returns {{match: boolean, reason?: string, port?: number}}
  */
-export function matchProcess(proc, listeningPortsByPid, sessionDir) {
+export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids = new Set()) {
+  if (excludePids.has(proc.pid)) {
+    return { match: false, reason: "excluded: own pid or ancestor of the sweep" };
+  }
+
   const argv = proc.argv;
   const ports = listeningPortsByPid.get(proc.pid) || [];
   const isNextProcess = /\bnext-server\b|\bnext\s+(start|dev)\b/.test(argv);
@@ -41,6 +74,10 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir) {
   }
 
   if (sessionDir && argv.includes(sessionDir)) {
+    const ageSeconds = parseEtimeSeconds(proc.etime);
+    if (ageSeconds < 60) {
+      return { match: false, reason: "excluded: shell younger than 60s" };
+    }
     return { match: true, reason: "shell referencing session dir" };
   }
 
@@ -90,6 +127,31 @@ function listListeningPorts() {
   return map;
 }
 
+// --- own pid + ancestor pids, up to init -------------------------------------
+
+function getPpid(pid) {
+  try {
+    const out = execFileSync("ps", ["-o", "ppid=", "-p", String(pid)], { encoding: "utf8" }).trim();
+    const ppid = Number(out);
+    return Number.isFinite(ppid) && ppid > 0 ? ppid : null;
+  } catch {
+    return null;
+  }
+}
+
+function collectSelfAndAncestors(pid) {
+  const seen = new Set([pid]);
+  let current = pid;
+  for (let i = 0; i < 200; i++) {
+    const ppid = getPpid(current);
+    if (!ppid || seen.has(ppid)) break;
+    seen.add(ppid);
+    if (ppid === 1) break; // init — stop climbing
+    current = ppid;
+  }
+  return seen;
+}
+
 // --- main --------------------------------------------------------------------
 
 function parseArgs(argv) {
@@ -105,10 +167,11 @@ function main() {
   const { sessionDir, dryRun } = parseArgs(process.argv.slice(2));
   const procs = listProcesses();
   const portsByPid = listListeningPorts();
+  const excludePids = collectSelfAndAncestors(process.pid);
 
   let any = false;
   for (const proc of procs) {
-    const result = matchProcess(proc, portsByPid, sessionDir);
+    const result = matchProcess(proc, portsByPid, sessionDir, excludePids);
     if (!result.match) continue;
     any = true;
     const action = dryRun ? "would stop" : "stopped";

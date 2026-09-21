@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { matchProcess } from "./lane-sweep.mjs";
+import { matchProcess, parseEtimeSeconds } from "./lane-sweep.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
@@ -135,4 +135,55 @@ test("lane-sweep.mjs exits 0 and prints one line per matched process", () => {
   const script = read("hooks/scripts/lane-sweep.mjs");
   assert.match(script, /process\.exit\(0\)/);
   assert.match(script, /Node built-ins only/);
+});
+
+// --- self / ancestor / age safety fences ------------------------------------
+// (the dry run first caught these: the sweep's own pid and its launching
+// shell both matched "shell referencing session dir" and would have been
+// killed on a real run)
+
+test("the sweep's own pid is excluded even though its argv matches the session dir", () => {
+  const proc = { pid: 500, etime: "00:00", argv: "node lane-sweep.mjs --session-dir /session/dir" };
+  const excludePids = new Set([500, 499, 1]);
+  const result = matchProcess(proc, new Map(), "/session/dir", excludePids);
+  assert.equal(result.match, false);
+  assert.match(result.reason, /own pid or ancestor/);
+});
+
+test("an ancestor pid (the shell that launched the sweep) is excluded", () => {
+  const proc = { pid: 499, etime: "00:00", argv: "/bin/zsh -c ... /session/dir" };
+  const excludePids = new Set([500, 499, 1]);
+  const result = matchProcess(proc, new Map(), "/session/dir", excludePids);
+  assert.equal(result.match, false);
+  assert.match(result.reason, /own pid or ancestor/);
+});
+
+test("a shell matching the session dir but younger than 60s is skipped", () => {
+  const proc = { pid: 600, etime: "00:45", argv: "/bin/zsh -c ... /session/dir" };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, false);
+  assert.match(result.reason, /younger than 60s/);
+});
+
+test("a shell matching the session dir at exactly 60s is matched (boundary)", () => {
+  const proc = { pid: 601, etime: "01:00", argv: "/bin/zsh -c ... /session/dir" };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, true);
+});
+
+test("a five-hour-old snapshot shell referencing the session dir is still swept as a real leftover", () => {
+  const proc = {
+    pid: 700,
+    etime: "05:02:08",
+    argv: "/bin/zsh -c source /Users/x/.claude/shell-snapshots/snapshot-zsh-178 && /session/dir/task",
+  };
+  const result = matchProcess(proc, new Map(), "/session/dir", new Set());
+  assert.equal(result.match, true);
+});
+
+test("parseEtimeSeconds handles mm:ss, hh:mm:ss, and dd-hh:mm:ss forms", () => {
+  assert.equal(parseEtimeSeconds("00:45"), 45);
+  assert.equal(parseEtimeSeconds("01:00"), 60);
+  assert.equal(parseEtimeSeconds("05:02:08"), 5 * 3600 + 2 * 60 + 8);
+  assert.equal(parseEtimeSeconds("1-05:02:08"), 86400 + 5 * 3600 + 2 * 60 + 8);
 });
