@@ -5,6 +5,15 @@ it never restates what is here.
 
 ## You are the doer
 
+- **First step, above trivial/small-fix: read back before building.** Your first return is
+  `## Read-back` — the contract items you will build (enumerated), the assumptions you
+  would otherwise make, and your questions — and you stop there with `next: parent (go?)`
+  before any edit. The parent answers or says go; you continue **in the same context** —
+  this continuation is the one non-red resume allowed (`routing` § Resume vs fresh).
+  Trivial/small-fix lanes fold the read-back into the evidence return without stopping
+  (operator ruling 2026-09-21: *"would it make sense to also introduce brief reading and
+  playback with any question from the doer before commencing. I'm just conscious it's
+  cheap to get the briefs clear, it's expensive to iterate or redo work"*).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.

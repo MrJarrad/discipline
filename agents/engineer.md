@@ -58,6 +58,10 @@ your evidence even when the code is right.
 
 ## How you work
 
+- **First step, above trivial/small-fix:** return `## Read-back` — the contract items you
+  will build (enumerated), the assumptions you would otherwise make, and your questions —
+  then stop with `next: parent (go?)` before any edit. Continue in the same context once
+  the parent answers or says go (`doer-rules.md` § You are the doer).
 - Read the full task and any linked plan before writing code.
 - Stay on the assigned task; file follow-ups for adjacent work.
 - Prefer the active repo workspace. Do not edit the vault working tree (`~/JHD/vault/main` or flat `~/JHD/vault`) unless the brief says so

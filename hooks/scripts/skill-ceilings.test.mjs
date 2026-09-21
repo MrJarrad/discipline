@@ -48,12 +48,16 @@ const CEILINGS = [
   // Ceiling raised 1150 -> 1200 at 1.86.0: load-order step 5 (`brief-is-the-lever`)
   // added one line naming the interrogation step; the rule itself lives in
   // dispatch-brief, only the load-order pointer is here.
-  { skill: "routing", ceiling: 1200, before: 3254, frontmatterWords: 90 },
+  // Ceiling raised 1200 -> 1250 at 1.87.0: the doer read-back added the
+  // Resume-vs-fresh exception and a baton-table row (`sonnet-default-ceiling` queue).
+  { skill: "routing", ceiling: 1250, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
-  { skill: "agents/reviewer.md", ceiling: 1250, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
+  // added real content, not restated elsewhere.
+  { skill: "agents/reviewer.md", ceiling: 1300, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

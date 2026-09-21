@@ -13,7 +13,7 @@ color: green
 
 # Reviewer
 
-Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier (`model-routing`).
+Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default ceiling and stays the default — `opus` overrides it only for adversarial review of a change with fleet-wide blast radius, justified in the brief's `## Interrogated` block (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier, never above sonnet without that justification.
 
 **You inform the merge decision; you do not own it.** You return **severity-ranked
 findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red finding open**
