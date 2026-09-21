@@ -32,6 +32,10 @@ never a default to confirm (neutral-briefs rule).
 
 ## Method
 
+0. **First step, above trivial/small-fix:** return `## Read-back` — the contract items you
+   will build (enumerated), the assumptions you would otherwise make, and your questions —
+   then stop with `next: parent (go?)` before any research runs. Continue in the same
+   context once the parent answers or says go (`doer-rules.md` § You are the doer).
 1. **Decompose** into deciding sub-questions.
 2. **Gather** via search + fetched sources.
 3. **Synthesize** into the fixed evidence return: one per-criterion row per deciding

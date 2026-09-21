@@ -17,6 +17,9 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 5. Is done-when measurable at the operator's framing?
 6. Is there exactly one contract unit?
 7. Which named skills are missing for the domain?
+8. Model above sonnet: is the justification written, and does it name one of the two
+   cases (`model-routing`: adversarial review of a change with fleet-wide blast radius, or
+   novel architecture with no contract to point at)?
 
 ## Who runs it
 
@@ -26,7 +29,7 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 Template:
 
 ```
-Read <brief path/pasted brief> and its pointers only, as the doer would. Answer the seven
+Read <brief path/pasted brief> and its pointers only, as the doer would. Answer the eight
 questions in `dispatch-brief/references/INTERROGATE.md` § The fixed question set. Findings
 only, one line each, no fixes.
 ```

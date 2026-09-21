@@ -35,28 +35,40 @@ flowchart TD
 
 ## Claude model map (defaults by cell)
 
+**`sonnet` is the default ceiling for every dispatched doer, of every job shape.** `haiku`
+covers mechanical work. `opus` requires a written justification in the brief's
+`## Interrogated` block naming which of the two named cases below applies — operator
+ruling 2026-09-21 (`sonnet-default-ceiling`): *"if there are types of work generally that
+models perform best at and whether the right brief would mean sonnet should be absolutely
+fine for most of the type of work we are currently doing across all sessions and projects.
+should sonnet be the highest default?"* → *"Yes"*. No cell below defaults to opus outside
+the two named cases.
+
 | Cell | Default pick |
 |---|---|
 | Trivial / mechanical | `haiku` |
 | Standard implement / fix / tests / most PR work | `sonnet` — **one contract unit per lane, always** (one export `COMPONENT_SET`, one captured page, one component): a brief covering more than one is **malformed at any model**, never a reason to escalate to `opus` (`dispatch-brief`) |
 | Design/UX **implementation** against a locked Figma/spec | `sonnet` |
-| Design/UX **taste / visual judgment** (no locked answer) | `opus` — justify |
+| Design/UX **taste / visual judgment** (no locked answer) | `sonnet` — grill for the lock instead of buying judgment with a bigger model; escalate only when the lane also meets one of the two opus cases below |
 | Research / competitive / cited facts | `sonnet` with tool access and a cited-retrieval evidence contract — never a "cheaper because cheaper" downgrade to haiku |
-| Hard architecture / high blast radius | `opus` — justify |
-| Adversarial review / refute | one tier **stronger than the implementer**: `opus` reviews a sonnet build; a sonnet build of trivial scope may take a sonnet reviewer, never weaker |
+| Architecture / orchestration | `sonnet` by default; `opus` only for **novel architecture with no contract to point at** — justify in `## Interrogated` naming this case |
+| Adversarial review / refute | `sonnet`, at or above the implementer's tier; `opus` only for **adversarial review of a change with fleet-wide blast radius** — justify in `## Interrogated` naming this case; a sonnet build of trivial scope still takes a sonnet reviewer, never weaker |
 | Orchestration / parent synthesis | stays on the operator-chosen parent session — do **not** dispatch the top tier (fable/mythos) as a child |
 
-Persona agent files keep persona defaults (mostly sonnet); **dispatch-time routing
+Persona agent files keep persona defaults (sonnet, the ceiling); **dispatch-time routing
 overrides** when this tree says otherwise. Announce `"Persona (model): …"` with the
 **actual** chosen model.
 
-**Adversarial review:** **DO** put the reviewer at or above the implementer's tier;
-**DON'T** spend opus on every routine review — opus reviews when the implementer was
-already strong or the blast radius is high.
+**Adversarial review:** **DO** put the reviewer at or above the implementer's tier, which
+is `sonnet` by default; **DON'T** spend opus on a routine review — opus is limited to the
+fleet-blast-radius case above, justified in the brief.
 
 ## Escalation rule
 
-- Use a stronger model **from the start** when the cell requires it (adversarial judge, novel high-blast-radius architecture).
+- `opus` is used **from the start** only for the **two named cases**: adversarial review of
+  a change with fleet-wide blast radius, or novel architecture with no contract to point at —
+  each requires a written justification in the brief's `## Interrogated` block naming which
+  case applies. Every other cell starts at `sonnet` (mechanical work starts at `haiku`).
 - Otherwise escalate only after a cheaper model **demonstrably failed** on this task **and the brief passed the dispatch-brief interrogation** (`dispatch-brief` § Interrogate the brief). A failed lane on an un-interrogated brief is a brief defect, not a model defect — fix the brief and re-run the same tier before escalating. Record the failure in the brief ("sonnet run X produced Y, wrong because Z").
 - "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
 - **A wide brief is never an escalation.** Slice it into one-contract-unit lanes; the strongest model still misses what the brief never enumerated (operator ruling 2026-09-20, `accuracy-before-the-link`: *"You also used open on this task and outcome was sloppy"*).
@@ -66,7 +78,7 @@ already strong or the blast radius is high.
 ```
 [ ] model set explicitly on the dispatch (never inherited)
 [ ] job shape + complexity classified; pick from the Claude map above
-[ ] if above sonnet / haiku: one-line justification (cell requires it, or cheaper model failed)
+[ ] sonnet is the default ceiling; if above sonnet: written justification in `## Interrogated` naming one of the two cases (fleet-blast-radius adversarial review, or novel architecture with no contract)
 [ ] effort tier from the brief (routine | contested | high-stakes) mapped to model + thinking budget
 ```
 

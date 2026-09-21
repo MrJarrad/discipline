@@ -216,10 +216,12 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
 // Ceiling raised 900 -> 1000 and count raised 8 -> 11 at 1.84.0:
 // `brief-carries-operator-words-2026-09-18` added the one-rule paragraph and
 // three checklist items (sourced/knobbed, no-mechanism, parent-marked).
+// Ceiling raised 1100 -> 1200 at 1.87.0: `sonnet-default-ceiling` and the doer
+// read-back each added real content (Persona + model paragraph, done-when line).
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
+  assert.ok(count <= 1200, `dispatch-brief is ${count} words; the ceiling is 1200`);
 });
 
 test("the fourteen-item list gates the contract pointer, skill-names-only, and done-when", () => {

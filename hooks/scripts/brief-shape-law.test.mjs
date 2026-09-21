@@ -26,9 +26,12 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // 1.86.0: `brief-is-the-lever` added the Interrogate the brief pointer and the
 // `## Interrogated` field, offloaded to references/INTERROGATE.md — the
 // ceiling stayed at 1100, the growth paid for by trims elsewhere in the file.
-test("the dispatch-brief skill stays under its 1100-word ceiling", () => {
+// Ceiling raised 1100 -> 1200 at 1.87.0: two operator rulings landed together —
+// `sonnet-default-ceiling` (Persona + model paragraph) and the doer read-back
+// (done-when addition) — real growth, not paid for by trims this round.
+test("the dispatch-brief skill stays under its 1200-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1100, `dispatch-brief is ${count} words; the ceiling is 1100`);
+  assert.ok(count <= 1200, `dispatch-brief is ${count} words; the ceiling is 1200`);
 });
 
 test("the scenario table has exactly eight rows", () => {

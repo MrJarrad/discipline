@@ -43,13 +43,17 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 
 ## Resume vs fresh (read before any baton row)
 
-**Resume only to fix a red on the same sha** — red findings only. **Everything else is a
+**Resume only to fix a red on the same sha, or to continue after a doer read-back** — those
+are the only two non-fresh continuations. A doer read-back stops the same agent inline; the
+parent's answer/go continues it **in the same context**, not a new `Agent` call
+(`doer-rules.md` § You are the doer). **Everything else is a
 fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/HARD-RULES.md).
 
 ## Baton handoff table
 
 | Just finished | Next owner (on the completion notification) |
 |---|---|
+| **Doer read-back returned** | **Parent** answers or says go — same agent, same context, continues |
 | Engineer landed, **UI change** | **Operator** — preview link; reviewer after the yes |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
 | Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
