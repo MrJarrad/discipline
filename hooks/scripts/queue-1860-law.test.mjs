@@ -3,7 +3,7 @@
 // information wouldn't be easy enough for cheaper models" + the refinement asking for
 // "a review of the brief before it's finalised ... to interrogate a brief before it's
 // picked up by an agent"). Brief interrogation: a fixed question set, run by a cheap
-// read-only agent (or the parent inline for trivial/small-fix) before any non-trivial
+// read-only agent (or the parent inline for line) before any non-trivial
 // dispatch, findings fix the brief, and model escalation after a failed lane requires
 // the brief already passed interrogation. One test per surface row, asserting the
 // rule's own sentence at its own home so a later edit that softens or drops one fails

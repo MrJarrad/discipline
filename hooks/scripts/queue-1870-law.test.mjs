@@ -14,7 +14,7 @@
 // (2) doer read-back (2026-09-21) — "would it make sense to also introduce brief
 // reading and playback with any question from the doer before commencing. I'm just
 // conscious it's cheap to get the briefs clear, it's expensive to iterate or redo
-// work." Every lane above trivial/small-fix returns `## Read-back` and stops at
+// work." Every lane above line returns `## Read-back` and stops at
 // `next: parent (go?)` before any edit; the parent's answer/go continues the same
 // agent in the same context — the one non-red resume allowed.
 //
@@ -123,7 +123,7 @@ test("each doer agent file names the read-back as its first step", () => {
     const doc = flat(read(file));
     assert.match(
       doc,
-      /First step, above trivial\/small-fix.*`## Read-back`/,
+      /First step, above line.*`## Read-back`/,
       `${file} missing the read-back first step`,
     );
     assert.match(doc, /next: parent \(go\?\)/, `${file} missing the stop condition`);

@@ -2,7 +2,7 @@
 
 Operator ruling 2026-09-20, `brief-is-the-lever`: *"there's generally nothing that complex
 about frontend work that the right and accurate brief... wouldn't be easy enough for cheaper
-models."* The lever is the brief, not the model. Before any dispatch above trivial/small-fix,
+models."* The lever is the brief, not the model. Before any dispatch above line,
 the brief is read as the doer would — pointers followed, nothing assumed — and answered
 against a fixed set. Findings fix the brief; only then does the lane open.
 
@@ -25,8 +25,8 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 
 ## Who runs it
 
-**Above trivial/small-fix:** a read-only `haiku` agent, findings only, never `Agent`s further.
-**Trivial/small-fix:** the parent, inline.
+**Above line:** a read-only `haiku` agent, findings only, never `Agent`s further.
+**line:** the parent, inline.
 
 Template:
 

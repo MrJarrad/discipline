@@ -192,3 +192,68 @@ test("qa-acceptance states ledger depth follows size class and line is one row",
   );
   carries("skills/qa-acceptance/SKILL.md", "**line** — one row, no ledger");
 });
+
+// --- R2 fix round: "trivial/small-fix" retired repo-wide -------------------
+
+test("the retired term \"trivial/small-fix\" is absent from every live doc (CHANGED.txt history exempt)", () => {
+  const files = [
+    "doer-rules.md",
+    "agents/engineer.md",
+    "agents/researcher.md",
+    "agents/ux-designer.md",
+    "agents/reviewer.md",
+    "skills/dispatch-brief/SKILL.md",
+    "skills/dispatch-brief/references/INTERROGATE.md",
+    "skills/routing/SKILL.md",
+    "skills/present-for-review/SKILL.md",
+    "skills/qa-acceptance/SKILL.md",
+    "hooks/scripts/queue-1860-law.test.mjs",
+    "hooks/scripts/queue-1870-law.test.mjs",
+  ];
+  for (const file of files) {
+    assert.doesNotMatch(
+      read(file),
+      /trivial\/small-fix/,
+      `${file} still carries the retired term "trivial/small-fix"`,
+    );
+  }
+});
+
+test("agents/engineer.md, researcher.md, ux-designer.md name line as the first-step threshold", () => {
+  carries("agents/engineer.md", "First step, above line:** return `## Read-back`");
+  carries("agents/researcher.md", "First step, above line:** return `## Read-back`");
+  carries("agents/ux-designer.md", "First step, above line:** return `## Read-back`");
+});
+
+test("dispatch-brief and INTERROGATE.md name line, not trivial/small-fix, at the interrogation gate", () => {
+  carries(
+    "skills/dispatch-brief/SKILL.md",
+    "Above line, the brief is read as the doer would and answered against a fixed",
+  );
+  carries(
+    "skills/dispatch-brief/references/INTERROGATE.md",
+    "Before any dispatch above line,",
+  );
+  carries(
+    "skills/dispatch-brief/references/INTERROGATE.md",
+    "**Above line:** a read-only `haiku` agent, findings only, never `Agent`s further.",
+  );
+});
+
+// --- R2 fix round: component/system both keep read-back + progress file ----
+
+test("doer-rules.md states component and system both keep the read-back stop and the progress file", () => {
+  carries(
+    "doer-rules.md",
+    "**component and system both keep the read-back stop and\nthe progress file** — line is the only class exempt from either.",
+  );
+});
+
+// --- R2 fix round: standalone component lane upload timing -----------------
+
+test("doer-rules.md states a standalone component lane uploads at done, unless the brief names a batch", () => {
+  carries(
+    "doer-rules.md",
+    "A standalone component lane uploads at done, unless the brief names a batch",
+  );
+});

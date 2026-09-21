@@ -22,8 +22,7 @@ it never restates what is here.
   replaces the fixed evidence return below. **No new milestone for 30 minutes** → the
   parent stops the lane and re-briefs a fresh agent from the last recorded milestone
   (operator ruling 2026-09-21, `lane-progress-file`: *"can we update discipline so
-  progress isn't so blind?"*). **line lanes keep no progress file** (§ Size class below —
-  the same class that was "trivial/small-fix" before `proportionality`).
+  progress isn't so blind?"*). **line lanes keep no progress file** (§ Size class below).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.
@@ -54,7 +53,12 @@ issues"* → *"that sounds good"*).
 
 **line**: read the one file, change it, run only the tests that cover it, commit — no build,
 no upload, no screenshots, no ledger beyond the one row; no read-back stop and no progress
-file (§ You are the doer above).
+file (§ You are the doer above). **component and system both keep the read-back stop and
+the progress file** — line is the only class exempt from either.
+
+**A standalone component lane uploads at done, unless the brief names a batch** — "one
+upload per batch of lanes, not per lane" scopes the batch case; a lane dispatched alone
+uploads its own screenshots when it lands.
 
 **Full test suite, production build and deploy checks run once per PR in CI**, never inside
 each lane. **Verification inside a lane is one deterministic repro plus three reps**; a

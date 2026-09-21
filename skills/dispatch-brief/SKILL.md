@@ -21,9 +21,9 @@ and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
 
 ## Interrogate the brief
 
-Above trivial/small-fix, the brief is read as the doer would and answered against a fixed
+Above line, the brief is read as the doer would and answered against a fixed
 set; findings fix the brief. Run by a read-only `haiku` agent, or the parent inline for
-trivial/small-fix: [INTERROGATE.md](references/INTERROGATE.md).
+line: [INTERROGATE.md](references/INTERROGATE.md).
 
 ## Pick the contract
 
