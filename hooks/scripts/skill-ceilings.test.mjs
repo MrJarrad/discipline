@@ -61,7 +61,9 @@ const CEILINGS = [
   // added real content, not restated elsewhere.
   // Ceiling raised 1300 -> 1350 at 1.89.0: the progress-file line moved to its
   // own first-step bullet (`proportionality`, riding amber).
-  { skill: "agents/reviewer.md", ceiling: 1350, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1350 -> 1400 at 1.91.0: the stratified-spot-check-across-
+  // classes rule and the absence-rows-re-proven-by-grep line (`eight-class-ledger`).
+  { skill: "agents/reviewer.md", ceiling: 1400, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

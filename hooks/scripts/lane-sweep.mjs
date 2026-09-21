@@ -24,8 +24,16 @@
 
    Usage:
      node lane-sweep.mjs --session-dir <path> [--dry-run]
+     node lane-sweep.mjs --worktrees <repo> [--dry-run]
+
+   `--worktrees <repo>` mode (ruling `eight-class-ledger` / lesson
+   `never-remove-a-worktree-by-pattern`, 2026-09-21): lists worktrees under
+   `<repo>/worktrees/` whose branch is merged into `origin/main` and removes
+   only those. Refuses any path outside `worktrees/` — `main` (and any
+   release clone or mirror) can never be a target, whatever its branch name.
 */
 import { execFileSync } from "node:child_process";
+import { resolve, sep } from "node:path";
 
 // --- pure matcher: testable with a fake process/port table -----------------
 
@@ -199,19 +207,121 @@ function collectSelfAndAncestors(pid) {
   return seen;
 }
 
+// --- worktree mode (ruling `eight-class-ledger` / lesson
+// `never-remove-a-worktree-by-pattern`, 2026-09-21): lists worktrees under
+// `<repo>/worktrees/` whose branch is merged into origin/main and removes
+// only those. Refuses any path outside `worktrees/` and refuses `main` (by
+// path or by branch name) explicitly — never a grep/pattern sweep. ------------
+
+/**
+ * @param {string} repo  absolute repo root (the dir holding `.bare`/`main`/`worktrees`)
+ * @param {{path: string, branch: string|null}[]} worktrees  from `git worktree list`
+ * @param {string[]} mergedBranches  branch names merged into origin/main
+ * @returns {{path: string, branch: string, reason: string}[]}  worktrees safe to remove
+ */
+export function worktreesToRemove(repo, worktrees, mergedBranches) {
+  const merged = new Set(mergedBranches);
+  const worktreesDir = resolve(repo, "worktrees") + sep;
+  const out = [];
+  for (const wt of worktrees) {
+    const path = resolve(wt.path);
+    if (!path.startsWith(worktreesDir)) {
+      // Refused: not under worktrees/ — this covers `main`, `.bare`, and any
+      // release-* or mirror clone sitting alongside worktrees/.
+      continue;
+    }
+    if (!wt.branch || wt.branch === "main") {
+      // Refused: no branch resolved, or (defensively) named `main` even
+      // though a `main`-named worktree can never live under worktrees/.
+      continue;
+    }
+    if (!merged.has(wt.branch)) continue;
+    out.push({ path: wt.path, branch: wt.branch, reason: `merged into origin/main` });
+  }
+  return out;
+}
+
+/** Parse `git worktree list --porcelain` output into {path, branch}[]. */
+export function parseWorktreePorcelain(text) {
+  const entries = [];
+  let current = null;
+  for (const line of text.split("\n")) {
+    if (line.startsWith("worktree ")) {
+      if (current) entries.push(current);
+      current = { path: line.slice("worktree ".length).trim(), branch: null };
+    } else if (line.startsWith("branch ") && current) {
+      // "branch refs/heads/<name>"
+      current.branch = line.slice("branch ".length).trim().replace(/^refs\/heads\//, "");
+    }
+  }
+  if (current) entries.push(current);
+  return entries;
+}
+
+function listWorktreesReal(repo) {
+  const out = execFileSync("git", ["-C", repo, "worktree", "list", "--porcelain"], {
+    encoding: "utf8",
+  });
+  return parseWorktreePorcelain(out);
+}
+
+function listMergedBranchesReal(repo) {
+  let out;
+  try {
+    out = execFileSync(
+      "git",
+      ["-C", repo, "branch", "--format=%(refname:short)", "--merged", "origin/main"],
+      { encoding: "utf8" },
+    );
+  } catch {
+    return [];
+  }
+  return out
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+function runWorktreeSweep(repo, dryRun) {
+  const worktrees = listWorktreesReal(repo);
+  const merged = listMergedBranchesReal(repo);
+  const targets = worktreesToRemove(repo, worktrees, merged);
+  if (targets.length === 0) {
+    console.log("lane-sweep --worktrees: nothing to remove");
+    process.exit(0);
+  }
+  for (const t of targets) {
+    const action = dryRun ? "would remove" : "removed";
+    console.log(`worktree=${t.path} branch=${t.branch} reason="${t.reason}" action=${action}`);
+    if (!dryRun) {
+      try {
+        execFileSync("git", ["-C", repo, "worktree", "remove", t.path]);
+      } catch (err) {
+        console.log(`worktree=${t.path} action=failed error="${err.message}"`);
+      }
+    }
+  }
+  process.exit(0);
+}
+
 // --- main --------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = { sessionDir: null, dryRun: false };
+  const args = { sessionDir: null, dryRun: false, worktreesRepo: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--session-dir") args.sessionDir = argv[++i];
     else if (argv[i] === "--dry-run") args.dryRun = true;
+    else if (argv[i] === "--worktrees") args.worktreesRepo = argv[++i];
   }
   return args;
 }
 
 function main() {
-  const { sessionDir, dryRun } = parseArgs(process.argv.slice(2));
+  const { sessionDir, dryRun, worktreesRepo } = parseArgs(process.argv.slice(2));
+  if (worktreesRepo) {
+    runWorktreeSweep(resolve(worktreesRepo), dryRun);
+    return;
+  }
   const procs = listProcesses();
   const portsByPid = listListeningPorts();
   const excludePids = collectSelfAndAncestors(process.pid);

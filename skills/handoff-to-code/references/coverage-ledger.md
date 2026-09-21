@@ -30,6 +30,34 @@ rebuild shipped a feed that was never compared to the export, three times
 - **`measured value` is measured, from the built page.** A value copied out of your own source
   is not a measurement.
 
+## 1a. The eight row classes, specialised for an export
+
+`qa-acceptance` § The coverage ledger names eight row classes every ledger carries, each
+present or marked "none in scope." Under a Design Handoff export pair:
+
+1. **Geometry and placement** — per device, from the export's device components/variants.
+2. **Tokens** — per mode, with the `mode` column filled from the export's `modes[]` (light/
+   dark/bttf); a token row collapsed to one mode is red even where that mode measures right.
+3. **Copy** — every text string in the block export **and** its layout examples, export vs
+   built, **per route** — a string that only appears in an example frame (a page-specific
+   Title/Description) gets its own row keyed to the route that renders it, not folded into
+   the component's generic row.
+4. **Links and targets** — every `href`, `mailto:`, and clipboard payload named in an
+   Interaction note (e.g. "copies email address to clipboard") or an instance prop.
+5. **States, variants and prototype flows** — per instance: every `props()` combination the
+   export or its examples exercise, plus any prototype/interactive-state note.
+6. **Behaviour annotations** — **one row per Interaction/Development note**, verbatim from
+   the export, each with the test or probe that proves it (scroll-fade, motion-law-on-reload,
+   max-visible-count, clipboard-copy, etc.) — a note with no proving row is unreached, not met.
+7. **Semantics and a11y hints** — the `~semantic(<tag>)` markers and any accessibility note,
+   checked against the built markup's actual element.
+8. **Absence** — every lock row the new export **retires**, plus every node id present in the
+   prior export and **absent** in the new one, sourced from the changelog (the export's own
+   structural/content diff, or a delta note like `design-handoff-*-delta.md`) — each proven
+   **not present** in the built page by test or grep, never left as "should be gone."
+
+A class with nothing in scope for this lane still gets its line: `<class> — none in scope`.
+
 ## 2. Variance never collapses into one literal
 
 **Where the export states a different value per device, per page or per state, the ledger
