@@ -71,7 +71,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
-| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-sweep.mjs --session-dir …` on the completion notification — the lane stopped only its own pids (`doer-rules.md` § Size class) |
+| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, evidence commit + push, PR CI read, one deterministic call (`spend-levers` rule 5, 2026-09-22) |
 
 ## Rung ladder (name the rung before dispatch)
 

@@ -9,7 +9,7 @@
    remembered to check them. This gate reads the dispatch before it launches
    and denies it with the failing item named.
 
-   Five checks, in order, first failure reported:
+   Six checks, in order, first failure reported:
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -37,6 +37,13 @@
       `--custom-prop`, a `name()` call, an easing/`cubic-bezier`, a file
       path) in that cell can only have been authored by the parent, which is
       the exact malformed-brief shape the ruling forbids.
+
+   6. LINE BRIEFS NEVER ASK FOR A READ-BACK — a `Size: line` brief that also
+      instructs a `## Read-back` return or a `next: parent (go?)` stop is
+      refused; `spend-levers` rule 1 (2026-09-22 operator ruling on spend:
+      "Read-back only above line") makes the read-back stop a component/system
+      thing only, and a line brief asking for one anyway is the malformed
+      shape the ruling exists to stop.
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
@@ -172,6 +179,25 @@ export function checkSkillsNamed(prompt) {
   };
 }
 
+// A line brief instructing a read-back stop — `spend-levers` rule 1.
+const LINE_SIZE = /Size:\s*line\b/i;
+const READBACK_ASK = /##\s*Read-back|next:\s*parent\s*\(go\?\)/i;
+
+/* Returns null when a `Size: line` brief carries no read-back-stop
+   instruction, else { item, reason } — `spend-levers` rule 1, 2026-09-22. */
+export function checkLineNoReadBack(prompt) {
+  if (!LINE_SIZE.test(prompt)) return null;
+  if (!READBACK_ASK.test(prompt)) return null;
+  return {
+    item: "line-readback",
+    reason:
+      `Dispatch blocked — line-readback: this is a \`Size: line\` brief but it asks for a ` +
+      `\`## Read-back\` return or a \`next: parent (go?)\` stop. Read-back stops are for ` +
+      `component/system lanes only — a line lane never stops for one (\`doer-rules.md\` ` +
+      `§ Size class, operator ruling 2026-09-22, \`spend-levers\` rule 1).`,
+  };
+}
+
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
    law so the caller can name it without re-deriving it from the prose. */
 export function checkAgentDispatch(toolInput = {}) {
@@ -222,6 +248,9 @@ export function checkAgentDispatch(toolInput = {}) {
 
   const lockRowsVerdict = checkSourceContractLockRows(prompt);
   if (lockRowsVerdict) return { ok: false, ...lockRowsVerdict };
+
+  const lineReadBackVerdict = checkLineNoReadBack(prompt);
+  if (lineReadBackVerdict) return { ok: false, ...lineReadBackVerdict };
 
   return { ok: true };
 }
