@@ -14,15 +14,19 @@ it never restates what is here.
   class below; operator ruling 2026-09-21: *"would it make sense to also introduce brief
   reading and playback with any question from the doer before commencing. I'm just
   conscious it's cheap to get the briefs clear, it's expensive to iterate or redo work"*).
-- **Progress is a file, not a stop.** Above line, keep a progress file at the path the
-  brief names (default `<lane evidence dir>/progress.md` in the vault). Append one
-  timestamped line at each fixed milestone as you reach it — never batch them at the end:
-  `read-back returned` · `red test written` · `cause found` · `green` · `gates green` ·
-  `uploaded/pushed`. The parent reads this file on any operator status ask; it never
-  replaces the fixed evidence return below. **No new milestone for 30 minutes** → the
-  parent stops the lane and re-briefs a fresh agent from the last recorded milestone
-  (operator ruling 2026-09-21, `lane-progress-file`: *"can we update discipline so
-  progress isn't so blind?"*). **line lanes keep no progress file** (§ Size class below).
+- **Progress is a file, with a clock.** Above line, keep a progress file at the path the
+  brief names (default `<lane evidence dir>/progress.md` in the vault). **Its first line
+  stamps the dispatch time.** Append one timestamped line at each fixed milestone as you
+  reach it — never batch them at the end: `read-back returned` · `red test written` ·
+  `cause found` · `green` · `gates green` · `uploaded/pushed`. The parent reads this file
+  on any operator status ask, quoting the dispatch time against the last milestone rather
+  than guessing an ETA; it never replaces the fixed evidence return below. **No new
+  milestone for 15 minutes** → the parent reads the worktree diff directly (a silent doer
+  can still be working); **no new milestone for 30 minutes** → the parent stops the lane
+  and re-briefs a fresh agent from the last recorded milestone (operator ruling 2026-09-21,
+  `lane-progress-file`: *"can we update discipline so progress isn't so blind?"*; sharpened
+  2026-09-22 after an ETA read "five minutes ago" against an actual 28-minute-old dispatch
+  with no progress line). **line lanes keep no progress file** (§ Size class below).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.
@@ -38,6 +42,11 @@ it never restates what is here.
 - **No `until`/`while … sleep` polling loops and no detached shells inside a lane** — wait
   with a foreground command and a timeout (operator ruling 2026-09-21, `lane-end-sweep`:
   orphaned wait-loops up to two days old and six leftover servers found at wrap).
+- **A prior slice's claim is reproduced on the running build, never verified by reading the
+  code.** `## State (untrusted draft; verify)` (`dispatch-brief`) is read as a claim to
+  disprove, not a fact to build on — quote what you actually saw run in the read-back, not
+  what the diff appears to do (2026-09-22: "description swap already wired" was true in the
+  diff and false on screen).
 
 ## Size class
 
@@ -104,6 +113,12 @@ stop only their own pids** — the parent sweeps verification servers at every l
   with the timeout set to the suite's length. **Never two full suites at once on one machine** —
   stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`):
   it renders, returns, and the suite runs once at bake, after the operator's pick.
+- **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
+  shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
+  disown` both die with the tool shell that spawned them. A long suite (25–60 min, tens of
+  gates) is dispatched as its own gate-run lane that detaches and polls with a bounded wait,
+  never run inline from the session issuing the dispatch. Do not kill a slow gate for
+  idle-looking CPU samples — only its own exit code is red (hoverboard rounds 14–15, item 3).
 - **Never kill, restart, or reuse a process or port you did not start** — a running server,
   watcher, or background job belongs to whoever launched it; the same rule the Ports
   section applies to servers extends to every process.
@@ -154,6 +169,14 @@ running build** (or the relaunch/re-run instruction), not renders. Build no scre
 harness, row scan, or pixel diff to prove look. Agent measurement is reserved for what the
 operator cannot see by looking: geometry against a lock row, token binding, stacking/blend
 physics, gates (operator, 2026-09-16).
+
+**A load/timing number counts only on the deployed link and the operator's device.** A local
+`vite preview` (or equivalent) reading, or a throttle-predicted number, is not the claim —
+report the deployed URL's own reading (or `wrangler dev` of the same dist with the same
+headers), and a phone/device claim is unproven until the operator's own device readout says
+so; ship a `?diag=1`-style readout early rather than a predicted number last (hoverboard
+rounds 14–15, item 1: three wrong numbers — local, deployed, throttle-predicted — reached the
+operator before one right one).
 
 Operator-facing status vocabulary — see `output-styles/discipline.md` § Status is done or
 not done.

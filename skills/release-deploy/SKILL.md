@@ -93,6 +93,16 @@ Every flag-gated deploy runs the checklist in
 tick each line with its evidence (command output, dashboard link, flag state), and attach it as the
 release's work product. An unticked checklist is not a release — it's a plan.
 
+## Deploy commands stand alone (Change 6, 2026-09-22)
+
+**A promote/deploy verb (`wrangler versions deploy`, `wrangler rollback`, `npm publish`, and
+their siblings) runs as its own standalone Bash call from the parent, under the global hard
+allow — never chained after a merge, and never named as a verb inside a dispatch brief.** A
+brief that needs a preview built says "run the repo's preview upload script," never "then
+deploy it." Two denials on record: a classifier refused the promote twice when it was chained
+after a merge command or named literally in a brief, and refused a settings edit offered as a
+workaround — the fix is the standalone call, never a permissions change to route around it.
+
 ## Guard: never touch settings or permissions
 
 A deploy blocked by a permission rule is a **finding**, not an obstacle to route around.

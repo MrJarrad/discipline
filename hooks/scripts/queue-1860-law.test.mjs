@@ -61,11 +61,11 @@ test("dispatch-brief points at INTERROGATE.md and requires the `## Interrogated`
   assert.match(raw, /^\[ \] Brief interrogated \(or inline, clear\); `## Interrogated` recorded$/m);
 });
 
-test("dispatch-brief's checklist is sixteen items (raised 15 -> 16 at 1.89.0, `proportionality`)", () => {
+test("dispatch-brief's checklist is eighteen items (raised 16 -> 18 at 1.92.0, Change 1 additions)", () => {
   const brief = read("skills/dispatch-brief/SKILL.md");
   const list = brief.slice(brief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
+  assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18`);
 });
 
 // --- model-routing: escalation precondition ---------------------------------

@@ -52,7 +52,10 @@ const CEILINGS = [
   // Resume-vs-fresh exception and a baton-table row (`sonnet-default-ceiling` queue).
   // Ceiling raised 1250 -> 1350 at 1.89.0: `proportionality` added the
   // CI-once/parent-sweep hard rule and a baton-table row.
-  { skill: "routing", ceiling: 1350, before: 3254, frontmatterWords: 90 },
+  // Ceiling raised 1350 -> 1400 at 1.92.0: `lane-progress-file` sharpened
+  // (Change 4) added a 15-minute baton-table row alongside the existing
+  // 30-minute one.
+  { skill: "routing", ceiling: 1400, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
@@ -63,7 +66,9 @@ const CEILINGS = [
   // own first-step bullet (`proportionality`, riding amber).
   // Ceiling raised 1350 -> 1400 at 1.91.0: the stratified-spot-check-across-
   // classes rule and the absence-rows-re-proven-by-grep line (`eight-class-ledger`).
-  { skill: "agents/reviewer.md", ceiling: 1400, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1400 -> 1450 at 1.92.0: Change 2 added the ledger-vs-export-
+  // JSON-node-list check line.
+  { skill: "agents/reviewer.md", ceiling: 1450, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

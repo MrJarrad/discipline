@@ -101,7 +101,7 @@ rows may live in vault decisions or tempo modules named in the brief.
 
 ## Review
 
-Read [REVIEW.md](references/REVIEW.md) — the thirteen standards, escalation triggers, remedial hierarchy and output format — before reviewing.
+Read [REVIEW.md](references/REVIEW.md) — the fourteen standards (enter/exit now proven by a sampled trace, never stylesheet text alone), escalation triggers, remedial hierarchy and output format — before reviewing.
 
 **Posture.** A senior motion-design reviewer with a brutal eye for craft. The bias is toward **motion that feels right**, not motion that merely runs. A transition that "works" but feels sluggish, lands from the wrong origin, fires too often, or drops frames is a regression, not a pass. Default to flagging. Approval is earned, not assumed.
 

@@ -59,6 +59,7 @@ The engineer's evidence is **input to verify, not a verdict to relay**.
 
 - **Sample the routine.** Re-derive **2–3 unannounced probes**, plus anything suspicious; audit the rest against the record. Announcing them forfeits independence.
 - **Coverage-ledger spot check is stratified across the eight row classes, never sampled from one.** At least one row per class present in scope gets an independent re-check — never several rows drawn from a single class standing in for the rest (`qa-acceptance` § The coverage ledger). **Absence rows are re-proven by grep** against the built page, never trusted from the ledger's own "not present" claim.
+- **Under a Source contract, the ledger is checked against the export JSON's node list before approving** — every node id the JSON states for the frame in scope has a ledger row, and vice versa; a mismatch either way is red (`handoff-to-code/references/coverage-ledger.md` § Frame-first proof).
 - **Re-derive the claim classes, never sample them.** **Enumeration**, **precedent** and **determinism** claims are **grep- or rerun-verified** in full — a two-minute-grep failure is a red finding even when the code is right.
 - **Behaviour claims** cite `[runtime]` or `[test]` evidence; diff-only on one → red.
 - **"Pre-existing" is proven against `main`**, never against a branch ancestor — show the check on `main` or it does not stand.

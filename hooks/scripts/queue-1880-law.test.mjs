@@ -42,7 +42,8 @@ const carries = (file, sentence) =>
 
 test("doer-rules.md § You are the doer states the progress file, default path, and the six milestones", () => {
   const dr = flat(read("doer-rules.md"));
-  assert.match(dr, /Progress is a file, not a stop/);
+  // 1.92.0 Change 4: "Progress is a file, not a stop" -> "Progress is a file, with a clock".
+  assert.match(dr, /Progress is a file, with a clock/);
   assert.match(dr, /`<lane evidence dir>\/progress\.md`/);
   assert.match(dr, /read-back returned.*red test written.*cause found.*green.*gates green.*uploaded\/pushed/);
   assert.match(dr, /never replaces the fixed evidence return/);
@@ -51,13 +52,15 @@ test("doer-rules.md § You are the doer states the progress file, default path, 
 test("doer-rules.md places the progress-file rule after the read-back step", () => {
   const dr = read("doer-rules.md");
   const readBackIdx = dr.indexOf("read back before building");
-  const progressIdx = dr.indexOf("Progress is a file, not a stop");
+  const progressIdx = dr.indexOf("Progress is a file, with a clock");
   assert.ok(readBackIdx !== -1 && progressIdx !== -1, "both clauses present");
   assert.ok(progressIdx > readBackIdx, "progress-file rule must follow the read-back step");
 });
 
 test("doer-rules.md states the 30-minute no-milestone cap", () => {
-  carries("doer-rules.md", "No new milestone for 30 minutes");
+  // 1.92.0 Change 4: sharpened into a two-stage clock (15-minute worktree
+  // read, 30-minute stop); the 30-minute phrase now sits mid-sentence.
+  carries("doer-rules.md", "no new milestone for 30 minutes");
   carries("doer-rules.md", "the parent stops the lane and re-briefs a fresh agent from the last recorded milestone");
 });
 

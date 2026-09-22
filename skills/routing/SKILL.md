@@ -43,7 +43,9 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 13. **CI runs the full suite/build once per PR, never inside each lane** — a lane's own gates
     are only the touched ones its size class names (`doer-rules.md` § Size class). **The
     parent runs `lane-sweep.mjs` on every completion notification**; a lane stops only its
-    own pids.
+    own pids. **A full suite over the Bash tool's foreground timeout is its own gate-run
+    lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` §
+    Repo and safety; hoverboard rounds 14–15, item 3).
 
 ## Resume vs fresh (read before any baton row)
 
@@ -67,6 +69,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
+| **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 | **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-sweep.mjs --session-dir …` on the completion notification — the lane stopped only its own pids (`doer-rules.md` § Size class) |
 

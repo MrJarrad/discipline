@@ -133,6 +133,13 @@ The message **ends with the `## Needed from you` queue in full** — every open
 `orchestrator/operator-queue.md` row's complete text, or *"Nothing needed from you."*
 (`output-styles/discipline.md`).
 
+## Deploy commands stand alone (Change 6, 2026-09-22)
+
+A **preview build/upload** for this skill is never a promote/deploy verb — the parent runs
+the repo's own preview script, and any production promote (`wrangler versions deploy` and
+its siblings) is its own standalone Bash call, never chained after this step and never named
+inside the brief that triggered it (`release-deploy` § Deploy commands stand alone).
+
 ## Who loads this
 
 **Orchestrator / parent** — at engineer-done for UI work (first eyes; reviewer
