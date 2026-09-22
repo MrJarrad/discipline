@@ -21,7 +21,7 @@
    naming the step that did not complete.                                  */
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export function parseArgs(argv) {
   const out = { dryRun: false };
@@ -31,6 +31,7 @@ export function parseArgs(argv) {
     else if (a === "--repo") out.repo = argv[++i];
     else if (a === "--sha") out.sha = argv[++i];
   }
+  if (out.repo) out.repo = resolve(out.repo);
   return out;
 }
 

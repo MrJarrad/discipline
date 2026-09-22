@@ -32,7 +32,7 @@
 */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export function parseArgs(argv) {
   const out = {};
@@ -44,6 +44,11 @@ export function parseArgs(argv) {
     out[key] = next && !next.startsWith("--") ? next : true;
     if (out[key] !== true) i++;
   }
+  // `--vault`/`--repo` are filesystem roots other calls (git -C, cwd) depend
+  // on — resolve to absolute here so a relative arg never depends on the
+  // caller's cwd downstream.
+  if (typeof out.vault === "string") out.vault = resolve(out.vault);
+  if (typeof out.repo === "string") out.repo = resolve(out.repo);
   return out;
 }
 

@@ -18,7 +18,7 @@
    Exit 0 all repos synced or already up to date · 1 any repo failed,
    naming which step and which repo.                                      */
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { existsSync, mkdirSync, readFileSync as readFile, writeFileSync } from "node:fs";
 import { buildRuleFile } from "./sync-doer-rules.mjs";
 
@@ -42,6 +42,8 @@ export function parseArgs(argv) {
     else if (a === "--source") out.source = argv[++i];
     else if (a === "--repos") out.repos = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
   }
+  if (out.source) out.source = resolve(out.source);
+  if (out.repos) out.repos = out.repos.map((r) => resolve(r));
   return out;
 }
 

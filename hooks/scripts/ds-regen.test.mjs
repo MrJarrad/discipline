@@ -6,11 +6,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, nextVersionDir, parseChangesBlock } from "./ds-regen.mjs";
+import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness } from "./ds-regen.mjs";
 
 const scriptPath = fileURLToPath(new URL("./ds-regen.mjs", import.meta.url));
 
@@ -52,6 +52,46 @@ test("parseChangesBlock returns an empty block and zero count when no Changes he
   assert.equal(valueDriftCount, 0);
 });
 
+// --- generatedAt freshness (AC added 2026-09-22, parent, at review) --------
+
+test("readGeneratedAt returns null when the dir has no design-system-handoff.json", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ds-regen-gen-"));
+  try {
+    writeFileSync(join(dir, "tokens.json"), "{}\n");
+    assert.equal(readGeneratedAt(dir), null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("readGeneratedAt returns null for a missing dir", () => {
+  assert.equal(readGeneratedAt(join(tmpdir(), "ds-regen-nope-does-not-exist")), null);
+});
+
+test("readGeneratedAt reads the stamp from a *design-system-handoff.json file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ds-regen-gen-"));
+  try {
+    writeFileSync(
+      join(dir, "jhd-spec-design-system-handoff.json"),
+      JSON.stringify({ schema: "design-system-handoff", generatedAt: "2026-09-20T00:00:00.000Z" }),
+    );
+    assert.equal(readGeneratedAt(dir), "2026-09-20T00:00:00.000Z");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("checkFreshness proceeds when design/handoff/latest does not exist yet (first regen)", () => {
+  const repo = mkdtempSync(join(tmpdir(), "ds-regen-fresh-repo-"));
+  const exportDir = mkdtempSync(join(tmpdir(), "ds-regen-fresh-export-"));
+  try {
+    assert.equal(checkFreshness(exportDir, repo).ok, true);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+  }
+});
+
 // --- full run: scratch DS repo, fake export dir, stubbed pnpm/gh ------------
 
 function makeScratchDsRepo() {
@@ -69,14 +109,34 @@ function makeScratchDsRepo() {
   return dir;
 }
 
-function makeFakeExportDir() {
+function makeFakeExportDir(generatedAt) {
   const dir = mkdtempSync(join(tmpdir(), "ds-regen-export-"));
   writeFileSync(
     join(dir, "design-handoff.md"),
     "# Export\n\n## Changes\n- spacing-4: 8px -> 10px\n- VALUE-DRIFT: spacing-4 changed\n",
   );
   writeFileSync(join(dir, "tokens.json"), "{}\n");
+  if (generatedAt) {
+    writeFileSync(
+      join(dir, "jhd-spec-design-system-handoff.json"),
+      JSON.stringify({ schema: "design-system-handoff", generatedAt }),
+    );
+  }
   return dir;
+}
+
+/* Seeds `design/handoff/v0-.../` + a `latest` symlink to it in a scratch DS
+   repo, carrying `generatedAt`, so a law test can drive ds-regen against a
+   repo that already has a stamped `latest`. */
+function seedLatest(repo, generatedAt) {
+  const handoffDir = join(repo, "design", "handoff");
+  const versionDir = join(handoffDir, "v0-2026-01-01");
+  mkdirSync(versionDir, { recursive: true });
+  writeFileSync(
+    join(versionDir, "jhd-spec-design-system-handoff.json"),
+    JSON.stringify({ schema: "design-system-handoff", generatedAt }),
+  );
+  symlinkSync("v0-2026-01-01", join(handoffDir, "latest"));
 }
 
 function makeFakeBin(binDir) {
@@ -130,6 +190,101 @@ test("full run vendors the export, repoints latest, runs the four pnpm steps, pr
 
     const log = execFileSync("git", ["-C", repo, "log", "-1", "--format=%s"], { encoding: "utf8" });
     assert.match(log, /design: regen tokens \(v1-/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+// --- law test: older refused, equal refused, newer proceeds ---------------
+
+test("law: an export whose generatedAt is OLDER than latest's is refused, nothing written, no --force", () => {
+  const repo = makeScratchDsRepo();
+  seedLatest(repo, "2026-09-20T00:00:00.000Z");
+  execFileSync("git", ["-C", repo, "add", "design/handoff"]);
+  execFileSync("git", ["-C", repo, "commit", "-q", "-m", "seed latest"]);
+  const exportDir = makeFakeExportDir("2026-09-01T00:00:00.000Z");
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  try {
+    let stderr = "";
+    let threw = false;
+    try {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    } catch (err) {
+      threw = true;
+      stderr = err.stderr || "";
+    }
+    assert.equal(threw, true, "older generatedAt must refuse");
+    assert.match(stderr, /2026-09-01T00:00:00\.000Z/);
+    assert.match(stderr, /2026-09-20T00:00:00\.000Z/);
+    assert.doesNotMatch(stderr, /--force/);
+
+    const versionDirs = execFileSync("ls", [join(repo, "design", "handoff")], { encoding: "utf8" }).trim().split("\n");
+    assert.deepEqual(versionDirs.sort(), ["latest", "v0-2026-01-01"]);
+    const log = execFileSync("git", ["-C", repo, "log", "-1", "--format=%s"], { encoding: "utf8" });
+    assert.match(log, /seed latest/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: an export whose generatedAt EQUALS latest's is refused, nothing written", () => {
+  const repo = makeScratchDsRepo();
+  seedLatest(repo, "2026-09-20T00:00:00.000Z");
+  execFileSync("git", ["-C", repo, "add", "design/handoff"]);
+  execFileSync("git", ["-C", repo, "commit", "-q", "-m", "seed latest"]);
+  const exportDir = makeFakeExportDir("2026-09-20T00:00:00.000Z");
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  try {
+    let stderr = "";
+    let threw = false;
+    try {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    } catch (err) {
+      threw = true;
+      stderr = err.stderr || "";
+    }
+    assert.equal(threw, true, "equal generatedAt must refuse");
+    assert.match(stderr, /not newer/);
+    const versionDirs = execFileSync("ls", [join(repo, "design", "handoff")], { encoding: "utf8" }).trim().split("\n");
+    assert.deepEqual(versionDirs.sort(), ["latest", "v0-2026-01-01"]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: an export whose generatedAt is NEWER than latest's proceeds and vendors normally", () => {
+  const repo = makeScratchDsRepo();
+  seedLatest(repo, "2026-09-20T00:00:00.000Z");
+  execFileSync("git", ["-C", repo, "add", "design/handoff"]);
+  execFileSync("git", ["-C", repo, "commit", "-q", "-m", "seed latest"]);
+  const exportDir = makeFakeExportDir("2026-09-22T00:00:00.000Z");
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /VALUE-DRIFT count: 1/);
+    const versionDirs = execFileSync("ls", [join(repo, "design", "handoff")], { encoding: "utf8" }).trim().split("\n");
+    assert.ok(versionDirs.some((d) => /^v1-/.test(d)));
+    const latestPath = join(repo, "design", "handoff", "latest");
+    const target = readlinkSync(latestPath);
+    assert.match(target, /^v1-/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
     rmSync(exportDir, { recursive: true, force: true });

@@ -16,7 +16,7 @@
    Exit 0 merged (and, with --then-build, built) · 1 refused or any step
    failed, naming which.                                                   */
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function parseArgs(argv) {
@@ -28,6 +28,7 @@ export function parseArgs(argv) {
     else if (a === "--pr") out.pr = argv[++i];
     else if (a === "--repo") out.repo = argv[++i];
   }
+  if (out.repo) out.repo = resolve(out.repo);
   return out;
 }
 
