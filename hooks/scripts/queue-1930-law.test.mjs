@@ -109,16 +109,27 @@ test("the vault ruling's Boundaries paragraph is present with the four-script co
 });
 
 // --- CHANGED.txt / version -------------------------------------------------
+// Converted on touch (1.93.2, gates-assert-mechanism-not-values-2026-09-19):
+// pinning "top CHANGED entry is exactly 1.93.0" / "plugin.json is exactly
+// 1.93.0" re-anchors on every later release — the same pinning-gate shape
+// the other queue law tests avoid via "at or past". The mechanism asserted
+// here is that CHANGED.txt carries a 1.93.0 entry naming scripts-not-agents
+// and the mechanical-first principle somewhere in the file (not necessarily
+// at the top), and that plugin.json's version is at or past 1.93.0.
 
-test("the 1.93.0 CHANGED entry names scripts-not-agents and the mechanical-first principle", () => {
+test("CHANGED.txt carries a 1.93.0 entry naming scripts-not-agents and the mechanical-first principle", () => {
   const changed = read("CHANGED.txt");
-  const top = changed.split(/\n\n/)[0];
-  assert.match(top, /1\.93\.0/);
-  assert.match(top, /scripts-not-agents/);
-  assert.match(top, /[Mm]echanical/);
+  const entries = changed.split(/\n\n/);
+  const entry = entries.find((e) => /^1\.93\.0\b/.test(e));
+  assert.ok(entry, "no 1.93.0 entry found in CHANGED.txt");
+  assert.match(entry, /scripts-not-agents/);
+  assert.match(entry, /[Mm]echanical/);
 });
 
-test("the plugin.json version is bumped to 1.93.0", () => {
+test("the plugin.json version is at or past 1.93.0", () => {
   const pkg = JSON.parse(read(".claude-plugin/plugin.json"));
-  assert.equal(pkg.version, "1.93.0");
+  const semver = /^\d+\.\d+\.\d+$/;
+  assert.match(pkg.version, semver);
+  const [major, minor] = pkg.version.split(".").map(Number);
+  assert.ok(major > 1 || (major === 1 && minor >= 93), `${pkg.version} regressed before 1.93.0`);
 });

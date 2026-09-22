@@ -35,7 +35,7 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
+import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot, ownerRepoFromOrigin } from "./repo-layout.mjs";
 
 export function parseArgs(argv) {
   const out = { dryRun: false };
@@ -270,7 +270,12 @@ function main() {
     run("git", ["-C", worktreePath, "add", "design/handoff"]);
     run("git", ["-C", worktreePath, "commit", "-m", `design: regen tokens (${vendored.versionDir})`]);
     run("git", ["-C", worktreePath, "push", "-u", "origin", branch]);
-    const prOut = run("gh", ["pr", "create", "--repo", gitDir, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."]);
+    // `gh --repo` only ever accepts `[HOST/]OWNER/REPO`, never a filesystem
+    // path (`2026-09-22-scripts-not-agents` § gh invocation).
+    const ownerRepo = ownerRepoFromOrigin(gitDir);
+    const prOut = ownerRepo
+      ? run("gh", ["pr", "create", "--repo", ownerRepo, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."])
+      : run("gh", ["pr", "create", "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."], { cwd: worktreePath });
     console.log(`branch: ${branch}`);
     console.log(prOut.trim());
   } catch (err) {

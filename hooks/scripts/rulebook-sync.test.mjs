@@ -79,6 +79,12 @@ function makeSourceDir(version) {
 // remote so the script's post-merge `git pull --ff-only` has something real
 // to pull — this is scratch-repo mechanics standing in for GitHub, never a
 // real network call.
+// `--repo` must be `[HOST/]OWNER/REPO`, exactly like the real `gh` CLI
+// rejects a filesystem path (`2026-09-22-scripts-not-agents` § gh
+// invocation) — this stub enforces the same shape, so a script regressing
+// to `--repo <path>` fails the test the same way it would fail for real.
+// When no `--repo` is passed, `gh` reads the repo off `cwd`'s own git
+// remote — the stub uses `.` (its actual working directory) in that case.
 function makeFakeGhBin(binDir) {
   const ghPath = join(binDir, "gh");
   writeFileSync(
@@ -89,6 +95,21 @@ sub="$1"; shift
 case "$sub" in
   pr)
     action="$1"; shift
+    repo=""
+    args=()
+    while [ $# -gt 0 ]; do
+      if [ "$1" = "--repo" ]; then
+        repo="$2"
+        if ! [[ "$repo" =~ ^([A-Za-z0-9.-]+/)?[^/]+/[^/]+$ ]]; then
+          echo 'expected the "[HOST/]OWNER/REPO" format' >&2
+          exit 1
+        fi
+        shift 2
+        continue
+      fi
+      args+=("$1")
+      shift
+    done
     case "$action" in
       create)
         echo "https://github.com/example/repo/pull/1"
@@ -96,18 +117,17 @@ case "$sub" in
       checks)
         exit 0
         ;;
+      list)
+        echo "[]"
+        ;;
       merge)
-        branch="$1"; shift
-        repo=""
-        while [ $# -gt 0 ]; do
-          if [ "$1" = "--repo" ]; then repo="$2"; fi
-          shift
-        done
-        git -C "$repo" checkout -q main
-        git -C "$repo" merge -q --squash "$branch"
-        git -C "$repo" commit -q -m "squash merge $branch"
-        git -C "$repo" push -q origin main
-        git -C "$repo" push -q origin --delete "$branch" || true
+        branch="\${args[0]}"
+        target="."
+        git -C "$target" checkout -q main
+        git -C "$target" merge -q --squash "$branch"
+        git -C "$target" commit -q -m "squash merge $branch"
+        git -C "$target" push -q origin main
+        git -C "$target" push -q origin --delete "$branch" || true
         ;;
     esac
     ;;
@@ -165,6 +185,46 @@ test("full run: syncs, branches, commits, pushes, PRs, merges via stubbed gh, an
       encoding: "utf8",
     }).trim();
     assert.equal(currentBranch, "main");
+  } finally {
+    rmSync(cloneDir, { recursive: true, force: true });
+    rmSync(src, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("idempotent re-run: a branch already pushed to origin (prior run died before merge) is reused, not re-created", () => {
+  const { remoteDir, cloneDir } = makeBareRemoteAndClone("resume");
+  const src = makeSourceDir("1.93.0");
+  const binDir = mkdtempSync(join(tmpdir(), "rulebook-sync-bin-"));
+  makeFakeGhBin(binDir);
+  try {
+    // Simulate a first run that pushed the branch + commit to the real
+    // remote but died before opening a PR — cloned from `remoteDir` (the
+    // scratch "origin"), never from `cloneDir` itself, so the branch lands
+    // only on origin, exactly like a real prior run's push would.
+    const sourceText = readFileSync(join(src, "doer-rules.md"), "utf8");
+    const priorWorktree = mkdtempSync(join(tmpdir(), "rulebook-sync-priorwt-"));
+    execFileSync("git", ["clone", "-q", remoteDir, priorWorktree]);
+    execFileSync("git", ["-C", priorWorktree, "config", "user.email", "test@example.com"]);
+    execFileSync("git", ["-C", priorWorktree, "config", "user.name", "test"]);
+    execFileSync("git", ["-C", priorWorktree, "checkout", "-q", "-b", "chore/doer-rules-1.93.0"]);
+    writeSyncedFile(priorWorktree, sourceText);
+    execFileSync("git", ["-C", priorWorktree, "add", ".cursor/rules/doer-rules.mdc"]);
+    execFileSync("git", ["-C", priorWorktree, "commit", "-q", "-m", "chore: sync doer-rules.md (discipline 1.93.0)"]);
+    execFileSync("git", ["-C", priorWorktree, "push", "-q", "-u", "origin", "chore/doer-rules-1.93.0"]);
+    rmSync(priorWorktree, { recursive: true, force: true });
+
+    const out = execFileSync("node", [scriptPath, "--source", src, "--repos", cloneDir], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /synced, merged: https:\/\/github\.com\/example\/repo\/pull\/1/);
+    const currentBranch = execFileSync("git", ["-C", cloneDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main");
+    const branches = execFileSync("git", ["-C", cloneDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(branches.trim().split("\n").length, 1, "the resumed worktree must be cleaned up too");
   } finally {
     rmSync(cloneDir, { recursive: true, force: true });
     rmSync(src, { recursive: true, force: true });

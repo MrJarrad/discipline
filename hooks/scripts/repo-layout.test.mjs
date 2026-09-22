@@ -7,7 +7,14 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isBareLayout, laneWorktreePath, mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
+import {
+  isBareLayout,
+  laneWorktreePath,
+  mainWorktreeOf,
+  normalizeRepoRoot,
+  ownerRepoFromOrigin,
+  ownerRepoFromUrl,
+} from "./repo-layout.mjs";
 
 function makeBareLayoutRepo() {
   const root = mkdtempSync(join(tmpdir(), "repo-layout-bare-"));
@@ -97,4 +104,54 @@ test("normalizeRepoRoot leaves a plain checkout's own path alone, even one named
 
 test("laneWorktreePath is a direct child of the repo root, never nested", () => {
   assert.equal(laneWorktreePath("/repo", "chore-doer-rules-1.93.1"), "/repo/chore-doer-rules-1.93.1");
+});
+
+// --- ownerRepoFromUrl / ownerRepoFromOrigin (2026-09-22-scripts-not-agents
+// § gh invocation) — `gh --repo` only ever accepts `[HOST/]OWNER/REPO`,
+// never a filesystem path. ------------------------------------------------
+
+test("ownerRepoFromUrl reads owner/repo from an https github.com remote", () => {
+  assert.equal(ownerRepoFromUrl("https://github.com/jhd/discipline.git"), "jhd/discipline");
+  assert.equal(ownerRepoFromUrl("https://github.com/jhd/discipline"), "jhd/discipline");
+});
+
+test("ownerRepoFromUrl reads owner/repo from an ssh github.com remote", () => {
+  assert.equal(ownerRepoFromUrl("git@github.com:jhd/discipline.git"), "jhd/discipline");
+  assert.equal(ownerRepoFromUrl("git@github.com:jhd/discipline"), "jhd/discipline");
+});
+
+test("ownerRepoFromUrl is null for a non-github.com remote", () => {
+  assert.equal(ownerRepoFromUrl("/Users/jarrad.harvey/JHD/jhd-design-system/main"), null);
+  assert.equal(ownerRepoFromUrl("https://gitlab.com/jhd/discipline.git"), null);
+});
+
+test("ownerRepoFromOrigin reads owner/repo off a checkout's own origin remote", () => {
+  const root = makePlainCheckoutRepo();
+  try {
+    execFileSync("git", ["-C", root, "remote", "add", "origin", "https://github.com/jhd/discipline.git"]);
+    assert.equal(ownerRepoFromOrigin(root), "jhd/discipline");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ownerRepoFromOrigin is null when origin is a filesystem path, not a github.com remote", () => {
+  const root = makePlainCheckoutRepo();
+  const otherRoot = makePlainCheckoutRepo();
+  try {
+    execFileSync("git", ["-C", root, "remote", "add", "origin", otherRoot]);
+    assert.equal(ownerRepoFromOrigin(root), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(otherRoot, { recursive: true, force: true });
+  }
+});
+
+test("ownerRepoFromOrigin is null when there is no origin remote at all", () => {
+  const root = makePlainCheckoutRepo();
+  try {
+    assert.equal(ownerRepoFromOrigin(root), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
