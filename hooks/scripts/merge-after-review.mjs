@@ -16,8 +16,9 @@
    Exit 0 merged (and, with --then-build, built) · 1 refused or any step
    failed, naming which.                                                   */
 import { execFileSync } from "node:child_process";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
 
 export function parseArgs(argv) {
   const out = { dryRun: false, thenBuild: false };
@@ -28,7 +29,7 @@ export function parseArgs(argv) {
     else if (a === "--pr") out.pr = argv[++i];
     else if (a === "--repo") out.repo = argv[++i];
   }
-  if (out.repo) out.repo = resolve(out.repo);
+  if (out.repo) out.repo = normalizeRepoRoot(out.repo);
   return out;
 }
 
@@ -88,11 +89,15 @@ function main() {
     process.exit(0);
   }
 
+  // Always the `main` worktree for a bare-layout repo, the repo root for a
+  // plain checkout — never a `checkout` inside `main`, whose own branch
+  // never moves off `main` (`2026-09-22-scripts-not-agents` § Layout); only
+  // a fast-forward pull.
+  const gitDir = mainWorktreeOf(args.repo);
   try {
     run("gh", ["pr", "merge", prNumber, "--repo", ownerRepo, "--squash", "--delete-branch"]);
-    run("git", ["-C", args.repo, "checkout", "main"]);
-    run("git", ["-C", args.repo, "pull", "--ff-only"]);
-    run("git", ["-C", args.repo, "worktree", "prune"]);
+    run("git", ["-C", gitDir, "pull", "--ff-only"]);
+    run("git", ["-C", gitDir, "worktree", "prune"]);
   } catch (err) {
     console.error(`merge-after-review: did not complete the merge — ${err.message}`);
     process.exit(1);

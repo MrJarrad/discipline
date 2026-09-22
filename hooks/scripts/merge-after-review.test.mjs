@@ -153,3 +153,70 @@ test("full run: all-SUCCESS + MERGEABLE merges via stubbed gh and ff-pulls main"
     rmSync(binDir, { recursive: true, force: true });
   }
 });
+
+// --- law: bare + worktrees layout (2026-09-22-scripts-not-agents § Layout) -
+
+function makeBareLayoutRepoAndUpstreamPush(nameHint) {
+  const remoteDir = mkdtempSync(join(tmpdir(), `merge-after-review-blremote-${nameHint}-`));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const root = mkdtempSync(join(tmpdir(), `merge-after-review-blroot-${nameHint}-`));
+  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
+  execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
+  const mainDir = join(root, "main");
+  execFileSync("git", ["-C", mainDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", mainDir, "config", "user.name", "test"]);
+  writeFileSync(join(mainDir, "README.md"), "hello\n");
+  execFileSync("git", ["-C", mainDir, "add", "."]);
+  execFileSync("git", ["-C", mainDir, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", mainDir, "push", "-u", "origin", "main"]);
+
+  // Stands in for "the PR branch already merged upstream" — a second clone
+  // pushes a commit directly to origin/main.
+  const otherCloneDir = mkdtempSync(join(tmpdir(), `merge-after-review-blother-${nameHint}-`));
+  execFileSync("git", ["clone", "-q", remoteDir, otherCloneDir]);
+  execFileSync("git", ["-C", otherCloneDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", otherCloneDir, "config", "user.name", "test"]);
+  writeFileSync(join(otherCloneDir, "feature.md"), "shipped\n");
+  execFileSync("git", ["-C", otherCloneDir, "add", "."]);
+  execFileSync("git", ["-C", otherCloneDir, "commit", "-q", "-m", "feature"]);
+  execFileSync("git", ["-C", otherCloneDir, "push", "-q", "origin", "main"]);
+  rmSync(otherCloneDir, { recursive: true, force: true });
+
+  return { root, mainDir };
+}
+
+test("law: bare-layout repo — ff-pulls the main worktree, never checks a branch out inside it", () => {
+  const { root, mainDir } = makeBareLayoutRepoAndUpstreamPush("full");
+  const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-blbin-"));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  try {
+    const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", root], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /merged owner\/repo#9, main fast-forwarded, worktrees pruned/);
+    assert.equal(readFileSync(join(mainDir, "feature.md"), "utf8"), "shipped\n");
+    const branch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], { encoding: "utf8" }).trim();
+    assert.equal(branch, "main", "main worktree must never be switched off main");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a --repo entry ending in /main normalises to the repo root", () => {
+  const { root, mainDir } = makeBareLayoutRepoAndUpstreamPush("normalise");
+  const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-blbin2-"));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  try {
+    const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", mainDir], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /merged owner\/repo#9, main fast-forwarded, worktrees pruned/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});

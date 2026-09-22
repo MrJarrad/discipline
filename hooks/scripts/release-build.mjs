@@ -21,7 +21,7 @@
    naming the step that did not complete.                                  */
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { join, resolve } from "node:path";
+import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
 
 export function parseArgs(argv) {
   const out = { dryRun: false };
@@ -31,7 +31,7 @@ export function parseArgs(argv) {
     else if (a === "--repo") out.repo = argv[++i];
     else if (a === "--sha") out.sha = argv[++i];
   }
-  if (out.repo) out.repo = resolve(out.repo);
+  if (out.repo) out.repo = normalizeRepoRoot(out.repo);
   return out;
 }
 
@@ -74,13 +74,17 @@ function main() {
     process.exit(1);
   }
   const ref = args.sha || "main";
-  const worktreePath = join(args.repo, "worktrees", `release-build-${randomBytes(4).toString("hex")}`);
-  const steps = buildSteps(args.repo, worktreePath, ref);
+  // A sibling worktree off `<repo>/main` (or the repo root, for a plain
+  // checkout) — never nested inside `main`, so it never disturbs the
+  // shared checkout (`2026-09-22-scripts-not-agents` § Layout).
+  const gitDir = mainWorktreeOf(args.repo);
+  const worktreePath = laneWorktreePath(args.repo, `release-build-${randomBytes(4).toString("hex")}`);
+  const steps = buildSteps(gitDir, worktreePath, ref);
 
   if (args.dryRun) {
     console.log(`release-build --dry-run: would run, in order:`);
     for (const s of steps) console.log(`  [${s.name}] ${s.cmd} ${s.args.join(" ")} (cwd=${s.cwd})`);
-    console.log(`  [cleanup] git -C ${args.repo} worktree remove ${worktreePath}`);
+    console.log(`  [cleanup] git -C ${gitDir} worktree remove ${worktreePath}`);
     process.exit(0);
   }
 
@@ -93,7 +97,7 @@ function main() {
       console.error(`release-build: did not complete "${step.name}" — ${err.message}`);
       // Best-effort cleanup even on failure, never leaving a stray worktree.
       try {
-        run("git", ["-C", args.repo, "worktree", "remove", "--force", worktreePath]);
+        run("git", ["-C", gitDir, "worktree", "remove", "--force", worktreePath]);
       } catch {
         // ignore — the worktree may not exist yet if worktree-add itself failed
       }
@@ -106,7 +110,7 @@ function main() {
   console.log(`preview url: ${previewUrl || "(not found in upload output)"}`);
 
   try {
-    run("git", ["-C", args.repo, "worktree", "remove", worktreePath]);
+    run("git", ["-C", gitDir, "worktree", "remove", worktreePath]);
   } catch (err) {
     console.error(`release-build: build succeeded but did not remove the worktree — ${err.message}`);
     process.exit(1);

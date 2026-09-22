@@ -10,7 +10,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness } from "./ds-regen.mjs";
+import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness, branchName } from "./ds-regen.mjs";
 
 const scriptPath = fileURLToPath(new URL("./ds-regen.mjs", import.meta.url));
 
@@ -148,24 +148,27 @@ function makeFakeBin(binDir) {
   chmodSync(ghPath, 0o755);
 }
 
-test("--dry-run prints the vendor target and step sequence, touching nothing", () => {
+test("--dry-run prints the sibling-worktree plan and step sequence, touching nothing", () => {
   const repo = makeScratchDsRepo();
   const exportDir = makeFakeExportDir();
   try {
     const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--dry-run"], {
       encoding: "utf8",
     });
+    assert.match(out, /would create sibling worktree/);
     assert.match(out, /would vendor/);
     assert.match(out, /v1-\d{4}-\d{2}-\d{2}/);
     assert.match(out, /would run: pnpm run tokens/);
     assert.equal(existsSync(join(repo, "design", "handoff")), false, "dry-run must not create design/handoff");
+    const worktrees = execFileSync("git", ["-C", repo, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 1, "dry-run must not create a worktree");
   } finally {
     rmSync(repo, { recursive: true, force: true });
     rmSync(exportDir, { recursive: true, force: true });
   }
 });
 
-test("full run vendors the export, repoints latest, runs the four pnpm steps, prints changes + VALUE-DRIFT count, and commits/pushes/PRs", () => {
+test("full run vendors on its own branch in a sibling worktree, never committing on main directly, runs the four pnpm steps, prints changes + VALUE-DRIFT count, pushes, PRs, and removes the worktree", () => {
   const repo = makeScratchDsRepo();
   const exportDir = makeFakeExportDir();
   const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
@@ -179,17 +182,31 @@ test("full run vendors the export, repoints latest, runs the four pnpm steps, pr
     assert.match(out, /VALUE-DRIFT count: 1/);
     assert.match(out, /https:\/\/github\.com\/example\/ds\/pull\/2/);
 
-    const handoffDir = join(repo, "design", "handoff");
-    const versionDirs = execFileSync("ls", [handoffDir], { encoding: "utf8" }).trim().split("\n");
-    assert.ok(versionDirs.some((d) => /^v1-/.test(d)));
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedVersionDir = `v1-${today}`;
+    const expectedBranch = branchName(expectedVersionDir);
+    assert.match(out, new RegExp(`branch: ${expectedBranch.replace(/\//g, "\\/")}`));
 
-    const latestPath = join(handoffDir, "latest");
-    assert.equal(lstatSync(latestPath).isSymbolicLink(), true);
-    const target = readlinkSync(latestPath);
-    assert.match(target, /^v1-/);
+    // main's own working tree is untouched — the change lives only on the
+    // lane branch, which is left open for review, same as the other
+    // mechanical scripts.
+    assert.equal(existsSync(join(repo, "design", "handoff")), false, "main must not carry the change directly");
 
-    const log = execFileSync("git", ["-C", repo, "log", "-1", "--format=%s"], { encoding: "utf8" });
+    const log = execFileSync("git", ["-C", repo, "log", "-1", "--format=%s", expectedBranch], { encoding: "utf8" });
     assert.match(log, /design: regen tokens \(v1-/);
+    const latestTarget = execFileSync("git", ["-C", repo, "show", `${expectedBranch}:design/handoff/latest`], {
+      encoding: "utf8",
+    }).trim();
+    assert.match(latestTarget, /^v1-/);
+
+    const branchesOut = execFileSync("git", ["-C", repo, "branch", "-r"], { encoding: "utf8" });
+    assert.match(branchesOut, new RegExp(`origin/${expectedBranch.replace(/\//g, "\\/")}`));
+
+    const currentBranch = execFileSync("git", ["-C", repo, "branch", "--show-current"], { encoding: "utf8" }).trim();
+    assert.equal(currentBranch, "main", "main worktree must never be switched off main");
+
+    const worktrees = execFileSync("git", ["-C", repo, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 1, "the lane worktree must be removed once the PR is open");
   } finally {
     rmSync(repo, { recursive: true, force: true });
     rmSync(exportDir, { recursive: true, force: true });
@@ -266,7 +283,7 @@ test("law: an export whose generatedAt EQUALS latest's is refused, nothing writt
   }
 });
 
-test("law: an export whose generatedAt is NEWER than latest's proceeds and vendors normally", () => {
+test("law: an export whose generatedAt is NEWER than latest's proceeds and vendors normally on its own branch", () => {
   const repo = makeScratchDsRepo();
   seedLatest(repo, "2026-09-20T00:00:00.000Z");
   execFileSync("git", ["-C", repo, "add", "design/handoff"]);
@@ -280,13 +297,118 @@ test("law: an export whose generatedAt is NEWER than latest's proceeds and vendo
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
     });
     assert.match(out, /VALUE-DRIFT count: 1/);
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const latestTarget = execFileSync("git", ["-C", repo, "show", `${expectedBranch}:design/handoff/latest`], {
+      encoding: "utf8",
+    }).trim();
+    assert.match(latestTarget, /^v1-/);
+    // main's own baseline (seeded v0) is untouched.
     const versionDirs = execFileSync("ls", [join(repo, "design", "handoff")], { encoding: "utf8" }).trim().split("\n");
-    assert.ok(versionDirs.some((d) => /^v1-/.test(d)));
-    const latestPath = join(repo, "design", "handoff", "latest");
-    const target = readlinkSync(latestPath);
-    assert.match(target, /^v1-/);
+    assert.deepEqual(versionDirs.sort(), ["latest", "v0-2026-01-01"]);
   } finally {
     rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+// --- law: bare + worktrees layout (2026-09-22-scripts-not-agents § Layout) -
+
+function makeBareLayoutDsRepo() {
+  const remoteDir = mkdtempSync(join(tmpdir(), "ds-regen-blremote-"));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const root = mkdtempSync(join(tmpdir(), "ds-regen-blroot-"));
+  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
+  execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
+  const mainDir = join(root, "main");
+  execFileSync("git", ["-C", mainDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", mainDir, "config", "user.name", "test"]);
+  writeFileSync(join(mainDir, "package.json"), "{}\n");
+  execFileSync("git", ["-C", mainDir, "add", "."]);
+  execFileSync("git", ["-C", mainDir, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", mainDir, "push", "-u", "origin", "main"]);
+  return { root, mainDir };
+}
+
+test("law: bare-layout repo — vendors on its own branch in a sibling worktree beside main, never inside it, and removes it after", () => {
+  const { root, mainDir } = makeBareLayoutDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-blbin-"));
+  makeFakeBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /VALUE-DRIFT count: 1/);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    assert.match(out, new RegExp(`branch: ${expectedBranch.replace(/\//g, "\\/")}`));
+
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main", "main worktree must never be switched off main");
+    assert.equal(existsSync(join(mainDir, "design", "handoff")), false, "main must not carry the change directly");
+
+    const log = execFileSync("git", ["-C", mainDir, "log", "-1", "--format=%s", expectedBranch], { encoding: "utf8" });
+    assert.match(log, /design: regen tokens \(v1-/);
+
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "the lane worktree must be removed once the PR is open");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a --repo entry ending in /main normalises to the repo root", () => {
+  const { root, mainDir } = makeBareLayoutDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-blbin2-"));
+  makeFakeBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", mainDir], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /VALUE-DRIFT count: 1/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a failing pnpm step still removes the sibling worktree and leaves main untouched", () => {
+  const { root, mainDir } = makeBareLayoutDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-blbin3-"));
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(pnpmPath, "#!/usr/bin/env bash\necho 'fake pnpm: fails' 1>&2\nexit 1\n");
+  chmodSync(pnpmPath, 0o755);
+  const ghPath = join(binDir, "gh");
+  writeFileSync(ghPath, "#!/usr/bin/env bash\necho 'https://github.com/example/ds/pull/2'\nexit 0\n");
+  chmodSync(ghPath, 0o755);
+  try {
+    assert.throws(() => {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    });
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main");
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "a failed run must still clean up its sibling worktree");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
     rmSync(exportDir, { recursive: true, force: true });
     rmSync(binDir, { recursive: true, force: true });
   }

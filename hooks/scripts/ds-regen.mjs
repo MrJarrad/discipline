@@ -14,11 +14,19 @@
    stamp — an older zip in Downloads must never roll the design system
    back. No `--force`.
 
+   Runs entirely in its own sibling worktree (`<repo>/<lane-name>`) created
+   off `main` — never a commit made directly on `<repo>/main`'s own
+   checkout, which every other lane and the operator's own dev server may
+   depend on staying put (`2026-09-22-scripts-not-agents` § Layout). The
+   worktree is removed once the branch is pushed and the PR is open;
+   `main` is left for the PR's own review/merge, same as the other
+   mechanical scripts.
+
    Pure logic exported: `nextVersionDir()` (v<N> numbering from the existing
    `design/handoff/` entries), `parseChangesBlock()` (extracts the export's
    own `## Changes`-shaped block and counts `VALUE-DRIFT` lines),
    `checkFreshness()`/`readGeneratedAt()`/`readGeneratedAtFromExport()` (the
-   generatedAt refusal).
+   generatedAt refusal), `branchName()`.
 
    Usage:
      node ds-regen.mjs --export <zip|dir> --repo <DS path> [--dry-run]
@@ -27,6 +35,7 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
 
 export function parseArgs(argv) {
   const out = { dryRun: false };
@@ -37,8 +46,12 @@ export function parseArgs(argv) {
     else if (a === "--repo") out.repo = argv[++i];
   }
   if (out.export) out.export = resolve(out.export);
-  if (out.repo) out.repo = resolve(out.repo);
+  if (out.repo) out.repo = normalizeRepoRoot(out.repo);
   return out;
+}
+
+export function branchName(versionDir) {
+  return `chore/ds-regen-${versionDir}`;
 }
 
 /* Next `v<N>-<date>` dir name given the existing entries under
@@ -124,7 +137,7 @@ export function readGeneratedAtFromExport(exportPath) {
    `latest` yet (first regen) has nothing to compare against and proceeds.
    No `--force` escape hatch. */
 export function checkFreshness(exportPath, repo) {
-  const latestGeneratedAt = readGeneratedAt(join(repo, "design", "handoff", "latest"));
+  const latestGeneratedAt = readGeneratedAt(join(mainWorktreeOf(repo), "design", "handoff", "latest"));
   if (!latestGeneratedAt) return { ok: true };
   const incomingGeneratedAt = readGeneratedAtFromExport(exportPath);
   if (!incomingGeneratedAt) {
@@ -144,8 +157,12 @@ export function checkFreshness(exportPath, repo) {
   return { ok: true };
 }
 
-function vendorExport(exportPath, repo, dryRun) {
-  const handoffDir = join(repo, "design", "handoff");
+/* `worktreePath` is the base to vendor into — the lane's own sibling
+   worktree, never `<repo>/main` directly. Existing-entries scan reads from
+   `worktreePath` too, since it's a fresh checkout of `main`'s own current
+   `design/handoff/` state. */
+function vendorExport(exportPath, worktreePath, dryRun) {
+  const handoffDir = join(worktreePath, "design", "handoff");
   const existing = existsSync(handoffDir) ? readdirSync(handoffDir) : [];
   const versionDir = nextVersionDir(existing, new Date().toISOString().slice(0, 10));
   const targetDir = join(handoffDir, versionDir);
@@ -180,30 +197,60 @@ function main() {
   }
 
   const steps = ["pnpm run tokens", "pnpm run tokens:check", "pnpm test", "pnpm typecheck"];
+  const gitDir = mainWorktreeOf(args.repo);
 
   if (args.dryRun) {
     const { targetDir, latestLink, versionDir } = vendorExport(args.export, args.repo, true);
-    console.log(`ds-regen --dry-run: would vendor ${args.export} -> ${targetDir}`);
-    console.log(`  repoint ${latestLink} -> ${versionDir}`);
-    for (const s of steps) console.log(`  would run: ${s} (cwd=${args.repo})`);
-    console.log(`  would commit "design: regen tokens (${versionDir})", push, open PR`);
+    const branch = branchName(versionDir);
+    const worktreePath = laneWorktreePath(args.repo, branch.replace(/\//g, "-"));
+    console.log(`ds-regen --dry-run: would create sibling worktree ${worktreePath} (branch ${branch}) off main`);
+    console.log(`  would vendor ${args.export} -> ${join(worktreePath, "design", "handoff", versionDir)}`);
+    console.log(`  repoint ${join(worktreePath, "design", "handoff", "latest")} -> ${versionDir}`);
+    for (const s of steps) console.log(`  would run: ${s} (cwd=${worktreePath})`);
+    console.log(`  would commit "design: regen tokens (${versionDir})", push ${branch}, open PR, remove the worktree`);
     process.exit(0);
+  }
+
+  // Own sibling worktree off `main` — never a commit made directly on
+  // `<repo>/main` (`2026-09-22-scripts-not-agents` § Layout).
+  const versionDirGuess = nextVersionDir(
+    existsSync(join(gitDir, "design", "handoff")) ? readdirSync(join(gitDir, "design", "handoff")) : [],
+    new Date().toISOString().slice(0, 10),
+  );
+  const branch = branchName(versionDirGuess);
+  const worktreePath = laneWorktreePath(args.repo, branch.replace(/\//g, "-"));
+  try {
+    run("git", ["-C", gitDir, "worktree", "add", worktreePath, "-b", branch, "main"]);
+  } catch (err) {
+    console.error(`ds-regen: did not create the lane worktree — ${err.message}`);
+    process.exit(1);
+  }
+
+  function cleanupWorktree() {
+    try {
+      run("git", ["-C", gitDir, "worktree", "remove", "--force", worktreePath]);
+      run("git", ["-C", gitDir, "worktree", "prune"]);
+    } catch {
+      // best-effort — nothing more to do if this fails too
+    }
   }
 
   let vendored;
   try {
-    vendored = vendorExport(args.export, args.repo, false);
+    vendored = vendorExport(args.export, worktreePath, false);
   } catch (err) {
     console.error(`ds-regen: did not vendor the export — ${err.message}`);
+    cleanupWorktree();
     process.exit(1);
   }
 
   for (const s of steps) {
     const [cmd, ...cmdArgs] = s.split(" ");
     try {
-      run(cmd, cmdArgs, { cwd: args.repo });
+      run(cmd, cmdArgs, { cwd: worktreePath });
     } catch (err) {
       console.error(`ds-regen: did not complete "${s}" — ${err.message}`);
+      cleanupWorktree();
       process.exit(1);
     }
   }
@@ -220,15 +267,18 @@ function main() {
   console.log(`VALUE-DRIFT count: ${valueDriftCount}`);
 
   try {
-    run("git", ["-C", args.repo, "add", "design/handoff"]);
-    run("git", ["-C", args.repo, "commit", "-m", `design: regen tokens (${vendored.versionDir})`]);
-    run("git", ["-C", args.repo, "push"]);
-    const prOut = run("gh", ["pr", "create", "--repo", args.repo, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."]);
+    run("git", ["-C", worktreePath, "add", "design/handoff"]);
+    run("git", ["-C", worktreePath, "commit", "-m", `design: regen tokens (${vendored.versionDir})`]);
+    run("git", ["-C", worktreePath, "push", "-u", "origin", branch]);
+    const prOut = run("gh", ["pr", "create", "--repo", gitDir, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."]);
+    console.log(`branch: ${branch}`);
     console.log(prOut.trim());
   } catch (err) {
     console.error(`ds-regen: did not commit/push/PR — ${err.message}`);
+    cleanupWorktree();
     process.exit(1);
   }
+  cleanupWorktree();
   process.exit(0);
 }
 
