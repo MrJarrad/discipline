@@ -1,0 +1,137 @@
+// release-build — the "build main to a preview version" script
+// (`scripts-not-agents`, 2026-09-22). Pure-logic tests plus one full run
+// against a scratch git repo with a fake `pnpm` stub on PATH — never a real
+// remote, never a real pnpm/network call.
+// Run: node --test hooks/scripts/release-build.test.mjs
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parseArgs, buildSteps, parseUploadOutput } from "./release-build.mjs";
+
+const scriptPath = fileURLToPath(new URL("./release-build.mjs", import.meta.url));
+
+test("parseArgs reads --repo, --sha and --dry-run", () => {
+  const args = parseArgs(["--repo", "/x", "--sha", "abc123", "--dry-run"]);
+  assert.equal(args.repo, "/x");
+  assert.equal(args.sha, "abc123");
+  assert.equal(args.dryRun, true);
+});
+
+test("buildSteps is the fixed five-step sequence in order", () => {
+  const steps = buildSteps("/repo", "/repo/worktrees/x", "main");
+  assert.deepEqual(
+    steps.map((s) => s.name),
+    ["worktree-add", "install", "typecheck", "build", "upload"],
+  );
+  assert.deepEqual(steps[0].args, ["-C", "/repo", "worktree", "add", "--detach", "/repo/worktrees/x", "main"]);
+});
+
+test("buildSteps builds a named sha, not main, when one is given", () => {
+  const steps = buildSteps("/repo", "/repo/worktrees/x", "deadbeef");
+  assert.deepEqual(steps[0].args, ["-C", "/repo", "worktree", "add", "--detach", "/repo/worktrees/x", "deadbeef"]);
+});
+
+test("parseUploadOutput extracts a version id and preview url", () => {
+  const stdout = "Uploading...\nVersion ID: 1a2b3c4d-5e6f\nhttps://abc123-app.example.workers.dev\nDone.";
+  const parsed = parseUploadOutput(stdout);
+  assert.equal(parsed.versionId, "1a2b3c4d-5e6f");
+  assert.equal(parsed.previewUrl, "https://abc123-app.example.workers.dev");
+});
+
+test("parseUploadOutput returns nulls when neither is present", () => {
+  const parsed = parseUploadOutput("nothing here");
+  assert.equal(parsed.versionId, null);
+  assert.equal(parsed.previewUrl, null);
+});
+
+// --- full run against a scratch git repo, fake pnpm on PATH -----------------
+
+function makeScratchRepo() {
+  const dir = mkdtempSync(join(tmpdir(), "release-build-repo-"));
+  execFileSync("git", ["init", "-q", "-b", "main", dir]);
+  execFileSync("git", ["-C", dir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", dir, "config", "user.name", "test"]);
+  writeFileSync(join(dir, "package.json"), "{}\n");
+  execFileSync("git", ["-C", dir, "add", "."]);
+  execFileSync("git", ["-C", dir, "commit", "-q", "-m", "init"]);
+  return dir;
+}
+
+function makeFakePnpmBin(binDir) {
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(
+    pnpmPath,
+    "#!/usr/bin/env bash\n" +
+      'echo "fake pnpm: $1"\n' +
+      'if [ "$1" = "upload" ]; then\n' +
+      '  echo "Version ID: cafe1234-0000"\n' +
+      '  echo "https://cafe1234-fakeapp.example.workers.dev"\n' +
+      "fi\n" +
+      "exit 0\n",
+  );
+  chmodSync(pnpmPath, 0o755);
+}
+
+test("--dry-run prints the step sequence and touches nothing (no worktree created)", () => {
+  const repo = makeScratchRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-bin-"));
+  makeFakePnpmBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--repo", repo, "--dry-run"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /would run, in order/);
+    assert.match(out, /worktree-add/);
+    assert.match(out, /upload/);
+    const worktrees = execFileSync("git", ["-C", repo, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 1, "dry-run must not create a worktree");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("full run against a scratch repo installs/builds/uploads via the fake pnpm and cleans up the worktree", () => {
+  const repo = makeScratchRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-bin-"));
+  makeFakePnpmBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--repo", repo], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /version id: cafe1234-0000/);
+    assert.match(out, /preview url: https:\/\/cafe1234-fakeapp\.example\.workers\.dev/);
+    const worktrees = execFileSync("git", ["-C", repo, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 1, "the worktree must be removed after a successful build");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("a failing step exits non-zero and removes the worktree it created", () => {
+  const repo = makeScratchRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-bin-"));
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(pnpmPath, "#!/usr/bin/env bash\necho 'fake pnpm: fails' 1>&2\nexit 1\n");
+  chmodSync(pnpmPath, 0o755);
+  try {
+    assert.throws(() => {
+      execFileSync("node", [scriptPath, "--repo", repo], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    });
+    const worktrees = execFileSync("git", ["-C", repo, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 1, "a failed build must still clean up its worktree");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});

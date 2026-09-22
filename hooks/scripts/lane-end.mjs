@@ -28,6 +28,7 @@
      node lane-end.mjs --session-dir <path> --vault <root> --row <n>
        --section <name> --text "<full replacement row text>"
        [--evidence <dir>] [--pr <owner/repo#n>] [--dry-run]
+       [--then-merge <owner/repo#n> --repo <path> [--then-build]]
 */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -186,6 +187,30 @@ function main() {
       console.log(out);
     } catch (err) {
       failures.push(`pr status: ${err.message}`);
+    }
+  }
+
+  // 6. `--then-merge <owner/repo#n> --repo <path>` calls script 4
+  // (merge-after-review.mjs), optionally followed by script 1
+  // (release-build.mjs) when `--then-build` also rides (`scripts-not-agents`
+  // Boundaries, 2026-09-22: "lane-end.mjs may call 4 then 1 via flags").
+  if (args["then-merge"]) {
+    if (!args.repo) {
+      failures.push("then-merge: --repo is required alongside --then-merge");
+    } else {
+      try {
+        const mergeArgs = [
+          join(scriptDir, "merge-after-review.mjs"),
+          "--pr",
+          args["then-merge"],
+          "--repo",
+          args.repo,
+        ];
+        if (args["then-build"]) mergeArgs.push("--then-build");
+        console.log(run("node", mergeArgs));
+      } catch (err) {
+        failures.push(`then-merge: ${err.message}`);
+      }
     }
   }
 

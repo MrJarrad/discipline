@@ -7,7 +7,14 @@
 // Run: node --test hooks/scripts/lane-end.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findRow, replaceRow, sectionRange, parseArgs } from "./lane-end.mjs";
+
+const scriptPath = fileURLToPath(new URL("./lane-end.mjs", import.meta.url));
 
 const TWO_SECTION_QUEUE = "## Portfolio\n9. portfolio row nine\n## Discipline\n9. discipline row nine\n10. discipline row ten\n";
 
@@ -92,4 +99,130 @@ test("replaceRow refuses when the row is absent from the named section, even tho
 test("replaceRow replaces only the named row's line within its section, leaving sibling rows untouched", () => {
   const result = replaceRow(TWO_SECTION_QUEUE, "9", "9. discipline row nine, replaced", "Discipline");
   assert.match(result.text, /10\. discipline row ten/);
+});
+
+// --- --then-merge / --then-build (scripts-not-agents Boundaries, 2026-09-22:
+// "lane-end.mjs may call 4 then 1 via flags") ---------------------------------
+
+function makeVaultWithQueue() {
+  const remoteDir = mkdtempSync(join(tmpdir(), "lane-end-vault-remote-"));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const vault = mkdtempSync(join(tmpdir(), "lane-end-vault-"));
+  execFileSync("git", ["clone", "-q", remoteDir, vault]);
+  execFileSync("git", ["-C", vault, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", vault, "config", "user.name", "test"]);
+  execFileSync("git", ["-C", vault, "checkout", "-q", "-b", "main"]);
+  mkdirSync(join(vault, "orchestrator"), { recursive: true });
+  writeFileSync(join(vault, "orchestrator", "operator-queue.md"), "## Discipline\n1. old row\n");
+  execFileSync("git", ["-C", vault, "add", "."]);
+  execFileSync("git", ["-C", vault, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", vault, "push", "-u", "origin", "main"]);
+  return vault;
+}
+
+function makeTargetRepoWithPr() {
+  const remoteDir = mkdtempSync(join(tmpdir(), "lane-end-target-remote-"));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const repo = mkdtempSync(join(tmpdir(), "lane-end-target-"));
+  execFileSync("git", ["clone", "-q", remoteDir, repo]);
+  execFileSync("git", ["-C", repo, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", repo, "config", "user.name", "test"]);
+  execFileSync("git", ["-C", repo, "checkout", "-q", "-b", "main"]);
+  writeFileSync(join(repo, "README.md"), "hello\n");
+  execFileSync("git", ["-C", repo, "add", "."]);
+  execFileSync("git", ["-C", repo, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", repo, "push", "-u", "origin", "main"]);
+  return repo;
+}
+
+function makeFakeGhBin(binDir) {
+  const ghPath = join(binDir, "gh");
+  writeFileSync(
+    ghPath,
+    `#!/usr/bin/env bash
+action="$1"; shift
+sub="$1"; shift
+case "$sub" in
+  view)
+    echo '{"statusCheckRollup":[{"conclusion":"SUCCESS"}],"mergeable":"MERGEABLE"}'
+    ;;
+  merge)
+    exit 0
+    ;;
+esac
+exit 0
+`,
+  );
+  chmodSync(ghPath, 0o755);
+}
+
+test("--then-merge calls merge-after-review.mjs against the named PR and repo", () => {
+  const vault = makeVaultWithQueue();
+  const repo = makeTargetRepoWithPr();
+  const binDir = mkdtempSync(join(tmpdir(), "lane-end-bin-"));
+  makeFakeGhBin(binDir);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  try {
+    const out = execFileSync(
+      "node",
+      [
+        scriptPath,
+        "--session-dir",
+        sessionDir,
+        "--vault",
+        vault,
+        "--row",
+        "1",
+        "--section",
+        "Discipline",
+        "--text",
+        "1. new row",
+        "--then-merge",
+        "owner/repo#9",
+        "--repo",
+        repo,
+      ],
+      { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } },
+    );
+    assert.match(out, /merged owner\/repo#9, main fast-forwarded, worktrees pruned/);
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(sessionDir, { recursive: true, force: true });
+  }
+});
+
+test("--then-merge without --repo fails loud, naming the missing flag", () => {
+  const vault = makeVaultWithQueue();
+  const binDir = mkdtempSync(join(tmpdir(), "lane-end-bin-"));
+  makeFakeGhBin(binDir);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  try {
+    assert.throws(() => {
+      execFileSync(
+        "node",
+        [
+          scriptPath,
+          "--session-dir",
+          sessionDir,
+          "--vault",
+          vault,
+          "--row",
+          "1",
+          "--section",
+          "Discipline",
+          "--text",
+          "1. new row",
+          "--then-merge",
+          "owner/repo#9",
+        ],
+        { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } },
+      );
+    }, /--repo is required alongside --then-merge/);
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(sessionDir, { recursive: true, force: true });
+  }
 });

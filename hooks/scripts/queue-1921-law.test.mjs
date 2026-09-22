@@ -134,10 +134,15 @@ test("routing: the baton table names lane-end.mjs as the lane-landed parent call
 // --- Ledger: rule 4 withdrawn, rule 5 encoded -------------------------------
 
 test("the 1.92.1 CHANGED entry names rules 1-3 and 5, and rule 4's withdrawal", () => {
+  // Retro-tolerant (same pattern as queue-1830-law.test.mjs's version pin):
+  // finds 1.92.1's own entry by its leading version stamp rather than
+  // assuming it is still CHANGED.txt's top block, which a later release
+  // supersedes.
   const changed = read("CHANGED.txt");
-  const top = changed.split(/\n\n/)[0];
-  assert.match(top, /1\.92\.1/);
-  assert.match(top, /spend-levers/);
-  assert.match(top, /rule 4/);
-  assert.match(top, /rule 5|lane-end/);
+  const entryMatch = /^1\.92\.1 —[\s\S]*?(?=\n\n\d+\.\d+\.\d+ —|$)/m.exec(changed);
+  assert.ok(entryMatch, "1.92.1's own CHANGED entry must still exist");
+  const entry = entryMatch[0];
+  assert.match(entry, /spend-levers/);
+  assert.match(entry, /rule 4/);
+  assert.match(entry, /rule 5|lane-end/);
 });

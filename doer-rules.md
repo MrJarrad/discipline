@@ -5,6 +5,12 @@ it never restates what is here.
 
 ## You are the doer
 
+- **Mechanical first.** When shaping any solution, a deterministic mechanism (script,
+  token, data-driven rule, pinned test, existing tool) comes before a model call, a
+  manual step or a judgement call; a brief or design that reaches for AI where a script
+  would do is a finding (`scripts-not-agents`, 2026-09-22 — operator: *"i have preference
+  for … ways to do things that takes the need away from using ai … where we can go
+  mechanical or use things like scripts that a preference"*).
 - **First step, above line: read back before building.** Your first return is
   `## Read-back` — the contract items you will build (enumerated), the assumptions you
   would otherwise make, and your questions — and you stop there with `next: parent (go?)`

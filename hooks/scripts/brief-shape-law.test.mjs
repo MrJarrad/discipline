@@ -83,9 +83,11 @@ test("the one rule is the contract pointer", () => {
 // ledger-block ruling answering hoverboard-rounds-14-15 items 1 and 3 —
 // real growth (runtime-proof bullet, dispatch-time-stamp/15-min sentence,
 // deployed-link-timing bullet, gate-run-lane bullet).
-test("doer-rules.md stays under its 210-line ceiling", () => {
+// Ceiling raised 210 -> 215 at 1.93.0: `scripts-not-agents`'s mechanical-first
+// principle, a new first bullet of § You are the doer.
+test("doer-rules.md stays under its 215-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 210, `doer-rules.md is ${lines} lines; the ceiling is 210`);
+  assert.ok(lines <= 215, `doer-rules.md is ${lines} lines; the ceiling is 215`);
 });
 
 test("doer-rules carries the four standing sections", () => {
