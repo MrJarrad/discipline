@@ -33,9 +33,13 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // `## Progress` field and its checklist row — real growth.
 // Ceiling raised 1250 -> 1350 at 1.89.0: `proportionality` added the `Size:`
 // field, the verification-rule sentence, and a checklist row — real growth.
-test("the dispatch-brief skill stays under its 1350-word ceiling", () => {
+// Ceiling raised 1350 -> 1450 at 1.92.0: Change 1 (Source-contract lock-row
+// kinds pointer) and Change 1 additions (House rules block pointer, runtime
+// proof sentence in § State, two checklist rows) — real growth, offloaded to
+// SOURCE-CONTRACT-LOCKS.md and HOUSE-RULES.md rather than inlined in full.
+test("the dispatch-brief skill stays under its 1450-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1350, `dispatch-brief is ${count} words; the ceiling is 1350`);
+  assert.ok(count <= 1450, `dispatch-brief is ${count} words; the ceiling is 1450`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -51,11 +55,13 @@ test("the scenario table has exactly eight rows", () => {
 // the sourced/knobbed, no-mechanism, and parent-marked checks.
 // Count raised 14 -> 15 at 1.88.0: `lane-progress-file` added the `## Progress` checklist row.
 // Count raised 15 -> 16 at 1.89.0: `proportionality` added the `Size:` checklist row.
-test("the only checklist is sixteen items, and the old one is gone", () => {
+// Count raised 16 -> 18 at 1.92.0: Change 1 additions added the House-rules-block
+// row and the Source-contract lock-row-kind row.
+test("the only checklist is eighteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
   const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
+  assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18`);
 });
 
 test("the brief is four parts, each named", () => {
@@ -73,9 +79,13 @@ test("the one rule is the contract pointer", () => {
   );
 });
 
-test("doer-rules.md stays under its 200-line ceiling", () => {
+// Ceiling raised 200 -> 210 at 1.92.0: Changes 3 and 4, plus the parent's
+// ledger-block ruling answering hoverboard-rounds-14-15 items 1 and 3 —
+// real growth (runtime-proof bullet, dispatch-time-stamp/15-min sentence,
+// deployed-link-timing bullet, gate-run-lane bullet).
+test("doer-rules.md stays under its 210-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 200, `doer-rules.md is ${lines} lines; the ceiling is 200`);
+  assert.ok(lines <= 210, `doer-rules.md is ${lines} lines; the ceiling is 210`);
 });
 
 test("doer-rules carries the four standing sections", () => {

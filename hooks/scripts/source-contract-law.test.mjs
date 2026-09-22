@@ -183,7 +183,10 @@ test("copy is no longer the engineer's taste carve-out", () => {
 test("dispatch-brief carries the State-section rule verbatim", () => {
   carries(dispatchBrief, "**Every continuation or slice brief carries `## State (untrusted draft; verify)`.**");
   carries(dispatchBrief, "It lists what prior slices claim landed — sha, mechanism, values — marked as claims.");
-  carries(dispatchBrief, "Prior-slice implementation choices are never passed forward as fact: the doer re-verifies each against the Source contract and lock before building on it; a wrong mechanism inherited from slice 1 is slice 2's red finding, not its baseline.");
+  // 1.92.0 Change 3: re-verification is now runtime proof, not a code re-read.
+  carries(dispatchBrief, "Prior-slice implementation choices are never passed forward as fact: the doer reproduces each");
+  carries(dispatchBrief, "never by reading the code");
+  carries(dispatchBrief, "A wrong mechanism inherited from slice 1 is slice 2's red finding, not its baseline.");
   assert.match(dispatchBrief, /## State \(untrusted draft; verify\)/);
 });
 

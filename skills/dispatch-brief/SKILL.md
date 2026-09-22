@@ -74,12 +74,16 @@ Operator column: verbatim, named as defined, never a synonym (`define-terms`).
 Under a Source contract the export is the spec and the lock table is the operator's rulings on top; both are copied whole.
 One AC per locked row, deferrals named, plus **AC-S** when a Source contract exists — never expanded into per-node ACs.
 
+**Lock rows under a Source contract are a Source column, not `Means technically`** — three
+kinds only, quote plus its source, banned mechanism content, gate-enforced:
+[SOURCE-CONTRACT-LOCKS.md](references/SOURCE-CONTRACT-LOCKS.md) (Change 1, 2026-09-22).
+
 ## The brief — four parts
 
 - **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer.
-- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms, **`Size:`** (`line | component | system`, `doer-rules.md` § Size class) fixing the gate set, skill count, evidence, screenshots and upload policy for the lane. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now.
-- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)). **The read-back precedes the build**: above line, the doer's first return is `## Read-back` and it stops for `next: parent (go?)` before any edit (`doer-rules.md` § You are the doer, operator ruling 2026-09-21). **Verification inside a lane is one deterministic repro plus three reps** — a heavier sweep is its own lane, after the fix (`doer-rules.md` § Size class).
+- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms, **`Size:`** (`line | component | system`, `doer-rules.md` § Size class) fixing the gate set, skill count, evidence, screenshots and upload policy for the lane. Geometry/pipeline briefs state their **invariants** — what must not change. A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now. **Every brief above `line` carries the fixed House rules block** — [HOUSE-RULES.md](references/HOUSE-RULES.md), copied whole, never restated.
+- **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)). **The read-back precedes the build**: above line, the doer's first return is `## Read-back` and it stops for `next: parent (go?)` before any edit (`doer-rules.md` § You are the doer, operator ruling 2026-09-21). **The read-back states which object a dimension sizes** — a bare number ("48 or 64px wide") is read back against the thing it measures (board, canvas, instance) before dispatch, not assumed (hoverboard rounds 14–15, item 5: "48 or 64px" built as a 48px canvas made a 12px stick). **Verification inside a lane is one deterministic repro plus three reps** — a heavier sweep is its own lane, after the fix (`doer-rules.md` § Size class).
 - **`## Interrogated`** — result, or "inline, clear".
 - **`## Progress`** — the progress-file path, above line (`doer-rules.md` § You are the
   doer). Default `<lane evidence dir>/progress.md` in the vault; name it explicitly when the
@@ -109,9 +113,11 @@ novel architecture with no contract to point at).
 
 **Every continuation or slice brief carries `## State (untrusted draft; verify)`.** It
 lists what prior slices claim landed — sha, mechanism, values — marked as claims.
-Prior-slice implementation choices are never passed forward as fact: the doer re-verifies each against the
-Source contract and lock before building on it; a wrong mechanism inherited from slice 1 is
-slice 2's red finding, not its baseline. **A continuation slice is a fresh agent, not a resume** (`routing` § Resume vs fresh); artefacts named **by path**, never carried as context. **Lock widened, doer unreachable → continuation slice, not a new lane.** When the lock widens mid-flight and the running doer cannot be reached, let the lane land, then brief a continuation slice on the same branch carrying the widened rows; review once, after the last slice.
+Prior-slice implementation choices are never passed forward as fact: the doer reproduces each
+claim **on the running build**, never by reading the code — a claim true in the diff and false
+on screen is the exact failure this rule exists to catch (2026-09-22: "description swap already
+wired" read true in code, unkeyed child left it false on screen). A wrong mechanism inherited
+from slice 1 is slice 2's red finding, not its baseline. **A continuation slice is a fresh agent, not a resume** (`routing` § Resume vs fresh); artefacts named **by path**, never carried as context. **Lock widened, doer unreachable → continuation slice, not a new lane.** When the lock widens mid-flight and the running doer cannot be reached, let the lane land, then brief a continuation slice on the same branch carrying the widened rows; review once, after the last slice.
 
 ## Before you dispatch
 
@@ -132,4 +138,6 @@ slice 2's red finding, not its baseline. **A continuation slice is a fresh agent
 [ ] Brief interrogated (or inline, clear); `## Interrogated` recorded
 [ ] `## Progress` path named (above line)
 [ ] `Size:` named (line | component | system) and the process matches it
+[ ] House rules block copied whole (above line)
+[ ] Source-contract lock rows are export-silent | export-vs-ruling | operator-round only
 ```

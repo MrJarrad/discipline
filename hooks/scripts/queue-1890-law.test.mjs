@@ -80,7 +80,7 @@ test("doer-rules.md's Size class section follows § You are the doer and precede
 test("the read-back and progress-file exemptions both read line, not trivial/small-fix", () => {
   carries("doer-rules.md", "First step, above line: read back before building.");
   carries("doer-rules.md", "line lanes fold the read-back into the evidence return without stopping");
-  carries("doer-rules.md", "Progress is a file, not a stop.** Above line, keep a progress file");
+  carries("doer-rules.md", "Progress is a file, with a clock.** Above line, keep a progress file");
   carries("doer-rules.md", "line lanes keep no progress file");
 });
 
@@ -132,16 +132,16 @@ test("dispatch-brief's checklist gates the Size field", () => {
   assert.match(raw, /^\[ \] `Size:` named \(line \| component \| system\) and the process matches it$/m);
 });
 
-test("dispatch-brief's checklist is sixteen items", () => {
+test("dispatch-brief's checklist is eighteen items as of 1.92.0", () => {
   const brief = read("skills/dispatch-brief/SKILL.md");
   const list = brief.slice(brief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
-  assert.equal(items.length, 16, `the list is ${items.length} items; the ratified count is 16`);
+  assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18 as of 1.92.0`);
 });
 
-test("dispatch-brief skill stays under its 1350-word ceiling", () => {
+test("dispatch-brief skill stays under its 1.92.0 1450-word ceiling", () => {
   const count = read("skills/dispatch-brief/SKILL.md").split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1350, `dispatch-brief is ${count} words; the ceiling is 1350`);
+  assert.ok(count <= 1450, `dispatch-brief is ${count} words; the ceiling is 1450 as of 1.92.0`);
 });
 
 // --- INTERROGATE.md: ninth question -----------------------------------------

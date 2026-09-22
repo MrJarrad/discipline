@@ -1,9 +1,10 @@
-// Tests for the 1.79.0 Agent dispatch gate. Three dispatch laws that were
+// Tests for the Agent dispatch gate. Five dispatch laws that were
 // prompt-trusted until now — surface-prefixed description, explicit model,
-// brief under 600 words — are asserted here against the two fixtures the
-// dispatch brief named: one malformed, one well-formed. The fixtures are
-// exported so the runtime dry-run in the evidence return drives the same
-// objects the unit tests do, rather than a hand-typed approximation.
+// brief under 600 words, skills named, and (1.92.0) Source-contract lock-row
+// shape — are asserted here against the fixtures the dispatch brief named:
+// malformed and well-formed, plus 1.92.0 fixtures for the two new checks. The
+// fixtures are exported so the runtime dry-run in the evidence return drives
+// the same objects the unit tests do, rather than a hand-typed approximation.
 // Run: node --test hooks/scripts/agent-dispatch-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,9 +14,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   checkAgentDispatch,
+  checkSkillsNamed,
+  checkSourceContractLockRows,
   promptWords,
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
+  SOURCE_CONTRACT_CELLS,
 } from "../bin/agent-dispatch-gate.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -103,7 +107,8 @@ test("a prompt at or over the cap is blocked, with the count named", () => {
 });
 
 test("a prompt just under the cap passes", () => {
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt: "word ".repeat(PROMPT_WORD_CAP - 1) }).ok);
+  const prompt = "Skills: quality. " + "word ".repeat(PROMPT_WORD_CAP - 4);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
 });
 
 // The locked table is the spec and the brief copies it whole
@@ -111,8 +116,8 @@ test("a prompt just under the cap passes", () => {
 // to slice the lock to fit the cap — the exact malformed brief rule 10 forbids.
 test("markdown table rows do not count against the cap", () => {
   const rows = Array.from({ length: 200 }, (_, i) => `| ${i} | "operator said something long here" | means this technically |`);
-  const prompt = ["Short brief.", ...rows].join("\n");
-  assert.equal(promptWords(prompt), 2, "only the prose line counts");
+  const prompt = ["Short brief. Skills: quality.", ...rows].join("\n");
+  assert.equal(promptWords(prompt), 4, "only the prose line counts");
   assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
 });
 
@@ -161,6 +166,101 @@ test("input the gate cannot read is allowed, never denied on its own confusion",
     assert.equal(result.status, 0);
     assert.equal(result.stdout.trim(), "", JSON.stringify(input));
   }
+});
+
+// --- Skills named (1.92.0, every persona) ----------------------------------
+
+test("a prompt with no Skills: line is blocked for every persona, not just build verbs", () => {
+  for (const persona of ["engineer", "ux-designer", "reviewer", "researcher", "releaseops"]) {
+    const verdict = checkAgentDispatch({
+      ...WELL_FORMED,
+      subagent_type: persona,
+      prompt: WELL_FORMED.prompt.replace(/Skills:.*handoff-to-code\./, ""),
+    });
+    assert.equal(verdict.item, "skills", persona);
+    assert.match(verdict.reason, /a brief naming none is malformed/);
+  }
+});
+
+test("checkSkillsNamed passes on any non-empty Skills: line", () => {
+  assert.equal(checkSkillsNamed("Constraints. Skills: quality."), null);
+  assert.equal(checkSkillsNamed("Constraints. skill: motion, capture-figma."), null);
+  assert.notEqual(checkSkillsNamed("Constraints. Skills: ."), null);
+  assert.notEqual(checkSkillsNamed("No skills line at all."), null);
+});
+
+// --- Source-contract lock rows (1.92.0, Change 1) --------------------------
+
+const SOURCE_CONTRACT_WELL_FORMED = {
+  ...WELL_FORMED,
+  prompt: [
+    "You are the Engineer.",
+    "## Source contract",
+    "- Export: /abs/design-handoff-nav.md · nodes: #12, #14",
+    "**Constraints.** Skills: quality, handoff-to-code.",
+    "",
+    "## Locked decisions",
+    "| # | Operator said (verbatim) | Source |",
+    "| - | --- | --- |",
+    '| 1 | "the custom cursor stays" | operator-round |',
+    '| 2 | "export is silent on hover blur" | export-silent |',
+  ].join("\n"),
+};
+
+test("a well-formed Source-contract brief passes", () => {
+  assert.equal(checkSourceContractLockRows(SOURCE_CONTRACT_WELL_FORMED.prompt), null);
+  assert.ok(checkAgentDispatch(SOURCE_CONTRACT_WELL_FORMED).ok);
+});
+
+test("a Source-contract brief using 'Means technically' instead of Source is blocked", () => {
+  const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace("Source |", "Means technically |");
+  const verdict = checkSourceContractLockRows(prompt);
+  assert.equal(verdict.item, "lock-rows");
+  assert.match(verdict.reason, /Means technically/);
+});
+
+test("a Source-contract lock row with a free-text source cell is blocked", () => {
+  const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace(
+    '"the custom cursor stays" | operator-round |',
+    '"the custom cursor stays" | recommended |',
+  );
+  const verdict = checkSourceContractLockRows(prompt);
+  assert.equal(verdict.item, "lock-rows");
+  assert.match(verdict.reason, /export-silent \| export-vs-ruling \| operator-round/);
+});
+
+test("a Source-contract lock row whose quote carries a backticked token is blocked", () => {
+  const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace(
+    '"the custom cursor stays" | operator-round |',
+    '"use `--cursor-size-md` for the cursor" | operator-round |',
+  );
+  const verdict = checkSourceContractLockRows(prompt);
+  assert.equal(verdict.item, "lock-rows");
+  assert.match(verdict.reason, /backticked/);
+});
+
+test("a Source-contract lock row whose quote carries a function call is blocked", () => {
+  const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace(
+    '"the custom cursor stays" | operator-round |',
+    '"wire it through `riseOrder()`" | operator-round |',
+  );
+  assert.equal(checkSourceContractLockRows(prompt).item, "lock-rows");
+});
+
+test("a Source-contract lock row whose quote carries an easing curve is blocked", () => {
+  const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace(
+    '"the custom cursor stays" | operator-round |',
+    '"use `cubic-bezier(0.23,1,0.32,1)`" | operator-round |',
+  );
+  assert.equal(checkSourceContractLockRows(prompt).item, "lock-rows");
+});
+
+test("a prompt with no ## Source contract heading skips the lock-row check entirely", () => {
+  assert.equal(checkSourceContractLockRows(WELL_FORMED.prompt), null);
+});
+
+test("the three legal Source cells are exactly export-silent | export-vs-ruling | operator-round", () => {
+  assert.deepEqual([...SOURCE_CONTRACT_CELLS].sort(), ["export-silent", "export-vs-ruling", "operator-round"]);
 });
 
 // --- Wiring ---------------------------------------------------------------

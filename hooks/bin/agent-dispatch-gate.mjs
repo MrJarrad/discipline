@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-/* PreToolUse (Agent|Task) — makes three dispatch laws mechanical instead of
+/* PreToolUse (Agent|Task) — makes five dispatch laws mechanical instead of
    prompt-trusted. `routing` rule 9 has said since 1.74.0 that every dispatch
    `description` leads with its surface, `model-routing` has said the model is
-   set explicitly and never inherited, and `dispatch-brief` caps the brief —
-   and all three were still checked only by whoever remembered to check them.
-   This gate reads the dispatch before it launches and denies it with the
-   failing item named.
+   set explicitly and never inherited, `dispatch-brief` caps the brief, routing
+   says a brief naming no skills is malformed, and the 2026-09-22
+   lessons-for-1-92 ruling says a Source-contract lock row carries only the
+   operator's words — and all five were still checked only by whoever
+   remembered to check them. This gate reads the dispatch before it launches
+   and denies it with the failing item named.
 
-   Three checks, in order, first failure reported:
+   Five checks, in order, first failure reported:
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -21,10 +23,24 @@
       (`review-the-lock-not-the-slice`), so counting its rows against the brief
       would push the parent to slice the lock to fit the cap — exactly the
       malformed-brief shape rule 10 forbids. Prose is what the cap is for.
+   4. SKILLS NAMED — every persona dispatch (engineer, ux-designer, reviewer,
+      researcher, releaseops, project-manager alike) carries a `Skills:` line
+      naming at least one skill (`routing`: "a brief naming none is
+      malformed"). Not scoped to build verbs — every row of `routing`'s
+      persona dispatch table names mandatory skills, so every dispatch does.
+   5. SOURCE-CONTRACT LOCK ROWS — when the prompt carries `## Source
+      contract`, its `## Locked decisions` table (if any) uses a `Source`
+      column, never `Means technically`, and each row's Source cell is one
+      of `export-silent` | `export-vs-ruling` | `operator-round` (Change 1,
+      2026-09-22 lessons-for-1-92 ruling). The quote cell carries only the
+      operator's words — a backticked mechanism identifier (a
+      `--custom-prop`, a `name()` call, an easing/`cubic-bezier`, a file
+      path) in that cell can only have been authored by the parent, which is
+      the exact malformed-brief shape the ruling forbids.
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
-   no surface, no persona and no brief, so the three laws do not apply.
+   no surface, no persona and no brief, so none of the five laws apply.
 
    The check is exported as a pure function so the tests drive it directly;
    the CLI wrapper only does stdin/stdout. */
@@ -40,6 +56,24 @@ export const EXEMPT_SUBAGENTS = new Set(["Explore", "Plan"]);
 // files do not describe.
 const DESCRIPTION_SHAPE = /^(cloud|local) — ([A-Za-z][A-Za-z0-9 -]*?) \(([^()]+)\): *\S/;
 
+// The three legal Source cells for a Source-contract lock row (Change 1).
+export const SOURCE_CONTRACT_CELLS = new Set(["export-silent", "export-vs-ruling", "operator-round"]);
+
+// A backticked mechanism identifier — only the parent could have authored
+// this inside a quote cell that is supposed to carry the operator's words
+// verbatim: a custom property, a function call, an easing curve/token, or a
+// file path with a code-file extension.
+const MECHANISM_IDENTIFIER = new RegExp(
+  "`(" +
+    "--[\\w-]+" + // custom property
+    "|[\\w-]+\\(\\)" + // function call
+    "|cubic-bezier\\([^)]*\\)" + // easing curve literal
+    "|ease-(?:in|out|in-out)[\\w-]*" + // easing token
+    "|[\\w./-]+\\.(?:mjs|js|ts|tsx|css|md|json)" + // file path
+    ")`",
+  "i",
+);
+
 /* Words in the brief, NOT counting markdown table rows. A row is a line whose
    first non-space character is a pipe — that covers the header, the separator
    and every data row of a locked table. */
@@ -50,6 +84,92 @@ export function promptWords(prompt) {
     .join("\n")
     .split(/\s+/)
     .filter(Boolean).length;
+}
+
+// Split a `## Locked decisions` markdown table into its raw pipe-lines
+// (header, separator, then data rows), or [] if there is no lock table.
+function lockedDecisionsLines(prompt) {
+  const lockIdx = prompt.search(/##\s*Locked decisions/i);
+  if (lockIdx === -1) return [];
+  const rest = prompt.slice(lockIdx);
+  const nextHeading = rest.slice(1).search(/\n##\s/);
+  const tableText = nextHeading === -1 ? rest : rest.slice(0, nextHeading + 1);
+  return tableText.split("\n").filter((line) => /^\s*\|/.test(line));
+}
+
+function tableCells(row) {
+  return row
+    .split("|")
+    .map((cell) => cell.trim())
+    .filter((cell, i, arr) => !(i === 0 && cell === "") && !(i === arr.length - 1 && cell === ""));
+}
+
+/* Returns null when the check does not apply or passes, or
+   { item, reason } on a violation — Change 1 (2026-09-22 lessons-for-1-92). */
+export function checkSourceContractLockRows(prompt) {
+  if (!/##\s*Source contract/i.test(prompt)) return null;
+  const lines = lockedDecisionsLines(prompt);
+  if (lines.length < 2) return null; // no lock table this round
+
+  const header = lines[0];
+  if (/means technically/i.test(header)) {
+    return {
+      item: "lock-rows",
+      reason:
+        `Dispatch blocked — lock-rows: the Locked decisions header uses "Means technically". ` +
+        `A Source-contract lock row uses a Source column instead — ` +
+        `export-silent | export-vs-ruling | operator-round (dispatch-brief § Locked decisions).`,
+    };
+  }
+
+  for (const row of lines.slice(2)) {
+    const cells = tableCells(row);
+    if (cells.length < 3) continue; // not a data row (e.g. malformed/short line)
+    const quote = cells[1];
+    const source = cells[cells.length - 1].replace(/`/g, "").trim();
+
+    if (MECHANISM_IDENTIFIER.test(quote)) {
+      return {
+        item: "lock-rows",
+        reason:
+          `Dispatch blocked — lock-rows: quote cell ${JSON.stringify(quote)} carries a backticked ` +
+          `mechanism identifier (token/function/easing/path) — only the parent could have authored ` +
+          `that; a Source-contract lock row quotes the operator's words only.`,
+      };
+    }
+
+    if (!SOURCE_CONTRACT_CELLS.has(source)) {
+      return {
+        item: "lock-rows",
+        reason:
+          `Dispatch blocked — lock-rows: source cell ${JSON.stringify(cells[cells.length - 1])} ` +
+          `must be one of export-silent | export-vs-ruling | operator-round.`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/* Returns null when a `Skills:` line names at least one skill, else
+   { item, reason } — Change 1 additions (every persona dispatch names its
+   skills, not build verbs only). */
+export function checkSkillsNamed(prompt) {
+  const match = /skills?:\s*([^\n]+)/i.exec(prompt);
+  const names = match
+    ? match[1]
+        .split(/[,;]/)
+        .map((s) => s.trim().replace(/\.$/, ""))
+        .filter((s) => /[A-Za-z0-9]/.test(s))
+    : [];
+  if (names.length > 0) return null;
+  return {
+    item: "skills",
+    reason:
+      `Dispatch blocked — skills: no \`Skills:\` line naming at least one skill was found in the ` +
+      `prompt. Every persona dispatch names its skills — a brief naming none is malformed ` +
+      `(\`routing\` § persona dispatch table).`,
+  };
 }
 
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
@@ -96,6 +216,12 @@ export function checkAgentDispatch(toolInput = {}) {
         `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
     };
   }
+
+  const skillsVerdict = checkSkillsNamed(prompt);
+  if (skillsVerdict) return { ok: false, ...skillsVerdict };
+
+  const lockRowsVerdict = checkSourceContractLockRows(prompt);
+  if (lockRowsVerdict) return { ok: false, ...lockRowsVerdict };
 
   return { ok: true };
 }

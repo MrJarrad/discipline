@@ -100,3 +100,16 @@ typed `reference` records: [WRITING.md](references/WRITING.md).
 
 Read [DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
+## Queue writes verify the row landed (Change 6, 2026-09-22)
+
+**A queue row named in chat is written to the file in the same tool call as the message that
+names it** — never spoken now, filed later (hoverboard rounds 14–15, item 6: rows 43 and 57
+existed only in chat and the strike that assumed them then failed). **After any queue-row
+edit, re-read the file and grep the written row back** before reporting it banked — `node
+<plugin>/hooks/scripts/queue-write-check.mjs <file> "<row text>"` fails loud (non-zero exit,
+the row it could not find) rather than a silent pass. **Before editing a shared queue file,
+re-read it first** if another session may have committed to it since your last read — a stale
+in-memory copy overwrites a concurrent write. Rows 81–86 were once reported banked after a
+concurrent session had already rewritten the file out from under them; the gate exists so
+"banked" is never asserted from memory.
+
