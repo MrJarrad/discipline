@@ -112,6 +112,7 @@ if (touchesSkills) {
 // Lesson-ledger gate — only when this commit's staged changes bump the
 // plugin version (a release commit), and only when explicitly enabled.
 const PLUGIN_MANIFEST = ".claude-plugin/plugin.json";
+const MARKETPLACE_MANIFEST = ".claude-plugin/marketplace.json";
 
 // The `version` value on the staged (+) side of the manifest diff, or null
 // when this commit does not change it. Reading the diff rather than the
@@ -124,8 +125,40 @@ function stagedVersionBump(repoCwd) {
   return added ? added[1] : null;
 }
 
+// The marketplace manifest's own plugin version, read from the INDEX (staged
+// content, including any change this commit makes to the file, falling back
+// to whatever was last committed when this commit leaves it untouched) —
+// never the working tree, which may carry unrelated uncommitted edits.
+function indexedMarketplaceVersion(repoCwd) {
+  const show = spawnSync("git", ["-C", repoCwd, "show", `:${MARKETPLACE_MANIFEST}`], { encoding: "utf8" });
+  if (show.status !== 0 || !show.stdout) return null;
+  try {
+    return JSON.parse(show.stdout).plugins?.[0]?.version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Version-match gate — independent of the lesson-ledger gate and its
+// vault dependency, always on. 1.93.1 shipped with plugin.json bumped to
+// 1.93.1 and marketplace.json left at 1.93.0 (queue-1820/1830/.../1880-law's
+// "one matching semver" tests went red the moment 1.93.0's own top-of-file
+// pin rolled past). A release commit (one that bumps plugin.json's version)
+// must bump marketplace.json's `plugins[0].version` to the same value in the
+// same commit, or be refused before it lands.
+const bumpedTo = stagedVersionBump(cwd);
+if (bumpedTo) {
+  const marketplaceVersion = indexedMarketplaceVersion(cwd);
+  if (marketplaceVersion !== bumpedTo) {
+    deny(
+      `Version-match gate: plugin.json is being bumped to ${bumpedTo} but ` +
+      `${MARKETPLACE_MANIFEST}'s plugins[0].version is ${marketplaceVersion ?? "unreadable"} — ` +
+      `stage a matching marketplace.json bump in this same commit.`,
+    );
+  }
+}
+
 if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
-  const bumpedTo = stagedVersionBump(cwd);
   if (bumpedTo) {
     let vaultRoot = process.env.DISCIPLINE_VAULT_ROOT;
     if (!vaultRoot) vaultRoot = join(homedir(), "JHD", "vault", "main");

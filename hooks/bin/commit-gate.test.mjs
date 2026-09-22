@@ -140,13 +140,58 @@ test("non-commit commands pass through untouched even with no marker", () => {
   }
 });
 
+// ---- Version-match gate ----------------------------------------------------
+// 1.93.1 shipped with plugin.json bumped and marketplace.json left behind —
+// this gate makes that class refuse the commit instead of shipping red.
+
+test("release commit whose marketplace.json version does not match plugin.json is denied", () => {
+  const dir = makeReleaseRepo("1.93.2", "1.93.0");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.93.2"', {
+      DISCIPLINE_LEDGER_GATE: "0", // isolate this gate from the ledger gate
+    });
+    assert.match(result.stdout, /permissionDecision":"deny"/);
+    assert.match(result.stdout, /Version-match gate/);
+    assert.match(result.stdout, /1\.93\.2/);
+    assert.match(result.stdout, /1\.93\.0/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("release commit whose marketplace.json version matches plugin.json passes the gate", () => {
+  const dir = makeReleaseRepo("1.93.2", "1.93.2");
+  try {
+    const result = runGate(dir, 'git commit -m "release: 1.93.2"', {
+      DISCIPLINE_LEDGER_GATE: "0",
+    });
+    assert.equal(result.stdout, "", "matching versions emit no deny JSON");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a commit that stages no plugin.json version bump never runs the version-match gate", () => {
+  const dir = makeReleaseRepo("1.72.0", "1.72.0"); // manifest rewritten, version unchanged
+  try {
+    const result = runGate(dir, 'git commit -m "chore: reformat manifest"', {
+      DISCIPLINE_LEDGER_GATE: "0",
+    });
+    assert.equal(result.stdout, "", "only a version bump triggers the gate");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ---- Lesson-ledger gate ---------------------------------------------------
 // A release commit (staged plugin.json version bump) must not land while a
 // fleet lesson or ruling is still `queued`.
 
-// A real git repo with the plugin manifest staged at `version`, plus a green
-// typecheck script so only the ledger gate can deny.
-function makeReleaseRepo(version) {
+// A real git repo with the plugin manifest staged at `version`, a
+// marketplace manifest staged at the same version (unless `marketplaceVersion`
+// says otherwise, for the version-match gate's own denial tests), plus a
+// green typecheck script so only the gate under test can deny.
+function makeReleaseRepo(version, marketplaceVersion = version) {
   const dir = mkdtempSync(join(tmpdir(), "commit-gate-release-"));
   const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
   git("init", "-q");
@@ -158,9 +203,17 @@ function makeReleaseRepo(version) {
   );
   mkdirSync(join(dir, ".claude-plugin"), { recursive: true });
   writeFileSync(join(dir, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "d", version: "1.72.0" }, null, 2));
+  writeFileSync(
+    join(dir, ".claude-plugin", "marketplace.json"),
+    JSON.stringify({ name: "d", plugins: [{ name: "d", version: "1.72.0" }] }, null, 2),
+  );
   git("add", "-A");
   git("commit", "-qm", "base");
   writeFileSync(join(dir, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "d", version }, null, 2));
+  writeFileSync(
+    join(dir, ".claude-plugin", "marketplace.json"),
+    JSON.stringify({ name: "d", plugins: [{ name: "d", version: marketplaceVersion }] }, null, 2),
+  );
   git("add", "-A");
   return dir;
 }
