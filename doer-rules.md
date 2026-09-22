@@ -8,7 +8,8 @@ it never restates what is here.
 - **First step, above line: read back before building.** Your first return is
   `## Read-back` — the contract items you will build (enumerated), the assumptions you
   would otherwise make, and your questions — and you stop there with `next: parent (go?)`
-  before any edit. The parent answers or says go; you continue **in the same context** —
+  before any edit. **The parent's reply is one line — `go`, or one correction — never a
+  restatement** (`spend-levers` rule 3, 2026-09-22). You continue **in the same context** —
   this continuation is the one non-red resume allowed (`routing` § Resume vs fresh).
   **line lanes fold the read-back into the evidence return without stopping** (§ Size
   class below; operator ruling 2026-09-21: *"would it make sense to also introduce brief
@@ -66,7 +67,9 @@ issues"* → *"that sounds good"*).
 **line**: read the one file, change it, run only the tests that cover it, commit — no build,
 no upload, no screenshots, no ledger beyond the one row; no read-back stop and no progress
 file (§ You are the doer above). **component and system both keep the read-back stop and
-the progress file** — line is the only class exempt from either.
+the progress file** — line is the only class exempt from either. **A `line` brief never
+asks for a read-back stop; the dispatch gate refuses one that does** (operator ruling
+2026-09-22, `spend-levers` rule 1: *"Read-back only above line."*).
 
 **A standalone component lane uploads at done, unless the brief names a batch** — "one
 upload per batch of lanes, not per lane" scopes the batch case; a lane dispatched alone
@@ -149,7 +152,10 @@ inventing a shape per dispatch.
 
 **No prose recap, no narrative** — the table and the gate output are the report. Budget:
 **≤ 250 words**, excluding the per-criterion table and the verbatim gate output. Over
-budget is a signal the run was under-scoped, not a licence to narrate.
+budget is a signal the run was under-scoped, not a licence to narrate. **The evidence
+return is the ledger plus gate tails, full stop** — narrative, reproduction logs and
+per-frame readings live in the progress file (§ You are the doer above), linked by path,
+never pasted into the return (operator ruling 2026-09-22, `spend-levers` rule 2).
 
 Non-code lanes map the same five: the reviewer's per-criterion rows are its
 severity-ranked findings with their re-validation; the researcher's `file:line` is the
