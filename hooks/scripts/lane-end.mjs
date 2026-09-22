@@ -4,22 +4,30 @@
    2026-09-22 addendum: the orchestrator "avoids mechanical grunt work").
 
    It: (1) runs `lane-sweep.mjs --session-dir <dir>`; (2) replaces queue row
-   `--row <n>` in the operator's own section of `--vault <root>`'s
-   `orchestrator/operator-queue.md` with `--text <full replacement row text>`,
-   refusing if the row is absent or the replace would touch another section;
+   `--row <n>` INSIDE `--section <name>` (required — no whole-file fallback)
+   of `--vault <root>`'s `orchestrator/operator-queue.md` with
+   `--text <full replacement row text>`, refusing if the section is missing
+   or the row is absent from that section's own line range; a same-numbered
+   row in another section is never touched, in either direction (round 2
+   fix, 2026-09-22: an unscoped whole-file search either falsely refused a
+   real row or silently overwrote another project's same-numbered row);
    (3) greps the write back with `queue-write-check.mjs`; (4) `git add`s only
    the queue file plus `--evidence <dir>` (if given), commits naming the row,
    and pushes; (5) if `--pr <owner/repo#n>` is given, prints the PR's
    `statusCheckRollup` conclusions and `mergeable`.
 
+   `--dry-run` prints the replacement and the commit message it would make —
+   no write, no commit, no push, no sweep, no PR call.
+
    Exit non-zero on any refusal, printing what it did not do — never a
-   silent partial run. Pure logic (row lookup/replace, section fencing) is
+   silent partial run. Pure logic (section range, row lookup/replace) is
    exported so the tests drive it without touching disk, git or gh; the CLI
    `main()` wires it to the real filesystem/process calls.
 
    Usage:
      node lane-end.mjs --session-dir <path> --vault <root> --row <n>
-       --text "<full replacement row text>" [--evidence <dir>] [--pr <owner/repo#n>]
+       --section <name> --text "<full replacement row text>"
+       [--evidence <dir>] [--pr <owner/repo#n>] [--dry-run]
 */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -40,43 +48,65 @@ export function parseArgs(argv) {
 
 /* A queue file is sectioned by `## <project>` headings, each operator's own
    section owning its numbered rows (`## Row N` or a leading `N.`/`N)` line).
-   Returns { section, lineIndex } for the row, or null if not found — the
-   caller refuses rather than guessing which section a numberless row is in. */
-export function findRow(queueText, rowNumber) {
+   Returns { start, end } line indices (end exclusive) spanning `section`'s
+   own body — from its heading's next line to the next `## ` heading or EOF —
+   or null when the section does not exist. Two sections can carry the same
+   row number (e.g. both a "Portfolio" and a "Discipline" row 9); a caller
+   that searches the whole file first-match can silently pick the wrong one,
+   so every lookup is scoped to one section's line range, never the file
+   (round 2 fix, 2026-09-22: row 9 in two sections). */
+export function sectionRange(queueText, section) {
   const lines = queueText.split("\n");
-  let section = null;
-  const rowRe = new RegExp(`^\\s*(?:-\\s*)?\\[?\\s*(?:Row\\s*)?${rowNumber}[.)\\]]`, "i");
+  let start = -1;
   for (let i = 0; i < lines.length; i++) {
     const headingMatch = /^##\s+(.+)$/.exec(lines[i]);
-    if (headingMatch) {
-      section = headingMatch[1].trim();
+    if (headingMatch && headingMatch[1].trim() === section) {
+      start = i + 1;
       continue;
     }
-    if (rowRe.test(lines[i])) {
-      return { section, lineIndex: i };
+    if (start !== -1 && headingMatch) {
+      return { start, end: i };
     }
+  }
+  return start === -1 ? null : { start, end: lines.length };
+}
+
+/* Returns { lineIndex } for `rowNumber`'s line INSIDE `section` only, or
+   null if the section does not exist or the row is not found within it —
+   never a whole-file search, so a same-numbered row in another section is
+   invisible to this lookup. */
+export function findRow(queueText, rowNumber, section) {
+  const range = sectionRange(queueText, section);
+  if (!range) return null;
+  const lines = queueText.split("\n");
+  const rowRe = new RegExp(`^\\s*(?:-\\s*)?\\[?\\s*(?:Row\\s*)?${rowNumber}[.)\\]]`, "i");
+  for (let i = range.start; i < range.end; i++) {
+    if (rowRe.test(lines[i])) return { lineIndex: i };
   }
   return null;
 }
 
-/* Returns { ok: true, text } with row `rowNumber`'s line replaced by
-   `newRowText`, or { ok: false, reason } — refuses when the row is absent,
-   or when `expectSection` is given and does not match the row's own
-   section (never lets one row's edit spill into another section). */
-export function replaceRow(queueText, rowNumber, newRowText, expectSection) {
-  const found = findRow(queueText, rowNumber);
-  if (!found) {
-    return { ok: false, reason: `row ${rowNumber} not found in the queue file` };
+/* Returns { ok: true, text } with row `rowNumber`'s line, found and
+   replaced ONLY within `section`'s own line range, replaced by
+   `newRowText`; or { ok: false, reason } — refuses when `section` is
+   missing, when the row is absent from that section, and never writes a
+   line outside the section's range. `section` is required — there is no
+   whole-file fallback. */
+export function replaceRow(queueText, rowNumber, newRowText, section) {
+  if (!section) {
+    return { ok: false, reason: "a --section is required — no whole-file fallback" };
   }
-  if (expectSection && found.section !== expectSection) {
-    return {
-      ok: false,
-      reason: `row ${rowNumber} is in section "${found.section}", not "${expectSection}" — refusing to edit another section`,
-    };
+  const range = sectionRange(queueText, section);
+  if (!range) {
+    return { ok: false, reason: `section "${section}" not found in the queue file` };
+  }
+  const found = findRow(queueText, rowNumber, section);
+  if (!found) {
+    return { ok: false, reason: `row ${rowNumber} not found in section "${section}"` };
   }
   const lines = queueText.split("\n");
   lines[found.lineIndex] = newRowText;
-  return { ok: true, text: lines.join("\n"), section: found.section };
+  return { ok: true, text: lines.join("\n"), section };
 }
 
 function run(cmd, args, opts = {}) {
@@ -85,23 +115,28 @@ function run(cmd, args, opts = {}) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const missing = ["session-dir", "vault", "row", "text"].filter((k) => !args[k]);
+  const missing = ["session-dir", "vault", "row", "text", "section"].filter((k) => !args[k]);
   if (missing.length) {
     console.error(`lane-end: missing required args: ${missing.join(", ")}`);
     process.exit(1);
   }
+  const dryRun = args["dry-run"] === true;
 
   const scriptDir = new URL(".", import.meta.url).pathname;
   const failures = [];
 
   // 1. Sweep.
-  try {
-    console.log(run("node", [join(scriptDir, "lane-sweep.mjs"), "--session-dir", args["session-dir"]]));
-  } catch (err) {
-    failures.push(`sweep: ${err.message}`);
+  if (dryRun) {
+    console.log(`[dry-run] would run: node ${join(scriptDir, "lane-sweep.mjs")} --session-dir ${args["session-dir"]}`);
+  } else {
+    try {
+      console.log(run("node", [join(scriptDir, "lane-sweep.mjs"), "--session-dir", args["session-dir"]]));
+    } catch (err) {
+      failures.push(`sweep: ${err.message}`);
+    }
   }
 
-  // 2. Replace queue row.
+  // 2. Replace queue row (scoped to --section — see replaceRow).
   const queuePath = join(args.vault, "orchestrator", "operator-queue.md");
   let queueText;
   try {
@@ -110,11 +145,18 @@ function main() {
     console.error(`lane-end: cannot read ${queuePath}: ${err.message}`);
     process.exit(1);
   }
-  const replaced = replaceRow(queueText, args.row, args.text, args.section || null);
+  const replaced = replaceRow(queueText, args.row, args.text, args.section);
   if (!replaced.ok) {
     console.error(`lane-end: did not replace the queue row — ${replaced.reason}`);
     process.exit(1);
   }
+
+  if (dryRun) {
+    console.log(`[dry-run] would replace row ${args.row} in section "${args.section}" with:\n  ${args.text}`);
+    console.log(`[dry-run] would commit: queue: row ${args.row} landed`);
+    process.exit(0);
+  }
+
   writeFileSync(queuePath, replaced.text, "utf8");
 
   // 3. Grep the write back.

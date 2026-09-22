@@ -105,18 +105,25 @@ test("dispatch-brief: repeats the one-line read-back reply rule", () => {
 
 import { findRow, replaceRow } from "./lane-end.mjs";
 
-test("lane-end: findRow locates a row inside its own section", () => {
+test("lane-end: findRow locates a row scoped to its own section", () => {
   const queue = "## Discipline\n9. a row\n";
-  assert.equal(findRow(queue, "9").section, "Discipline");
+  assert.ok(findRow(queue, "9", "Discipline"));
 });
 
-test("lane-end: replaceRow refuses a row absent from the queue", () => {
-  assert.equal(replaceRow("## Discipline\n1. x\n", "9", "9. y").ok, false);
+test("lane-end: replaceRow refuses a row absent from the named section", () => {
+  assert.equal(replaceRow("## Discipline\n1. x\n", "9", "9. y", "Discipline").ok, false);
 });
 
-test("lane-end: replaceRow refuses when the row is in another section", () => {
-  const queue = "## Portfolio\n9. x\n## Discipline\n1. y\n";
-  assert.equal(replaceRow(queue, "9", "9. z", "Discipline").ok, false);
+test("lane-end: replaceRow requires --section — no whole-file fallback", () => {
+  assert.equal(replaceRow("## Discipline\n9. x\n", "9", "9. z").ok, false);
+});
+
+test("lane-end: row 9 in two sections — the named section's row 9 is neither falsely refused nor cross-written (round 2 fix)", () => {
+  const queue = "## Portfolio\n9. portfolio row\n## Discipline\n9. discipline row\n";
+  const result = replaceRow(queue, "9", "9. discipline row, replaced", "Discipline");
+  assert.equal(result.ok, true, result.reason);
+  assert.match(result.text, /portfolio row/); // untouched
+  assert.match(result.text, /discipline row, replaced/);
 });
 
 test("routing: the baton table names lane-end.mjs as the lane-landed parent call", () => {
