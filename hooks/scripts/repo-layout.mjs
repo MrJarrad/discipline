@@ -11,6 +11,7 @@
    Pure filesystem checks only — no git calls, so callers can use these
    before deciding which git commands to run. */
 import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 
 /* A `--repo`/`--repos` entry may name the container (`<repo>`) or the
@@ -46,4 +47,38 @@ export function mainWorktreeOf(repoRoot) {
    `main`), so `git worktree list` shows it as its own top-level entry. */
 export function laneWorktreePath(repoRoot, laneName) {
   return join(repoRoot, laneName);
+}
+
+/* Parses a GitHub `owner/repo` out of an `origin` remote URL — the real
+   `gh` CLI's `--repo` flag only ever accepts `[HOST/]OWNER/REPO`, never a
+   filesystem path (`2026-09-22-scripts-not-agents` § gh invocation).
+   Accepts both URL shapes:
+     https://github.com/OWNER/REPO(.git)
+     git@github.com:OWNER/REPO(.git)
+   Returns `null` when the URL isn't a recognisable github.com remote —
+   callers fall back to a `cwd`-scoped `gh` call with no `--repo` flag. */
+export function ownerRepoFromUrl(remoteUrl) {
+  const httpsMatch = remoteUrl.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(\.git)?\/?$/);
+  if (httpsMatch) return `${httpsMatch[1]}/${httpsMatch[2]}`;
+  const sshMatch = remoteUrl.match(/^git@github\.com:([^/]+)\/([^/]+?)(\.git)?\/?$/);
+  if (sshMatch) return `${sshMatch[1]}/${sshMatch[2]}`;
+  return null;
+}
+
+/* Reads `owner/repo` from a checkout's own `origin` remote — the shape
+   every `gh --repo` call in these scripts must pass. `gitDir` is a git
+   working tree (e.g. `mainWorktreeOf(repoRoot)` or a lane worktree), never
+   the bare-layout container itself. Returns `null` when there's no
+   `origin` remote or it isn't a github.com URL — callers should fall back
+   to a `cwd`-scoped `gh` call with no `--repo` flag in that case. */
+export function ownerRepoFromOrigin(gitDir) {
+  let remoteUrl;
+  try {
+    remoteUrl = execFileSync("git", ["-C", gitDir, "remote", "get-url", "origin"], {
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return null;
+  }
+  return ownerRepoFromUrl(remoteUrl);
 }
