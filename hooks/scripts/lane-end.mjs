@@ -28,10 +28,11 @@
      node lane-end.mjs --session-dir <path> --vault <root> --row <n>
        --section <name> --text "<full replacement row text>"
        [--evidence <dir>] [--pr <owner/repo#n>] [--dry-run]
+       [--then-merge <owner/repo#n> --repo <path> [--then-build]]
 */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export function parseArgs(argv) {
   const out = {};
@@ -43,6 +44,11 @@ export function parseArgs(argv) {
     out[key] = next && !next.startsWith("--") ? next : true;
     if (out[key] !== true) i++;
   }
+  // `--vault`/`--repo` are filesystem roots other calls (git -C, cwd) depend
+  // on — resolve to absolute here so a relative arg never depends on the
+  // caller's cwd downstream.
+  if (typeof out.vault === "string") out.vault = resolve(out.vault);
+  if (typeof out.repo === "string") out.repo = resolve(out.repo);
   return out;
 }
 
@@ -186,6 +192,30 @@ function main() {
       console.log(out);
     } catch (err) {
       failures.push(`pr status: ${err.message}`);
+    }
+  }
+
+  // 6. `--then-merge <owner/repo#n> --repo <path>` calls script 4
+  // (merge-after-review.mjs), optionally followed by script 1
+  // (release-build.mjs) when `--then-build` also rides (`scripts-not-agents`
+  // Boundaries, 2026-09-22: "lane-end.mjs may call 4 then 1 via flags").
+  if (args["then-merge"]) {
+    if (!args.repo) {
+      failures.push("then-merge: --repo is required alongside --then-merge");
+    } else {
+      try {
+        const mergeArgs = [
+          join(scriptDir, "merge-after-review.mjs"),
+          "--pr",
+          args["then-merge"],
+          "--repo",
+          args.repo,
+        ];
+        if (args["then-build"]) mergeArgs.push("--then-build");
+        console.log(run("node", mergeArgs));
+      } catch (err) {
+        failures.push(`then-merge: ${err.message}`);
+      }
     }
   }
 

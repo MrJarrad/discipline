@@ -55,7 +55,10 @@ const CEILINGS = [
   // Ceiling raised 1350 -> 1400 at 1.92.0: `lane-progress-file` sharpened
   // (Change 4) added a 15-minute baton-table row alongside the existing
   // 30-minute one.
-  { skill: "routing", ceiling: 1400, before: 3254, frontmatterWords: 90 },
+  // Ceiling raised 1400 -> 1450 at 1.93.0: `scripts-not-agents` added a
+  // baton-table row pointing at the four mechanical scripts, offloaded to
+  // references/MECHANICAL-SCRIPTS.md.
+  { skill: "routing", ceiling: 1450, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a

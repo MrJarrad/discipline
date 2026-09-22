@@ -37,10 +37,14 @@ Run this *after* you understand the problem, for every unit of code you're about
 4. **Native platform feature?** — the framework/platform/browser/OS primitive. → use it.
 5. **An already-installed dependency?** — something in `package.json`/lockfile covers it. → use it.
 6. **One line?** — if it collapses to a line, write the line, not a helper.
-7. **Only then:** write the *minimum working code* for the real need.
+7. **Mechanical first?** — a deterministic mechanism (script, token, data-driven rule,
+   pinned test, existing tool) before a model call, a manual step or a judgement call; a
+   design that reaches for AI where a script would do is a finding (`scripts-not-agents`,
+   2026-09-22).
+8. **Only then:** write the *minimum working code* for the real need.
 
 The rungs are ordered by cost-to-maintain: reuse > stdlib/native > dep > new. Never jump to
-rung 7 without checking the ones above it — "I'll just write a quick helper" is the most
+rung 8 without checking the ones above it — "I'll just write a quick helper" is the most
 common way a codebase accretes duplicated primitives.
 
 ## Intensity — default is **Full**
@@ -74,7 +78,7 @@ to save lines is the anti-pattern this skill exists to prevent, not enable.
 
 ## Marking a deliberate shortcut
 
-When rung 7 is a knowing shortcut (a prototype, a demo, a deferred hardening), ship it *and*
+When rung 8 is a knowing shortcut (a prototype, a demo, a deferred hardening), ship it *and*
 mark it so the ceiling is visible and the upgrade path is one read away:
 
 ```ts
@@ -104,6 +108,6 @@ Behavioral quick-reference for auditing a diff: [references/DOS-AND-DONTS.md](re
 - **Not for non-coding work.** Prose, research, board hygiene, design copy — the ladder is
   about code. Don't apply it to a doc or a plan.
 - **Not an excuse to under-build.** A genuinely needed capability with no rung 1–6 answer gets
-  *written* (rung 7, minimally). "YAGNI" never means refusing work the task actually requires.
+  *written* (rung 8, minimally). "YAGNI" never means refusing work the task actually requires.
 - **Don't skip comprehension.** A tiny diff produced without reading the code is the danger,
   not the win. Lazy about the solution; never about understanding.

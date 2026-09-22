@@ -32,6 +32,10 @@ appearance, feel) — explicit **design-review** owns experience judgment. Named
 3. **Never fabricate.** Source from real files, APIs, and data, or stop and route
    the question to the operator via the orchestrator. Don't invent file paths, API
    shapes, component names, or facts.
+4. **Mechanical first.** A deterministic mechanism (script, token, data-driven rule,
+   pinned test, existing tool) comes before a model call, a manual step or a judgement
+   call; a brief or design that reaches for AI where a script would do is a finding
+   (`scripts-not-agents`, 2026-09-22).
 
 ## The craft loop — every non-trivial task
 

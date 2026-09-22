@@ -72,6 +72,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 | **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, evidence commit + push, PR CI read, one deterministic call (`spend-levers` rule 5, 2026-09-22) |
+| **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
 ## Rung ladder (name the rung before dispatch)
 
