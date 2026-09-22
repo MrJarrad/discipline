@@ -115,6 +115,90 @@ test("full run against a scratch repo installs/builds/uploads via the fake pnpm 
   }
 });
 
+// --- law: bare + worktrees layout (2026-09-22-scripts-not-agents § Layout) -
+
+function makeBareLayoutRepo() {
+  const root = mkdtempSync(join(tmpdir(), "release-build-blroot-"));
+  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
+  const mainDir = join(root, "main");
+  execFileSync("git", ["-C", mainDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", mainDir, "config", "user.name", "test"]);
+  writeFileSync(join(mainDir, "package.json"), "{}\n");
+  execFileSync("git", ["-C", mainDir, "add", "."]);
+  execFileSync("git", ["-C", mainDir, "commit", "-q", "-m", "init"]);
+  return { root, mainDir };
+}
+
+test("law: bare-layout repo — builds via a sibling worktree beside main, never inside it, and removes it after", () => {
+  const { root, mainDir } = makeBareLayoutRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-blbin-"));
+  makeFakePnpmBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--repo", root], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /version id: cafe1234-0000/);
+
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main", "main worktree must never be switched off main");
+
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "the lane worktree must be removed after a successful build");
+    assert.ok(
+      worktrees.split("\n").every((line) => !/\brelease-build-[0-9a-f]{8}\b/.test(line)),
+      "no lane worktree entry should remain",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a --repo entry ending in /main normalises to the repo root", () => {
+  const { root, mainDir } = makeBareLayoutRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-blbin2-"));
+  makeFakePnpmBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--repo", mainDir], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /version id: cafe1234-0000/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a failing step still removes the sibling worktree and leaves main untouched", () => {
+  const { root, mainDir } = makeBareLayoutRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "release-build-blbin3-"));
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(pnpmPath, "#!/usr/bin/env bash\necho 'fake pnpm: fails' 1>&2\nexit 1\n");
+  chmodSync(pnpmPath, 0o755);
+  try {
+    assert.throws(() => {
+      execFileSync("node", [scriptPath, "--repo", root], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    });
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main");
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "a failed build must still clean up its sibling worktree");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
 test("a failing step exits non-zero and removes the worktree it created", () => {
   const repo = makeScratchRepo();
   const binDir = mkdtempSync(join(tmpdir(), "release-build-bin-"));

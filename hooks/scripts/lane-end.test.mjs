@@ -193,6 +193,69 @@ test("--then-merge calls merge-after-review.mjs against the named PR and repo", 
   }
 });
 
+// --- law: bare + worktrees layout (2026-09-22-scripts-not-agents § Layout) -
+// lane-end.mjs delegates all repo git work to merge-after-review.mjs /
+// release-build.mjs — this proves the chain composes against a bare-layout
+// target without lane-end.mjs itself needing any layout-aware code.
+
+function makeBareLayoutTargetRepoWithPr() {
+  const remoteDir = mkdtempSync(join(tmpdir(), "lane-end-bl-remote-"));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const root = mkdtempSync(join(tmpdir(), "lane-end-bl-root-"));
+  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
+  execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
+  const mainDir = join(root, "main");
+  execFileSync("git", ["-C", mainDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", mainDir, "config", "user.name", "test"]);
+  writeFileSync(join(mainDir, "README.md"), "hello\n");
+  execFileSync("git", ["-C", mainDir, "add", "."]);
+  execFileSync("git", ["-C", mainDir, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", mainDir, "push", "-u", "origin", "main"]);
+  return { root, mainDir };
+}
+
+test("law: --then-merge against a bare-layout repo ff-pulls main, never checking a branch out inside it", () => {
+  const vault = makeVaultWithQueue();
+  const { root, mainDir } = makeBareLayoutTargetRepoWithPr();
+  const binDir = mkdtempSync(join(tmpdir(), "lane-end-blbin-"));
+  makeFakeGhBin(binDir);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  try {
+    const out = execFileSync(
+      "node",
+      [
+        scriptPath,
+        "--session-dir",
+        sessionDir,
+        "--vault",
+        vault,
+        "--row",
+        "1",
+        "--section",
+        "Discipline",
+        "--text",
+        "1. new row",
+        "--then-merge",
+        "owner/repo#9",
+        "--repo",
+        root,
+      ],
+      { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } },
+    );
+    assert.match(out, /merged owner\/repo#9, main fast-forwarded, worktrees pruned/);
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main", "main worktree must never be switched off main");
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(sessionDir, { recursive: true, force: true });
+  }
+});
+
 test("--then-merge without --repo fails loud, naming the missing flag", () => {
   const vault = makeVaultWithQueue();
   const binDir = mkdtempSync(join(tmpdir(), "lane-end-bin-"));

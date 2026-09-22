@@ -171,3 +171,104 @@ test("full run: syncs, branches, commits, pushes, PRs, merges via stubbed gh, an
     rmSync(binDir, { recursive: true, force: true });
   }
 });
+
+// --- law: bare + worktrees layout (2026-09-22-scripts-not-agents § Layout) -
+
+function makeBareLayoutRepoWithRemote(nameHint) {
+  const remoteDir = mkdtempSync(join(tmpdir(), `rulebook-sync-blremote-${nameHint}-`));
+  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  const root = mkdtempSync(join(tmpdir(), `rulebook-sync-blroot-${nameHint}-`));
+  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
+  execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
+  const mainDir = join(root, "main");
+  execFileSync("git", ["-C", mainDir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", mainDir, "config", "user.name", "test"]);
+  writeFileSync(join(mainDir, "README.md"), "hello\n");
+  execFileSync("git", ["-C", mainDir, "add", "."]);
+  execFileSync("git", ["-C", mainDir, "commit", "-q", "-m", "init"]);
+  execFileSync("git", ["-C", mainDir, "push", "-u", "origin", "main"]);
+  return { root, mainDir, remoteDir };
+}
+
+test("law: bare-layout repo — the lane branches in a sibling worktree, never inside <repo>/main, and removes it after", () => {
+  const { root, mainDir } = makeBareLayoutRepoWithRemote("full");
+  const src = makeSourceDir("1.93.0");
+  const binDir = mkdtempSync(join(tmpdir(), "rulebook-sync-bin-"));
+  makeFakeGhBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--source", src, "--repos", root], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /synced, merged: https:\/\/github\.com\/example\/repo\/pull\/1/);
+
+    // main worktree stayed on main throughout, and finished up to date.
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main");
+    const written = readFileSync(join(mainDir, ".cursor", "rules", "doer-rules.mdc"), "utf8");
+    assert.match(written, /version 1\.93\.0 law/);
+
+    // the lane worktree was removed — only the .bare + main entries remain.
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "the lane worktree must be removed after landing");
+    assert.doesNotMatch(worktrees, /chore-doer-rules/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(src, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a --repos entry ending in /main normalises to the repo root", () => {
+  const { root, mainDir } = makeBareLayoutRepoWithRemote("normalise");
+  const src = makeSourceDir("1.93.0");
+  const binDir = mkdtempSync(join(tmpdir(), "rulebook-sync-bin-"));
+  makeFakeGhBin(binDir);
+  try {
+    const out = execFileSync("node", [scriptPath, "--source", src, "--repos", mainDir], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /synced, merged: https:\/\/github\.com\/example\/repo\/pull\/1/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(src, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("law: bare-layout repo — a mid-run failure still removes the lane worktree and leaves main untouched", () => {
+  const { root, mainDir } = makeBareLayoutRepoWithRemote("failure");
+  const src = makeSourceDir("1.93.0");
+  const binDir = mkdtempSync(join(tmpdir(), "rulebook-sync-failbin-"));
+  // A `gh` stub whose `pr create` fails outright — proves the worktree is
+  // still cleaned up when a later step in the try block throws.
+  writeFileSync(join(binDir, "gh"), "#!/usr/bin/env bash\nexit 1\n");
+  chmodSync(join(binDir, "gh"), 0o755);
+  try {
+    let threw = false;
+    try {
+      execFileSync("node", [scriptPath, "--source", src, "--repos", root], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, true, "a failed gh step must exit non-zero");
+
+    const currentBranch = execFileSync("git", ["-C", mainDir, "branch", "--show-current"], {
+      encoding: "utf8",
+    }).trim();
+    assert.equal(currentBranch, "main", "main must never be switched off its own branch");
+    const worktrees = execFileSync("git", ["-C", mainDir, "worktree", "list"], { encoding: "utf8" });
+    assert.equal(worktrees.trim().split("\n").length, 2, "the lane worktree must be removed even on failure");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(src, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});

@@ -21,6 +21,7 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { existsSync, mkdirSync, readFileSync as readFile, writeFileSync } from "node:fs";
 import { buildRuleFile } from "./sync-doer-rules.mjs";
+import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot } from "./repo-layout.mjs";
 
 /* Writes `sourceText` (read from `--source`'s own doer-rules.md, never this
    plugin's own copy of itself) into `targetRepoPath`'s
@@ -43,7 +44,9 @@ export function parseArgs(argv) {
     else if (a === "--repos") out.repos = argv[++i].split(",").map((s) => s.trim()).filter(Boolean);
   }
   if (out.source) out.source = resolve(out.source);
-  if (out.repos) out.repos = out.repos.map((r) => resolve(r));
+  // A `--repos` entry naming the `main` worktree itself (bare layout) folds
+  // to the repo root, so every git call below has one fixed root.
+  if (out.repos) out.repos = out.repos.map((r) => normalizeRepoRoot(r));
   return out;
 }
 
@@ -70,31 +73,47 @@ function run(cmd, args, opts = {}) {
 }
 
 function syncOneRepo(repo, sourceText, version, dryRun) {
-  if (isUpToDate(repo, sourceText)) {
+  const gitDir = mainWorktreeOf(repo);
+  if (isUpToDate(gitDir, sourceText)) {
     return formatRow(repo, "skipped (already up to date)");
   }
   const branch = branchName(version);
   if (dryRun) {
-    return formatRow(repo, `would sync -> branch ${branch} -> PR -> squash-merge -> ff main`);
+    return formatRow(repo, `would sync -> branch ${branch} in a sibling worktree -> PR -> squash-merge -> ff main`);
+  }
+  // Own sibling worktree off `main` — never a `checkout -b` inside
+  // `<repo>/main` itself, which every other lane and the operator's own
+  // dev server may depend on staying on `main` (`2026-09-22-scripts-not-agents`
+  // § Layout).
+  const worktreePath = laneWorktreePath(repo, branch.replace(/\//g, "-"));
+  try {
+    run("git", ["-C", gitDir, "worktree", "add", worktreePath, "-b", branch, "main"]);
+  } catch (err) {
+    return formatRow(repo, `FAILED: worktree-add: ${err.message}`);
   }
   try {
-    run("git", ["-C", repo, "checkout", "-b", branch]);
-    writeSyncedFile(repo, sourceText);
-    run("git", ["-C", repo, "add", ".cursor/rules/doer-rules.mdc"]);
-    run("git", ["-C", repo, "commit", "-m", `chore: sync doer-rules.md (discipline ${version})`]);
-    run("git", ["-C", repo, "push", "-u", "origin", branch]);
-    const prOut = run("gh", ["pr", "create", "--repo", repo, "--head", branch, "--title", `chore: sync doer-rules.md (${version})`, "--body", "Automated rulebook sync."]);
+    writeSyncedFile(worktreePath, sourceText);
+    run("git", ["-C", worktreePath, "add", ".cursor/rules/doer-rules.mdc"]);
+    run("git", ["-C", worktreePath, "commit", "-m", `chore: sync doer-rules.md (discipline ${version})`]);
+    run("git", ["-C", worktreePath, "push", "-u", "origin", branch]);
+    const prOut = run("gh", ["pr", "create", "--repo", gitDir, "--head", branch, "--title", `chore: sync doer-rules.md (${version})`, "--body", "Automated rulebook sync."]);
     const prUrl = prOut.trim();
     // Poll CI once, synchronously — the law test stubs `gh` to return a
     // settled rollup immediately; a real run relies on `gh pr checks --watch`
     // blocking until the checks settle.
-    run("gh", ["pr", "checks", branch, "--repo", repo, "--watch"]);
-    run("gh", ["pr", "merge", branch, "--repo", repo, "--squash", "--delete-branch"]);
-    run("git", ["-C", repo, "checkout", "main"]);
-    run("git", ["-C", repo, "pull", "--ff-only"]);
-    run("git", ["-C", repo, "worktree", "prune"]);
+    run("gh", ["pr", "checks", branch, "--repo", gitDir, "--watch"]);
+    run("gh", ["pr", "merge", branch, "--repo", gitDir, "--squash", "--delete-branch"]);
+    run("git", ["-C", gitDir, "pull", "--ff-only"]);
+    run("git", ["-C", gitDir, "worktree", "remove", "--force", worktreePath]);
+    run("git", ["-C", gitDir, "worktree", "prune"]);
     return formatRow(repo, `synced, merged: ${prUrl}`);
   } catch (err) {
+    try {
+      run("git", ["-C", gitDir, "worktree", "remove", "--force", worktreePath]);
+      run("git", ["-C", gitDir, "worktree", "prune"]);
+    } catch {
+      // best-effort cleanup — the worktree may not exist yet
+    }
     return formatRow(repo, `FAILED: ${err.message}`);
   }
 }
