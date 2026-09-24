@@ -93,6 +93,12 @@ Every flag-gated deploy runs the checklist in
 tick each line with its evidence (command output, dashboard link, flag state), and attach it as the
 release's work product. An unticked checklist is not a release — it's a plan.
 
+**CI shape, every repo's workflow** (ruling `2026-09-23-ci-shape`, `doer-rules.md` § CI): a
+step is a gate or it doesn't exist — no `continue-on-error` report-only steps; one run per
+change (`on: pull_request` only, no duplicate merge run); `concurrency: cancel-in-progress`
+on the ref; install→typecheck→test→lint→build once. A release whose repo's CI still runs
+report-only or duplicate jobs fixes the workflow before the next release, not after.
+
 ## Deploy commands stand alone (Change 6, 2026-09-22)
 
 **A promote/deploy verb (`wrangler versions deploy`, `wrangler rollback`, `npm publish`, and

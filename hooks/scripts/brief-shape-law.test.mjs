@@ -85,9 +85,13 @@ test("the one rule is the contract pointer", () => {
 // deployed-link-timing bullet, gate-run-lane bullet).
 // Ceiling raised 210 -> 215 at 1.93.0: `scripts-not-agents`'s mechanical-first
 // principle, a new first bullet of § You are the doer.
-test("doer-rules.md stays under its 215-line ceiling", () => {
+// Ceiling raised 215 -> 245 at 1.94.0: row 130 items 3/5/8 — the "already
+// satisfied" reproduction rule, the diff-scoped literal gate line, and a new
+// § CI section encoding `2026-09-23-ci-shape` — three real, distinct rules
+// with nothing left to offload (doer-rules.md has no references/ dir).
+test("doer-rules.md stays under its 245-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 215, `doer-rules.md is ${lines} lines; the ceiling is 215`);
+  assert.ok(lines <= 245, `doer-rules.md is ${lines} lines; the ceiling is 245`);
 });
 
 test("doer-rules carries the four standing sections", () => {

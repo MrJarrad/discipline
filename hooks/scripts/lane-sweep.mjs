@@ -96,7 +96,7 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
   const isNextProcess = /\bnext-server\b|\bnext\s+(start|dev)\b/.test(argv);
 
   if (isNextProcess) {
-    const sweepablePort = ports.find((p) => p >= 3220);
+    const sweepablePort = ports.find((p) => p >= 3220 && p <= 3299);
     if (sweepablePort !== undefined) {
       if (!isOrphanOrOld(proc)) {
         return {
@@ -136,7 +136,34 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
     return { match: true, reason: "shell referencing session dir" };
   }
 
+  // A doer's own polling shell — `until … pgrep …; do sleep …; done` (or the
+  // `while` spelling) — left running past turn end. These never reference
+  // the session dir (they're a raw shell one-liner, not a script under it),
+  // so they need their own match independent of the session-dir branch
+  // above. Same safety fences: a shell only, and not younger than 60s.
+  if (isWaitLoopShell(argv)) {
+    const base = shellExecutableBasename(argv);
+    if (!SHELL_BASENAMES.has(base)) {
+      return { match: false, reason: `not a shell (leading executable "${base || "?"}")` };
+    }
+    const ageSeconds = parseEtimeSeconds(proc.etime);
+    if (ageSeconds < 60) {
+      return { match: false, reason: "excluded: shell younger than 60s" };
+    }
+    return { match: true, reason: "doer's own wait loop (until/while … pgrep … do sleep)" };
+  }
+
   return { match: false };
+}
+
+// A `until`/`while` shell loop polling a process with `pgrep` and sleeping
+// between checks — the shape a doer writes by hand to "wait until done"
+// instead of using Monitor/`run_in_background` (`doer-rules.md` § You are
+// the doer: "no polling loops or detached shells"). Matched on the presence
+// of `pgrep` and `sleep` together with a loop keyword, not the exact
+// spelling, so paraphrased variants are still caught.
+export function isWaitLoopShell(argv) {
+  return /\b(until|while)\b/.test(argv) && /\bpgrep\b/.test(argv) && /\bsleep\b/.test(argv);
 }
 
 // --- real-world data gathering ----------------------------------------------

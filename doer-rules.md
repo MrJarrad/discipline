@@ -139,6 +139,11 @@ stop only their own pids** — the parent sweeps verification servers at every l
   banked export json, the design-system's generated tokens, or the ruling's constant file
   **at run time**; a value hand-copied into the assertion is a defect, whatever else the
   gate gets right (operator ruling 2026-09-19, `gates-assert-mechanism-not-values`).
+- **Touched-file gates on any `src/styles/**`/`*.css` change include the diff-scoped
+  literal check** — `hooks/scripts/token-literal-diff.mjs --tokens <tokens.generated.css>`
+  against the lane's diff; a new literal equal to a generated token's value is red. Scope is
+  the diff only — existing literal findings elsewhere in the file stay parked (2026-09-24,
+  row 130 item 5; `skills/design-system/SKILL.md` § Conformance & review).
 
 ## Fixed evidence return
 
@@ -155,6 +160,12 @@ inventing a shape per dispatch.
 | 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent`. **Engineer return for a UI change is `next: operator`, never `next: reviewer`** — the reviewer is solicited only after the operator's yes on that build (operator ruling 2026-09-19, `review-after-sign-off`); mechanism-only changes (generator, plugin, probes, gates, refactors with nothing to look at) keep `next: reviewer`. |
 
 **The `Open gaps` field is "none" or a list — never "nothing blocking."**
+
+**"Already satisfied / already true" on an operator-raised row is a claim, not a result.**
+The parent reproduces it at the operator's own framing (route, gesture, device/viewport)
+before relaying; a row that still fails there reopens the lane instead of being told to the
+operator as fixed (2026-09-23, `reproduce-lane-already-works-before-relay`; baton row:
+`skills/routing/SKILL.md` § Baton handoff table).
 
 **No prose recap, no narrative** — the table and the gate output are the report. Budget:
 **≤ 250 words**, excluding the per-criterion table and the verbatim gate output. Over
@@ -196,6 +207,22 @@ not done.
 **Before `next: reviewer`, count the lock rows against your own per-criterion table** —
 one lock row must map to one table row, pass/fail or named operator-deferred. A lock row
 missing from the table is not-done, not an oversight to leave for the reviewer to find.
+
+## CI
+
+Ruling `2026-09-23-ci-shape` (jhd-portfolio and jhd-design-system hit GitHub Actions'
+September private-repo minutes quota — two `continue-on-error` report-only steps gated
+nothing, and every PR ran twice). Every JHD repo with a workflow:
+1. **A CI step is a gate or it does not exist.** No `continue-on-error: true` report-only
+   steps — a report nobody reads is minutes for nothing. Reports live in a vault audit, run
+   locally or in a lane, never in CI.
+2. **One run per change** — `on: pull_request` only; drop the merge-to-main run (PRs
+   squash-merge green, so it re-runs what the PR run already proved).
+3. **Cancel superseded runs** — `concurrency: { group: <workflow>-${{ github.ref }},
+   cancel-in-progress: true }` so a new push kills the stale run instead of both finishing.
+4. **Install → typecheck → test → lint → build, once.** Extra installs only for a real
+   dependency (e.g. a `file:` sibling).
+5. **Before adding a step, state its minutes and what it gates** in the PR/brief that adds it.
 
 ## Ports
 

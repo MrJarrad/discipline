@@ -99,7 +99,7 @@ test("dispatch-brief makes a multi-unit brief malformed at any model", () => {
 test("model-routing sends a wide brief to a slice, never to a bigger model", () => {
   const routing = flat(read("skills/model-routing/SKILL.md"));
   assert.match(routing, /\*\*one contract unit per lane, always\*\*/i);
-  assert.match(routing, /\*\*malformed at any model\*\*, never a reason to escalate to `opus`/);
+  assert.match(routing, /\*\*malformed at any model\*\*, never a reason to pick a bigger one/);
   assert.match(routing, /\*\*A wide brief is never an escalation\.\*\*/);
   assert.doesNotMatch(routing, /a whole-surface brief goes to `opus`/);
 });

@@ -36,6 +36,11 @@ Getting the branch wrong wastes the whole prototype. If ambiguous and the reques
    - **DO:** four knob variants rendered, one `md5` line proving the defaults arm unchanged, returned for a pick.
    - **DON'T:** prove byte-identity and run 30/30 on every variant before the operator has picked anything.
 8. **No screenshots — the operator looks.** Put the variants in front of them (route, relaunch, re-run) and let them pick; the operator is the cheapest visual gate.
+9. **A feel row (input/scroll/hover speed) gets a readout + URL knob first, never a
+   synthetic number.** Render the current value live on screen and expose it as a query-param
+   knob (`?scrollSpeed=`, etc.) so the operator turns their own dial against their own gesture
+   (real wheel/trackpad, not a scripted one) and the shipped number is set from that read, not
+   invented (row 119 history, `orchestrator/operator-queue.md`).
 
 ---
 

@@ -4,12 +4,11 @@
 // models perform best at and whether the right brief would mean sonnet should be
 // absolutely fine for most of the type of work we are currently doing across all
 // sessions and projects. should sonnet be the highest default?" -> "Yes". `sonnet` is
-// the default ceiling for every dispatched doer; `haiku` for mechanical work; `opus`
-// only with a written justification in the brief's `## Interrogated` block naming one
-// of two named cases: adversarial review of a change with fleet-wide blast radius, or
-// novel architecture with no contract to point at. The old "Design/UX taste -> opus"
-// and "Hard architecture -> opus -- justify" wording is replaced everywhere by those
-// two named cases.
+// the default for every dispatched doer; `haiku` for mechanical work. Superseded at
+// 1.94.0 (row 130 item 9, operator 2026-09-24: "there shouldn't be a ceiling as such,
+// it's more about having a default and using the right model for the job") — the old
+// "opus only for two named cases" allowlist is replaced by "any tier may run as a
+// child when the job shape calls for it, justified in `## Interrogated`."
 //
 // (2) doer read-back (2026-09-21) — "would it make sense to also introduce brief
 // reading and playback with any question from the doer before commencing. I'm just
@@ -39,60 +38,48 @@ const lacks = (file, sentence) =>
     `${file} still carries the retired wording: ${sentence}`,
   );
 
-// --- sonnet is the default ceiling ------------------------------------------
+// --- sonnet is the default, not a ceiling (1.94.0, row 130 item 9) ----------
 
-test("model-routing's map replaces the old opus cells with the two named cases", () => {
+test("model-routing's map states sonnet as a default, any tier justified by job shape", () => {
   const mr = flat(read("skills/model-routing/SKILL.md"));
-  assert.match(mr, /`sonnet` is the default ceiling for every dispatched doer/);
-  assert.match(mr, /adversarial review of a change with fleet-wide blast radius/);
-  assert.match(mr, /novel architecture with no contract to point at/);
-  assert.match(mr, /written justification in the brief's `## Interrogated` block/);
+  assert.match(mr, /`sonnet` is the default for every dispatched doer, of every job shape — a default, not a\s*ceiling/);
+  assert.match(mr, /Any tier, including the top tier \(fable\/mythos\), may be dispatched as a child/);
   lacks(
     "skills/model-routing/SKILL.md",
-    "| Design/UX **taste / visual judgment** (no locked answer) | `opus` — justify |",
+    "opus` requires a written justification in the brief's",
   );
   lacks(
     "skills/model-routing/SKILL.md",
-    "| Hard architecture / high blast radius | `opus` — justify |",
+    "do **not** dispatch the top tier (fable/mythos) as a child",
   );
 });
 
-test("model-routing's escalation rule and checklist gate opus behind the two cases", () => {
+test("model-routing's escalation rule and checklist name sonnet as the start, justification by job shape", () => {
   const mr = flat(read("skills/model-routing/SKILL.md"));
-  assert.match(
-    mr,
-    /`opus` is used \*\*from the start\*\* only for the \*\*two named cases\*\*/,
-  );
-  assert.match(mr, /sonnet is the default ceiling; if above sonnet: written justification/);
+  assert.match(mr, /Every cell \*\*starts at `sonnet`\*\*/);
+  assert.match(mr, /sonnet is the default; if above sonnet: written justification/);
 });
 
-test("dispatch-brief's Persona + model section states the sonnet ceiling", () => {
+test("dispatch-brief's Persona + model section states sonnet as a default, not a ceiling", () => {
   carries(
     "skills/dispatch-brief/SKILL.md",
-    "`sonnet` is the default ceiling for every dispatched doer",
+    "`sonnet` is the default, not a ceiling",
   );
-  const db = flat(read("skills/dispatch-brief/SKILL.md"));
-  assert.match(db, /novel architecture with no contract to point at/);
 });
 
-test("INTERROGATE.md carries the eighth question naming the model check", () => {
+test("INTERROGATE.md carries the eighth question naming the job-shape reason", () => {
   const doc = flat(read("skills/dispatch-brief/references/INTERROGATE.md"));
   assert.match(
     doc,
-    /Model above sonnet: is the justification written, and does it name one of the two/,
+    /Model above sonnet: is the justification written, and does it name the job-shape/,
   );
-  assert.match(doc, /adversarial review of a change with fleet-wide blast radius/);
-  assert.match(doc, /novel architecture with no contract to point at/);
 });
 
-test("agents/reviewer.md keeps its own default at sonnet and gates opus by the ruling", () => {
+test("agents/reviewer.md keeps its own default at sonnet, not a ceiling", () => {
   const raw = read("agents/reviewer.md");
   assert.match(raw, /^model: sonnet$/m);
   const rv = flat(raw);
-  assert.match(
-    rv,
-    /`opus` overrides it only for adversarial review of a change with fleet-wide blast radius/,
-  );
+  assert.match(rv, /`model: sonnet` above is the default, not a ceiling/);
 });
 
 test("output-styles/discipline.md still routes through model-routing before dispatch", () => {

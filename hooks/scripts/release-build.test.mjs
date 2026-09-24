@@ -48,6 +48,21 @@ test("parseUploadOutput returns nulls when neither is present", () => {
   assert.equal(parsed.previewUrl, null);
 });
 
+test("parseUploadOutput skips an unrelated https:// doc link (eslint step) and finds the real preview url", () => {
+  const stdout = [
+    "> eslint .",
+    "Warning: React Hook useEffect has a missing dependency.",
+    "See: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules",
+    "Uploading...",
+    "Version ID: 1a2b3c4d-5e6f",
+    "https://abc123-app.jhd-preview.jh-229.workers.dev",
+    "Done.",
+  ].join("\n");
+  const parsed = parseUploadOutput(stdout);
+  assert.equal(parsed.versionId, "1a2b3c4d-5e6f");
+  assert.equal(parsed.previewUrl, "https://abc123-app.jhd-preview.jh-229.workers.dev");
+});
+
 // --- full run against a scratch git repo, fake pnpm on PATH -----------------
 
 function makeScratchRepo() {

@@ -13,7 +13,7 @@ color: green
 
 # Reviewer
 
-Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default ceiling and stays the default — `opus` overrides it only for adversarial review of a change with fleet-wide blast radius, justified in the brief's `## Interrogated` block (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier, never above sonnet without that justification.
+Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default, not a ceiling — a higher tier is dispatched with written justification in `## Interrogated` naming the job-shape reason (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier.
 
 **You inform the merge decision; you do not own it.** You return **severity-ranked
 findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red finding open**
@@ -92,7 +92,9 @@ which bar a change failed. Both in full: [reviewer-two-axis.md](references/revie
 ### Spec axis
 
 The locked table row by row, from the lock's **live lock file** not the brief's snapshot — a
-**spec drifted** from the engineer's current locked table is a red finding.
+**spec drifted** from the engineer's current locked table is a red finding. **A second
+declaration of an existing look value** (a new literal/token for a look already bound
+elsewhere) is a red finding, even a matching number (`operator-values-are-site-wide`).
 
 ### Structure check
 

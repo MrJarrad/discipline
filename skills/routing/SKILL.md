@@ -67,6 +67,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; ambers ride the next change |
 | **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
+| **Doer returns "already satisfied/true" on an operator-raised row** | **Parent** reproduces at the operator's own framing before relaying — a claim, not a result (2026-09-23, `reproduce-lane-already-works-before-relay`) |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |

@@ -104,6 +104,13 @@ Follow [references/setup.md](references/setup.md): add `@jhd/design-system` as a
 
 Run the [conformance checklist](references/conformance.md). For sign-off, attach a [conformance report](references/conformance-report.md) — per-dimension on-system/flag, a11y read, verdict.
 
+**Diff-scoped literal gate.** Any new literal in the diff equal to a value the consumed
+design system's `tokens.generated.css` already generates a token for fails the lane's
+touched-file gates and the reviewer's — `hooks/scripts/token-literal-diff.mjs --tokens
+<tokens.generated.css> [--repo <path>]`, exit 1 names `file:line` and the matching token(s).
+Scope is the diff only; pre-existing literal findings elsewhere in the file stay parked,
+never swept in by this gate (2026-09-24, row 130 item 5).
+
 Multi-brand / reskin (Orbit ramps): [theming.md](references/theming.md) — only when a second brand is real, not for one-off pages.
 
 ## Native & Figma
