@@ -65,12 +65,39 @@ test("declarationValuesInLine returns nothing for a selector, even a number-shap
   assert.deepEqual(declarationValuesInLine("#brand-header-8px {"), []);
 });
 
-test("declarationValuesInLine ignores a property with no closing ; on the line (wrapped value)", () => {
+test("declarationValuesInLine yields nothing for a bare property with no value at all", () => {
   assert.deepEqual(declarationValuesInLine("  gap:"), []);
 });
 
 test("declarationValuesInLine extracts multiple declarations on one line", () => {
   assert.deepEqual(declarationValuesInLine("gap: 8px; color: #ff00aa;"), ["8px", "#ff00aa"]);
+});
+
+// --- round 3 (2026-09-24): the terminator is ';', '}', or end-of-line ------
+
+test("declarationValuesInLine: no terminator on the line — a diff line still under construction (--x: 12px)", () => {
+  assert.deepEqual(declarationValuesInLine("--x: 12px"), ["12px"]);
+});
+
+test("declarationValuesInLine: inline rule closing with } and no trailing ; (.a{padding:12px})", () => {
+  assert.deepEqual(declarationValuesInLine(".a{padding:12px}"), ["12px"]);
+});
+
+test("declarationValuesInLine: a plain declaration, leading whitespace, no terminator (  padding: 12px)", () => {
+  assert.deepEqual(declarationValuesInLine("  padding: 12px"), ["12px"]);
+});
+
+test("declarationValuesInLine: two declarations in one inline rule, ; then } (a{padding:12px;margin:12px})", () => {
+  assert.deepEqual(declarationValuesInLine("a{padding:12px;margin:12px}"), ["12px", "12px"]);
+});
+
+test("declarationValuesInLine: a normal terminated declaration (--x: 12px;)", () => {
+  assert.deepEqual(declarationValuesInLine("--x: 12px;"), ["12px"]);
+});
+
+test("declarationValuesInLine: selectors still yield nothing under the new terminator set", () => {
+  assert.deepEqual(declarationValuesInLine(".gap-8 {"), []);
+  assert.deepEqual(declarationValuesInLine("#brand-header-8px {"), []);
 });
 
 // --- literalsInLine: word boundaries, unit handling, unitless 0/1 exclusion

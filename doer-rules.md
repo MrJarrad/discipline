@@ -120,8 +120,9 @@ stop only their own pids** — the parent sweeps verification servers at every l
 - **Touched gates per row; one full suite per lane.** Each commit re-runs only the gates that
   read what it changed; the **full suite runs once per lane**, on the final sha, foreground,
   with the timeout set to the suite's length. **Never two full suites at once on one machine** —
-  stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`):
-  it renders, returns, and the suite runs once at bake, after the operator's pick.
+  stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`,
+  **no suite in bake/ladder briefs themselves**): it renders, returns, and the suite runs
+  once at bake, after the operator's pick.
 - **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full
   suite and the reviewer both run **once, at merge**, never in front of the operator's yes
   (`review-trails-the-operator`, `agents/reviewer.md` § Round cap).

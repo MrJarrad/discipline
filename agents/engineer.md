@@ -45,7 +45,10 @@ Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing
   and look-judged trailing cadence — is defined in `doer-rules.md` § Repo and safety.
 - **Deterministic gates green before you hand off.** Build, typecheck, and the suite (CI
   where the repo has it) must pass on the sha you hand over — a reviewer solicited on a
-  red build returns immediately without reviewing, and that burns a round.
+  red build returns immediately without reviewing, and that burns a round. **For a
+  look-judged lane, the full suite runs once at merge, not on the handed-over sha** — the
+  sha you hand off carries only its touched gates green (`review-trails-the-operator`,
+  `doer-rules.md` § Repo and safety).
 - Reuses shared foundation; no duplicated primitives; matches surrounding style.
 - Logical commits, one PR per task; verification evidence attached.
 - Commit coherent slices early — do not leave finished work uncommitted at a turn cap.

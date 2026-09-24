@@ -89,9 +89,12 @@ test("the one rule is the contract pointer", () => {
 // satisfied" reproduction rule, the diff-scoped literal gate line, and a new
 // § CI section encoding `2026-09-23-ci-shape` — three real, distinct rules
 // with nothing left to offload (doer-rules.md has no references/ dir).
-test("doer-rules.md stays under its 245-line ceiling", () => {
+// Ceiling raised 245 -> 246 at 1.94.0 (same release, round 3 fix): the
+// prototype-lane bullet gained "no suite in bake/ladder briefs themselves"
+// (operator "go", one more fix) — one clause, no room left to trim.
+test("doer-rules.md stays under its 246-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 245, `doer-rules.md is ${lines} lines; the ceiling is 245`);
+  assert.ok(lines <= 246, `doer-rules.md is ${lines} lines; the ceiling is 246`);
 });
 
 test("doer-rules carries the four standing sections", () => {

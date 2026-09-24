@@ -12,9 +12,9 @@
    this gate never widens to a whole-file or whole-repo sweep.
 
    Literal extraction is scoped to a CSS DECLARATION VALUE only — the text
-   between `:` and `;` on the line — so a selector or class name that merely
-   looks like a value (`.gap-8 { ... }`, `#brand-header { ... }`) is never
-   read as a literal. A bare (unitless) number is skipped UNLESS a token in
+   between `:` and its terminator (`;`, `}`, or end-of-line) on the line —
+   so a selector or class name that merely looks like a value
+   (`.gap-8 { ... }`, `#brand-header { ... }`) is never read as a literal. A bare (unitless) number is skipped UNLESS a token in
    the map carries that exact unitless value AND the value is not `0` or `1`
    — those two are near-universal non-token CSS values (`flex: 1`,
    `opacity: 0`, `z-index: 1`, `line-height: 1`) and would otherwise false-
@@ -109,13 +109,16 @@ export function parseAddedLines(diffText) {
 }
 
 /* Every CSS declaration VALUE on one line — the text strictly between a `:`
-   and its closing `;`. A selector (`.gap-8 {`), a class name, or a property
-   name never appears here; only what a property was actually set to. A
-   declaration with no `;` on the same line (a value wrapped to the next
-   line) is not scoped — diff-scoped, single-line only, by design. */
+   and its terminator, which is `;`, `}` (an inline rule closing with no
+   trailing semicolon, `.a{padding:12px}`), or end-of-line (an added line
+   with no terminator yet, `--x: 12px`, still under construction in the
+   diff). A selector (`.gap-8 {`), a class name, or a property name never
+   appears here; only what a property was actually set to. A capture
+   requires at least one character after the colon, so a bare property with
+   nothing following it (`gap:`) yields no value at all. */
 export function declarationValuesInLine(line) {
   const out = [];
-  const re = /:\s*([^:;{}]+);/g;
+  const re = /:\s*([^:{};]+)[;}]?/g;
   let m;
   while ((m = re.exec(line))) {
     out.push(m[1]);
