@@ -1,4 +1,5 @@
-// token-literal-diff — diff-scoped literal check (row 130, item 5, 2026-09-24).
+// token-literal-diff — diff-scoped literal check (row 130, item 5, 2026-09-24;
+// precision fixes round 2, 2026-09-24).
 // Run: node --test hooks/scripts/token-literal-diff.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +8,14 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseGeneratedTokens, parseAddedLines, literalsInLine, findDiffLiterals } from "./token-literal-diff.mjs";
+import {
+  parseGeneratedTokens,
+  parseAddedLines,
+  declarationValuesInLine,
+  literalsInLine,
+  findDiffLiterals,
+  defaultDiffText,
+} from "./token-literal-diff.mjs";
 
 const scriptPath = fileURLToPath(new URL("./token-literal-diff.mjs", import.meta.url));
 
@@ -46,15 +54,59 @@ test("parseAddedLines reads only + lines with their new-file line numbers", () =
   ]);
 });
 
+// --- declaration-value scoping (selectors/class names never match) --------
+
+test("declarationValuesInLine extracts only the text between : and ;", () => {
+  assert.deepEqual(declarationValuesInLine("  gap: 8px;"), ["8px"]);
+});
+
+test("declarationValuesInLine returns nothing for a selector, even a number-shaped class name", () => {
+  assert.deepEqual(declarationValuesInLine(".gap-8 {"), []);
+  assert.deepEqual(declarationValuesInLine("#brand-header-8px {"), []);
+});
+
+test("declarationValuesInLine ignores a property with no closing ; on the line (wrapped value)", () => {
+  assert.deepEqual(declarationValuesInLine("  gap:"), []);
+});
+
+test("declarationValuesInLine extracts multiple declarations on one line", () => {
+  assert.deepEqual(declarationValuesInLine("gap: 8px; color: #ff00aa;"), ["8px", "#ff00aa"]);
+});
+
+// --- literalsInLine: word boundaries, unit handling, unitless 0/1 exclusion
+
 test("literalsInLine ignores literals already inside var()", () => {
-  assert.deepEqual(literalsInLine("  gap: var(--space-4);"), []);
+  assert.deepEqual(literalsInLine(" var(--space-4)"), []);
 });
 
-test("literalsInLine finds a bare px/hex literal", () => {
-  assert.deepEqual(literalsInLine("  gap: 8px; color: #FF00AA;"), ["#ff00aa", "8px"]);
+test("literalsInLine finds a unit'd px/hex literal", () => {
+  assert.deepEqual(literalsInLine(" 8px #FF00AA"), ["#ff00aa", "8px"]);
 });
 
-test("findDiffLiterals flags an added literal matching a generated token, scoped to css files under src/styles", () => {
+test("literalsInLine word-boundaries numbers — 18px is never misread as 8px", () => {
+  assert.deepEqual(literalsInLine(" 18px"), ["18px"]);
+});
+
+test("literalsInLine skips bare (unitless) 0 and 1 — flex/opacity/z-index/line-height false positives", () => {
+  assert.deepEqual(literalsInLine(" 1"), []);
+  assert.deepEqual(literalsInLine(" 0"), []);
+});
+
+test("literalsInLine keeps other bare unitless numbers (12, 0.1-0.9) as candidates", () => {
+  assert.deepEqual(literalsInLine(" 12"), ["12"]);
+  assert.deepEqual(literalsInLine(" 0.1"), ["0.1"]);
+  assert.deepEqual(literalsInLine(" 0.9"), ["0.9"]);
+});
+
+test("literalsInLine keeps px/rem/% literals even when the bare digits would be 0 or 1", () => {
+  assert.deepEqual(literalsInLine(" 0px"), ["0px"]);
+  assert.deepEqual(literalsInLine(" 1rem"), ["1rem"]);
+  assert.deepEqual(literalsInLine(" 100%"), ["100%"]);
+});
+
+// --- findDiffLiterals: end-to-end scoping ----------------------------------
+
+test("findDiffLiterals flags an added declaration-value literal matching a generated token, scoped to css files under src/styles", () => {
   const diff = [
     "diff --git a/src/styles/card.css b/src/styles/card.css",
     "--- a/src/styles/card.css",
@@ -71,6 +123,20 @@ test("findDiffLiterals flags an added literal matching a generated token, scoped
   assert.equal(defects[0].line, 2);
   assert.equal(defects[0].literal, "8px");
   assert.deepEqual(defects[0].tokens, ["--space-4"]);
+});
+
+test("findDiffLiterals never matches inside a selector — a class name shaped like a token value", () => {
+  const diff = [
+    "diff --git a/src/styles/card.css b/src/styles/card.css",
+    "--- a/src/styles/card.css",
+    "+++ b/src/styles/card.css",
+    "@@ -1,1 +1,2 @@",
+    " .card {",
+    "+.gap-8px {",
+    " }",
+  ].join("\n");
+  const tokenValues = new Map([["8px", ["--space-4"]]]);
+  assert.deepEqual(findDiffLiterals(diff, tokenValues), []);
 });
 
 test("findDiffLiterals ignores a matching literal outside src/styles or *.css (diff scope only)", () => {
@@ -97,9 +163,38 @@ test("findDiffLiterals leaves a pre-existing (unchanged) literal alone — diff-
     "+.new { margin: 4px; }",
   ].join("\n");
   const tokenValues = new Map([["8px", ["--space-4"]]]);
-  // the unchanged "gap: 8px" line (context, not +) never appears in parseAddedLines
   const defects = findDiffLiterals(diff, tokenValues);
   assert.deepEqual(defects, []);
+});
+
+test("findDiffLiterals skips a bare 1 even when a token happens to carry the unitless value 1 (opacity/flex false-positive guard)", () => {
+  const diff = [
+    "diff --git a/src/styles/card.css b/src/styles/card.css",
+    "--- a/src/styles/card.css",
+    "+++ b/src/styles/card.css",
+    "@@ -1,1 +1,2 @@",
+    " .card {",
+    "+  flex: 1;",
+    " }",
+  ].join("\n");
+  const tokenValues = new Map([["1", ["--some-unitless-token"]]]);
+  assert.deepEqual(findDiffLiterals(diff, tokenValues), []);
+});
+
+test("findDiffLiterals flags a bare unitless literal (not 0/1) matching an unitless token", () => {
+  const diff = [
+    "diff --git a/src/styles/card.css b/src/styles/card.css",
+    "--- a/src/styles/card.css",
+    "+++ b/src/styles/card.css",
+    "@@ -1,1 +1,2 @@",
+    " .card {",
+    "+  line-height: 1.5;",
+    " }",
+  ].join("\n");
+  const tokenValues = new Map([["1.5", ["--line-height-body"]]]);
+  const defects = findDiffLiterals(diff, tokenValues);
+  assert.equal(defects.length, 1);
+  assert.equal(defects[0].literal, "1.5");
 });
 
 // --- full CLI run against a scratch git repo --------------------------------
@@ -146,6 +241,37 @@ test("CLI exits 0 when the diff adds a literal that consumes the token via var()
   try {
     const out = execFileSync("node", [scriptPath, "--tokens", tokensPath, "--repo", repo], { encoding: "utf8" });
     assert.match(out, /0 new literals/);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+// --- default diff: merge-base(HEAD, main)...HEAD PLUS the working tree -----
+
+test("defaultDiffText includes a literal already committed on the branch (ahead of main) as well as the working tree", () => {
+  const repo = makeScratchRepo();
+  execFileSync("git", ["-C", repo, "checkout", "-q", "-b", "feature"]);
+  // Committed on the branch, ahead of main:
+  writeFileSync(join(repo, "src", "styles", "card.css"), ".card {\n  gap: 8px;\n}\n");
+  execFileSync("git", ["-C", repo, "add", "."]);
+  execFileSync("git", ["-C", repo, "commit", "-q", "-m", "committed change"]);
+  // Still uncommitted in the working tree:
+  writeFileSync(join(repo, "src", "styles", "card.css"), ".card {\n  gap: 8px;\n  margin: 12px;\n}\n");
+  try {
+    const diffText = defaultDiffText(repo, "main");
+    assert.match(diffText, /\+\s*gap: 8px;/, "committed-on-branch change must appear");
+    assert.match(diffText, /\+\s*margin: 12px;/, "uncommitted working-tree change must appear");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test("defaultDiffText falls back to the working-tree diff alone when no merge-base can be resolved", () => {
+  const repo = makeScratchRepo();
+  writeFileSync(join(repo, "src", "styles", "card.css"), ".card {\n  gap: 8px;\n}\n");
+  try {
+    const diffText = defaultDiffText(repo, "no-such-branch");
+    assert.match(diffText, /\+\s*gap: 8px;/);
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }

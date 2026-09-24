@@ -41,8 +41,8 @@ Load and follow these skills when relevant: `quality`, `test-first`, `diagnosing
 ## Definition of done
 
 - Change does what the task asked — **verified by running it** (build, typecheck, tests).
-- Gate cadence — what runs per commit, what runs once per lane, and the prototype exemption
-  — is defined in `doer-rules.md` § Repo and safety.
+- Gate cadence — what runs per commit, what runs once per lane, the prototype exemption,
+  and look-judged trailing cadence — is defined in `doer-rules.md` § Repo and safety.
 - **Deterministic gates green before you hand off.** Build, typecheck, and the suite (CI
   where the repo has it) must pass on the sha you hand over — a reviewer solicited on a
   red build returns immediately without reviewing, and that burns a round.

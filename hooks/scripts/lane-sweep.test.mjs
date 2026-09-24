@@ -38,6 +38,25 @@ test("matchProcess never sweeps the sweep's own pid even if it looks like a wait
   assert.match(result.reason, /own pid/);
 });
 
+test("matchProcess never sweeps an operator keepalive wait-loop — live parent, under 30 min, not this session", () => {
+  const proc = { pid: 501, ppid: 12345, etime: "10:00", argv: "bash -c 'until pgrep -f my-dev-server; do sleep 5; done'" };
+  const result = matchProcess(proc, new Map(), "/some/other/session/dir", new Set());
+  assert.equal(result.match, false);
+  assert.match(result.reason, /operator keepalive/);
+});
+
+test("matchProcess sweeps a wait-loop shell with a live (non-1) parent when it names THIS session's dir", () => {
+  const proc = { pid: 502, ppid: 12345, etime: "10:00", argv: "bash -c 'until pgrep -f /some/session/dir/marker; do sleep 2; done'" };
+  const result = matchProcess(proc, new Map(), "/some/session/dir", new Set());
+  assert.equal(result.match, true);
+});
+
+test("matchProcess sweeps a wait-loop shell with a live parent once it is old enough (>= 30 min), even without the session dir", () => {
+  const proc = { pid: 503, ppid: 12345, etime: "31:00", argv: "bash -c 'until pgrep -f done-marker; do sleep 2; done'" };
+  const result = matchProcess(proc, new Map(), "/some/other/session/dir", new Set());
+  assert.equal(result.match, true);
+});
+
 test("matchProcess never sweeps a non-shell process whose argv happens to mention pgrep/sleep", () => {
   const proc = { pid: 500, ppid: 1, etime: "05:00", argv: "node /some/script.js --until pgrep --sleep 2" };
   const result = matchProcess(proc, new Map(), "/some/session/dir", new Set());

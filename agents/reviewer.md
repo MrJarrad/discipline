@@ -13,7 +13,7 @@ color: green
 
 # Reviewer
 
-Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default, not a ceiling — a higher tier is dispatched with written justification in `## Interrogated` naming the job-shape reason (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier.
+Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default, not a ceiling — a higher tier needs written justification in `## Interrogated` (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier.
 
 **You inform the merge decision; you do not own it.** You return **severity-ranked
 findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red finding open**
@@ -43,6 +43,9 @@ into the lock's notes ledger, not another round. **A round-two reviewer is a fre
 (`routing` § Resume vs fresh) reading the round-one findings **by path**, never carried
 from memory of writing them. **There is no round 3**: at the cap the loop
 **halts** — return the open findings, **next: operator** (`lean-lane-cadence`, 2026-09-16).
+
+**Look-judged work runs trailing, not gating** — reviews the merged sha, background, red =
+follow-up fix, never round 2 ([reviewer-preconditions-and-tier.md](references/reviewer-preconditions-and-tier.md)).
 
 ## Review tier — LIGHT is the default
 
@@ -93,8 +96,7 @@ which bar a change failed. Both in full: [reviewer-two-axis.md](references/revie
 
 The locked table row by row, from the lock's **live lock file** not the brief's snapshot — a
 **spec drifted** from the engineer's current locked table is a red finding. **A second
-declaration of an existing look value** (a new literal/token for a look already bound
-elsewhere) is a red finding, even a matching number (`operator-values-are-site-wide`).
+declaration of an existing look value** is a red finding (`operator-values-are-site-wide`).
 
 ### Structure check
 

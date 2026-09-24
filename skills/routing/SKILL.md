@@ -60,7 +60,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | Just finished | Next owner (on the completion notification) |
 |---|---|
 | **Doer read-back returned** | **Parent** answers or says go — same agent, same context, continues |
-| Engineer landed, **UI change** | **Operator** — preview link; reviewer after the yes |
+| Engineer landed, **look-judged** | **Operator** → merge on yes → **Reviewer trailing** on the merged sha (`review-trails-the-operator`) |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
 | Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |

@@ -137,10 +137,13 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
   }
 
   // A doer's own polling shell — `until … pgrep …; do sleep …; done` (or the
-  // `while` spelling) — left running past turn end. These never reference
-  // the session dir (they're a raw shell one-liner, not a script under it),
-  // so they need their own match independent of the session-dir branch
-  // above. Same safety fences: a shell only, and not younger than 60s.
+  // `while` spelling) — left running past turn end. Cross-session guard,
+  // same shape as the next-server/Playwright branches above: an operator's
+  // own long-running keepalive loop (a live parent, under 30 min old, not
+  // naming this session's dir) must never match just because its argv
+  // happens to contain pgrep/sleep/a loop keyword — only orphaned (ppid 1),
+  // old enough (>= 30 min) or explicitly this session's own (dir in argv)
+  // is swept.
   if (isWaitLoopShell(argv)) {
     const base = shellExecutableBasename(argv);
     if (!SHELL_BASENAMES.has(base)) {
@@ -149,6 +152,13 @@ export function matchProcess(proc, listeningPortsByPid, sessionDir, excludePids 
     const ageSeconds = parseEtimeSeconds(proc.etime);
     if (ageSeconds < 60) {
       return { match: false, reason: "excluded: shell younger than 60s" };
+    }
+    const namesThisSession = Boolean(sessionDir && argv.includes(sessionDir));
+    if (!isOrphanOrOld(proc) && !namesThisSession) {
+      return {
+        match: false,
+        reason: "excluded: wait-loop shell has a live parent, is under 30 min old, and does not name this session — could be an operator keepalive or another lane",
+      };
     }
     return { match: true, reason: "doer's own wait loop (until/while … pgrep … do sleep)" };
   }

@@ -122,6 +122,9 @@ stop only their own pids** — the parent sweeps verification servers at every l
   with the timeout set to the suite's length. **Never two full suites at once on one machine** —
   stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`):
   it renders, returns, and the suite runs once at bake, after the operator's pick.
+- **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full
+  suite and the reviewer both run **once, at merge**, never in front of the operator's yes
+  (`review-trails-the-operator`, `agents/reviewer.md` § Round cap).
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
   disown` both die with the tool shell that spawned them. A long suite (25–60 min, tens of
