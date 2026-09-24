@@ -22,6 +22,8 @@ Craft, review bar, and vocabulary derived from Emil Kowalski's animation work �
 
 Four questions, in order, before any animation code. The catalog behind them — philosophy, springs, component-building principles, sequencing, performance, accessibility — is [BUILD.md](references/BUILD.md).
 
+**Feel rows are a `prototype` lane first**, never synthetic ([BUILD.md](references/BUILD.md)).
+
 ### 1. Should this animate at all?
 
 | Frequency | Decision |

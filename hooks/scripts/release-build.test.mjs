@@ -48,6 +48,33 @@ test("parseUploadOutput returns nulls when neither is present", () => {
   assert.equal(parsed.previewUrl, null);
 });
 
+test("parseUploadOutput skips an unrelated https:// doc link (eslint step) and finds the real preview url", () => {
+  const stdout = [
+    "> eslint .",
+    "Warning: React Hook useEffect has a missing dependency.",
+    "See: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules",
+    "Uploading...",
+    "Version ID: 1a2b3c4d-5e6f",
+    "https://abc123-app.jhd-preview.jh-229.workers.dev",
+    "Done.",
+  ].join("\n");
+  const parsed = parseUploadOutput(stdout);
+  assert.equal(parsed.versionId, "1a2b3c4d-5e6f");
+  assert.equal(parsed.previewUrl, "https://abc123-app.jhd-preview.jh-229.workers.dev");
+});
+
+test("parseUploadOutput rejects a lookalike host that merely starts with workers.dev (host is anchored)", () => {
+  const stdout = "Version ID: 1a2b3c4d-5e6f\nhttps://abc123-app.workers.devious.example.com/phish";
+  const parsed = parseUploadOutput(stdout);
+  assert.equal(parsed.previewUrl, null);
+});
+
+test("parseUploadOutput accepts a .workers.dev host with a trailing path", () => {
+  const stdout = "Version ID: 1a2b3c4d-5e6f\nhttps://abc123-app.workers.dev/some/path";
+  const parsed = parseUploadOutput(stdout);
+  assert.equal(parsed.previewUrl, "https://abc123-app.workers.dev/some/path");
+});
+
 // --- full run against a scratch git repo, fake pnpm on PATH -----------------
 
 function makeScratchRepo() {

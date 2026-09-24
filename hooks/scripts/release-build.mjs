@@ -50,13 +50,18 @@ export function buildSteps(repo, worktreePath, ref) {
 
 /* Extracts a version id and preview URL from `pnpm upload`'s stdout. Wrangler
    versions upload prints a "Version ID: <uuid>" line and a preview URL
-   (`https://<hash>-<name>.<subdomain>.workers.dev`-shaped, or any https URL
-   on its own line near the version id) — matched loosely so the exact
-   wording of a future wrangler release doesn't silently break this. Returns
-   { versionId, previewUrl } with either field null if not found. */
+   shaped `https://<hash>-<name>.<subdomain>.workers.dev`. `pnpm upload`'s own
+   eslint step can print an unrelated `https://` doc link earlier in the same
+   stdout (e.g. nextjs.org/docs/app/api-reference/config/eslint#disabling-rules)
+   — a bare "first https:// URL" match picked that up instead of the real
+   preview URL (2026-09-24). Only a URL whose HOST is anchored at
+   `.workers.dev` (`.workers.dev` immediately followed by `/`, whitespace, or
+   end of string — never `.workers.devious.example.com` or similar) is
+   accepted as the preview URL. Returns { versionId, previewUrl } with either
+   field null if not found. */
 export function parseUploadOutput(stdout) {
   const versionMatch = stdout.match(/Version ID:\s*([a-f0-9-]{8,})/i);
-  const urlMatch = stdout.match(/https:\/\/\S+/);
+  const urlMatch = stdout.match(/https:\/\/\S+\.workers\.dev(?=\/|\s|$)\S*/);
   return {
     versionId: versionMatch ? versionMatch[1] : null,
     previewUrl: urlMatch ? urlMatch[0] : null,

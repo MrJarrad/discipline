@@ -23,11 +23,16 @@ const carries = (file, sentence) =>
 
 // --- review-after-sign-off-2026-09-19 ---------------------------------------
 
-test("routing's Baton table sends a UI-change engineer landing to the operator with reviewer after the yes", () => {
+test("routing's Baton table sends a look-judged engineer landing to the operator, then merge, then a trailing reviewer", () => {
+  // Superseded at 1.94.0 by `review-trails-the-operator-2026-09-20` (row 130
+  // item 10): review no longer waits after landing to run as a pre-merge
+  // gate on the operator's yes — it runs trailing, on the merged sha, in
+  // the background, never queued in front of the look. The row still keeps
+  // the operator first and the reviewer off look judgment.
   const routing = flat(read("skills/routing/SKILL.md"));
   assert.match(
     routing,
-    /Engineer landed, \*\*UI change\*\* \| \*\*Operator\*\* — preview link; reviewer after the yes/i,
+    /Engineer landed, \*\*look-judged\*\* \| \*\*Operator\*\* → merge on yes → \*\*Reviewer trailing\*\* on the merged sha/i,
   );
   assert.doesNotMatch(routing, /preview link first; review is concurrent/i);
 });

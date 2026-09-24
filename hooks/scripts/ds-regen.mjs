@@ -89,8 +89,16 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: "utf8", ...opts });
 }
 
-/* Reads `generatedAt` from a `*design-system-handoff.json` file directly
-   under `dirPath` (an already-unzipped export, or a vendored
+/* A `design-system-handoff` json file, with or without the plugin's own
+   stamp suffix — `jhd-spec-designsystem-design-system-handoff.json` (vendored,
+   canonical) and `jhd-spec-designsystem-design-system-handoff-2026-09-24-06-37-42.json`
+   (as exported from the plugin) both match. A literal `.endsWith("design-
+   system-handoff.json")` missed the stamped form and silently refused a real
+   export (2026-09-24, design-handoff-2026-09-24-exports-manifest). */
+const HANDOFF_JSON_RE = /design-system-handoff(-[\d-]+)?\.json$/;
+
+/* Reads `generatedAt` from a design-system-handoff json file directly under
+   `dirPath` (an already-unzipped export, or a vendored
    `design/handoff/<version>` dir — `latest` is a symlink to one of these
    and resolves the same way). Returns null when the dir, the json file, or
    the field is absent — never throws. */
@@ -102,7 +110,7 @@ export function readGeneratedAt(dirPath) {
   } catch {
     return null;
   }
-  const jsonFile = entries.find((e) => e.endsWith("design-system-handoff.json"));
+  const jsonFile = entries.find((e) => HANDOFF_JSON_RE.test(e));
   if (!jsonFile) return null;
   try {
     const data = JSON.parse(readFileSync(join(dirPath, jsonFile), "utf8"));
@@ -119,7 +127,7 @@ export function readGeneratedAtFromExport(exportPath) {
   if (!exportPath.endsWith(".zip")) return readGeneratedAt(exportPath);
   try {
     const listing = execFileSync("unzip", ["-Z1", exportPath], { encoding: "utf8" }).split("\n");
-    const entry = listing.find((e) => e.endsWith("design-system-handoff.json"));
+    const entry = listing.find((e) => HANDOFF_JSON_RE.test(e));
     if (!entry) return null;
     const text = execFileSync("unzip", ["-p", exportPath, entry], { encoding: "utf8" });
     const data = JSON.parse(text);
@@ -271,11 +279,15 @@ function main() {
     run("git", ["-C", worktreePath, "commit", "-m", `design: regen tokens (${vendored.versionDir})`]);
     run("git", ["-C", worktreePath, "push", "-u", "origin", branch]);
     // `gh --repo` only ever accepts `[HOST/]OWNER/REPO`, never a filesystem
-    // path (`2026-09-22-scripts-not-agents` § gh invocation).
+    // path (`2026-09-22-scripts-not-agents` § gh invocation). `gh pr create`
+    // also needs an explicit `--head` and a git cwd to resolve the branch and
+    // base from — omitting `cwd` when `--repo` was given ran `gh` from the
+    // orchestrator's own (non-git) cwd and failed (2026-09-24,
+    // design-handoff-2026-09-24-exports-manifest); always pass both.
     const ownerRepo = ownerRepoFromOrigin(gitDir);
-    const prOut = ownerRepo
-      ? run("gh", ["pr", "create", "--repo", ownerRepo, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."])
-      : run("gh", ["pr", "create", "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."], { cwd: worktreePath });
+    const prArgs = ["pr", "create", "--head", branch, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."];
+    if (ownerRepo) prArgs.splice(2, 0, "--repo", ownerRepo);
+    const prOut = run("gh", prArgs, { cwd: worktreePath });
     console.log(`branch: ${branch}`);
     console.log(prOut.trim());
   } catch (err) {

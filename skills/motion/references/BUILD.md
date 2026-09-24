@@ -104,6 +104,16 @@ How movers relate in time is **defined by the loaded motion law** when one exist
 }
 ```
 
+## Feel rows (input/scroll/hover speed)
+
+A row about how fast something should feel — scroll speed, hover-dwell, drag response —
+starts as a `prototype` lane (`skills/prototype/SKILL.md` rule 9), not a guessed number
+tuned in place. Render the current value live on screen and expose it as a URL query-param
+knob so the operator turns their own dial against their own real gesture (wheel, trackpad,
+touch) — never a scripted/synthetic input. The shipped duration/easing/speed is read off
+that pick, not invented then adjusted from feedback (row 119 history,
+`orchestrator/operator-queue.md`).
+
 ## When reviewing UI motion
 
 Use the Before/After/Why markdown table format — see [references/BUILD-DOS-AND-DONTS.md](references/BUILD-DOS-AND-DONTS.md) for the exact required shape and worked examples, or the **Review** section below for the full review posture and explicit Block/Approve decision. Never a vertical "Before: ... After: ..." list.

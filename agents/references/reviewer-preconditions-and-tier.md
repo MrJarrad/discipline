@@ -42,3 +42,21 @@ see, review at the briefed tier and say so in the verdict — you do not re-tier
 over-reviewing this cap exists to stop (operator, 2026-09-07: *"way too much agent
 reviewing going on generally"*).
 
+
+## Look-judged work runs trailing, not gating (`review-trails-the-operator`, 2026-09-20)
+
+**Operator:** "this suite review process is ridiculous" · "several hours of review is just
+not a functional process." One look-judged hoverboard change cost four full suite runs and
+three reviewer rounds, most of it waiting in front of a look the operator had already
+approved.
+
+1. **The operator's yes merges immediately.** Review and the suite never queue in front of
+   the operator's look.
+2. **One review, trailing.** The single LIGHT review runs on the merged sha, in the
+   background; a red becomes a follow-up fix, never a round two or a fresh round on a
+   re-bake. Round 2 stays reserved for mechanism-only work.
+3. **The suite runs once, at merge.** Iterations run only the gates that read the change; a
+   re-bake on the same lane does not re-run the suite.
+4. **Slow gates are a merge-only tier**, split from the fast per-lane tier (< 5 min).
+5. **The look is live on commit** — the operator's port serves the lane's worktree so
+   nothing waits on gates to present.

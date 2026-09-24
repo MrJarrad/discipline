@@ -17,9 +17,8 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 5. Is done-when measurable at the operator's framing?
 6. Is there exactly one contract unit?
 7. Which named skills are missing for the domain?
-8. Model above sonnet: is the justification written, and does it name one of the two
-   cases (`model-routing`: adversarial review of a change with fleet-wide blast radius, or
-   novel architecture with no contract to point at)?
+8. Model above sonnet: is the justification written, and does it name the job-shape
+   reason (`model-routing`)?
 9. Is the size class named (`line | component | system`, `doer-rules.md` § Size class),
    and is the process the brief specifies proportionate to it?
 

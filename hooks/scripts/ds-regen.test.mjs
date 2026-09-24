@@ -81,6 +81,19 @@ test("readGeneratedAt reads the stamp from a *design-system-handoff.json file", 
   }
 });
 
+test("readGeneratedAt reads the stamp from the plugin's stamped export filename (…-handoff-<stamp>.json)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ds-regen-gen-stamped-"));
+  try {
+    writeFileSync(
+      join(dir, "jhd-spec-designsystem-design-system-handoff-2026-09-24-06-37-42.json"),
+      JSON.stringify({ schema: "design-system-handoff", generatedAt: "2026-09-24T06:37:42.000Z" }),
+    );
+    assert.equal(readGeneratedAt(dir), "2026-09-24T06:37:42.000Z");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("checkFreshness proceeds when design/handoff/latest does not exist yet (first regen)", () => {
   const repo = mkdtempSync(join(tmpdir(), "ds-regen-fresh-repo-"));
   const exportDir = mkdtempSync(join(tmpdir(), "ds-regen-fresh-export-"));
@@ -211,6 +224,42 @@ test("full run vendors on its own branch in a sibling worktree, never committing
     rmSync(repo, { recursive: true, force: true });
     rmSync(exportDir, { recursive: true, force: true });
     rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("gh pr create runs with an explicit --head and a git cwd, not the caller's own (non-git) cwd", () => {
+  const repo = makeScratchDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  const ghLog = join(binDir, "gh-invocations.log");
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(pnpmPath, "#!/usr/bin/env bash\necho \"fake pnpm: $*\"\nexit 0\n");
+  chmodSync(pnpmPath, 0o755);
+  const ghPath = join(binDir, "gh");
+  // Records the args it was called with and whether its cwd is a git repo —
+  // `gh pr create` needs both to resolve the branch and base without them
+  // being passed explicitly on every arg.
+  writeFileSync(
+    ghPath,
+    `#!/usr/bin/env bash\necho "args: $*" >> "${ghLog}"\nif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "cwd-is-git: yes" >> "${ghLog}"; else echo "cwd-is-git: no" >> "${ghLog}"; fi\necho 'https://github.com/example/ds/pull/2'\nexit 0\n`,
+  );
+  chmodSync(ghPath, 0o755);
+  // Run from a plain non-git tmp dir, the way the orchestrator's own shell does.
+  const nonGitCwd = mkdtempSync(join(tmpdir(), "ds-regen-non-git-cwd-"));
+  try {
+    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+      encoding: "utf8",
+      cwd: nonGitCwd,
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    const log = readFileSync(ghLog, "utf8");
+    assert.match(log, /--head /, "gh pr create must pass an explicit --head");
+    assert.match(log, /cwd-is-git: yes/, "gh must run with cwd inside a git checkout, never the caller's own cwd");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(nonGitCwd, { recursive: true, force: true });
   }
 });
 

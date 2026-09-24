@@ -31,6 +31,10 @@ changes (generator, plugin, probes, gates, refactors with nothing to look at)
 are reviewed immediately at engineer-done, as before. The reviewer never
 evaluates look at all.
 
+**The operator's port serves the lane worktree** — nothing waits on gates to present
+(`review-trails-the-operator`, 2026-09-20). The suite and the trailing review run at merge,
+after the operator's yes (`doer-rules.md` § Repo and safety, `agents/reviewer.md` § Round cap).
+
 For UI work the operator is the cheapest visual gate (`doer-rules.md`) — agent visual
 evidence is never a prerequisite for the link, and never a substitute for it.
 
