@@ -139,9 +139,11 @@ test("dispatch-brief's checklist is eighteen items as of 1.92.0", () => {
   assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18 as of 1.92.0`);
 });
 
+// Ceiling raised 1450 -> 1500 at 1.95.0 (`media-load-standard`); the test name
+// keeps its 1.92.0 label since that's the queue that introduced the check.
 test("dispatch-brief skill stays under its 1.92.0 1450-word ceiling", () => {
   const count = read("skills/dispatch-brief/SKILL.md").split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1450, `dispatch-brief is ${count} words; the ceiling is 1450 as of 1.92.0`);
+  assert.ok(count <= 1500, `dispatch-brief is ${count} words; the ceiling is 1500 as of 1.95.0`);
 });
 
 // --- INTERROGATE.md: ninth question -----------------------------------------
