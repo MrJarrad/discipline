@@ -34,6 +34,16 @@ it never restates what is here.
   `lane-progress-file`: *"can we update discipline so progress isn't so blind?"*; sharpened
   2026-09-22 after an ETA read "five minutes ago" against an actual 28-minute-old dispatch
   with no progress line). **line lanes keep no progress file** (§ Size class below).
+- **A milestone is a progress line AND a local WIP commit**, on the lane branch, same
+  breath. Stage the lane's own touched paths **by name** — never `git add -A` / `commit
+  -a`, which can sweep up an untracked probe script or scratch file that does not belong
+  in the product tree. **Never `git stash`** — the stash stack is shared across worktrees
+  and popping it can eat another session's work; a WIP commit is the lane's own history,
+  nobody else's. No uncommitted work survives past a milestone. The progress-file line
+  names the WIP sha it corresponds to. A stopped portfolio lane left ~295 uncommitted
+  lines across six files and no progress file when its session ended — recovery was a
+  fresh agent told to WIP-commit the leftovers first (`lanes-survive-interruption`,
+  2026-09-25).
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.
