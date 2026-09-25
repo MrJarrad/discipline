@@ -325,7 +325,7 @@ test("prose-only — a Progress section naming a filename in a sentence, not a p
   const verdict = checkComponentSystemProgress(prompt);
   assert.equal(verdict.item, "progress-path");
   assert.match(verdict.reason, /progress-path:/);
-  assert.match(verdict.reason, /naming a path/);
+  assert.match(verdict.reason, /naming a progress-file path/);
 });
 
 test("absolute path — an unbacktick'd absolute path under the heading passes", () => {
@@ -375,6 +375,59 @@ test("re-run: every existing progress-path fixture still resolves the same way u
   assert.equal(checkComponentSystemProgress(line), null, "line stays exempt");
 
   assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null, "no Size: class at all — unscoped");
+});
+
+// A red finding on this check: any real path was accepted as "the" progress
+// path, even a path to an unrelated file the brief points at for some other
+// reason (e.g. a style guide read for tone). The path's own file name must
+// contain "progress" — a real, well-formed, backticked path to a file that
+// is not a progress file is refused the same as prose naming no path at all.
+test("unrelated path — a real backticked path to a non-progress file is refused", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nSee `/Users/x/vault/main/references/style-guide.md` for tone before you begin.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+});
+
+test("progress path — absolute, unbacktick'd, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone at /Users/x/vault/main/projects/p/evidence/progress.md as you go.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("progress path — `~/…`, backticked, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: system.\n\n## Progress\nAppend a line per milestone to `~/JHD/vault/main/projects/p/evidence/progress.md`.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("progress path — backticked absolute path, passes", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null);
+});
+
+test("progress path — on the `## Progress` heading's own line, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress: /Users/x/vault/main/projects/p/evidence/progress.md\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("prose still refused — a Progress section naming no path at all", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone as you go, per doer-rules.md.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
 });
 
 // --- Wiring ---------------------------------------------------------------
