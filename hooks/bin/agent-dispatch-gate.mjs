@@ -48,9 +48,13 @@
    7. COMPONENT/SYSTEM BRIEFS NAME A PROGRESS PATH — a `Size: component` or
       `Size: system` brief with no `## Progress` heading naming a path is
       refused; `line` stays exempt (`doer-rules.md` § Size class: "line lanes
-      keep no progress file"). A portfolio lane left ~295 uncommitted lines
-      across six files with no progress file when its session ended — the
-      brief omitted `## Progress` and nothing refused it
+      keep no progress file"). A path means an absolute path, a `~/` path, or
+      a backticked path, ending in a file name such as `progress.md` — prose
+      under the heading that merely mentions a filename (e.g. "per
+      doer-rules.md") does not count, and is refused with a message saying a
+      path is required. A portfolio lane left ~295 uncommitted lines across
+      six files with no progress file when its session ended — the brief
+      omitted `## Progress` and nothing refused it
       (`lanes-survive-interruption`, 2026-09-25).
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
@@ -208,24 +212,47 @@ export function checkLineNoReadBack(prompt) {
 
 // `Size: component` / `Size: system` briefs — `line` is exempt.
 const ABOVE_LINE_SIZE = /Size:\s*(component|system)\b/i;
-const PROGRESS_HEADING = /##\s*Progress\b[^\n]*\n?(?:[ \t]*\n)*[ \t]*(\S+)/i;
+const PROGRESS_HEADING = /##\s*Progress\b/i;
+
+/* A real path, not prose that happens to mention a filename: either
+   backticked (any leading `~/` or `/`, ending in a `.ext`), or a bare
+   absolute (`/…`) or home-relative (`~/…`) path ending in `.ext`. Prose like
+   "per doer-rules.md" has no leading `/` or `~/` and does not match — only a
+   path is accepted, not a filename dropped mid-sentence. */
+const PROGRESS_PATH =
+  /`(?:~\/|\/)[^\s`]*\.[A-Za-z0-9]+`|(?:^|\s)(?:~\/|\/)\S*\.[A-Za-z0-9]+/;
+
+// Slice from the `## Progress` heading up to (not including) the next `## `
+// heading, or to the end of the prompt — the same walk `lockedDecisionsLines`
+// uses for `## Locked decisions`. null when there is no `## Progress` heading.
+function progressSectionText(prompt) {
+  const idx = prompt.search(PROGRESS_HEADING);
+  if (idx === -1) return null;
+  const rest = prompt.slice(idx);
+  const nextHeading = rest.slice(1).search(/\n##\s/);
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading + 1);
+}
 
 /* Returns null when a `Size: component`/`Size: system` brief carries a
-   `## Progress` heading naming a path (on the heading's own line or the next
-   non-blank line), else { item, reason } — `lanes-survive-interruption`,
-   2026-09-25: a portfolio lane's brief omitted `## Progress` though the lane
-   was above line, and nothing refused it. */
+   `## Progress` heading naming a path — absolute, `~/`, or backticked, on the
+   heading's own line or any line before the next heading — else
+   { item, reason } — `lanes-survive-interruption`, 2026-09-25: a portfolio
+   lane's brief omitted `## Progress` though the lane was above line, and
+   nothing refused it. A `## Progress` heading followed only by prose (no
+   path) is refused too — the check exists so a stopped session can find the
+   file, not so the heading merely exists. */
 export function checkComponentSystemProgress(prompt) {
   if (!ABOVE_LINE_SIZE.test(prompt)) return null;
-  const match = PROGRESS_HEADING.exec(prompt);
-  if (match && match[1] && !/^#/.test(match[1])) return null;
+  const section = progressSectionText(prompt);
+  if (section && PROGRESS_PATH.test(section)) return null;
   return {
     item: "progress-path",
     reason:
       `Dispatch blocked — progress-path: this is a \`Size: component\`/\`Size: system\` brief but ` +
-      `carries no \`## Progress\` heading naming a path. Above-line lanes keep a progress file so a ` +
-      `stopped session loses no state (\`doer-rules.md\` § You are the doer, \`lanes-survive-` +
-      `interruption\`, 2026-09-25).`,
+      `carries no \`## Progress\` heading naming a path (absolute, \`~/\`, or backticked, ending in ` +
+      `a file name such as \`progress.md\`). Above-line lanes keep a progress file so a stopped ` +
+      `session loses no state (\`doer-rules.md\` § You are the doer, \`lanes-survive-interruption\`, ` +
+      `2026-09-25).`,
   };
 }
 

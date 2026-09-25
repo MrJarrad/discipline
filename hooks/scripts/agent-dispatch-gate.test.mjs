@@ -312,6 +312,71 @@ test("a prompt naming no Size: class at all is not scoped by this check", () => 
   assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null);
 });
 
+// A red finding on this check: any non-heading text after `## Progress` was
+// accepted as "a path" — `## Progress\nAppend one line per milestone as you
+// go, per doer-rules.md.` passed even though it names no path. The check must
+// require the Progress section to actually carry a path (absolute, `~/`, or
+// backticked, ending in a file name), not merely non-empty prose.
+test("prose-only — a Progress section naming a filename in a sentence, not a path, is refused", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone as you go, per doer-rules.md.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+  assert.match(verdict.reason, /naming a path/);
+});
+
+test("absolute path — an unbacktick'd absolute path under the heading passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone at /Users/x/vault/main/projects/p/evidence/progress.md as you go.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("backticked path — a `~/…` path in backticks under the heading passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: system.\n\n## Progress\nAppend a line per milestone to `~/JHD/vault/main/projects/p/evidence/progress.md`.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("path on the heading line — the path can sit on the `## Progress` line itself", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress: /Users/x/vault/main/projects/p/evidence/progress.md\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+// Re-run every real brief shape already exercised above, so the tightened
+// path rule does not regress a passing/blocked fixture it was not meant to
+// touch.
+test("re-run: every existing progress-path fixture still resolves the same way under the tightened rule", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null, "backticked absolute path fixture");
+  assert.ok(checkAgentDispatch(COMPONENT_WITH_PROGRESS).ok, "backticked absolute path fixture, full dispatch");
+
+  const noHeading = WELL_FORMED.prompt.replace("**Done-when.**", "Size: component.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(noHeading).item, "progress-path", "no heading at all");
+
+  const systemNoHeading = WELL_FORMED.prompt.replace("**Done-when.**", "Size: system.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(systemNoHeading).item, "progress-path", "system, no heading");
+
+  const headingNoPath = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n\n## Interrogated\ninline, clear.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(headingNoPath).item, "progress-path", "heading present, no path, no prose");
+
+  const line = WELL_FORMED.prompt.replace("**Done-when.**", "Size: line.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(line), null, "line stays exempt");
+
+  assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null, "no Size: class at all — unscoped");
+});
+
 // --- Wiring ---------------------------------------------------------------
 
 test("hooks.json fires the gate on Agent dispatches", () => {
