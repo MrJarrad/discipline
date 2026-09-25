@@ -58,7 +58,11 @@ const CEILINGS = [
   // Ceiling raised 1400 -> 1450 at 1.93.0: `scripts-not-agents` added a
   // baton-table row pointing at the four mechanical scripts, offloaded to
   // references/MECHANICAL-SCRIPTS.md.
-  { skill: "routing", ceiling: 1450, before: 3254, frontmatterWords: 90 },
+  // Ceiling raised 1450 -> 1560 at 1.95.0: `lanes-survive-interruption` added
+  // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
+  // lanes are always fresh, never resumed) and one work-type-table row
+  // pointing at the new `media-loading` skill.
+  { skill: "routing", ceiling: 1560, before: 3254, frontmatterWords: 90 },
   { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
@@ -71,7 +75,9 @@ const CEILINGS = [
   // classes rule and the absence-rows-re-proven-by-grep line (`eight-class-ledger`).
   // Ceiling raised 1400 -> 1450 at 1.92.0: Change 2 added the ledger-vs-export-
   // JSON-node-list check line.
-  { skill: "agents/reviewer.md", ceiling: 1450, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1450 -> 1500 at 1.95.0: `lanes-survive-interruption` added
+  // the media-load-probe re-run evidence line (`media-loading`).
+  { skill: "agents/reviewer.md", ceiling: 1500, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

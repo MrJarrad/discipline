@@ -9,7 +9,7 @@
    remembered to check them. This gate reads the dispatch before it launches
    and denies it with the failing item named.
 
-   Six checks, in order, first failure reported:
+   Seven checks, in order, first failure reported:
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -44,6 +44,22 @@
       "Read-back only above line") makes the read-back stop a component/system
       thing only, and a line brief asking for one anyway is the malformed
       shape the ruling exists to stop.
+
+   7. COMPONENT/SYSTEM BRIEFS NAME A PROGRESS PATH — a `Size: component` or
+      `Size: system` brief with no `## Progress` heading naming a path is
+      refused; `line` stays exempt (`doer-rules.md` § Size class: "line lanes
+      keep no progress file"). A path means an absolute path, a `~/` path, or
+      a backticked path, ending in a file name such as `progress.md` — and the
+      file name itself must contain "progress" (case-insensitive); a path to
+      an unrelated file (e.g. a style guide the brief points at for tone)
+      names a real path but is not a progress file, and is refused the same
+      as prose that never names a path at all. Prose under the heading that
+      merely mentions a filename (e.g. "per doer-rules.md") does not count
+      either, and is refused with a message saying a progress-file path is
+      required. A portfolio lane left ~295 uncommitted lines across six files
+      with no progress file when its session ended — the brief omitted
+      `## Progress` and nothing refused it (`lanes-survive-interruption`,
+      2026-09-25).
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
@@ -198,6 +214,73 @@ export function checkLineNoReadBack(prompt) {
   };
 }
 
+// `Size: component` / `Size: system` briefs — `line` is exempt.
+const ABOVE_LINE_SIZE = /Size:\s*(component|system)\b/i;
+const PROGRESS_HEADING = /##\s*Progress\b/i;
+
+/* A real path, not prose that happens to mention a filename: either
+   backticked (any leading `~/` or `/`, ending in a `.ext`), or a bare
+   absolute (`/…`) or home-relative (`~/…`) path ending in `.ext`. Prose like
+   "per doer-rules.md" has no leading `/` or `~/` and does not match — only a
+   path is accepted, not a filename dropped mid-sentence. Captures the path
+   itself (group 1 for the backticked form, group 2 for the bare form) so the
+   caller can check the file name names a progress file, not just any file —
+   a path to an unrelated file (e.g. a style guide) matches the shape but
+   names the wrong file. */
+const PROGRESS_PATH =
+  /`((?:~\/|\/)[^\s`]*\.[A-Za-z0-9]+)`|(?:^|\s)((?:~\/|\/)\S*\.[A-Za-z0-9]+)/g;
+
+/* True when `section` contains a path (per PROGRESS_PATH) whose own file
+   name contains "progress" (case-insensitive) — `progress.md`,
+   `agent-progress.md`, etc. A path to any other file, however real the path
+   is, does not count. */
+function hasProgressPath(section) {
+  const re = new RegExp(PROGRESS_PATH.source, "g");
+  let match;
+  while ((match = re.exec(section))) {
+    const path = match[1] || match[2];
+    const fileName = path.split("/").pop();
+    if (/progress/i.test(fileName)) return true;
+  }
+  return false;
+}
+
+// Slice from the `## Progress` heading up to (not including) the next `## `
+// heading, or to the end of the prompt — the same walk `lockedDecisionsLines`
+// uses for `## Locked decisions`. null when there is no `## Progress` heading.
+function progressSectionText(prompt) {
+  const idx = prompt.search(PROGRESS_HEADING);
+  if (idx === -1) return null;
+  const rest = prompt.slice(idx);
+  const nextHeading = rest.slice(1).search(/\n##\s/);
+  return nextHeading === -1 ? rest : rest.slice(0, nextHeading + 1);
+}
+
+/* Returns null when a `Size: component`/`Size: system` brief carries a
+   `## Progress` heading naming a progress-file path — absolute, `~/`, or
+   backticked, on the heading's own line or any line before the next heading,
+   with a file name containing "progress" — else { item, reason } —
+   `lanes-survive-interruption`, 2026-09-25: a portfolio lane's brief omitted
+   `## Progress` though the lane was above line, and nothing refused it. A
+   `## Progress` heading followed only by prose (no path), or naming a real
+   path to an unrelated file (e.g. a style guide pointed at for tone), is
+   refused too — the check exists so a stopped session can find the progress
+   file, not so the heading merely exists or names some other path. */
+export function checkComponentSystemProgress(prompt) {
+  if (!ABOVE_LINE_SIZE.test(prompt)) return null;
+  const section = progressSectionText(prompt);
+  if (section && hasProgressPath(section)) return null;
+  return {
+    item: "progress-path",
+    reason:
+      `Dispatch blocked — progress-path: this is a \`Size: component\`/\`Size: system\` brief but ` +
+      `carries no \`## Progress\` heading naming a progress-file path (absolute, \`~/\`, or ` +
+      `backticked, ending in a file name that contains "progress", such as \`progress.md\`). ` +
+      `Above-line lanes keep a progress file so a stopped session loses no state ` +
+      `(\`doer-rules.md\` § You are the doer, \`lanes-survive-interruption\`, 2026-09-25).`,
+  };
+}
+
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
    law so the caller can name it without re-deriving it from the prose. */
 export function checkAgentDispatch(toolInput = {}) {
@@ -251,6 +334,9 @@ export function checkAgentDispatch(toolInput = {}) {
 
   const lineReadBackVerdict = checkLineNoReadBack(prompt);
   if (lineReadBackVerdict) return { ok: false, ...lineReadBackVerdict };
+
+  const progressVerdict = checkComponentSystemProgress(prompt);
+  if (progressVerdict) return { ok: false, ...progressVerdict };
 
   return { ok: true };
 }

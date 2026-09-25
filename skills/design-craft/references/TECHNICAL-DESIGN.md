@@ -162,15 +162,32 @@ measurement keeps every film within ±1 LU of the target integrated loudness.
 - **Needs a runtime lane** (`ffprobe`/`ffmpeg` pipeline step) — not grep-checkable this
   round.
 
+### Law 11 — Media never loads blank or half-painted (§6 #11, `media-loading`)
+
+**Acceptance criterion:** `hooks/scripts/media-load-probe.mjs` on the deployed build, at a
+phone viewport + DPR, under CPU + network throttling, in Chromium and WebKit, for every
+interaction the surface exposes — the summed empty-visible-media count is **0**. Full
+method (poster-first priority, pre-sized variants, entrance-after-decode, lookahead sized
+to the fastest motion, capped concurrent video decode, first-frame posters): `media-loading`
+(whole skill, not restated here).
+
+- **DO:** run the probe on `load` plus every interaction the surface drives (`scroll`,
+  `drag`) on both browsers; attach every count to the evidence return.
+- **DON'T:** *"it loaded fine when I looked at it"* — a look pass proves nothing the probe
+  doesn't already measure at 0.
+- **Runtime lane, not grep-checkable** — `media-load-probe.mjs` is the mechanism; engineer
+  and reviewer both run it on any media-touching diff.
+
 ---
 
 ## Runtime-lane TODO
 
-Laws 1 and 10 need a **runtime measurement lane** (throttled trace / Lighthouse for LCP
-hero priority; `ffprobe`/`ffmpeg` pipeline assertions for video colour/loudness) that does
-not exist yet as automated CI. **Law 9 lab CWV on UI diffs** is engineer/reviewer duty now —
-attach lab numbers or name the gap; field CrUX + release-gate budgets stay release-only.
-This round intentionally does not build full field CWV CI — see
-`scripts/technical-design-check.mjs` for the grep-lane that covers laws 2 (partial), 4, 5
-(partial), 6, 7, 8. Building the field/runtime release lane is follow-up work, not silently
-deferred: track it before claiming field Law 9 as enforced rather than merely documented.
+Laws 1, 10 and 11 need a **runtime measurement lane** (throttled trace / Lighthouse for LCP
+hero priority; `ffprobe`/`ffmpeg` pipeline assertions for video colour/loudness;
+`media-load-probe.mjs` for empty-visible-media) that does not exist yet as automated CI.
+**Law 9 lab CWV on UI diffs** is engineer/reviewer duty now — attach lab numbers or name the
+gap; field CrUX + release-gate budgets stay release-only. This round intentionally does not
+build full field CWV CI — see `scripts/technical-design-check.mjs` for the grep-lane that
+covers laws 2 (partial), 4, 5 (partial), 6, 7, 8. Building the field/runtime release lane is
+follow-up work, not silently deferred: track it before claiming field Law 9 as enforced
+rather than merely documented.

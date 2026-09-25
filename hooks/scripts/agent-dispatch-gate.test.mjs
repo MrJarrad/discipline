@@ -1,10 +1,12 @@
-// Tests for the Agent dispatch gate. Five dispatch laws that were
+// Tests for the Agent dispatch gate. Seven dispatch laws that were
 // prompt-trusted until now — surface-prefixed description, explicit model,
-// brief under 600 words, skills named, and (1.92.0) Source-contract lock-row
-// shape — are asserted here against the fixtures the dispatch brief named:
-// malformed and well-formed, plus 1.92.0 fixtures for the two new checks. The
-// fixtures are exported so the runtime dry-run in the evidence return drives
-// the same objects the unit tests do, rather than a hand-typed approximation.
+// brief under 600 words, skills named, (1.92.0) Source-contract lock-row
+// shape, (1.93.0) line briefs never ask for a read-back, and (1.95.0)
+// component/system briefs name a progress path — are asserted here against
+// the fixtures the dispatch brief named: malformed and well-formed, plus
+// per-check fixtures for the newer checks. The fixtures are exported so the
+// runtime dry-run in the evidence return drives the same objects the unit
+// tests do, rather than a hand-typed approximation.
 // Run: node --test hooks/scripts/agent-dispatch-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,6 +18,7 @@ import {
   checkAgentDispatch,
   checkSkillsNamed,
   checkSourceContractLockRows,
+  checkComponentSystemProgress,
   promptWords,
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
@@ -261,6 +264,170 @@ test("a prompt with no ## Source contract heading skips the lock-row check entir
 
 test("the three legal Source cells are exactly export-silent | export-vs-ruling | operator-round", () => {
   assert.deepEqual([...SOURCE_CONTRACT_CELLS].sort(), ["export-silent", "export-vs-ruling", "operator-round"]);
+});
+
+// --- Component/system briefs name a progress path (1.95.0) ----------------
+
+const COMPONENT_WITH_PROGRESS = {
+  ...WELL_FORMED,
+  prompt: WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n`/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md`\n\n**Done-when.**",
+  ),
+};
+
+test("a component brief with a ## Progress path passes", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null);
+  assert.ok(checkAgentDispatch(COMPONENT_WITH_PROGRESS).ok);
+});
+
+test("a component brief with no ## Progress heading is blocked", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: component.\n\n**Done-when.**");
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).item, "progress-path");
+});
+
+test("a system brief with no ## Progress heading is blocked too", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: system.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(prompt).item, "progress-path");
+});
+
+test("a component brief with a ## Progress heading but no path is blocked", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n\n## Interrogated\ninline, clear.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt).item, "progress-path");
+});
+
+test("a line brief carries no progress-path requirement — stays exempt", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: line.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(prompt), null);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
+test("a prompt naming no Size: class at all is not scoped by this check", () => {
+  assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null);
+});
+
+// A red finding on this check: any non-heading text after `## Progress` was
+// accepted as "a path" — `## Progress\nAppend one line per milestone as you
+// go, per doer-rules.md.` passed even though it names no path. The check must
+// require the Progress section to actually carry a path (absolute, `~/`, or
+// backticked, ending in a file name), not merely non-empty prose.
+test("prose-only — a Progress section naming a filename in a sentence, not a path, is refused", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone as you go, per doer-rules.md.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+  assert.match(verdict.reason, /naming a progress-file path/);
+});
+
+test("absolute path — an unbacktick'd absolute path under the heading passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone at /Users/x/vault/main/projects/p/evidence/progress.md as you go.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("backticked path — a `~/…` path in backticks under the heading passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: system.\n\n## Progress\nAppend a line per milestone to `~/JHD/vault/main/projects/p/evidence/progress.md`.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("path on the heading line — the path can sit on the `## Progress` line itself", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress: /Users/x/vault/main/projects/p/evidence/progress.md\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+// Re-run every real brief shape already exercised above, so the tightened
+// path rule does not regress a passing/blocked fixture it was not meant to
+// touch.
+test("re-run: every existing progress-path fixture still resolves the same way under the tightened rule", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null, "backticked absolute path fixture");
+  assert.ok(checkAgentDispatch(COMPONENT_WITH_PROGRESS).ok, "backticked absolute path fixture, full dispatch");
+
+  const noHeading = WELL_FORMED.prompt.replace("**Done-when.**", "Size: component.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(noHeading).item, "progress-path", "no heading at all");
+
+  const systemNoHeading = WELL_FORMED.prompt.replace("**Done-when.**", "Size: system.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(systemNoHeading).item, "progress-path", "system, no heading");
+
+  const headingNoPath = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n\n## Interrogated\ninline, clear.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(headingNoPath).item, "progress-path", "heading present, no path, no prose");
+
+  const line = WELL_FORMED.prompt.replace("**Done-when.**", "Size: line.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(line), null, "line stays exempt");
+
+  assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null, "no Size: class at all — unscoped");
+});
+
+// A red finding on this check: any real path was accepted as "the" progress
+// path, even a path to an unrelated file the brief points at for some other
+// reason (e.g. a style guide read for tone). The path's own file name must
+// contain "progress" — a real, well-formed, backticked path to a file that
+// is not a progress file is refused the same as prose naming no path at all.
+test("unrelated path — a real backticked path to a non-progress file is refused", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nSee `/Users/x/vault/main/references/style-guide.md` for tone before you begin.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+});
+
+test("progress path — absolute, unbacktick'd, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone at /Users/x/vault/main/projects/p/evidence/progress.md as you go.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("progress path — `~/…`, backticked, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: system.\n\n## Progress\nAppend a line per milestone to `~/JHD/vault/main/projects/p/evidence/progress.md`.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("progress path — backticked absolute path, passes", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null);
+});
+
+test("progress path — on the `## Progress` heading's own line, passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress: /Users/x/vault/main/projects/p/evidence/progress.md\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+});
+
+test("prose still refused — a Progress section naming no path at all", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\nAppend one line per milestone as you go, per doer-rules.md.\n\n**Done-when.**",
+  );
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
 });
 
 // --- Wiring ---------------------------------------------------------------

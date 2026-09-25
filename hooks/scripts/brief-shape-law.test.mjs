@@ -37,9 +37,11 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // kinds pointer) and Change 1 additions (House rules block pointer, runtime
 // proof sentence in § State, two checklist rows) — real growth, offloaded to
 // SOURCE-CONTRACT-LOCKS.md and HOUSE-RULES.md rather than inlined in full.
+// Ceiling raised 1450 -> 1500 at 1.95.0: `media-load-standard` added the
+// media-touching-lane done-when clause (`media-loading`) — real growth.
 test("the dispatch-brief skill stays under its 1450-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1450, `dispatch-brief is ${count} words; the ceiling is 1450`);
+  assert.ok(count <= 1500, `dispatch-brief is ${count} words; the ceiling is 1500`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -92,9 +94,12 @@ test("the one rule is the contract pointer", () => {
 // Ceiling raised 245 -> 246 at 1.94.0 (same release, round 3 fix): the
 // prototype-lane bullet gained "no suite in bake/ladder briefs themselves"
 // (operator "go", one more fix) — one clause, no room left to trim.
-test("doer-rules.md stays under its 246-line ceiling", () => {
+// Ceiling raised 246 -> 256 at 1.95.0: `lanes-survive-interruption` added the
+// milestone-is-a-progress-line-AND-a-WIP-commit rule — real growth, no
+// references/ dir to offload into.
+test("doer-rules.md stays under its 256-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 246, `doer-rules.md is ${lines} lines; the ceiling is 246`);
+  assert.ok(lines <= 256, `doer-rules.md is ${lines} lines; the ceiling is 256`);
 });
 
 test("doer-rules carries the four standing sections", () => {

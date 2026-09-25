@@ -53,7 +53,12 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 are the only two non-fresh continuations. A doer read-back stops the same agent inline; the
 parent's answer/go continues it **in the same context**, not a new `Agent` call
 (`doer-rules.md` § You are the doer). **Everything else is a
-fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/HARD-RULES.md).
+fresh `Agent`**, artefacts named by path. **A lane found stopped or interrupted (session
+end, crash, a completion notification carrying a stopped status) is never resumed** — the
+parent reads the worktree diff and the progress file directly, then dispatches a fresh
+`Agent` whose first instructed step commits any leftover WIP (explicit paths, never a
+stash) and re-verifies it as an untrusted claim before building on it
+(`lanes-survive-interruption`, 2026-09-25). Full rule: [HARD-RULES.md](references/HARD-RULES.md).
 
 ## Baton handoff table
 
@@ -72,6 +77,7 @@ fresh `Agent`**, artefacts named by path. Full rule: [HARD-RULES.md](references/
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
+| **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume; first step commits leftover WIP (explicit paths) and re-verifies it as untrusted (`lanes-survive-interruption`, 2026-09-25) |
 | **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, evidence commit + push, PR CI read, one deterministic call (`spend-levers` rule 5, 2026-09-22) |
 | **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
@@ -123,6 +129,7 @@ ruling from the rung below is in hand.
 | Motion | `motion` |
 | Splitting a system | `architect-systems` then `design-modules` |
 | Typed markdown artifact | `doc-formats` |
+| Images/video on screen | `media-loading` |
 
 ## Domain-library table (which skills the brief must name)
 
