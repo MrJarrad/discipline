@@ -134,10 +134,12 @@ message. No file paths, diffs, PR links, or "go look."
 message leads with one-line **Problem:** (what caused it, plain words) and **Solution:**
 (what fixed it), before the link (operator, 2026-09-25). A new feature skips both lines.
 
-Example (fix, native): *Problem: the hairline was reading the wrong border token.
-Solution: rebound it to the 1px token. Ready to look. Check the bar edges.*
-Example (fix, web): *Problem: the hairline was reading the wrong border token. Solution:
-rebound it to the 1px token. Ready to look. [jarrad.design](https://jarrad.design)*
+Example (fix, native): *Problem: the thin line around the pills was using the wrong line
+thickness from the design system. Solution: pointed it at the design system's 1-pixel
+line so it matches everywhere. Ready to look. Check the bar edges.*
+Example (fix, web): *Problem: the thin line around the pills was using the wrong line
+thickness from the design system. Solution: pointed it at the design system's 1-pixel
+line so it matches everywhere. Ready to look. [jarrad.design](https://jarrad.design)*
 Example (feature, web): *Ready to look. The pricing table now sorts by plan tier.
 [jarrad.design](https://jarrad.design)*
 
