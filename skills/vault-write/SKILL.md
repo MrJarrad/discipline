@@ -111,5 +111,7 @@ the row it could not find) rather than a silent pass. **Before editing a shared 
 re-read it first** if another session may have committed to it since your last read — a stale
 in-memory copy overwrites a concurrent write. Rows 81–86 were once reported banked after a
 concurrent session had already rewritten the file out from under them; the gate exists so
-"banked" is never asserted from memory.
+"banked" is never asserted from memory. **A row is only written once it is actually
+ready** — link up and final, decision ready to make; a step still in flight is a status
+line, not a row (`output-styles/discipline.md` § the Needed-from-you rule, 2026-09-25).
 

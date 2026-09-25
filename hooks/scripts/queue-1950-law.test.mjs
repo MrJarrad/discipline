@@ -18,6 +18,11 @@
 // paint through every motion; done-when is the probe's empty-visible-media
 // count at 0, deployed build, Chromium+WebKit; pointers from design-craft
 // (Law 11), quality, agents/reviewer.md, dispatch-brief, routing.
+// (5) `output-styles/discipline.md` + `vault-write`: a `## Needed from you`
+// row is only what the operator can act on right now — a step still in
+// flight ("wait for my next message", "once X is in") is status prose above
+// the heading, never a queue row (operator: "needed from me shouldn't
+// include things that aren't actually ready").
 //
 // Run: node --test hooks/scripts/queue-1950-law.test.mjs
 import { test } from "node:test";
@@ -142,4 +147,17 @@ test("routing: work-type and domain-library tables both require media-loading wh
   assert.match(skill, /Images\/video on screen \| `media-loading`/);
   const libraries = flat(read("skills/routing/references/LIBRARIES.md"));
   assert.match(libraries, /media-loading/);
+});
+
+// --- (5) Needed-from-you rows are only what's actually ready ---------------
+
+test("output-styles/discipline.md: a Needed-from-you row is only what's ready right now", () => {
+  const doc = flat(read("output-styles/discipline.md"));
+  assert.match(doc, /A `## Needed from you` row is only what he can act on right now\./);
+  assert.match(doc, /never a queue row/);
+});
+
+test("vault-write: a queue row is written only once it is actually ready", () => {
+  const doc = flat(read("skills/vault-write/SKILL.md"));
+  assert.match(doc, /A row is only written once it is actually\s*ready/);
 });
