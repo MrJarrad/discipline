@@ -130,8 +130,18 @@ use hyperlink-in-chat from any parent.
 Native: after quit+relaunch. Web: include **one** markdown hyperlink in the same
 message. No file paths, diffs, PR links, or "go look."
 
-Example (native): *Ready to look. Hairline is off the pills; same fill. Check the bar edges.*
-Example (web): *Ready to look. Hairline is off the pills. [jarrad.design](https://jarrad.design)*
+**A fix carries Problem/Solution; a feature doesn't.** When the change is a fix, the
+message leads with one-line **Problem:** (what caused it, plain words) and **Solution:**
+(what fixed it), before the link (operator, 2026-09-25). A new feature skips both lines.
+
+Example (fix, native): *Problem: the thin line around the pills was using the wrong line
+thickness from the design system. Solution: pointed it at the design system's 1-pixel
+line so it matches everywhere. Ready to look. Check the bar edges.*
+Example (fix, web): *Problem: the thin line around the pills was using the wrong line
+thickness from the design system. Solution: pointed it at the design system's 1-pixel
+line so it matches everywhere. Ready to look. [jarrad.design](https://jarrad.design)*
+Example (feature, web): *Ready to look. The pricing table now sorts by plan tier.
+[jarrad.design](https://jarrad.design)*
 
 The message **ends with the `## Needed from you` queue in full** — every open
 `orchestrator/operator-queue.md` row's complete text, or *"Nothing needed from you."*
