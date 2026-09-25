@@ -69,6 +69,9 @@ The engineer's evidence is **input to verify, not a verdict to relay**.
 - **A fix gate's floor sits between the pre-fix and the fixed reading**; **a "before" render comes from the before sha** ([reviewer-evidence-and-floor.md](references/reviewer-evidence-and-floor.md)).
 - **A probe never shares the build's constant.** A check reading the same token the build reads passes by construction; derive the expected value from the spec side.
 - **A build-identity proof runs each arm in its own scratch tree with a real package install**.
+- **A media-touching diff's done-when is re-run, not read** — `media-load-probe.mjs` on the
+  deployed build, both browsers, every interaction claimed; a claimed 0 the reviewer did not
+  itself reproduce is not evidence (`media-loading`).
 
 ## Look is the operator's; parity is yours
 

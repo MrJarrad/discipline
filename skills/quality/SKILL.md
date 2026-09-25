@@ -115,6 +115,14 @@ Auth, request bodies, external input, payments, secrets, or injection surfaces r
 the **`code-minimalism` safety floor**: validation at boundaries, secret handling,
 injection defenses — pass/fail on the touched path, not a generic OWASP lecture.
 
+### Media diffs — never blank or half-painted
+
+Any diff touching images/video on screen loads `media-loading` (whole) and requires
+`hooks/scripts/media-load-probe.mjs`'s empty-visible-media count at **0** on the deployed
+build, phone viewport, CPU+network throttled, Chromium and WebKit, for every interaction
+the surface drives — Law 11 in `design-craft/references/TECHNICAL-DESIGN.md`. "It loaded
+fine when I looked" fails — attach the counts or name the gap.
+
 ## Checklist before claiming done
 
 ```
@@ -129,5 +137,6 @@ injection defenses — pass/fail on the touched path, not a generic OWASP lectur
 [ ] UI diff: lab CWV numbers vs Law 9, or named gap — not "feels fast"
 [ ] UI diff: console clean on touched route(s), or named gap with operator deferral
 [ ] Trust-boundary diff: code-minimalism security floor pass/fail on path touched
+[ ] Media diff: media-load-probe.mjs count = 0 on the deployed build, or named gap
 [ ] Self-review answered: is this best-in-class, and what did friction reveal?
 ```

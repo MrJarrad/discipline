@@ -75,7 +75,9 @@ const CEILINGS = [
   // classes rule and the absence-rows-re-proven-by-grep line (`eight-class-ledger`).
   // Ceiling raised 1400 -> 1450 at 1.92.0: Change 2 added the ledger-vs-export-
   // JSON-node-list check line.
-  { skill: "agents/reviewer.md", ceiling: 1450, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1450 -> 1500 at 1.95.0: `lanes-survive-interruption` added
+  // the media-load-probe re-run evidence line (`media-loading`).
+  { skill: "agents/reviewer.md", ceiling: 1500, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
