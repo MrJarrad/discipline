@@ -16,6 +16,7 @@ is the 1.78.0 table, moved, carrying the 1.79.0 rows for the previously unrouted
 | Workers / Pages / KV / D1 / R2 / wrangler | workers-best-practices, wrangler (+ durable-objects, agents-sdk, sandbox-sdk, cloudflare-email-service) |
 | Auth, input, payments | quality + code-minimalism safety floor — not a separate OWASP skill |
 | Image generation | banana · editing an existing image: qwen-edit |
+| Images/video visible on screen (posters, entrance, hover, scroll/drag) | media-loading — every lane touching media, not shipping-web-UI only |
 | Figma plugin work (handoff, annotation readers) | capture-figma; the source of truth is `figma-plugins/main/handoff/<plugin>/` — fixes land in that repo and rebuild `code.js`, never through the generative in-app editor |
 | Brand video / motion content | remotion, ffmpeg, playwright-recording, elevenlabs/acestep, runpod |
 | Apple platform project | the Apple suite (swift/swiftui/ios/macos, testing, security, release-review) — never cross-load with web |
