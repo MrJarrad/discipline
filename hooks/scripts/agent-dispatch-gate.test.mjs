@@ -1,10 +1,12 @@
-// Tests for the Agent dispatch gate. Five dispatch laws that were
+// Tests for the Agent dispatch gate. Seven dispatch laws that were
 // prompt-trusted until now — surface-prefixed description, explicit model,
-// brief under 600 words, skills named, and (1.92.0) Source-contract lock-row
-// shape — are asserted here against the fixtures the dispatch brief named:
-// malformed and well-formed, plus 1.92.0 fixtures for the two new checks. The
-// fixtures are exported so the runtime dry-run in the evidence return drives
-// the same objects the unit tests do, rather than a hand-typed approximation.
+// brief under 600 words, skills named, (1.92.0) Source-contract lock-row
+// shape, (1.93.0) line briefs never ask for a read-back, and (1.95.0)
+// component/system briefs name a progress path — are asserted here against
+// the fixtures the dispatch brief named: malformed and well-formed, plus
+// per-check fixtures for the newer checks. The fixtures are exported so the
+// runtime dry-run in the evidence return drives the same objects the unit
+// tests do, rather than a hand-typed approximation.
 // Run: node --test hooks/scripts/agent-dispatch-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,6 +18,7 @@ import {
   checkAgentDispatch,
   checkSkillsNamed,
   checkSourceContractLockRows,
+  checkComponentSystemProgress,
   promptWords,
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
@@ -261,6 +264,52 @@ test("a prompt with no ## Source contract heading skips the lock-row check entir
 
 test("the three legal Source cells are exactly export-silent | export-vs-ruling | operator-round", () => {
   assert.deepEqual([...SOURCE_CONTRACT_CELLS].sort(), ["export-silent", "export-vs-ruling", "operator-round"]);
+});
+
+// --- Component/system briefs name a progress path (1.95.0) ----------------
+
+const COMPONENT_WITH_PROGRESS = {
+  ...WELL_FORMED,
+  prompt: WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n`/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md`\n\n**Done-when.**",
+  ),
+};
+
+test("a component brief with a ## Progress path passes", () => {
+  assert.equal(checkComponentSystemProgress(COMPONENT_WITH_PROGRESS.prompt), null);
+  assert.ok(checkAgentDispatch(COMPONENT_WITH_PROGRESS).ok);
+});
+
+test("a component brief with no ## Progress heading is blocked", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: component.\n\n**Done-when.**");
+  const verdict = checkComponentSystemProgress(prompt);
+  assert.equal(verdict.item, "progress-path");
+  assert.match(verdict.reason, /progress-path:/);
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).item, "progress-path");
+});
+
+test("a system brief with no ## Progress heading is blocked too", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: system.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(prompt).item, "progress-path");
+});
+
+test("a component brief with a ## Progress heading but no path is blocked", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n## Progress\n\n## Interrogated\ninline, clear.\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt).item, "progress-path");
+});
+
+test("a line brief carries no progress-path requirement — stays exempt", () => {
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: line.\n\n**Done-when.**");
+  assert.equal(checkComponentSystemProgress(prompt), null);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
+test("a prompt naming no Size: class at all is not scoped by this check", () => {
+  assert.equal(checkComponentSystemProgress(WELL_FORMED.prompt), null);
 });
 
 // --- Wiring ---------------------------------------------------------------

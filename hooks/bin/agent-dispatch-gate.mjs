@@ -9,7 +9,7 @@
    remembered to check them. This gate reads the dispatch before it launches
    and denies it with the failing item named.
 
-   Six checks, in order, first failure reported:
+   Seven checks, in order, first failure reported:
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -44,6 +44,14 @@
       "Read-back only above line") makes the read-back stop a component/system
       thing only, and a line brief asking for one anyway is the malformed
       shape the ruling exists to stop.
+
+   7. COMPONENT/SYSTEM BRIEFS NAME A PROGRESS PATH — a `Size: component` or
+      `Size: system` brief with no `## Progress` heading naming a path is
+      refused; `line` stays exempt (`doer-rules.md` § Size class: "line lanes
+      keep no progress file"). A portfolio lane left ~295 uncommitted lines
+      across six files with no progress file when its session ended — the
+      brief omitted `## Progress` and nothing refused it
+      (`lanes-survive-interruption`, 2026-09-25).
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
@@ -198,6 +206,29 @@ export function checkLineNoReadBack(prompt) {
   };
 }
 
+// `Size: component` / `Size: system` briefs — `line` is exempt.
+const ABOVE_LINE_SIZE = /Size:\s*(component|system)\b/i;
+const PROGRESS_HEADING = /##\s*Progress\b[^\n]*\n?(?:[ \t]*\n)*[ \t]*(\S+)/i;
+
+/* Returns null when a `Size: component`/`Size: system` brief carries a
+   `## Progress` heading naming a path (on the heading's own line or the next
+   non-blank line), else { item, reason } — `lanes-survive-interruption`,
+   2026-09-25: a portfolio lane's brief omitted `## Progress` though the lane
+   was above line, and nothing refused it. */
+export function checkComponentSystemProgress(prompt) {
+  if (!ABOVE_LINE_SIZE.test(prompt)) return null;
+  const match = PROGRESS_HEADING.exec(prompt);
+  if (match && match[1] && !/^#/.test(match[1])) return null;
+  return {
+    item: "progress-path",
+    reason:
+      `Dispatch blocked — progress-path: this is a \`Size: component\`/\`Size: system\` brief but ` +
+      `carries no \`## Progress\` heading naming a path. Above-line lanes keep a progress file so a ` +
+      `stopped session loses no state (\`doer-rules.md\` § You are the doer, \`lanes-survive-` +
+      `interruption\`, 2026-09-25).`,
+  };
+}
+
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
    law so the caller can name it without re-deriving it from the prose. */
 export function checkAgentDispatch(toolInput = {}) {
@@ -251,6 +282,9 @@ export function checkAgentDispatch(toolInput = {}) {
 
   const lineReadBackVerdict = checkLineNoReadBack(prompt);
   if (lineReadBackVerdict) return { ok: false, ...lineReadBackVerdict };
+
+  const progressVerdict = checkComponentSystemProgress(prompt);
+  if (progressVerdict) return { ok: false, ...progressVerdict };
 
   return { ok: true };
 }
