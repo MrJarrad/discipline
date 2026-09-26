@@ -10,7 +10,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseArgs, driveInteraction, NETWORK_PROFILES } from "./media-load-probe.mjs";
+import { parseArgs, driveInteraction, driveFlingSession, NETWORK_PROFILES } from "./media-load-probe.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const script = join(repo, "hooks", "scripts", "media-load-probe.mjs");
@@ -46,6 +46,36 @@ test("parseArgs reads every named flag and splits viewport into width/height", (
   assert.equal(opts.browser, "webkit");
   assert.equal(opts.network, "slow3g");
   assert.equal(opts.frames, 10);
+});
+
+test("parseArgs 1.96.0 defaults: no channel, not headed, no duration/settle, one rep, 24px gap tolerance", () => {
+  const opts = parseArgs(["https://example.com"]);
+  assert.equal(opts.channel, null);
+  assert.equal(opts.headed, false);
+  assert.equal(opts.duration, 0);
+  assert.equal(opts.settle, 0);
+  assert.equal(opts.reps, 1);
+  assert.equal(opts.gapTolerance, 24);
+});
+
+test("parseArgs reads --channel, --headed (boolean, no value consumed), --duration, --settle, --reps, --gap-tolerance", () => {
+  const opts = parseArgs([
+    "https://x.test",
+    "--channel", "chrome",
+    "--headed",
+    "--duration", "60000",
+    "--settle", "2000",
+    "--reps", "3",
+    "--gap-tolerance", "40",
+    "--interaction", "drag",
+  ]);
+  assert.equal(opts.channel, "chrome");
+  assert.equal(opts.headed, true);
+  assert.equal(opts.duration, 60000);
+  assert.equal(opts.settle, 2000);
+  assert.equal(opts.reps, 3);
+  assert.equal(opts.gapTolerance, 40);
+  assert.equal(opts.interaction, "drag", "the boolean --headed flag must not eat the next flag's value");
 });
 
 // --- NETWORK_PROFILES ---------------------------------------------------------
@@ -111,6 +141,50 @@ test("an unknown interaction name throws, naming the three valid ones", async ()
   await assert.rejects(() => driveInteraction(fakePage([[]]), "spin", 4), /load\|scroll\|drag/);
 });
 
+// --- driveFlingSession against a fake page (round 10: a long realistic ------
+// session, not one smooth crawl — --duration switches to this driver) -------
+
+test("driveFlingSession loops fling gestures for roughly durationMs, sampling each one", async () => {
+  const page = fakePage([[]]);
+  let wheelCalls = 0;
+  page.mouse.wheel = async () => {
+    wheelCalls++;
+  };
+  const samples = await driveFlingSession(page, { interaction: "scroll", durationMs: 30, sampleEveryMs: 5 });
+  assert.ok(wheelCalls >= 1, "at least one fling gesture must run");
+  assert.equal(samples.length, wheelCalls + 1, "first-paint sample plus one per fling gesture");
+});
+
+test("driveFlingSession drag variant presses down, moves, releases each gesture", async () => {
+  const page = fakePage([[]]);
+  const calls = [];
+  page.mouse.down = async () => calls.push("down");
+  page.mouse.up = async () => calls.push("up");
+  page.mouse.move = async () => calls.push("move");
+  await driveFlingSession(page, { interaction: "drag", durationMs: 20, sampleEveryMs: 5 });
+  assert.ok(calls.includes("down") && calls.includes("up"));
+  assert.equal(calls.filter((c) => c === "down").length, calls.filter((c) => c === "up").length);
+});
+
+test("driveFlingSession takes one extra settle-dwell sample when settleMs is given", async () => {
+  // durationMs: 0 makes the fling loop run zero gestures (deterministic —
+  // real-clock loop counts would otherwise vary with scheduling jitter),
+  // isolating exactly what the settle dwell adds: first-paint sample, plus
+  // one more when settleMs > 0.
+  const page = fakePage([[]]);
+  const withoutSettle = await driveFlingSession(page, { interaction: "scroll", durationMs: 0, settleMs: 0 });
+  const withSettle = await driveFlingSession(page, { interaction: "scroll", durationMs: 0, settleMs: 10 });
+  assert.equal(withoutSettle.length, 1, "no fling gestures, no settle — just the first-paint sample");
+  assert.equal(withSettle.length, withoutSettle.length + 1, "settle adds exactly one final sample");
+});
+
+test("driveFlingSession refuses `load` — it has no fling shape", async () => {
+  await assert.rejects(
+    () => driveFlingSession(fakePage([[]]), { interaction: "load", durationMs: 10 }),
+    /scroll\|drag/,
+  );
+});
+
 // --- CLI usage path (no playwright import needed for this path) --------------
 
 test("no URL argument prints usage and exits 1 before touching playwright", () => {
@@ -130,4 +204,35 @@ test("the CPU/network throttling limitation on WebKit is documented in the file 
   const src = readFileSync(script, "utf8");
   assert.match(src, /WebKit/);
   assert.match(src, /CPU throttl/i);
+});
+
+// --- 1.96.0: pixel-paint primary signal, headed real Chrome, gap scan ------
+
+test("sampleMediaStateInPage draws the element's own pixels via canvas, not just DOM state", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /drawImage/);
+  assert.match(src, /getImageData/);
+  assert.match(src, /paintUnmeasurable/, "a tainted-canvas fallback must be named, never silent");
+});
+
+test("the file documents headless/synthetic results as a floor, not proof", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /FLOOR, not proof/);
+});
+
+test("the file supports --channel (a real installed browser) and --headed", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /channel/);
+  assert.match(src, /headed/);
+});
+
+test("the file documents the round-14 WebKit-has-no-real-iOS-decoder-cap limitation", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /decoder cap/);
+});
+
+test("main() reports every rep and prints a combined paint + gap total", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /rep \$\{i \+ 1\}\/\$\{opts\.reps\}/);
+  assert.match(src, /paintSum === 0 && gapSum === 0/);
 });
