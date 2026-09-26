@@ -99,3 +99,64 @@ a clipped tile, and a `visibility:hidden` tile — the last four are exactly
 the false-pass cases the canvas-based signal could not detect, and all four
 now read empty. A law test (`media-load-probe.test.mjs`) asserts the file
 never uses a canvas read of the element's own bitmap for the paint signal.
+
+## Discipline PR #52 fix round 2 — the probe over-fired on the operator-approved page
+Round 1's own classifier, run for real against `preview.jarrad.design/holding`
+(390x844 dpr3, fast3g, drag), read `paint=37 gaps=233` on a page the operator
+had just confirmed clean on their iPhone and in Chrome ("gaps are gone and
+fade looks good") — both causes verified live, not assumed, against the real
+page and its real CSS (`globals.css`'s `.holding-canvas-row { column-gap: var
+(--grid-gap-lg) }`, 64-96px measured):
+
+- **Gap scan.** Round 1's scan (`scanFrameForColumnGaps`, now removed) merged
+  every rect's x-span at each horizontal scanline and flagged the uncovered
+  run BETWEEN merged spans, past a fixed 24px tolerance. But the holding
+  canvas is INDEPENDENT COLUMNS (`.holding-canvas-column`, each tiling its own
+  media vertically against its own measured height) — whenever one column's
+  own real row-gap (`--grid-gap-lg`) was exposed at a scanline where its
+  neighbours still had taller tiles covering that same line (ordinary
+  masonry, nothing wrong), the merge collapsed the untouched neighbours into
+  ONE gap spanning the gapped column's own width plus both real gutters —
+  live-measured at 234px against a 24px tolerance, on almost every drag
+  frame. Fixed by dropping cross-column merging entirely:
+  `groupRectsIntoColumns` (x-overlap) + `columnInternalGaps` (adjacent-tile
+  gaps within one column only) + a frame-pooled median rhythm compared via
+  `widthRatio` (default 2x, `lib/media-load-lib.mjs`) — a column's own real
+  row-gap is, by construction, the single most common gap height across the
+  scan; a genuine missing/hidden tile is markedly taller. Verified live: 0
+  gaps, chromium and WebKit, 3 reps each, both `load` and `drag`.
+- **Paint classification.** The background-match-fraction rule alone
+  misreads two real shapes: a white-heavy tile whose non-background pixels
+  are a small, high-contrast minority (fraction stays under the 5% floor even
+  though the page shows real content), and thin edge-slivers of tiles almost
+  entirely scrolled past the viewport during a fast drag, showing only a hair
+  of the holding canvas's own operator-approved entrance/edge fade (round 11,
+  operator: "the fade looks good") — never a real half-painted tile. Fixed
+  with two additions in `lib/media-load-lib.mjs`: `regionLumaStdDev` (an OR
+  alongside the fraction rule — real structure rescues a false EMPTY, a flat
+  swatch never does, so this only ever adds true positives) and
+  `visibleAreaFraction` (a NONZERO-but-under-15%-of-the-element's-own-natural-
+  area exemption — never applies to a fully clipped/hidden element, area
+  exactly 0, which stays a hard defect unchanged from round 1).
+- **Probe timing.** `domcontentloaded` fires before a throttled connection
+  has even started fetching priority images — sampling "first paint" that
+  early caught real in-flight network requests, not a defect. Fixed:
+  `page.goto(..., { waitUntil: "load" })` + a bounded `networkidle` wait
+  before the interaction begins. Separately, `driveInteraction`'s drag/scroll
+  loops sampled with ZERO delay between steps — faster than any real gesture,
+  which Chromium's decode pipeline tolerated but Playwright's bundled WebKit
+  did not (round 14's own "bundled WebKit is not real iOS" caveat, extended
+  past video to image decode under a zero-delay synthetic loop). Fixed with
+  `STEP_PACE_MS` (500ms) between steps.
+- **`--help`.** Was parsed as the URL positional argument and crashed
+  attempting to navigate to it. Fixed: `--help`/`-h` anywhere in argv prints
+  usage and exits 0 before touching Playwright.
+
+A live static fixture (`hooks/scripts/lib/fixtures/media-load-probe-fixture.
+html` + `serve-fixture.mjs`) proves both directions at once on a real page:
+three healthy columns plus one genuine missing tile (gaps=1, never 0 — the
+scan must still catch a real hole), and six isolated paint cases (opacity-0,
+covered-by-a-registered-placeholder-colour, clipped, `visibility:hidden`, a
+uniform-colour placeholder equal to the page background, and a white-heavy
+true negative that must read painted) — verified paint=5, gaps=1 exactly, on
+both chromium and WebKit.

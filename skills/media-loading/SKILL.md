@@ -109,15 +109,25 @@ clipped by an `overflow:hidden` ancestor, covered by an opaque sibling,
 `visibility:hidden`, or at `opacity:0` behind a parent). The paint signal is
 a full-page screenshot, cropped per slot to its rect intersected with the
 viewport and every clipping ancestor, classified against the page background
-and any named placeholder colours. It prints two numbers:
+and any named placeholder colours **plus internal structure** (a fix round's
+own finding: a white-heavy real photo or a dark-framed video can be mostly
+background-close by colour alone — real content almost always has edges/
+shading a flat swatch never does). A slot that's mostly scrolled past the
+viewport edge, showing only a trivial sliver of its own natural rect, is
+excluded from judgment entirely (never a slot that's fully clipped/hidden —
+that stays a hard defect). It prints two numbers:
 
-- **paint** — a visible slot whose screenshot crop reads as the page
-  background/a placeholder colour rather than real content: fully clipped
-  away, covered, `visibility:hidden`, at `opacity:0`, or simply never loaded.
+- **paint** — a visible, non-trivial-sliver slot whose screenshot crop reads
+  as the page background/a placeholder colour AND shows no internal
+  structure: fully clipped away, covered, `visibility:hidden`, at
+  `opacity:0`, or simply never loaded.
 - **gaps** — a visible region with **no covering DOM element at all**
-  (method 10's failure mode), found by scanning for uncovered runs between
-  covered spans across sampled horizontal lines, not by reading any element's
-  state (there's no element to read).
+  (method 10's failure mode). Grouped **per column** (x-overlapping rects,
+  the shape a masonry/independent-column layout actually has) — a column's
+  own internal gaps compared against the frame's own recurring row-gap
+  height, never merged across columns (a fix round's own finding: merging
+  across columns reads a real, everyday column gutter as a hole whenever one
+  column's own row-gap is briefly exposed next to a taller neighbour).
 
 Both must be **0**. The probe supports a short fixed-frame mode (for `load`)
 and a long realistic session (`--duration`, a genuine fling/drag loop, not a

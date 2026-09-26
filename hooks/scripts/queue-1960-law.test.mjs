@@ -121,10 +121,10 @@ test("media-load-lib.mjs never carries the removed canvas-sampling paint functio
   assert.doesNotMatch(src, /export function isPaintedFromDomState/);
 });
 
-test("media-load-lib.mjs: the column-gap scan functions exist", () => {
+test("media-load-lib.mjs: the column-gap scan functions exist (fix round 2: per-column, not a cross-column horizontal-line merge — see PATTERNS.md)", () => {
   const src = read("hooks/scripts/lib/media-load-lib.mjs");
-  assert.match(src, /export function coveredIntervalsAtY/);
-  assert.match(src, /export function gapSegmentsAtY/);
+  assert.match(src, /export function groupRectsIntoColumns/);
+  assert.match(src, /export function columnInternalGaps/);
   assert.match(src, /export function scanFrameForColumnGaps/);
   assert.match(src, /export function totalColumnGapsAcrossFrames/);
 });
