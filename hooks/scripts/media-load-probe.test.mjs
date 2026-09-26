@@ -193,6 +193,26 @@ test("no URL argument prints usage and exits 1 before touching playwright", () =
   assert.match(result.stderr, /Usage: node media-load-probe\.mjs/);
 });
 
+// --- 1.96.0 fix round 2: --help prints usage and exits 0, never treated as a URL ---
+
+test("--help prints usage and exits 0 — never navigated to as a URL", () => {
+  const result = spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Usage: node media-load-probe\.mjs/);
+});
+
+test("-h is also recognised as help, anywhere in argv", () => {
+  const result = spawnSync(process.execPath, [script, "https://example.com", "-h"], { encoding: "utf8" });
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Usage: node media-load-probe\.mjs/);
+});
+
+test("parseArgs treats --help as the help flag, not a URL", () => {
+  const opts = parseArgs(["--help"]);
+  assert.equal(opts.help, true);
+  assert.equal(opts.url, undefined);
+});
+
 // --- Companion law test presence (mirrors the four mechanical scripts' shape) -
 
 test("media-load-probe.mjs has its lib split, both present", () => {
@@ -203,6 +223,16 @@ test("media-load-probe.mjs has its lib split, both present", () => {
 test("the PNG decode/crop split (png-lib.mjs) is present with its own tests", () => {
   assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "png-lib.mjs")));
   assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "png-lib.test.mjs")));
+});
+
+// 1.96.0 fix round 2: the live-browser fixture proof (every round-1/round-17
+// false-pass shape, served on a real URL) is evidence captured by hand, not
+// a `node --test` gate — this repo carries no `playwright` dependency (only
+// a consuming repo installs it, same reasoning as the rest of this file).
+// This just proves the fixture files themselves ship.
+test("the live-browser fixture page and its static server are present", () => {
+  assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "fixtures", "media-load-probe-fixture.html")));
+  assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "fixtures", "serve-fixture.mjs")));
 });
 
 test("the CPU/network throttling limitation on WebKit is documented in the file header", () => {

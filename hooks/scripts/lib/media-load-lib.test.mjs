@@ -11,6 +11,7 @@ import {
   colorsMatch,
   matchesAnyColor,
   regionPaintedFraction,
+  regionLumaStdDev,
   isRegionPainted,
   intersectRects,
   scaleRect,
@@ -21,8 +22,9 @@ import {
   emptyVisibleMedia,
   countEmptyVisibleMedia,
   totalEmptyVisibleMediaAcrossFrames,
-  coveredIntervalsAtY,
-  gapSegmentsAtY,
+  median,
+  groupRectsIntoColumns,
+  columnInternalGaps,
   scanFrameForColumnGaps,
   totalColumnGapsAcrossFrames,
 } from "./media-load-lib.mjs";
@@ -35,6 +37,11 @@ const zeroSize = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
 const WHITE = { r: 255, g: 255, b: 255 };
 const GREY_SKELETON = { r: 230, g: 230, b: 230 };
 const PHOTO = { r: 10, g: 120, b: 200, a: 255 };
+// Same luma neighbourhood as WHITE (differs only ~3 in luma) but past the
+// 8-per-channel colour-match tolerance on the red channel — an
+// anti-aliasing-scale colour difference, not real content: fraction reads
+// "differs" but there's no real structure either.
+const NEAR_WHITE = { r: 246, g: 255, b: 255 };
 
 const pixelsOf = (color, n = 16) => Array.from({ length: n }, () => ({ ...color, a: 255 }));
 
@@ -77,7 +84,45 @@ test("regionPaintedFraction of an empty pixel list is 0, not NaN", () => {
 
 test("isRegionPainted crosses the default 5% threshold", () => {
   assert.equal(isRegionPainted([...pixelsOf(WHITE, 94), ...pixelsOf(PHOTO, 6)], [WHITE]), true);
-  assert.equal(isRegionPainted([...pixelsOf(WHITE, 96), ...pixelsOf(PHOTO, 4)], [WHITE]), false);
+});
+
+test("isRegionPainted stays empty below both the fraction and the structure floor (anti-aliasing seam, not content)", () => {
+  // 4% of pixels differ from WHITE past colour tolerance, but they're in the
+  // same luma neighbourhood — no real structure, same as before this round.
+  assert.equal(isRegionPainted([...pixelsOf(WHITE, 96), ...pixelsOf(NEAR_WHITE, 4)], [WHITE]), false);
+});
+
+// --- Structure signal (1.96.0 fix round 2: variance alongside background ----
+// match — see media-load-lib.mjs's own comment for the two false-EMPTY
+// shapes this fixes: a white-heavy real photo, and a dark-framed video.)
+
+test("regionLumaStdDev is 0 for a perfectly flat crop, whatever its colour", () => {
+  assert.ok(regionLumaStdDev(pixelsOf(WHITE, 20)) < 1e-9);
+  assert.ok(regionLumaStdDev(pixelsOf(GREY_SKELETON, 20)) < 1e-9);
+});
+
+test("regionLumaStdDev is 0 for an empty crop, not NaN", () => {
+  assert.equal(regionLumaStdDev([]), 0);
+});
+
+test("regionLumaStdDev is high when a crop mixes very different lumas", () => {
+  const pixels = [...pixelsOf(WHITE, 96), ...pixelsOf({ r: 0, g: 0, b: 0 }, 4)];
+  assert.ok(regionLumaStdDev(pixels) > 20);
+});
+
+test("isRegionPainted rescues a white-heavy real photo: below the fraction floor, but real structure (a small high-contrast region) crosses the variance floor", () => {
+  // 97% pure white, 3% a near-black region — e.g. a product shot's own
+  // shadow/edge on an otherwise white page background. Old rule (fraction
+  // only) called this empty; the composited page shows a real photo.
+  const pixels = [...pixelsOf(WHITE, 97), ...pixelsOf({ r: 0, g: 0, b: 0 }, 3)];
+  assert.equal(regionPaintedFraction(pixels, [WHITE]) < 0.05, true, "fraction alone stays under the 5% floor");
+  assert.equal(isRegionPainted(pixels, [WHITE]), true, "variance rescues it — this is real content, not a blank tile");
+});
+
+test("isRegionPainted still reads a flat, uniform crop as empty even when its colour isn't the exact background — a flat swatch has no structure either way", () => {
+  const flatOther = { r: 128, g: 40, b: 40 };
+  assert.equal(regionPaintedFraction(pixelsOf(flatOther, 20), [WHITE]), 1, "every pixel differs from the background by fraction");
+  assert.ok(regionLumaStdDev(pixelsOf(flatOther, 20)) < 1e-9, "but the crop is perfectly flat — no structure");
 });
 
 // --- rect clipping -------------------------------------------------------
@@ -192,6 +237,47 @@ test("an empty frame (no media at all) counts zero", () => {
   assert.equal(countEmptyVisibleMedia([], VIEWPORT, [WHITE]), 0);
 });
 
+// --- Trivial-sliver exemption (1.96.0 fix round 2, verified live: a tile ---
+// scrolled almost entirely past the viewport edge during a fast drag, with
+// only a hairline of its OWN natural rect still on screen, reading blank —
+// the holding canvas's own operator-approved edge fade (round 11: "the fade
+// looks good"), not a paint bug. Distinct from the round-1 "clipped tile"
+// fixture above (an ancestor removes the WHOLE element — zero area — still
+// caught, unchanged.)
+
+test("a tile that's mostly scrolled off-screen, with only a trivial sliver of its own natural rect on screen, is never counted — even if that sliver reads blank", () => {
+  const mostlyOffscreen = {
+    // Natural rect 100x100, but only the bottom 5px overlaps the viewport —
+    // 5% of its own area, well under the default 12% floor.
+    rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 },
+    clipRects: [],
+    visibility: "visible",
+    pixels: pixelsOf(WHITE),
+  };
+  assert.equal(countEmptyVisibleMedia([mostlyOffscreen], VIEWPORT, [WHITE]), 0);
+});
+
+test("a substantially on-screen tile (well past the sliver floor) that's genuinely blank is still caught", () => {
+  const mostlyOnscreen = {
+    // 80 of its own 100px height is on screen — 80%, well past the floor.
+    rect: { left: 0, top: -20, right: 100, bottom: 80, width: 100, height: 100 },
+    clipRects: [],
+    visibility: "visible",
+    pixels: pixelsOf(WHITE),
+  };
+  assert.equal(countEmptyVisibleMedia([mostlyOnscreen], VIEWPORT, [WHITE]), 1);
+});
+
+test("a fully ancestor-clipped element (zero visible area — the round-1 fixture) is never exempted as a 'sliver' — it's still caught", () => {
+  const fullyClipped = {
+    rect: onscreen(),
+    clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }],
+    visibility: "visible",
+    pixels: [],
+  };
+  assert.equal(countEmptyVisibleMedia([fullyClipped], VIEWPORT, [WHITE]), 1);
+});
+
 // --- totalEmptyVisibleMediaAcrossFrames ---------------------------------------
 
 test("the total sums every sampled frame's count, not just the worst one", () => {
@@ -211,56 +297,111 @@ test("an all-painted, all-frames interaction totals zero — the passing shape",
 
 const tileAt = (left, top, width = 100, height = 100) => ({ left, top, right: left + width, bottom: top + height, width, height });
 
-test("coveredIntervalsAtY merges overlapping/adjacent rect spans crossing the line", () => {
-  const rects = [tileAt(0, 0), tileAt(100, 0), tileAt(300, 0)];
-  assert.deepEqual(coveredIntervalsAtY(rects, 50), [[0, 200], [300, 400]]);
+test("median: odd and even-length lists, and 0 for empty", () => {
+  assert.equal(median([3, 1, 2]), 2);
+  assert.equal(median([1, 2, 3, 4]), 2.5);
+  assert.equal(median([]), 0);
 });
 
-test("coveredIntervalsAtY ignores rects that don't cross the line", () => {
-  const rects = [tileAt(0, 0, 100, 100), tileAt(0, 500, 100, 100)];
-  assert.deepEqual(coveredIntervalsAtY(rects, 50), [[0, 100]]);
+test("groupRectsIntoColumns groups overlapping-x rects together, keeps non-overlapping ones apart", () => {
+  const rects = [tileAt(0, 0), tileAt(0, 200), tileAt(300, 0)];
+  const columns = groupRectsIntoColumns(rects);
+  assert.equal(columns.length, 2);
+  assert.equal(columns.find((c) => c.length === 2).every((r) => r.left === 0), true);
 });
 
-test("gapSegmentsAtY finds a hole strictly between two covered spans, past the tolerance", () => {
-  const rects = [tileAt(0, 0), tileAt(300, 0)]; // 200px hole between them
-  const gaps = gapSegmentsAtY(rects, 50, 24);
+test("groupRectsIntoColumns drops zero-size rects", () => {
+  assert.deepEqual(groupRectsIntoColumns([{ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }]), []);
+});
+
+test("columnInternalGaps finds gaps only between adjacent (sorted) tiles, never outer margin", () => {
+  const column = [tileAt(0, 500, 100, 100), tileAt(0, 0, 100, 100)]; // unsorted input
+  const gaps = columnInternalGaps(column);
   assert.equal(gaps.length, 1);
-  assert.deepEqual(gaps[0], { y: 50, left: 100, right: 300, width: 200 });
+  assert.deepEqual(gaps[0], { top: 100, bottom: 500, height: 400, left: 0, right: 100 });
 });
 
-test("gapSegmentsAtY never flags the outer margin before the first or after the last tile", () => {
-  const rects = [tileAt(50, 0)]; // margin left of 50 and right of 150 — real layout whitespace
-  assert.deepEqual(gapSegmentsAtY(rects, 50, 24), []);
+test("columnInternalGaps is empty for a single tile (no adjacent pair) or touching tiles (0-height gap)", () => {
+  assert.deepEqual(columnInternalGaps([tileAt(0, 0)]), []);
+  assert.deepEqual(columnInternalGaps([tileAt(0, 0), tileAt(0, 100)]), []);
 });
 
-test("gapSegmentsAtY ignores a gap at or under the tolerance (anti-aliasing seam, not a real hole)", () => {
-  const rects = [tileAt(0, 0), tileAt(110, 0)]; // 10px seam
-  assert.deepEqual(gapSegmentsAtY(rects, 50, 24), []);
+// 1.96.0 fix round 2 (verified live: `preview.jarrad.design/holding`, 390
+// viewport, fast3g drag): round 1's horizontal-line scan merged every
+// column's x-span at each scanline and flagged the run BETWEEN merged spans
+// — but the holding canvas is INDEPENDENT COLUMNS, each tiling its own media
+// vertically. Whenever one column's own real row-gap (`--grid-gap-lg`) is
+// exposed at a line where its neighbours still have TALLER tiles covering
+// that same line — ordinary masonry, nothing wrong — the merge collapsed the
+// untouched neighbours into one gap spanning the gapped column's own width
+// plus both real gutters, wrongly read as a hole. The fix drops cross-column
+// merging and compares each column's OWN internal gaps against the frame's
+// pooled rhythm instead.
+
+test("scanFrameForColumnGaps stays zero for the exact live false-positive shape: three columns whose own row-gaps land at DIFFERENT heights", () => {
+  // Three independent columns, each with its own single 64px row-gap at a
+  // different y — at any one scanline, at most one column is "gapped" while
+  // its neighbours still have coverage there. The old horizontal-scan
+  // merge read this as one wide hole; per-column, every gap is the same
+  // healthy 64px rhythm.
+  const rects = [
+    tileAt(0, 0, 100, 300), tileAt(0, 364, 100, 436), // column 1: gap 300-364 (64px)
+    tileAt(164, 0, 100, 200), tileAt(164, 264, 100, 536), // column 2: gap 200-264 (64px)
+    tileAt(328, 0, 100, 400), tileAt(328, 464, 100, 336), // column 3: gap 400-464 (64px)
+  ];
+  const gaps = scanFrameForColumnGaps(rects, { width: 428, height: 800 });
+  assert.equal(gaps.length, 0, "every column's own row-gap is the same healthy 64px rhythm — nothing is a hole");
 });
 
-test("scanFrameForColumnGaps finds the round-17 shape: a full-height vertical gap in one column", () => {
-  // Two full-height columns with a 250px-wide hole between them the whole way down.
-  const rects = [tileAt(0, 0, 100, 800), tileAt(350, 0, 100, 800)];
-  const gaps = scanFrameForColumnGaps(rects, { width: 450, height: 800 }, { stepPx: 40, tolerancePx: 24 });
-  assert.ok(gaps.length > 0, "a full-height hole must be caught on multiple scanlines");
-  assert.ok(gaps.every((g) => g.width === 250));
+test("scanFrameForColumnGaps finds the round-17 shape: one column's own gap markedly taller than the frame's recurring row-gap", () => {
+  const rects = [
+    tileAt(0, 0, 100, 300), tileAt(0, 364, 100, 436), // column 1: healthy 64px gap
+    tileAt(164, 0, 100, 200), tileAt(164, 264, 100, 136), tileAt(164, 600, 100, 200), // column 2: healthy 64px gap, then a 200px HOLE (400-600) — a missing tile
+    tileAt(328, 0, 100, 400), tileAt(328, 464, 100, 336), // column 3: healthy 64px gap
+  ];
+  const gaps = scanFrameForColumnGaps(rects, { width: 428, height: 800 });
+  assert.equal(gaps.length, 1, "only the anomalous 200px hole is caught, never the three healthy 64px row-gaps");
+  assert.equal(gaps[0].height, 200);
 });
 
-test("scanFrameForColumnGaps is zero when the mosaic has no holes", () => {
-  const rects = [tileAt(0, 0, 100, 800), tileAt(100, 0, 100, 800), tileAt(200, 0, 100, 800)];
+test("scanFrameForColumnGaps is zero with no candidate gaps at all (single column, nothing to compare against)", () => {
+  const rects = [tileAt(0, 0, 300, 800)];
   assert.equal(scanFrameForColumnGaps(rects, { width: 300, height: 800 }).length, 0);
 });
 
+test("scanFrameForColumnGaps respects a caller-supplied widthRatio", () => {
+  // A dominant 48px rhythm (columns A/B, each with one 48px gap) plus one
+  // 90px gap elsewhere (column C) — 1.875x the rhythm, under the default 2x
+  // ratio but past a lower one.
+  const rects = [
+    tileAt(0, 0, 100, 300), tileAt(0, 348, 100, 452), // column A: 48px gap
+    tileAt(164, 0, 100, 500), tileAt(164, 548, 100, 252), // column B: 48px gap
+    tileAt(328, 0, 100, 300), tileAt(328, 390, 100, 410), // column C: 90px gap
+  ];
+  const withDefault = scanFrameForColumnGaps(rects, { width: 428, height: 800 });
+  const withLowerRatio = scanFrameForColumnGaps(rects, { width: 428, height: 800 }, { widthRatio: 1.5 });
+  assert.equal(withDefault.length, 0, "the 90px gap stays under the default 2x-of-48px (96px) threshold");
+  assert.ok(withLowerRatio.length > 0, "a lower ratio (1.5x, 72px threshold) catches the same gap");
+});
+
 test("totalColumnGapsAcrossFrames sums every sampled frame, the probe's second headline number", () => {
-  const gapFrame = [tileAt(0, 0, 100, 800), tileAt(350, 0, 100, 800)];
-  const cleanFrame = [tileAt(0, 0, 100, 800), tileAt(100, 0, 100, 800)];
+  const gapFrame = [
+    tileAt(0, 0, 100, 300), tileAt(0, 364, 100, 436),
+    tileAt(164, 0, 100, 200), tileAt(164, 264, 100, 136), tileAt(164, 600, 100, 200),
+    tileAt(328, 0, 100, 400), tileAt(328, 464, 100, 336),
+  ];
+  const cleanFrame = [
+    tileAt(0, 0, 100, 300), tileAt(0, 364, 100, 436),
+    tileAt(164, 0, 100, 200), tileAt(164, 264, 100, 536),
+    tileAt(328, 0, 100, 400), tileAt(328, 464, 100, 336),
+  ];
   const frames = [gapFrame, cleanFrame];
-  const withGap = totalColumnGapsAcrossFrames([gapFrame], { width: 450, height: 800 });
-  const clean = totalColumnGapsAcrossFrames([cleanFrame], { width: 200, height: 800 });
+  const withGap = totalColumnGapsAcrossFrames([gapFrame], { width: 428, height: 800 });
+  const clean = totalColumnGapsAcrossFrames([cleanFrame], { width: 428, height: 800 });
   assert.ok(withGap > 0);
   assert.equal(clean, 0);
   assert.equal(
-    totalColumnGapsAcrossFrames(frames, { width: 450, height: 800 }),
+    totalColumnGapsAcrossFrames(frames, { width: 428, height: 800 }),
     withGap + clean,
   );
 });

@@ -22,14 +22,33 @@
 // the `capture-website`/holding-page round-13 precedent: "screenshot + pixel
 // region-stats", not a source-bitmap draw).
 //
+// Fix round 2 (1.96.0): round 1's classifier over-fired on a real, operator-
+// approved page — the holding canvas's own designed column gutter
+// (`--grid-gap-lg`, 64-96px) is WIDER than the old fixed 24px gap tolerance
+// and, being a real multi-column layout, persists for nearly the whole
+// height of every column — so a fixed absolute tolerance flagged the site's
+// own everyday layout as a hole on almost every scanline. And the
+// background-match-fraction paint rule read real but background-close media
+// (a white product shot, a dark-framed video) as empty. `lib/media-load-
+// lib.mjs` now adds: (1) a luma-variance check alongside the fraction rule —
+// real content almost always has structure a flat swatch never does, an OR
+// so it only ever rescues a false EMPTY, never masks a real one; (2) the gap
+// scan compares each candidate gap's width against the SAME FRAME's own
+// recurring gutter width (its median), not an absolute number — a real
+// gutter IS that recurring width, a genuine missing/hidden tile is markedly
+// WIDER (`--gap-width-ratio`, default 2x). See `isRegionPainted` and
+// `scanFrameForColumnGaps` for the exact rules.
+//
 // Usage:
 //   node media-load-probe.mjs <url> --viewport 390x844 --dpr 3 \
 //     --interaction load|scroll|drag [--browser chromium|webkit] \
 //     [--channel chrome] [--headed] \
 //     [--network fast3g|slow3g|none] [--frames 24] \
 //     [--duration 60000] [--settle 2000] [--reps 3] [--gap-tolerance 24] \
+//     [--gap-width-ratio 2] \
 //     [--placeholder-colors "#eeeeee,#f2f2f2"] [--color-tolerance 8] \
-//     [--min-painted-fraction 0.05]
+//     [--min-painted-fraction 0.05] [--min-painted-stddev 10]
+//   node media-load-probe.mjs --help
 //
 // Requires `playwright` (`npm i -D playwright` in the invoking repo; resolved
 // from cwd — same pattern as capture-website/scripts/capture.mjs). No other
@@ -62,10 +81,16 @@ import {
   clippedVisibleRect,
   scaleRect,
   parseCssColor,
+  MIN_PAINTED_STDDEV,
+  MIN_VISIBLE_AREA_FRACTION,
 } from "./lib/media-load-lib.mjs";
 import { decodePng, cropRegionPixels } from "./lib/png-lib.mjs";
 
 const require = createRequire(join(process.cwd(), "noop.js"));
+
+// Per-step wall-clock pacing for `driveInteraction`'s scroll/drag loops —
+// see the scroll branch's own comment below for why this exists.
+export const STEP_PACE_MS = 500;
 
 export const NETWORK_PROFILES = {
   // download/upload in bytes/s, latency in ms — Chrome DevTools' own presets.
@@ -75,7 +100,14 @@ export const NETWORK_PROFILES = {
 };
 
 // Flags with no value — everything else is `--flag value`.
-const BOOLEAN_FLAGS = new Set(["headed"]);
+const BOOLEAN_FLAGS = new Set(["headed", "help"]);
+
+export const USAGE =
+  "Usage: node media-load-probe.mjs <url> --viewport WxH --dpr N --interaction load|scroll|drag " +
+  "[--browser chromium|webkit] [--channel chrome] [--headed] [--network fast3g|slow3g|none] " +
+  "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
+  "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
+  "[--min-painted-stddev N] [--min-visible-area 0-1] | --help";
 
 export function parseArgs(argv) {
   const [url, ...rest] = argv;
@@ -86,21 +118,28 @@ export function parseArgs(argv) {
     browser: "chromium",
     channel: null,
     headed: false,
+    help: false,
     network: "none",
     frames: 24,
     duration: 0,
     settle: 0,
     reps: 1,
     gapTolerance: 24,
+    gapWidthRatio: 2,
     placeholderColors: "",
     colorTolerance: 8,
     minPaintedFraction: 0.05,
+    minPaintedStddev: MIN_PAINTED_STDDEV,
+    minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
   };
   const keyMap = {
     "gap-tolerance": "gapTolerance",
+    "gap-width-ratio": "gapWidthRatio",
     "placeholder-colors": "placeholderColors",
     "color-tolerance": "colorTolerance",
     "min-painted-fraction": "minPaintedFraction",
+    "min-painted-stddev": "minPaintedStddev",
+    "min-visible-area": "minVisibleArea",
   };
   for (let i = 0; i < rest.length; i++) {
     const raw = rest[i].replace(/^--/, "");
@@ -113,10 +152,14 @@ export function parseArgs(argv) {
     i++;
     opts[key] = rest[i];
   }
+  // `--help` (or a bare `-h`) anywhere in argv, including as the URL slot
+  // itself (`node media-load-probe.mjs --help`), asks for usage — never
+  // treated as a URL to navigate to.
+  if (url === "--help" || url === "-h" || argv.includes("-h")) opts.help = true;
   const [width, height] = opts.viewport.split("x").map(Number);
   return {
     ...opts,
-    url,
+    url: opts.help ? undefined : url,
     width,
     height,
     dpr: Number(opts.dpr),
@@ -125,8 +168,11 @@ export function parseArgs(argv) {
     settle: Number(opts.settle),
     reps: Number(opts.reps),
     gapTolerance: Number(opts.gapTolerance),
+    gapWidthRatio: Number(opts.gapWidthRatio),
     colorTolerance: Number(opts.colorTolerance),
     minPaintedFraction: Number(opts.minPaintedFraction),
+    minPaintedStddev: Number(opts.minPaintedStddev),
+    minVisibleArea: Number(opts.minVisibleArea),
     placeholderColors: opts.placeholderColors
       ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
       : [],
@@ -222,6 +268,16 @@ export async function driveInteraction(page, interaction, frames, sampleFn = def
     const step = Math.max(1, Math.floor(frames / 2));
     for (let i = 0; i < step; i++) {
       await page.mouse.wheel(0, 400);
+      // 1.96.0 fix round 2 (verified live): a zero-delay step-loop is faster
+      // than any real drag/scroll gesture can be — Chromium's decode
+      // pipeline happened to keep up regardless, but Playwright's bundled
+      // WebKit does not, producing scattered false paint misses on
+      // just-mounted tiles that a REAL frame-paced gesture never triggers
+      // (round 14's own "bundled WebKit is not real iOS" caveat, extended
+      // past video). `STEP_PACE_MS` gives each step the same order of
+      // wall-clock time `driveFlingSession`'s own `sampleEveryMs` already
+      // assumes between gestures.
+      await page.waitForTimeout(STEP_PACE_MS);
       await sample();
     }
     return samples;
@@ -235,6 +291,7 @@ export async function driveInteraction(page, interaction, frames, sampleFn = def
     const step = Math.max(1, Math.floor(frames / 2));
     for (let i = 0; i < step; i++) {
       await page.mouse.move(midX, vp.height * 0.8 - i * (vp.height / step));
+      await page.waitForTimeout(STEP_PACE_MS); // see the scroll branch's own comment above
       await sample();
     }
     await page.mouse.up();
@@ -296,7 +353,17 @@ async function run(opts) {
   });
   const page = await context.newPage();
   await throttle(page, opts.network);
-  await page.goto(opts.url, { waitUntil: "domcontentloaded", timeout: 60000 });
+  // 1.96.0 fix round 2: `domcontentloaded` fires before the browser has even
+  // STARTED fetching priority images under a throttled connection — sampling
+  // "first paint" that early caught real, still-in-flight network requests,
+  // not a defect (method 1's "loads its still/poster at high priority" still
+  // takes real time on a throttled connection). Wait for the page's own
+  // `load` event (SKILL.md method 8's own reference point) plus network idle
+  // (bounded, never blocks past `timeout`) before the interaction begins —
+  // the same "give it a beat before judging" reasoning `--settle` already
+  // applies at the END of a session, applied at the start too.
+  await page.goto(opts.url, { waitUntil: "load", timeout: 60000 });
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
 
   const viewport = { width: opts.width, height: opts.height };
 
@@ -304,7 +371,12 @@ async function run(opts) {
   // every frame's crop is classified against, plus any named placeholders.
   const { backgroundColor } = await page.evaluate(sampleMediaStateInPage);
   const emptyColors = [parseCssColor(backgroundColor), ...opts.placeholderColors.map(parseCssColor)];
-  const classifyOptions = { tolerance: opts.colorTolerance, minPaintedFraction: opts.minPaintedFraction };
+  const classifyOptions = {
+    tolerance: opts.colorTolerance,
+    minPaintedFraction: opts.minPaintedFraction,
+    minPaintedStddev: opts.minPaintedStddev,
+    minVisibleAreaFraction: opts.minVisibleArea,
+  };
 
   // The real sampler: DOM state (rects/clip/visibility) plus a full-page
   // screenshot, decoded and cropped per element into `pixels` — never
@@ -330,7 +402,10 @@ async function run(opts) {
   const visibleRectsPerFrame = frames.map((states) =>
     states.filter((s) => isVisible(s.rect, viewport)).map((s) => s.rect),
   );
-  const gaps = totalColumnGapsAcrossFrames(visibleRectsPerFrame, viewport, { tolerancePx: opts.gapTolerance });
+  const gaps = totalColumnGapsAcrossFrames(visibleRectsPerFrame, viewport, {
+    tolerancePx: opts.gapTolerance,
+    widthRatio: opts.gapWidthRatio,
+  });
 
   await browser.close();
   return { paint, gaps, frames: frames.length };
@@ -338,13 +413,12 @@ async function run(opts) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
+  if (opts.help) {
+    console.log(USAGE);
+    process.exit(0);
+  }
   if (!opts.url) {
-    console.error(
-      "Usage: node media-load-probe.mjs <url> --viewport WxH --dpr N --interaction load|scroll|drag " +
-        "[--browser chromium|webkit] [--channel chrome] [--headed] [--network fast3g|slow3g|none] " +
-        "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] " +
-        "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1]",
-    );
+    console.error(USAGE);
     process.exit(1);
   }
   const reps = [];
