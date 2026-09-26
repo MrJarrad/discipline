@@ -99,13 +99,21 @@ wording that closed each one) are in `references/PATTERNS.md`.
 **Mechanical over AI** (`code-minimalism`): two deterministic counts, not a
 judgement call. `hooks/scripts/media-load-probe.mjs` loads the deployed build
 at a phone viewport + DPR, drives a named interaction (`load` / `scroll` /
-`drag`), and measures every on-screen media element's **actual painted
+`drag`), and measures every on-screen media element's **actual composited
 pixels** for the duration — never `.complete`/DOM presence, which reads PASS
 on a stuck-at-opacity-0 element with its bytes already decoded (the exact
-failure method 3 exists to stop). It prints two numbers:
+failure method 3 exists to stop), and never a canvas read of the element's
+own source bitmap either (a fix round's own finding: that samples the
+SOURCE, not the composited page, so it still reads PASS on a slot that's
+clipped by an `overflow:hidden` ancestor, covered by an opaque sibling,
+`visibility:hidden`, or at `opacity:0` behind a parent). The paint signal is
+a full-page screenshot, cropped per slot to its rect intersected with the
+viewport and every clipping ancestor, classified against the page background
+and any named placeholder colours. It prints two numbers:
 
-- **paint** — a visible slot with no painted pixels (fully transparent) or
-  stuck at zero opacity with real pixels behind it.
+- **paint** — a visible slot whose screenshot crop reads as the page
+  background/a placeholder colour rather than real content: fully clipped
+  away, covered, `visibility:hidden`, at `opacity:0`, or simply never loaded.
 - **gaps** — a visible region with **no covering DOM element at all**
   (method 10's failure mode), found by scanning for uncovered runs between
   covered spans across sampled horizontal lines, not by reading any element's

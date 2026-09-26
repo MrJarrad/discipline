@@ -12,13 +12,23 @@
 // target mobile's own view. New `references/PATTERNS.md` (source citations)
 // and `references/PROBE.md` (flag reference).
 // (2) `hooks/scripts/media-load-probe.mjs` + `lib/media-load-lib.mjs`: the
-// primary paint signal is real painted pixels (canvas sampling), not
-// `.complete`/DOM presence (fallback only, named `paintUnmeasurable`); a new
-// column-gap scan catches a visible region with no covering DOM element at
-// all; `--channel`/`--headed` (a real installed browser), `--duration`/
-// `--settle` (a long realistic fling/drag session + settle dwell), `--reps`
-// (every rep reported) are new flags; a headless/default run prints a
-// floor-not-proof note.
+// primary paint signal is real composited pixels, not `.complete`/DOM
+// presence; a new column-gap scan catches a visible region with no covering
+// DOM element at all; `--channel`/`--headed` (a real installed browser),
+// `--duration`/`--settle` (a long realistic fling/drag session + settle
+// dwell), `--reps` (every rep reported) are new flags; a headless/default
+// run prints a floor-not-proof note.
+//
+// Fix round 1 (live-fixture review, same 1.96.0): the first cut of the paint
+// signal drew each element into an offscreen canvas (`drawImage` +
+// `getImageData`) and read that back — the element's own SOURCE bitmap, not
+// what's composited, so it still read PASS behind an `overflow:hidden` clip,
+// an opaque covering sibling, `visibility:hidden`, or `opacity:0`. Replaced
+// with a per-frame `page.screenshot()`, decoded by a new dependency-free PNG
+// decoder (`lib/png-lib.mjs`, Node's own `zlib` only), cropped per slot to
+// its rect intersected with the viewport and every clipping ancestor, and
+// classified against the page background plus any named
+// `--placeholder-colors`. `drawImage` is fully removed from the file.
 //
 // Run: node --test hooks/scripts/queue-1960-law.test.mjs
 import { test } from "node:test";
@@ -71,9 +81,9 @@ test("SKILL.md: phone checks target the view mobile actually shows", () => {
   assert.match(doc, /Phone checks target the view mobile actually shows/);
 });
 
-test("SKILL.md: done-when names both the paint signal (pixels, not .complete) and the gap scan", () => {
+test("SKILL.md: done-when names both the paint signal (composited pixels, not .complete) and the gap scan", () => {
   const doc = flat(read("skills/media-loading/SKILL.md"));
-  assert.match(doc, /actual painted pixels/);
+  assert.match(doc, /actual composited pixels/);
   assert.match(doc, /never `\.complete`\/DOM presence/);
   assert.match(doc, /no covering DOM element at all/);
 });
@@ -93,12 +103,22 @@ test("SKILL.md points at both new references files, and both exist", () => {
 
 // --- (2) probe + lib: pixel-paint primary signal, gap scan, new CLI flags --
 
-test("media-load-lib.mjs: the pixel-based paint classification functions exist", () => {
+test("media-load-lib.mjs: the screenshot-crop paint classification functions exist (fix round 1)", () => {
   const src = read("hooks/scripts/lib/media-load-lib.mjs");
-  assert.match(src, /export function isPixelPainted/);
-  assert.match(src, /export function isTransparentPaint/);
-  assert.match(src, /export function isStuckOpacityZero/);
-  assert.match(src, /export function isPaintedFromDomState/);
+  assert.match(src, /export function isRegionPainted/);
+  assert.match(src, /export function regionPaintedFraction/);
+  assert.match(src, /export function clippedVisibleRect/);
+  assert.match(src, /export function isSlotPainted/);
+  assert.match(src, /export function isVisibilityHidden/);
+  assert.match(src, /export function parseCssColor/);
+});
+
+test("media-load-lib.mjs never carries the removed canvas-sampling paint functions", () => {
+  const src = read("hooks/scripts/lib/media-load-lib.mjs");
+  assert.doesNotMatch(src, /export function isPixelPainted/);
+  assert.doesNotMatch(src, /export function isTransparentPaint/);
+  assert.doesNotMatch(src, /export function isStuckOpacityZero/);
+  assert.doesNotMatch(src, /export function isPaintedFromDomState/);
 });
 
 test("media-load-lib.mjs: the column-gap scan functions exist", () => {
@@ -109,10 +129,12 @@ test("media-load-lib.mjs: the column-gap scan functions exist", () => {
   assert.match(src, /export function totalColumnGapsAcrossFrames/);
 });
 
-test("media-load-probe.mjs: samples real pixels in-page (canvas), not just DOM flags", () => {
+test("media-load-probe.mjs: paint signal is a decoded, cropped screenshot — never drawImage (fix round 1)", () => {
   const src = read("hooks/scripts/media-load-probe.mjs");
-  assert.match(src, /drawImage/);
-  assert.match(src, /getImageData/);
+  assert.doesNotMatch(src, /drawImage/, "drawImage samples the SOURCE bitmap, not what's composited");
+  assert.match(src, /decodePng/);
+  assert.match(src, /cropRegionPixels/);
+  assert.match(src, /clippedVisibleRect/);
 });
 
 test("media-load-probe.mjs: supports --channel (real installed browser), --headed, --duration, --settle, --reps", () => {
@@ -130,12 +152,14 @@ test("media-load-probe.mjs: a headless/synthetic run prints a floor-not-proof no
   assert.match(src, /FLOOR, not proof/);
 });
 
-test("media-load-probe.mjs + lib both still carry their law-test pair", () => {
+test("media-load-probe.mjs + libs all still carry their law-test pair", () => {
   for (const rel of [
     "hooks/scripts/media-load-probe.mjs",
     "hooks/scripts/media-load-probe.test.mjs",
     "hooks/scripts/lib/media-load-lib.mjs",
     "hooks/scripts/lib/media-load-lib.test.mjs",
+    "hooks/scripts/lib/png-lib.mjs",
+    "hooks/scripts/lib/png-lib.test.mjs",
   ]) {
     assert.ok(existsSync(join(repo, rel)), `${rel} must exist`);
   }
@@ -149,7 +173,8 @@ test("the 1.96.0 CHANGED entry names the ruling and the method rewrite", () => {
   assert.ok(entryMatch, "1.96.0's own CHANGED entry must exist");
   const entry = entryMatch[0];
   assert.match(entry, /media-loading-method/);
-  assert.match(entry, /painted pixels/i);
+  assert.match(entry, /composited pixels/i);
+  assert.match(entry, /fix round 1/i, "the same 1.96.0 entry must carry the fix round's correction, not a separate version");
 });
 
 test("plugin.json and marketplace.json agree at or past 1.96.0", () => {

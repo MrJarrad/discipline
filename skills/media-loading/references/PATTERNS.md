@@ -73,6 +73,29 @@ built a genuine pixel-paint probe (screenshot + region pixel stats, not
 `.complete`) after a first warm-cache design made the plugin's own DOM-state
 probe read *worse* while the true user-facing paint was fine — the two
 signals disagreed, and the pixel-paint one was the one that matched the
-operator's eye. This is why `media-load-probe.mjs`'s primary signal is now
-painted pixels, and DOM state (`.complete`/`readyState`) is only a fallback
-for the rare tainted-canvas case (`references/PROBE.md`).
+operator's eye. This is why `media-load-probe.mjs`'s primary signal is
+painted pixels, never DOM state (`.complete`/`readyState`).
+
+## Discipline PR #52 fix round 1 — the paint signal must be the composited page, not the element's own bitmap
+1.96.0's first cut of `media-load-probe.mjs` measured "painted pixels" by
+drawing the `<img>`/`<video>` element itself into an offscreen canvas
+(`drawImage` + `getImageData`) and reading that back. A live-fixture review
+found this samples the element's own SOURCE bitmap, not what's actually
+composited on screen — it reads "painted" on a slot that's clipped by an
+`overflow:hidden` ancestor, covered by an opaque sibling, `visibility:hidden`,
+or at `opacity:0` behind a parent, contradicting the very precedent this
+skill already cited (round 13, above: "screenshot + region pixel-stats").
+Fixed by moving the signal to a per-frame `page.screenshot()`, decoded with a
+small built-in-`zlib`-only PNG decoder (`lib/png-lib.mjs` — no `sharp`/
+`pngjs` dependency added to every consuming repo), cropped per slot to its
+rect intersected with the viewport and every clipping ancestor
+(`clippedVisibleRect`, `lib/media-load-lib.mjs`), and classified against the
+page's own background colour plus any named `--placeholder-colors`
+(`lib/media-load-lib.mjs`'s `isRegionPainted`). `visibility:hidden` and a
+fully-clipped-away rect are decided by geometry alone, before any pixel is
+sampled. Six pixel fixtures cover the shape directly (`media-load-lib.test.
+mjs`): a painted tile, a blank background, an opacity-0 tile, a covered tile,
+a clipped tile, and a `visibility:hidden` tile — the last four are exactly
+the false-pass cases the canvas-based signal could not detect, and all four
+now read empty. A law test (`media-load-probe.test.mjs`) asserts the file
+never uses a canvas read of the element's own bitmap for the paint signal.

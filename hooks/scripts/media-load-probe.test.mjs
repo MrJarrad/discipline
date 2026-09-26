@@ -200,6 +200,11 @@ test("media-load-probe.mjs has its lib split, both present", () => {
   assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "media-load-lib.test.mjs")));
 });
 
+test("the PNG decode/crop split (png-lib.mjs) is present with its own tests", () => {
+  assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "png-lib.mjs")));
+  assert.ok(existsSync(join(repo, "hooks", "scripts", "lib", "png-lib.test.mjs")));
+});
+
 test("the CPU/network throttling limitation on WebKit is documented in the file header", () => {
   const src = readFileSync(script, "utf8");
   assert.match(src, /WebKit/);
@@ -207,12 +212,40 @@ test("the CPU/network throttling limitation on WebKit is documented in the file 
 });
 
 // --- 1.96.0: pixel-paint primary signal, headed real Chrome, gap scan ------
+// --- 1.96.0 fix round 1: screenshot-composited paint signal, never drawImage
 
-test("sampleMediaStateInPage draws the element's own pixels via canvas, not just DOM state", () => {
+test("the probe's paint signal never draws the element's own bitmap via canvas — drawImage is not used anywhere in the file", () => {
   const src = readFileSync(script, "utf8");
-  assert.match(src, /drawImage/);
-  assert.match(src, /getImageData/);
-  assert.match(src, /paintUnmeasurable/, "a tainted-canvas fallback must be named, never silent");
+  assert.doesNotMatch(src, /drawImage/, "drawImage samples the SOURCE bitmap, not what's composited on screen — round 1 finding");
+});
+
+test("sampleMediaStateInPage carries no canvas/getImageData — DOM rects, clip ancestors, opacity, visibility only", () => {
+  const src = readFileSync(script, "utf8");
+  assert.doesNotMatch(src, /getImageData/);
+  assert.match(src, /elementClipRects/);
+  assert.match(src, /getComputedStyle\(node\)/);
+});
+
+test("the paint signal is a page screenshot, decoded and cropped per slot", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /page\.screenshot|p\.screenshot/);
+  assert.match(src, /decodePng/);
+  assert.match(src, /cropRegionPixels/);
+  assert.match(src, /clippedVisibleRect/);
+});
+
+test("the probe supports naming not-yet-painted placeholder colours and classification thresholds", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /placeholder-colors/);
+  assert.match(src, /color-tolerance/);
+  assert.match(src, /min-painted-fraction/);
+});
+
+test("parseArgs splits --placeholder-colors on commas and defaults to an empty list", () => {
+  const opts = parseArgs(["https://example.com"]);
+  assert.deepEqual(opts.placeholderColors, []);
+  const withColors = parseArgs(["https://example.com", "--placeholder-colors", "#eee, #f2f2f2"]);
+  assert.deepEqual(withColors.placeholderColors, ["#eee", "#f2f2f2"]);
 });
 
 test("the file documents headless/synthetic results as a floor, not proof", () => {

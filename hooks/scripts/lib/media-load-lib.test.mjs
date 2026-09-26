@@ -1,15 +1,22 @@
-// Unit tests for the pure media-paint logic — fixture DOM snapshots, no
-// browser launched. The CLI wrapper (media-load-probe.mjs) is what drives a
-// real page; this file is what decides "empty and visible" from its samples.
+// Unit tests for the pure media-paint logic — fixture DOM snapshots + already
+// screenshot-cropped pixel arrays, no browser and no PNG decode. The CLI
+// wrapper (media-load-probe.mjs) is what drives a real page, screenshots it,
+// and crops each slot's pixels via png-lib.mjs; this file is what decides
+// "empty and visible" from those crops.
 // Run: node --test hooks/scripts/lib/media-load-lib.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  isPainted,
-  isPaintedFromDomState,
-  isPixelPainted,
-  isTransparentPaint,
-  isStuckOpacityZero,
+  parseCssColor,
+  colorsMatch,
+  matchesAnyColor,
+  regionPaintedFraction,
+  isRegionPainted,
+  intersectRects,
+  scaleRect,
+  clippedVisibleRect,
+  isVisibilityHidden,
+  isSlotPainted,
   isVisible,
   emptyVisibleMedia,
   countEmptyVisibleMedia,
@@ -25,83 +32,125 @@ const onscreen = (over = {}) => ({ left: 0, top: 0, right: 100, bottom: 100, wid
 const offscreen = { left: -500, top: -500, right: -400, bottom: -400, width: 100, height: 100 };
 const zeroSize = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
 
-// --- isPainted: DOM-state fallback (no `samples` field on the state) -------
-// 1.96.0: this heuristic is now the FALLBACK path only (tainted-canvas
-// elements) — kept and tested unchanged so every pre-1.96.0 caller/fixture
-// still works. The primary, pixel-based path is tested further below.
+const WHITE = { r: 255, g: 255, b: 255 };
+const GREY_SKELETON = { r: 230, g: 230, b: 230 };
+const PHOTO = { r: 10, g: 120, b: 200, a: 255 };
 
-test("an img is painted once complete with a decoded non-zero frame", () => {
-  assert.equal(isPainted({ tag: "img", complete: true, naturalWidth: 200 }), true);
-  assert.equal(isPaintedFromDomState({ tag: "img", complete: true, naturalWidth: 200 }), true);
+const pixelsOf = (color, n = 16) => Array.from({ length: n }, () => ({ ...color, a: 255 }));
+
+// --- parseCssColor -----------------------------------------------------------
+
+test("parseCssColor reads rgb() and rgba()", () => {
+  assert.deepEqual(parseCssColor("rgb(255, 255, 255)"), { r: 255, g: 255, b: 255 });
+  assert.deepEqual(parseCssColor("rgba(10, 20, 30, 0.5)"), { r: 10, g: 20, b: 30 });
 });
 
-test("an img mid-decode (not complete, or 0-width) is not painted", () => {
-  assert.equal(isPainted({ tag: "img", complete: false, naturalWidth: 200 }), false);
-  assert.equal(isPainted({ tag: "img", complete: true, naturalWidth: 0 }), false);
+test("parseCssColor reads short and long hex", () => {
+  assert.deepEqual(parseCssColor("#fff"), { r: 255, g: 255, b: 255 });
+  assert.deepEqual(parseCssColor("#0a141e"), { r: 10, g: 20, b: 30 });
 });
 
-test("a video with its poster loaded is painted even before any frame decodes", () => {
-  assert.equal(isPainted({ tag: "video", posterLoaded: true, readyState: 0, videoWidth: 0 }), true);
+test("parseCssColor throws on an unrecognised value", () => {
+  assert.throws(() => parseCssColor("papayawhip"), /Unrecognised CSS colour/);
 });
 
-test("a video with no poster is painted once it reaches HAVE_CURRENT_DATA with real dimensions", () => {
-  assert.equal(isPainted({ tag: "video", posterLoaded: false, readyState: 2, videoWidth: 640 }), true);
-  assert.equal(isPainted({ tag: "video", posterLoaded: false, readyState: 1, videoWidth: 640 }), false);
-  assert.equal(isPainted({ tag: "video", posterLoaded: false, readyState: 2, videoWidth: 0 }), false);
+// --- colour matching / region fraction ---------------------------------------
+
+test("colorsMatch is true within tolerance, false past it", () => {
+  assert.equal(colorsMatch({ r: 250, g: 250, b: 250 }, WHITE, 8), true);
+  assert.equal(colorsMatch({ r: 200, g: 200, b: 200 }, WHITE, 8), false);
 });
 
-test("a non-media tag is never counted as unpainted (defaults true)", () => {
-  assert.equal(isPainted({ tag: "div" }), true);
+test("matchesAnyColor checks every named colour", () => {
+  assert.equal(matchesAnyColor(GREY_SKELETON, [WHITE, GREY_SKELETON]), true);
+  assert.equal(matchesAnyColor(PHOTO, [WHITE, GREY_SKELETON]), false);
 });
 
-// --- isPainted: pixel-based path (primary signal, 1.96.0) -------------------
-
-const opaquePoint = { r: 10, g: 20, b: 30, a: 255 };
-const transparentPoint = { r: 0, g: 0, b: 0, a: 0 };
-
-test("isTransparentPaint is true only when every sampled point has zero alpha", () => {
-  assert.equal(isTransparentPaint([transparentPoint, transparentPoint]), true);
-  assert.equal(isTransparentPaint([transparentPoint, opaquePoint]), false);
-  assert.equal(isTransparentPaint([]), false, "no samples at all is not itself a transparent verdict");
+test("regionPaintedFraction is the share of pixels that are NOT an empty colour", () => {
+  const pixels = [...pixelsOf(WHITE, 9), ...pixelsOf(PHOTO, 1)];
+  assert.equal(regionPaintedFraction(pixels, [WHITE]), 0.1);
 });
 
-test("isStuckOpacityZero: real pixels behind an element stuck at opacity 0 is the fade-race failure", () => {
-  assert.equal(isStuckOpacityZero([opaquePoint], 0), true);
-  assert.equal(isStuckOpacityZero([opaquePoint], 0.005), true, "near-zero counts as stuck");
-  assert.equal(isStuckOpacityZero([opaquePoint], 1), false);
+test("regionPaintedFraction of an empty pixel list is 0, not NaN", () => {
+  assert.equal(regionPaintedFraction([], [WHITE]), 0);
 });
 
-test("isStuckOpacityZero: a transparent element is the 'hole' failure, not the fade-race one", () => {
-  assert.equal(isStuckOpacityZero([transparentPoint], 0), false);
+test("isRegionPainted crosses the default 5% threshold", () => {
+  assert.equal(isRegionPainted([...pixelsOf(WHITE, 94), ...pixelsOf(PHOTO, 6)], [WHITE]), true);
+  assert.equal(isRegionPainted([...pixelsOf(WHITE, 96), ...pixelsOf(PHOTO, 4)], [WHITE]), false);
 });
 
-test("isPixelPainted: opaque pixels at full opacity is the passing shape", () => {
-  assert.equal(isPixelPainted([opaquePoint], 1), true);
+// --- rect clipping -------------------------------------------------------
+
+test("intersectRects returns the overlap, or null when there is none", () => {
+  assert.deepEqual(intersectRects({ left: 0, top: 0, right: 100, bottom: 100 }, { left: 50, top: 50, right: 150, bottom: 150 }), {
+    left: 50, top: 50, right: 100, bottom: 100, width: 50, height: 50,
+  });
+  assert.equal(intersectRects({ left: 0, top: 0, right: 10, bottom: 10 }, { left: 20, top: 20, right: 30, bottom: 30 }), null);
 });
 
-test("isPixelPainted: transparent samples fail regardless of opacity", () => {
-  assert.equal(isPixelPainted([transparentPoint], 1), false);
+test("scaleRect multiplies every edge by the given scale (CSS px -> screenshot px)", () => {
+  assert.deepEqual(scaleRect({ left: 1, top: 2, right: 3, bottom: 4, width: 2, height: 2 }, 3), {
+    left: 3, top: 6, right: 9, bottom: 12, width: 6, height: 6,
+  });
 });
 
-test("isPixelPainted: real pixels stuck at opacity 0 fail (the round-17 fade-race)", () => {
-  assert.equal(isPixelPainted([opaquePoint], 0), false);
+test("clippedVisibleRect intersects the element rect with the viewport and every clip ancestor", () => {
+  const state = { rect: onscreen({ left: 0, top: 0, right: 200, bottom: 200, width: 200, height: 200 }), clipRects: [{ left: 50, top: 50, right: 150, bottom: 150 }] };
+  assert.deepEqual(clippedVisibleRect(state, VIEWPORT), { left: 50, top: 50, right: 150, bottom: 150, width: 100, height: 100 });
 });
 
-test("isPainted dispatches to the pixel path when a state carries `samples`", () => {
-  assert.equal(isPainted({ tag: "img", samples: [opaquePoint], opacity: 1 }), true);
-  assert.equal(isPainted({ tag: "img", samples: [transparentPoint], opacity: 1 }), false);
-  assert.equal(isPainted({ tag: "img", samples: [opaquePoint], opacity: 0 }), false);
+test("clippedVisibleRect returns null when a clip ancestor leaves nothing visible", () => {
+  const state = { rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }] };
+  assert.equal(clippedVisibleRect(state, VIEWPORT), null);
 });
 
-test("isPainted dispatches to the DOM-state fallback when a state carries no `samples` (paintUnmeasurable)", () => {
-  assert.equal(
-    isPainted({ tag: "img", paintUnmeasurable: true, complete: true, naturalWidth: 200 }),
-    true,
-  );
-  assert.equal(
-    isPainted({ tag: "img", paintUnmeasurable: true, complete: false, naturalWidth: 0 }),
-    false,
-  );
+test("clippedVisibleRect with no clip ancestors is just the viewport intersection", () => {
+  const state = { rect: onscreen(), clipRects: [] };
+  assert.deepEqual(clippedVisibleRect(state, VIEWPORT), onscreen());
+});
+
+test("isVisibilityHidden reads the sampled computed style", () => {
+  assert.equal(isVisibilityHidden({ visibility: "hidden" }), true);
+  assert.equal(isVisibilityHidden({ visibility: "visible" }), false);
+});
+
+// --- isSlotPainted: the six named fixtures (round 1 fix — false-pass cases) --
+
+test("fixture: painted tile — real photo pixels, on screen, unclipped, visible", () => {
+  const state = { rect: onscreen(), clipRects: [], visibility: "visible" };
+  assert.equal(isSlotPainted(state, pixelsOf(PHOTO), [WHITE]), true);
+});
+
+test("fixture: blank background — the crop is nothing but the page background", () => {
+  const state = { rect: onscreen(), clipRects: [], visibility: "visible" };
+  assert.equal(isSlotPainted(state, pixelsOf(WHITE), [WHITE]), false);
+});
+
+test("fixture: opacity-0 tile — composited crop shows only what's behind it (the background)", () => {
+  // opacity:0 contributes nothing to the composite; the screenshot crop is
+  // indistinguishable from a blank background — no separate opacity read
+  // needed once the signal is the actual composited pixels.
+  const state = { rect: onscreen(), clipRects: [], visibility: "visible", opacity: 0 };
+  assert.equal(isSlotPainted(state, pixelsOf(WHITE), [WHITE]), false);
+});
+
+test("fixture: covered tile — an opaque sibling paints its own placeholder swatch over the slot", () => {
+  const state = { rect: onscreen(), clipRects: [], visibility: "visible" };
+  assert.equal(isSlotPainted(state, pixelsOf(GREY_SKELETON), [WHITE, GREY_SKELETON]), false);
+});
+
+test("fixture: clipped tile — an overflow:hidden ancestor leaves no visible area to sample", () => {
+  const state = { rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }], visibility: "visible" };
+  const clipped = clippedVisibleRect(state, VIEWPORT);
+  assert.equal(clipped, null);
+  // No pixels were ever cropped (clipped away) — the probe passes null/[].
+  assert.equal(isSlotPainted(state, clipped, [WHITE]), false);
+});
+
+test("fixture: visibility:hidden tile — real painted-looking pixels still read empty", () => {
+  const state = { rect: onscreen(), clipRects: [], visibility: "hidden" };
+  assert.equal(isSlotPainted(state, pixelsOf(PHOTO), [WHITE]), false);
 });
 
 // --- isVisible ---------------------------------------------------------------
@@ -127,35 +176,35 @@ test("a rect only partially overlapping the viewport still counts as visible", (
 
 test("a visible unpainted element counts; a visible painted one does not", () => {
   const states = [
-    { tag: "img", rect: onscreen(), complete: false, naturalWidth: 0 },
-    { tag: "img", rect: onscreen(), complete: true, naturalWidth: 200 },
+    { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) },
+    { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) },
   ];
-  assert.equal(countEmptyVisibleMedia(states, VIEWPORT), 1);
-  assert.equal(emptyVisibleMedia(states, VIEWPORT)[0].complete, false);
+  assert.equal(countEmptyVisibleMedia(states, VIEWPORT, [WHITE]), 1);
+  assert.deepEqual(emptyVisibleMedia(states, VIEWPORT, [WHITE])[0].pixels, pixelsOf(WHITE));
 });
 
 test("an unpainted but off-screen element never counts — only on-screen tiles matter", () => {
-  const states = [{ tag: "video", rect: offscreen, posterLoaded: false, readyState: 0, videoWidth: 0 }];
-  assert.equal(countEmptyVisibleMedia(states, VIEWPORT), 0);
+  const states = [{ rect: offscreen, clipRects: [], visibility: "visible", pixels: [] }];
+  assert.equal(countEmptyVisibleMedia(states, VIEWPORT, [WHITE]), 0);
 });
 
 test("an empty frame (no media at all) counts zero", () => {
-  assert.equal(countEmptyVisibleMedia([], VIEWPORT), 0);
+  assert.equal(countEmptyVisibleMedia([], VIEWPORT, [WHITE]), 0);
 });
 
 // --- totalEmptyVisibleMediaAcrossFrames ---------------------------------------
 
 test("the total sums every sampled frame's count, not just the worst one", () => {
-  const unpainted = { tag: "img", rect: onscreen(), complete: false, naturalWidth: 0 };
-  const painted = { tag: "img", rect: onscreen(), complete: true, naturalWidth: 200 };
+  const unpainted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const painted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
   const frames = [[unpainted], [unpainted, unpainted], [painted]];
-  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT), 3);
+  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT, [WHITE]), 3);
 });
 
 test("an all-painted, all-frames interaction totals zero — the passing shape", () => {
-  const painted = { tag: "video", rect: onscreen(), posterLoaded: true, readyState: 0, videoWidth: 0 };
+  const painted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
   const frames = [[painted], [painted], [painted]];
-  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT), 0);
+  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT, [WHITE]), 0);
 });
 
 // --- Column-gap scan (round 17: a missing DOM node, not a paint state) ------

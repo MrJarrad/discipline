@@ -2,22 +2,38 @@
 // media-load-probe — `media-loading`'s done-when script. Drives a URL with
 // Playwright at a given viewport/DPR, in Chromium and WebKit; runs a named
 // interaction (load/scroll/drag); measures every on-screen media element's
-// ACTUAL PAINTED PIXELS per frame (never `.complete`/DOM presence — 1.96.0
-// moved off that signal because it reads PASS on a stuck-at-opacity-0 tile
-// with its bytes already decoded, the holding-page round-13 finding); and
-// separately scans for regions with NO covering DOM element at all (a
-// genuine hole, round 17's windowed-mount gap). Prints both counts, every
-// rep. media-loading's bar is both counts at 0.
+// ACTUAL COMPOSITED PIXELS per frame (never `.complete`/DOM presence, and —
+// as of the 1.96.0 fix round — never a canvas source-bitmap read of the element's OWN
+// bitmap either); and separately scans for regions with NO covering DOM
+// element at all (a genuine hole, round 17's windowed-mount gap). Prints both
+// counts, every rep. media-loading's bar is both counts at 0.
+//
+// Paint signal (1.96.0 fix round): each frame takes a full-page screenshot
+// (`page.screenshot`), decodes it (`lib/png-lib.mjs`, no image-processing
+// dependency — Node's own `zlib`), crops each visible slot's rect —
+// intersected with the viewport AND every `overflow:hidden`/`clip`/`auto`/
+// `scroll` clipping ancestor's own rect — out of that screenshot, and
+// classifies the crop painted/empty against the page background (and any
+// `--placeholder-colors`) via `lib/media-load-lib.mjs`. This is what's
+// actually composited on screen, so a slot that's clipped away, covered by
+// an opaque sibling, `visibility:hidden`, or at `opacity:0` behind a parent
+// now reads empty — the exact false-pass shape a canvas source-bitmap read of the
+// element's own source bitmap could not detect (round 1 of this fix, against
+// the `capture-website`/holding-page round-13 precedent: "screenshot + pixel
+// region-stats", not a source-bitmap draw).
 //
 // Usage:
 //   node media-load-probe.mjs <url> --viewport 390x844 --dpr 3 \
 //     --interaction load|scroll|drag [--browser chromium|webkit] \
 //     [--channel chrome] [--headed] \
 //     [--network fast3g|slow3g|none] [--frames 24] \
-//     [--duration 60000] [--settle 2000] [--reps 3] [--gap-tolerance 24]
+//     [--duration 60000] [--settle 2000] [--reps 3] [--gap-tolerance 24] \
+//     [--placeholder-colors "#eeeeee,#f2f2f2"] [--color-tolerance 8] \
+//     [--min-painted-fraction 0.05]
 //
 // Requires `playwright` (`npm i -D playwright` in the invoking repo; resolved
-// from cwd — same pattern as capture-website/scripts/capture.mjs).
+// from cwd — same pattern as capture-website/scripts/capture.mjs). No other
+// dependency: the PNG decode is Node's built-in `zlib` only.
 //
 // --duration switches to a long, realistic fling/drag SESSION (repeated
 // fling gestures, not one smooth crawl) instead of the short fixed-frame
@@ -42,7 +58,12 @@ import {
   totalEmptyVisibleMediaAcrossFrames,
   totalColumnGapsAcrossFrames,
   isVisible,
+  isVisibilityHidden,
+  clippedVisibleRect,
+  scaleRect,
+  parseCssColor,
 } from "./lib/media-load-lib.mjs";
+import { decodePng, cropRegionPixels } from "./lib/png-lib.mjs";
 
 const require = createRequire(join(process.cwd(), "noop.js"));
 
@@ -71,8 +92,16 @@ export function parseArgs(argv) {
     settle: 0,
     reps: 1,
     gapTolerance: 24,
+    placeholderColors: "",
+    colorTolerance: 8,
+    minPaintedFraction: 0.05,
   };
-  const keyMap = { "gap-tolerance": "gapTolerance" };
+  const keyMap = {
+    "gap-tolerance": "gapTolerance",
+    "placeholder-colors": "placeholderColors",
+    "color-tolerance": "colorTolerance",
+    "min-painted-fraction": "minPaintedFraction",
+  };
   for (let i = 0; i < rest.length; i++) {
     const raw = rest[i].replace(/^--/, "");
     const key = keyMap[raw] ?? raw;
@@ -96,69 +125,56 @@ export function parseArgs(argv) {
     settle: Number(opts.settle),
     reps: Number(opts.reps),
     gapTolerance: Number(opts.gapTolerance),
+    colorTolerance: Number(opts.colorTolerance),
+    minPaintedFraction: Number(opts.minPaintedFraction),
+    placeholderColors: opts.placeholderColors
+      ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
+      : [],
   };
 }
 
-// Injected via page.evaluate — plain-DOM + pixel snapshot, no Playwright
-// handle leaves the page. Self-contained (nested helper functions) because
-// Playwright serializes only this function's own source. Every <img>/<video>
-// on the page, not just those thought to be on screen — `isVisible` in the
-// lib decides visibility from the rect, and the gap scan uses every visible
+// Injected via page.evaluate — plain-DOM only, no canvas source-bitmap capture and no
+// pixel snapshot leaves the page this way (the paint signal is now a
+// screenshot taken separately, in Node, and decoded there). Self-contained
+// (nested helper functions) because Playwright serializes only this
+// function's own source. Every <img>/<video> on the page, not just those
+// thought to be on screen — the lib decides visibility/paint from the rect,
+// clip ancestors, and visibility, and the gap scan uses every visible
 // element's rect regardless of its own paint state.
 export function sampleMediaStateInPage() {
-  function samplePoints(w, h) {
-    return [
-      [w / 2, h / 2],
-      [w * 0.25, h * 0.25],
-      [w * 0.75, h * 0.25],
-      [w * 0.25, h * 0.75],
-      [w * 0.75, h * 0.75],
-    ];
-  }
-  // Draws the element's OWN rendered pixels into an offscreen canvas and
-  // reads them back — the real paint state, not a DOM flag. Throws (tainted
-  // canvas) for cross-origin media served without a CORS header; caught by
-  // the caller, which falls back to the DOM-state heuristic for that element
-  // only and names the result as unmeasurable.
-  function samplePixels(el, rectW, rectH) {
-    const w = Math.max(1, Math.min(64, Math.round(rectW)));
-    const h = Math.max(1, Math.min(64, Math.round(rectH)));
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(el, 0, 0, w, h);
-    return samplePoints(w, h).map(([x, y]) => {
-      const data = ctx.getImageData(Math.min(w - 1, Math.floor(x)), Math.min(h - 1, Math.floor(y)), 1, 1).data;
-      return { r: data[0], g: data[1], b: data[2], a: data[3] };
-    });
+  // Every ancestor whose computed overflow clips content — its own bounding
+  // rect travels as a clip candidate; `clippedVisibleRect` (lib) intersects
+  // the element's rect against all of them plus the viewport.
+  function elementClipRects(el) {
+    const rects = [];
+    let node = el.parentElement;
+    while (node) {
+      const cs = getComputedStyle(node);
+      const clips = (v) => v === "hidden" || v === "clip" || v === "auto" || v === "scroll";
+      if (clips(cs.overflowX) || clips(cs.overflowY)) {
+        const r = node.getBoundingClientRect();
+        rects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height });
+      }
+      node = node.parentElement;
+    }
+    return rects;
   }
 
-  return Array.from(document.querySelectorAll("img,video")).map((el) => {
+  const elements = Array.from(document.querySelectorAll("img,video")).map((el) => {
     const r = el.getBoundingClientRect();
     const rect = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
     const tag = el.tagName === "IMG" ? "img" : "video";
-    const opacity = Number(getComputedStyle(el).opacity);
-    try {
-      const samples = samplePixels(el, rect.width || 1, rect.height || 1);
-      return { tag, rect, opacity, samples, paintUnmeasurable: false };
-    } catch {
-      // Tainted canvas — no CORS on this element's source. Named fallback,
-      // never a silent pass: `paintUnmeasurable: true` travels in the return.
-      if (tag === "img") {
-        return { tag, rect, opacity, paintUnmeasurable: true, complete: el.complete, naturalWidth: el.naturalWidth };
-      }
-      return {
-        tag,
-        rect,
-        opacity,
-        paintUnmeasurable: true,
-        readyState: el.readyState,
-        videoWidth: el.videoWidth,
-        posterLoaded: Boolean(el.poster),
-      };
-    }
+    const cs = getComputedStyle(el);
+    return {
+      tag,
+      rect,
+      opacity: Number(cs.opacity),
+      visibility: cs.visibility,
+      clipRects: elementClipRects(el),
+    };
   });
+
+  return { elements, backgroundColor: getComputedStyle(document.body).backgroundColor };
 }
 
 async function throttle(page, network) {
@@ -182,11 +198,16 @@ async function throttle(page, network) {
   }
 }
 
+// The default sampler: plain DOM state only, no screenshot — what the
+// interaction-driving tests below exercise against a fake `page`. `run()`
+// supplies its own sampler (below) that also screenshots and crops.
+const defaultSampleFn = (page) => page.evaluate(sampleMediaStateInPage);
+
 // Short, fixed-frame mode — one smooth pass, used for `load` and for quick
 // checks. `--duration` switches to `driveFlingSession` instead (below).
-export async function driveInteraction(page, interaction, frames) {
+export async function driveInteraction(page, interaction, frames, sampleFn = defaultSampleFn) {
   const samples = [];
-  const sample = async () => samples.push(await page.evaluate(sampleMediaStateInPage));
+  const sample = async () => samples.push(await sampleFn(page));
   await sample(); // first paint
 
   if (interaction === "load") {
@@ -229,13 +250,13 @@ export async function driveInteraction(page, interaction, frames) {
 // sample (round 13's "first screen settled" check — the true test of
 // whether a warm/decode background task ever resolves once the reader stops
 // moving). `load` has no fling shape — callers use `driveInteraction` for it.
-export async function driveFlingSession(page, { interaction, durationMs, settleMs = 0, sampleEveryMs = 250 }) {
+export async function driveFlingSession(page, { interaction, durationMs, settleMs = 0, sampleEveryMs = 250 }, sampleFn = defaultSampleFn) {
   if (interaction !== "scroll" && interaction !== "drag") {
     throw new Error(`driveFlingSession only supports scroll|drag, got ${interaction}`);
   }
   const vp = page.viewportSize();
   const samples = [];
-  const sample = async () => samples.push(await page.evaluate(sampleMediaStateInPage));
+  const sample = async () => samples.push(await sampleFn(page));
   const start = Date.now();
   await sample(); // first paint
 
@@ -277,13 +298,35 @@ async function run(opts) {
   await throttle(page, opts.network);
   await page.goto(opts.url, { waitUntil: "domcontentloaded", timeout: 60000 });
 
+  const viewport = { width: opts.width, height: opts.height };
+
+  // Background colour is read once, up front — the empty-colour reference
+  // every frame's crop is classified against, plus any named placeholders.
+  const { backgroundColor } = await page.evaluate(sampleMediaStateInPage);
+  const emptyColors = [parseCssColor(backgroundColor), ...opts.placeholderColors.map(parseCssColor)];
+  const classifyOptions = { tolerance: opts.colorTolerance, minPaintedFraction: opts.minPaintedFraction };
+
+  // The real sampler: DOM state (rects/clip/visibility) plus a full-page
+  // screenshot, decoded and cropped per element into `pixels` — never
+  // a canvas source-bitmap read of the element's own bitmap.
+  const sampleFn = async (p) => {
+    const { elements } = await p.evaluate(sampleMediaStateInPage);
+    const screenshotBuffer = await p.screenshot();
+    const image = decodePng(screenshotBuffer);
+    const scale = image.width / viewport.width;
+    return elements.map((el) => {
+      const clipped = isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
+      const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
+      return { ...el, pixels };
+    });
+  };
+
   const frames =
     opts.duration > 0
-      ? await driveFlingSession(page, { interaction: opts.interaction, durationMs: opts.duration, settleMs: opts.settle })
-      : await driveInteraction(page, opts.interaction, opts.frames);
+      ? await driveFlingSession(page, { interaction: opts.interaction, durationMs: opts.duration, settleMs: opts.settle }, sampleFn)
+      : await driveInteraction(page, opts.interaction, opts.frames, sampleFn);
 
-  const viewport = { width: opts.width, height: opts.height };
-  const paint = totalEmptyVisibleMediaAcrossFrames(frames, viewport);
+  const paint = totalEmptyVisibleMediaAcrossFrames(frames, viewport, emptyColors, classifyOptions);
   const visibleRectsPerFrame = frames.map((states) =>
     states.filter((s) => isVisible(s.rect, viewport)).map((s) => s.rect),
   );
@@ -299,7 +342,8 @@ async function main() {
     console.error(
       "Usage: node media-load-probe.mjs <url> --viewport WxH --dpr N --interaction load|scroll|drag " +
         "[--browser chromium|webkit] [--channel chrome] [--headed] [--network fast3g|slow3g|none] " +
-        "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX]",
+        "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] " +
+        "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1]",
     );
     process.exit(1);
   }

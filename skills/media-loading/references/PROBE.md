@@ -4,21 +4,40 @@
 is `media-loading`'s done-when script. This file is the flag reference and
 worked examples; the rule and the bar are in `SKILL.md`.
 
-## What it measures (1.96.0)
+## What it measures (1.96.0, fix round 1)
 
 Two independent counts, both must be **0**:
 
-- **paint** — a visible media element with no painted pixels at all
-  (`isTransparentPaint`), or one with real pixels ready but stuck at zero
-  computed opacity (`isStuckOpacityZero` — the round-17 fade-race). Measured
-  by drawing the element's own rendered output into an offscreen canvas and
-  reading its pixels back (`drawImage` + `getImageData`), never `.complete`/
-  `readyState` — those DOM flags read PASS on a stuck-at-opacity-0 element
-  whose bytes already decoded (round 13's finding). Cross-origin media with
-  no CORS header taints the canvas; the probe catches that per element,
-  falls back to the DOM-state heuristic for that one element, and names it
-  `paintUnmeasurable: true` in the raw sample rather than silently trusting
-  it.
+- **paint** — a visible media slot whose crop of that frame's **screenshot**
+  classifies as empty: either the page background or a named placeholder
+  colour, past classification tolerances (below). The signal is what's
+  actually **composited on screen**, not the element's own source bitmap —
+  the probe's first cut drew the element into an offscreen canvas and read
+  its pixels back (`drawImage` + `getImageData`); that samples the SOURCE, so
+  it still read "painted" on a slot that's clipped by an `overflow:hidden`
+  ancestor, covered by an opaque sibling, `visibility:hidden`, or at
+  `opacity:0` behind a parent (round 1's finding, against the holding-page
+  round 13 precedent: "screenshot + pixel region-stats"). The fixed method,
+  per sampled frame:
+  1. Take a full-page screenshot (`page.screenshot()`), decoded by
+     `lib/png-lib.mjs` (Node's built-in `zlib` only — no image-processing
+     dependency added to consuming repos).
+  2. For each on-screen `<img>`/`<video>`, intersect its own rect with the
+     viewport and every ancestor whose computed `overflow-x`/`overflow-y` is
+     `hidden`/`clip`/`auto`/`scroll` (`clippedVisibleRect`, `lib/media-load-
+     lib.mjs`) — `null` (nothing left visible) or a `visibility:hidden`
+     element counts as empty immediately, no pixels sampled.
+  3. Crop that rect (scaled to the screenshot's own pixel size) out of the
+     decoded image (`cropRegionPixels`).
+  4. Classify the crop: painted once more than `--min-painted-fraction`
+     (default `0.05`, i.e. 5%) of its pixels differ, past
+     `--color-tolerance` (default `8` per RGB channel), from every named
+     empty colour — the page's own computed `background-color` plus any
+     `--placeholder-colors` (a not-yet-painted skeleton/loading swatch a
+     covering overlay paints, distinct from the page background).
+  Never `.complete`/`readyState` either — those DOM flags read PASS on a
+  stuck-at-opacity-0 element whose bytes already decoded (round 13's
+  original finding, still true of DOM state generally).
 - **gaps** — a visible region with **no covering DOM element at all**
   (round 17: a windowed-mount state update skipped a render during a fast
   pan, leaving a hole with nothing to read paint state from). Found by
@@ -43,6 +62,9 @@ Two independent counts, both must be **0**:
 | `--settle MS` | `0` | After the session ends, wait this long and take one final sample — round 13's "first screen settled" check (does a background warm/decode task ever actually resolve once the reader stops moving). |
 | `--reps N` | `1` | Repeat the whole run this many times; every rep is printed, never averaged away. |
 | `--gap-tolerance PX` | `24` | Minimum uncovered-run width the gap scan counts as a real hole (past any anti-aliasing seam, under a real tile's width). |
+| `--placeholder-colors "#eee,#f2f2f2"` | (none) | Comma-separated extra "not-yet-painted" colours (a skeleton/loading swatch) the paint classifier treats as empty alongside the page's own computed background colour. |
+| `--color-tolerance N` | `8` | Per-RGB-channel slack when matching a cropped pixel against the background/placeholder colours — past PNG anti-aliasing at a tile's own edge. |
+| `--min-painted-fraction 0-1` | `0.05` | Share of a slot's cropped pixels that must differ from every empty colour before the slot counts as painted. |
 
 ## Worked examples
 
