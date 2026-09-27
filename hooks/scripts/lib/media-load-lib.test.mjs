@@ -12,6 +12,7 @@ import {
   matchesAnyColor,
   regionPaintedFraction,
   regionLumaStdDev,
+  regionMaxLumaJump,
   isRegionPainted,
   intersectRects,
   scaleRect,
@@ -19,9 +20,10 @@ import {
   isVisibilityHidden,
   isSlotPainted,
   isVisible,
-  emptyVisibleMedia,
-  countEmptyVisibleMedia,
-  totalEmptyVisibleMediaAcrossFrames,
+  isTrivialSliver,
+  mediaIdentity,
+  classifyEmptyAcrossFrames,
+  totalEmptyMediaAcrossFrames,
   median,
   groupRectsIntoColumns,
   columnInternalGaps,
@@ -125,6 +127,53 @@ test("isRegionPainted still reads a flat, uniform crop as empty even when its co
   assert.ok(regionLumaStdDev(pixelsOf(flatOther, 20)) < 1e-9, "but the crop is perfectly flat — no structure");
 });
 
+// --- Structure-edge bound (1.96.0 fix round 3: the stddev rescue also -------
+// passed a smooth gradient/shimmer LOADING SKELETON — real spread, no real
+// edge. `regionMaxLumaJump` is the largest single-step luma jump between
+// spatially-adjacent pixels (row-major crop order); the rescue now requires
+// BOTH the spread AND a real edge.)
+
+// A smooth linear ramp — the same shape as a CSS gradient/shimmer skeleton —
+// 220..260 luma over 100 pixels: real overall spread, but each step is
+// ~0.4 luma, nowhere near a real edge.
+const gradientPixels = (n = 100) =>
+  Array.from({ length: n }, (_, i) => {
+    const v = Math.min(255, 220 + Math.floor((i / n) * 40));
+    return { r: v, g: v, b: v, a: 255 };
+  });
+
+test("regionMaxLumaJump is ~0 for a smooth gradient despite real overall spread", () => {
+  const pixels = gradientPixels();
+  assert.ok(regionLumaStdDev(pixels) >= 10, "the gradient crosses the spread floor on its own");
+  assert.ok(regionMaxLumaJump(pixels) < 20, "but no single step is a real edge");
+});
+
+test("regionMaxLumaJump is high across a real edge (a sharp colour change between adjacent pixels)", () => {
+  const pixels = [...pixelsOf(WHITE, 50), ...pixelsOf({ r: 0, g: 0, b: 0 }, 50)];
+  assert.ok(regionMaxLumaJump(pixels) >= 200);
+});
+
+test("regionMaxLumaJump is 0 for fewer than two pixels, not NaN", () => {
+  assert.equal(regionMaxLumaJump([]), 0);
+  assert.equal(regionMaxLumaJump([WHITE]), 0);
+});
+
+test("isRegionPainted no longer rescues a smooth gradient/shimmer loading skeleton — real spread, no real edge", () => {
+  const pixels = gradientPixels();
+  assert.ok(regionLumaStdDev(pixels) >= 10, "spread alone would have rescued this before round 3");
+  // A generous tolerance isolates the case the fix is about: the FRACTION
+  // path already reads this crop as empty (every pixel matches within a wide
+  // enough band), so the only thing that could still misclassify it is the
+  // stddev/edge-jump OR — this proves that path alone stays bounded.
+  assert.equal(regionPaintedFraction(pixels, [{ r: 240, g: 240, b: 240 }], 30) < 0.05, true, "the fraction path alone already reads this as empty");
+  assert.equal(isRegionPainted(pixels, [{ r: 240, g: 240, b: 240 }], { tolerance: 30 }), false, "a skeleton is still not-yet-painted — the stddev path stays bounded by the edge-jump floor");
+});
+
+test("isRegionPainted still rescues a real white-heavy photo (spread AND a real edge) even though it's also mostly background-close", () => {
+  const pixels = [...pixelsOf(WHITE, 97), ...pixelsOf({ r: 0, g: 0, b: 0 }, 3)];
+  assert.equal(isRegionPainted(pixels, [WHITE]), true);
+});
+
 // --- rect clipping -------------------------------------------------------
 
 test("intersectRects returns the overlap, or null when there is none", () => {
@@ -217,80 +266,138 @@ test("a rect only partially overlapping the viewport still counts as visible", (
   assert.equal(isVisible({ left: -50, top: -50, right: 50, bottom: 50, width: 100, height: 100 }, VIEWPORT), true);
 });
 
-// --- emptyVisibleMedia / countEmptyVisibleMedia -------------------------------
+// --- classifyEmptyAcrossFrames / totalEmptyMediaAcrossFrames (1.96.0 fix ----
+// round 3 — replaces round 2's single-frame `emptyVisibleMedia`; see the
+// lib's own comment for why a single frame can't tell "mid-fade" from
+// "genuinely stuck", or "at rest" from "in motion"). `arrivalWindowMs: 0`
+// below disables the debounce for tests that are about geometry/paint alone,
+// not timing — the arrival-window tests further down cover the timing.
 
 test("a visible unpainted element counts; a visible painted one does not", () => {
   const states = [
     { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) },
     { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) },
   ];
-  assert.equal(countEmptyVisibleMedia(states, VIEWPORT, [WHITE]), 1);
-  assert.deepEqual(emptyVisibleMedia(states, VIEWPORT, [WHITE])[0].pixels, pixelsOf(WHITE));
+  const result = classifyEmptyAcrossFrames([states], VIEWPORT, [WHITE], { arrivalWindowMs: 0 });
+  assert.equal(result.total, 1);
+  assert.deepEqual(result.flagged[0].pixels, pixelsOf(WHITE));
 });
 
 test("an unpainted but off-screen element never counts — only on-screen tiles matter", () => {
   const states = [{ rect: offscreen, clipRects: [], visibility: "visible", pixels: [] }];
-  assert.equal(countEmptyVisibleMedia(states, VIEWPORT, [WHITE]), 0);
+  assert.equal(totalEmptyMediaAcrossFrames([states], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
 });
 
 test("an empty frame (no media at all) counts zero", () => {
-  assert.equal(countEmptyVisibleMedia([], VIEWPORT, [WHITE]), 0);
+  assert.equal(totalEmptyMediaAcrossFrames([[]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
 });
 
-// --- Trivial-sliver exemption (1.96.0 fix round 2, verified live: a tile ---
-// scrolled almost entirely past the viewport edge during a fast drag, with
-// only a hairline of its OWN natural rect still on screen, reading blank —
-// the holding canvas's own operator-approved edge fade (round 11: "the fade
-// looks good"), not a paint bug. Distinct from the round-1 "clipped tile"
-// fixture above (an ancestor removes the WHOLE element — zero area — still
-// caught, unchanged.)
+test("mediaIdentity combines tag, src, and index — the fallback when a state carries no id of its own", () => {
+  assert.equal(mediaIdentity({ tag: "img", src: "a.jpg" }, 2), "img:a.jpg:2");
+  assert.equal(mediaIdentity({}, 0), "media::0");
+});
 
-test("a tile that's mostly scrolled off-screen, with only a trivial sliver of its own natural rect on screen, is never counted — even if that sliver reads blank", () => {
-  const mostlyOffscreen = {
-    // Natural rect 100x100, but only the bottom 5px overlaps the viewport —
-    // 5% of its own area, well under the default 12% floor.
+test("isTrivialSliver is true only for a nonzero but small visible-area share — zero is a hard defect, not a sliver", () => {
+  const zeroArea = { rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }] };
+  const sliver = { rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 }, clipRects: [] };
+  const mostly = { rect: { left: 0, top: -20, right: 100, bottom: 80, width: 100, height: 100 }, clipRects: [] };
+  assert.equal(isTrivialSliver(zeroArea, VIEWPORT, 0.15), false);
+  assert.equal(isTrivialSliver(sliver, VIEWPORT, 0.15), true);
+  assert.equal(isTrivialSliver(mostly, VIEWPORT, 0.15), false);
+});
+
+// --- Sliver exemption bound to real motion (1.96.0 fix round 3) ------------
+// Round 2's exemption fired on ANY nonzero-but-small on-screen share,
+// including a static tile at rest that never moves at all — review round 2's
+// own finding, live on the holding page: "a genuinely blank tile at the fold
+// at load" was silently hidden. Round 3: the exemption only fires when the
+// element's rect has actually MOVED since the previous frame it was seen in
+// — a real transit, never a static layout position (first frame of any
+// session, `load`, or two identical consecutive samples).
+
+test("a static sliver at rest — the first frame of a session, nothing to compare motion against — is judged normally: a genuinely blank one is caught, not exempted", () => {
+  const sliver = {
+    id: "a",
+    // Natural rect 100x100, only the bottom 5px on screen — 5% of its own
+    // area, well under the default 15% floor.
     rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 },
-    clipRects: [],
-    visibility: "visible",
-    pixels: pixelsOf(WHITE),
+    clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE),
   };
-  assert.equal(countEmptyVisibleMedia([mostlyOffscreen], VIEWPORT, [WHITE]), 0);
+  assert.equal(totalEmptyMediaAcrossFrames([[sliver]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1, "a sliver at the fold at load is not a motion case — caught like any other blank slot");
+});
+
+test("a sliver at the SAME rect across two frames (no motion between them) is never exempted", () => {
+  const sliver = { id: "a", rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 }, clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  assert.equal(totalEmptyMediaAcrossFrames([[sliver], [sliver]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 2, "no motion between the two frames — caught both times");
+});
+
+test("a sliver whose rect MOVED since the previous frame — genuinely transiting the viewport edge — is exempted once its motion is established against a prior frame", () => {
+  // A slot's very FIRST sampled frame has no prior rect to compare motion
+  // against, so it's judged at rest (covered by the "static sliver at rest"
+  // test above) — real motion only reads once there IS a previous frame with
+  // a different rect: here, frame 0 has the tile fully on screen, then it
+  // transits into a sliver across frames 1-2.
+  const full = { id: "a", rect: { left: 0, top: 0, right: 100, bottom: 100, width: 100, height: 100 }, clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
+  const sliver1 = { id: "a", rect: { left: 0, top: -90, right: 100, bottom: 10, width: 100, height: 100 }, clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const sliver2 = { id: "a", rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 }, clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const total = totalEmptyMediaAcrossFrames([[full], [sliver1], [sliver2]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 });
+  assert.equal(total, 0, "the tile was fully on screen the frame before — a real transit into a sliver, not a static blank at rest");
 });
 
 test("a substantially on-screen tile (well past the sliver floor) that's genuinely blank is still caught", () => {
-  const mostlyOnscreen = {
-    // 80 of its own 100px height is on screen — 80%, well past the floor.
-    rect: { left: 0, top: -20, right: 100, bottom: 80, width: 100, height: 100 },
-    clipRects: [],
-    visibility: "visible",
-    pixels: pixelsOf(WHITE),
-  };
-  assert.equal(countEmptyVisibleMedia([mostlyOnscreen], VIEWPORT, [WHITE]), 1);
+  const mostlyOnscreen = { id: "a", rect: { left: 0, top: -20, right: 100, bottom: 80, width: 100, height: 100 }, clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  assert.equal(totalEmptyMediaAcrossFrames([[mostlyOnscreen]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1);
 });
 
 test("a fully ancestor-clipped element (zero visible area — the round-1 fixture) is never exempted as a 'sliver' — it's still caught", () => {
-  const fullyClipped = {
-    rect: onscreen(),
-    clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }],
-    visibility: "visible",
-    pixels: [],
-  };
-  assert.equal(countEmptyVisibleMedia([fullyClipped], VIEWPORT, [WHITE]), 1);
+  const fullyClipped = { id: "a", rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }], visibility: "visible", pixels: [] };
+  assert.equal(totalEmptyMediaAcrossFrames([[fullyClipped]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1);
 });
 
-// --- totalEmptyVisibleMediaAcrossFrames ---------------------------------------
+// --- Arrival window (1.96.0 fix round 3): a blank slot only counts once it's
+// stayed blank longer than one fade cycle (`arrivalWindowMs`), measured as
+// consecutive blank frames for the same identity × the caller's own
+// `frameIntervalMs` — review round 2's own finding: fast-fling mode read
+// misses a paced crawl didn't, because a tile mid its own ~250ms
+// operator-approved decode-gated fade samples blank on the one frame that
+// lands inside the fade, then paints on the next.
 
-test("the total sums every sampled frame's count, not just the worst one", () => {
-  const unpainted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
-  const painted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
-  const frames = [[unpainted], [unpainted, unpainted], [painted]];
-  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT, [WHITE]), 3);
+test("a slot blank for one frame under the arrival window, then painted — a sample landing mid-fade — is never counted", () => {
+  const blank = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const painted = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
+  const total = totalEmptyMediaAcrossFrames([[blank], [painted]], VIEWPORT, [WHITE], { arrivalWindowMs: 250, frameIntervalMs: 200 });
+  assert.equal(total, 0, "one 200ms blank frame under the 250ms window, then it painted — arriving, not empty");
+});
+
+test("a slot blank across enough consecutive frames to cross the arrival window IS counted", () => {
+  const blank = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  // 200ms, 400ms, 600ms accumulated — frames 2 and 3 cross the 250ms window.
+  const total = totalEmptyMediaAcrossFrames([[blank], [blank], [blank]], VIEWPORT, [WHITE], { arrivalWindowMs: 250, frameIntervalMs: 200 });
+  assert.equal(total, 2);
+});
+
+test("arrivalWindowMs: 0 (load's own mode) counts a blank slot on its very first frame, unchanged from before this round", () => {
+  const blank = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  assert.equal(totalEmptyMediaAcrossFrames([[blank]], VIEWPORT, [WHITE], { arrivalWindowMs: 0, frameIntervalMs: 50 }), 1);
+});
+
+test("a slot that leaves the DOM (windowed-mount removal) and reappears blank later restarts the arrival window — no stale streak carried over", () => {
+  const blankA = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const total = totalEmptyMediaAcrossFrames([[blankA], [], [blankA]], VIEWPORT, [WHITE], { arrivalWindowMs: 250, frameIntervalMs: 200 });
+  assert.equal(total, 0, "each reappearance only has one frame (200ms) of accumulated blank time — under the 250ms window");
+});
+
+test("the total sums every sampled frame that crossed the window, not just the worst one", () => {
+  const unpainted = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const painted = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
+  const frames = [[unpainted], [unpainted], [painted]];
+  assert.equal(totalEmptyMediaAcrossFrames(frames, VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 2);
 });
 
 test("an all-painted, all-frames interaction totals zero — the passing shape", () => {
-  const painted = { rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
+  const painted = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(PHOTO) };
   const frames = [[painted], [painted], [painted]];
-  assert.equal(totalEmptyVisibleMediaAcrossFrames(frames, VIEWPORT, [WHITE]), 0);
+  assert.equal(totalEmptyMediaAcrossFrames(frames, VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
 });
 
 // --- Column-gap scan (round 17: a missing DOM node, not a paint state) ------

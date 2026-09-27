@@ -99,14 +99,46 @@ export function regionLumaStdDev(pixels) {
   return Math.sqrt(variance);
 }
 
+// Round 3: the stddev rescue above (path b) also passed a smooth CSS
+// gradient/shimmer LOADING SKELETON — real content hasn't arrived yet, but a
+// slow linear ramp across a crop has enough overall spread (stddev ~11,
+// crossing the `10` floor) to misread as "real structure". A gradient/
+// shimmer changes luma smoothly, one tiny step per pixel; real content (a
+// product shot's own edge, a video frame's letterbox line) has at least one
+// SHARP jump between spatially-adjacent pixels — `cropRegionPixels` returns
+// pixels in row-major screenshot order, so "adjacent in the array" is
+// "adjacent on screen" (barring one wrap-around seam per row, negligible at
+// any crop wider than a few px). `regionMaxLumaJump` is the largest such
+// single-step jump; the stddev rescue below only fires once BOTH the spread
+// AND a real edge are present — a flat swatch still fails both, a smooth
+// gradient/shimmer still fails the edge check even once it clears the spread
+// floor, and a genuine edge/shadow/highlight clears both.
+export const MIN_STRUCTURE_EDGE_JUMP = 20;
+
+export function regionMaxLumaJump(pixels) {
+  if (pixels.length < 2) return 0;
+  const lumas = pixels.map((p) => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b);
+  let max = 0;
+  for (let i = 1; i < lumas.length; i++) {
+    const jump = Math.abs(lumas[i] - lumas[i - 1]);
+    if (jump > max) max = jump;
+  }
+  return max;
+}
+
 export function isRegionPainted(
   pixels,
   emptyColors,
-  { tolerance = DEFAULT_COLOR_TOLERANCE, minPaintedFraction = MIN_PAINTED_FRACTION, minPaintedStddev = MIN_PAINTED_STDDEV } = {},
+  {
+    tolerance = DEFAULT_COLOR_TOLERANCE,
+    minPaintedFraction = MIN_PAINTED_FRACTION,
+    minPaintedStddev = MIN_PAINTED_STDDEV,
+    minStructureEdgeJump = MIN_STRUCTURE_EDGE_JUMP,
+  } = {},
 ) {
   if (pixels.length === 0) return false;
   if (regionPaintedFraction(pixels, emptyColors, tolerance) >= minPaintedFraction) return true;
-  return regionLumaStdDev(pixels) >= minPaintedStddev;
+  return regionLumaStdDev(pixels) >= minPaintedStddev && regionMaxLumaJump(pixels) >= minStructureEdgeJump;
 }
 
 // --- Rect clipping (viewport + every overflow-clipping ancestor) -----------
@@ -201,33 +233,113 @@ export function visibleAreaFraction(state, viewport) {
   return (clipped.width * clipped.height) / naturalArea;
 }
 
-function isTrivialSliver(state, viewport, minVisibleAreaFraction) {
+export function isTrivialSliver(state, viewport, minVisibleAreaFraction) {
   const fraction = visibleAreaFraction(state, viewport);
   return fraction > 0 && fraction < minVisibleAreaFraction;
 }
 
-// One frame's empty-visible-media set: on screen, not a trivial edge sliver,
-// and not painted. Each state carries its own pre-cropped `pixels` (set by
-// media-load-probe.mjs from that frame's screenshot); this function does no
-// image decoding.
-export function emptyVisibleMedia(states, viewport, emptyColors, options = {}) {
+// --- Cross-frame classification (1.96.0 fix round 3) ------------------------
+//
+// Round 2's aggregate judged one frame in isolation, no memory of the frame
+// before it. That produced two false-pass shapes review round 2 caught live
+// on `preview.jarrad.design/holding`:
+// - The sliver exemption fired unconditionally on ANY nonzero-but-small
+//   on-screen share, including a tile sitting at the fold at first paint
+//   that never moves at all — geometry alone can't tell "transiting the
+//   viewport edge mid-drag" (the round-11 operator-approved edge fade this
+//   exemption exists for) from "just genuinely small on screen and blank".
+//   Fixed below: the exemption only fires when the element's rect has
+//   actually MOVED since the last frame it was seen in — real motion, not a
+//   static layout position.
+// - Fast-fling mode (the real test, per `--duration`) read paint misses a
+//   short paced crawl didn't, because a tile mid its own operator-approved
+//   decode-gated fade (~250ms, round 11) samples blank on the ONE frame that
+//   happens to land inside the fade, then paints on the next — a real
+//   arrival, not a defect. Fixed below: a blank slot only counts once it has
+//   stayed blank for `arrivalWindowMs` of running wall-clock time (tracked
+//   as consecutive blank frames for the same identity × the caller's own
+//   `frameIntervalMs`) — past one fade cycle, not during it.
+//
+// `arrivalWindowMs` defaults to the page's own approved fade duration
+// (round 11, ~250ms) so a slot stuck blank past one full fade cycle is a
+// real miss, never a sample that landed mid-arrival. `load`'s single
+// fixed-frame check passes `arrivalWindowMs: 0` (there is no session to fade
+// across — the bar is real from first paint) so every load-time defect is
+// still caught on its very first blank frame, exactly as before this round.
+export const DEFAULT_ARRIVAL_WINDOW_MS = 250;
+
+// Best-effort identity for tracking one element across frames when the
+// caller doesn't supply its own `state.id` — `src`/`currentSrc` (attached by
+// the probe's in-page sampler) plus the element's position in that frame's
+// own element list as a tie-break. Not a perfect identity under a windowed-
+// mount reorder (round 17's own failure mode is a DIFFERENT bug, the gap
+// scan's problem, not this one) — a mismatch here only resets a blank streak
+// early (a false negative, never a false positive), and every real photo/
+// video on a real page carries its own distinct URL.
+export function mediaIdentity(state, index) {
+  return `${state.tag ?? "media"}:${state.src ?? ""}:${index}`;
+}
+
+function rectMoved(a, b, epsilonPx = 1) {
+  if (!a || !b) return false;
+  return Math.abs(a.left - b.left) > epsilonPx || Math.abs(a.top - b.top) > epsilonPx;
+}
+
+// The one classifier: walks every sampled frame in order, tracking each
+// element's on-screen rect and running blank duration by identity. Returns
+// `{ total, flagged }` — `total` is the probe's paint number (zero is the
+// only passing value); `flagged` is one entry per frame a slot crossed the
+// arrival window (`{ frameIndex, id, rect, pixels }`), for evidence capture
+// (screenshot the flagged rect, classify by eye) without re-deriving the
+// same walk.
+export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors, options = {}) {
   const minVisibleAreaFraction = options.minVisibleAreaFraction ?? MIN_VISIBLE_AREA_FRACTION;
-  return states.filter(
-    (s) =>
-      isVisible(s.rect, viewport) &&
-      !isTrivialSliver(s, viewport, minVisibleAreaFraction) &&
-      !isSlotPainted(s, s.pixels, emptyColors, options),
-  );
+  const arrivalWindowMs = options.arrivalWindowMs ?? DEFAULT_ARRIVAL_WINDOW_MS;
+  const frameIntervalMs = options.frameIntervalMs ?? 0;
+
+  const tracked = new Map(); // identity -> { rect, blankMs }
+  const flagged = [];
+
+  framesOfStates.forEach((states, frameIndex) => {
+    const seen = new Set();
+    states.forEach((state, i) => {
+      const id = state.id ?? mediaIdentity(state, i);
+      seen.add(id);
+      const prev = tracked.get(id);
+      const onScreen = isVisible(state.rect, viewport);
+      const sliver = isTrivialSliver(state, viewport, minVisibleAreaFraction);
+      // Only exempt a sliver that's actually IN MOTION (moved since the last
+      // frame it was seen in) — a static tile at rest, on load or otherwise,
+      // is never exempted, whatever share of its own rect is on screen.
+      const sliverExempt = sliver && rectMoved(prev?.rect, state.rect);
+      const painted = isSlotPainted(state, state.pixels, emptyColors, options);
+      const blankNow = onScreen && !sliverExempt && !painted;
+
+      if (blankNow) {
+        const blankMs = (prev?.blankMs ?? 0) + frameIntervalMs;
+        tracked.set(id, { rect: state.rect, blankMs });
+        if (blankMs >= arrivalWindowMs) {
+          flagged.push({ frameIndex, id, rect: state.rect, pixels: state.pixels });
+        }
+      } else {
+        tracked.set(id, { rect: state.rect, blankMs: 0 });
+      }
+    });
+    // An identity absent from this frame (windowed-mount removal) loses its
+    // streak — reappearing later starts the arrival window fresh, never
+    // carries over a stale blank duration from before it left the DOM.
+    for (const id of [...tracked.keys()]) {
+      if (!seen.has(id)) tracked.delete(id);
+    }
+  });
+
+  return { total: flagged.length, flagged };
 }
 
-export function countEmptyVisibleMedia(states, viewport, emptyColors, options) {
-  return emptyVisibleMedia(states, viewport, emptyColors, options).length;
-}
-
-// The probe's paint number: summed across every sampled frame of the driven
-// interaction. Zero is the only passing value — `media-loading`'s done-when.
-export function totalEmptyVisibleMediaAcrossFrames(frames, viewport, emptyColors, options) {
-  return frames.reduce((sum, states) => sum + countEmptyVisibleMedia(states, viewport, emptyColors, options), 0);
+// The probe's paint number: `classifyEmptyAcrossFrames(...).total`. Zero is
+// the only passing value — `media-loading`'s done-when.
+export function totalEmptyMediaAcrossFrames(framesOfStates, viewport, emptyColors, options) {
+  return classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors, options).total;
 }
 
 // --- Column-gap scan (round 17: a genuine DOM-node absence — not a paint
