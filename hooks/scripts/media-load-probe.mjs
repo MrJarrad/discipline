@@ -39,27 +39,49 @@
 // WIDER (`--gap-width-ratio`, default 2x). See `isRegionPainted` and
 // `scanFrameForColumnGaps` for the exact rules.
 //
+// Fix round 3 (1.96.0): review round 2 found paint misses on the real
+// holding page in fast-fling mode (`--duration`, "the mode the docs call the
+// real test") that a short PACED drag/scroll never saw — because a paced,
+// evenly-spaced crawl gives the page's own decode pipeline time to keep up
+// that a real fast fling never grants, AND because a single-frame judgment
+// can't tell a tile mid its own operator-approved ~250ms fade (arriving)
+// from one genuinely stuck. Three changes:
+// 1. `--interaction scroll|drag` now runs the realistic FLING session by
+//    DEFAULT (`DEFAULT_FLING_DURATION_MS`, extend with `--duration`) — the
+//    old paced, evenly-spaced crawl is opt-in only (`--paced`), and prints
+//    its own "not proof of fast-motion behaviour" note when used.
+// 2. A blank slot only counts once it's stayed blank past `arrivalWindowMs`
+//    (default the page's own ~250ms fade) — `classifyEmptyAcrossFrames`,
+//    tracked per element across frames.
+// 3. The trivial-sliver exemption only fires when the element's rect has
+//    actually MOVED since the last frame it was seen in — never a static
+//    tile at rest, at the fold, on load.
+// See `lib/media-load-lib.mjs`'s own comment for the exact mechanics.
+//
 // Usage:
 //   node media-load-probe.mjs <url> --viewport 390x844 --dpr 3 \
 //     --interaction load|scroll|drag [--browser chromium|webkit] \
-//     [--channel chrome] [--headed] \
+//     [--channel chrome] [--headed] [--paced] \
 //     [--network fast3g|slow3g|none] [--frames 24] \
 //     [--duration 60000] [--settle 2000] [--reps 3] [--gap-tolerance 24] \
 //     [--gap-width-ratio 2] \
 //     [--placeholder-colors "#eeeeee,#f2f2f2"] [--color-tolerance 8] \
-//     [--min-painted-fraction 0.05] [--min-painted-stddev 10]
+//     [--min-painted-fraction 0.05] [--min-painted-stddev 10] \
+//     [--min-structure-edge 20] [--arrival-window-ms 250]
 //   node media-load-probe.mjs --help
 //
 // Requires `playwright` (`npm i -D playwright` in the invoking repo; resolved
 // from cwd — same pattern as capture-website/scripts/capture.mjs). No other
 // dependency: the PNG decode is Node's built-in `zlib` only.
 //
-// --duration switches to a long, realistic fling/drag SESSION (repeated
-// fling gestures, not one smooth crawl) instead of the short fixed-frame
-// mode — round 10's own finding was that a short synthetic drag didn't
-// disagree with the operator's real phone until the session ran long. Add
-// --settle for a final dwell sample (round 13's "first screen settled"
-// check) before the session ends.
+// `scroll`/`drag` default to a long, realistic fling/drag SESSION (repeated
+// fling gestures, not one smooth crawl) — round 10's own finding was that a
+// short synthetic drag didn't disagree with the operator's real phone until
+// the session ran long. `--duration` extends the session length past the
+// default (`DEFAULT_FLING_DURATION_MS`); `--settle` adds a final dwell
+// sample (round 13's "first screen settled" check) before the session ends;
+// `--paced` opts BACK INTO the old short, evenly-spaced crawl — never proof
+// of fast-motion behaviour on its own, per its own printed note.
 //
 // --channel chrome (+ --headed) launches a real installed Chrome, not
 // Playwright's bundled Chromium — closer to what a reader's own browser
@@ -74,7 +96,7 @@
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import {
-  totalEmptyVisibleMediaAcrossFrames,
+  totalEmptyMediaAcrossFrames,
   totalColumnGapsAcrossFrames,
   isVisible,
   isVisibilityHidden,
@@ -82,15 +104,32 @@ import {
   scaleRect,
   parseCssColor,
   MIN_PAINTED_STDDEV,
+  MIN_STRUCTURE_EDGE_JUMP,
   MIN_VISIBLE_AREA_FRACTION,
+  DEFAULT_ARRIVAL_WINDOW_MS,
 } from "./lib/media-load-lib.mjs";
 import { decodePng, cropRegionPixels } from "./lib/png-lib.mjs";
 
 const require = createRequire(join(process.cwd(), "noop.js"));
 
-// Per-step wall-clock pacing for `driveInteraction`'s scroll/drag loops —
-// see the scroll branch's own comment below for why this exists.
+// Per-step wall-clock pacing for `driveInteraction`'s scroll/drag loops (only
+// reached via the opt-in `--paced` flag as of fix round 3) — see the scroll
+// branch's own comment below for why this exists.
 export const STEP_PACE_MS = 500;
+
+// `load`'s own fixed-frame cadence (`driveInteraction`'s load branch).
+export const LOAD_FRAME_INTERVAL_MS = 50;
+
+// `driveFlingSession`'s own default cadence between gestures.
+export const FLING_SAMPLE_EVERY_MS = 250;
+
+// Fix round 3: the default (no `--duration`) length of the realistic fling
+// session `scroll`/`drag` now run by default — long enough for ~16 fling
+// gestures at `FLING_SAMPLE_EVERY_MS` to expose a stuck tile (round 10's own
+// finding needed a long session; this is a fast default, not the closing
+// proof run) while staying quick for everyday use. `PROBE.md` still
+// recommends 60-90s via `--duration` for the run that closes a lane.
+export const DEFAULT_FLING_DURATION_MS = 8000;
 
 export const NETWORK_PROFILES = {
   // download/upload in bytes/s, latency in ms — Chrome DevTools' own presets.
@@ -100,14 +139,15 @@ export const NETWORK_PROFILES = {
 };
 
 // Flags with no value — everything else is `--flag value`.
-const BOOLEAN_FLAGS = new Set(["headed", "help"]);
+const BOOLEAN_FLAGS = new Set(["headed", "help", "paced"]);
 
 export const USAGE =
   "Usage: node media-load-probe.mjs <url> --viewport WxH --dpr N --interaction load|scroll|drag " +
-  "[--browser chromium|webkit] [--channel chrome] [--headed] [--network fast3g|slow3g|none] " +
+  "[--browser chromium|webkit] [--channel chrome] [--headed] [--paced] [--network fast3g|slow3g|none] " +
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
-  "[--min-painted-stddev N] [--min-visible-area 0-1] | --help";
+  "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
+  "[--min-visible-area 0-1] | --help";
 
 export function parseArgs(argv) {
   const [url, ...rest] = argv;
@@ -118,6 +158,7 @@ export function parseArgs(argv) {
     browser: "chromium",
     channel: null,
     headed: false,
+    paced: false,
     help: false,
     network: "none",
     frames: 24,
@@ -130,6 +171,8 @@ export function parseArgs(argv) {
     colorTolerance: 8,
     minPaintedFraction: 0.05,
     minPaintedStddev: MIN_PAINTED_STDDEV,
+    minStructureEdge: MIN_STRUCTURE_EDGE_JUMP,
+    arrivalWindowMs: DEFAULT_ARRIVAL_WINDOW_MS,
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
   };
   const keyMap = {
@@ -139,6 +182,8 @@ export function parseArgs(argv) {
     "color-tolerance": "colorTolerance",
     "min-painted-fraction": "minPaintedFraction",
     "min-painted-stddev": "minPaintedStddev",
+    "min-structure-edge": "minStructureEdge",
+    "arrival-window-ms": "arrivalWindowMs",
     "min-visible-area": "minVisibleArea",
   };
   for (let i = 0; i < rest.length; i++) {
@@ -172,11 +217,26 @@ export function parseArgs(argv) {
     colorTolerance: Number(opts.colorTolerance),
     minPaintedFraction: Number(opts.minPaintedFraction),
     minPaintedStddev: Number(opts.minPaintedStddev),
+    minStructureEdge: Number(opts.minStructureEdge),
+    arrivalWindowMs: Number(opts.arrivalWindowMs),
     minVisibleArea: Number(opts.minVisibleArea),
     placeholderColors: opts.placeholderColors
       ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
       : [],
   };
+}
+
+// Fix round 3: which drive mode `run()` actually uses for `--interaction
+// scroll|drag` — `load` always drives `driveInteraction`'s fixed-frame
+// branch (unaffected by `--paced`/`--duration`); `--paced` opts back into
+// the old short, evenly-spaced crawl; otherwise (the new default) a
+// realistic fling session runs for `--duration` if given, else
+// `DEFAULT_FLING_DURATION_MS`. A pure function so this decision is testable
+// without a browser.
+export function resolveDriveMode(opts) {
+  if (opts.interaction === "load") return { mode: "load" };
+  if (opts.paced) return { mode: "paced" };
+  return { mode: "fling", durationMs: opts.duration > 0 ? opts.duration : DEFAULT_FLING_DURATION_MS };
 }
 
 // Injected via page.evaluate — plain-DOM only, no canvas source-bitmap capture and no
@@ -211,9 +271,15 @@ export function sampleMediaStateInPage() {
     const rect = { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
     const tag = el.tagName === "IMG" ? "img" : "video";
     const cs = getComputedStyle(el);
+    // `src` (falling back to `currentSrc` for a `<video>`, which reflects the
+    // resolved source, not the `src` attribute) is this element's identity
+    // across frames for the round-3 arrival-window tracker
+    // (`classifyEmptyAcrossFrames` in `lib/media-load-lib.mjs`) — best-effort
+    // (see that function's own comment), not a stable DOM key.
     return {
       tag,
       rect,
+      src: el.currentSrc || el.src || null,
       opacity: Number(cs.opacity),
       visibility: cs.visibility,
       clipRects: elementClipRects(el),
@@ -371,10 +437,11 @@ async function run(opts) {
   // every frame's crop is classified against, plus any named placeholders.
   const { backgroundColor } = await page.evaluate(sampleMediaStateInPage);
   const emptyColors = [parseCssColor(backgroundColor), ...opts.placeholderColors.map(parseCssColor)];
-  const classifyOptions = {
+  const paintClassifyOptions = {
     tolerance: opts.colorTolerance,
     minPaintedFraction: opts.minPaintedFraction,
     minPaintedStddev: opts.minPaintedStddev,
+    minStructureEdgeJump: opts.minStructureEdge,
     minVisibleAreaFraction: opts.minVisibleArea,
   };
 
@@ -393,12 +460,35 @@ async function run(opts) {
     });
   };
 
-  const frames =
-    opts.duration > 0
-      ? await driveFlingSession(page, { interaction: opts.interaction, durationMs: opts.duration, settleMs: opts.settle }, sampleFn)
-      : await driveInteraction(page, opts.interaction, opts.frames, sampleFn);
+  // Fix round 3: `scroll`/`drag` default to a realistic fling SESSION, never
+  // the old paced crawl — `--paced` opts back into it (never proof of
+  // fast-motion behaviour on its own). `load` is unaffected either way.
+  const driveMode = resolveDriveMode(opts);
+  let frames;
+  let frameIntervalMs;
+  if (driveMode.mode === "load") {
+    frames = await driveInteraction(page, "load", opts.frames, sampleFn);
+    frameIntervalMs = LOAD_FRAME_INTERVAL_MS;
+  } else if (driveMode.mode === "paced") {
+    frames = await driveInteraction(page, opts.interaction, opts.frames, sampleFn);
+    frameIntervalMs = STEP_PACE_MS;
+  } else {
+    frames = await driveFlingSession(
+      page,
+      { interaction: opts.interaction, durationMs: driveMode.durationMs, settleMs: opts.settle, sampleEveryMs: FLING_SAMPLE_EVERY_MS },
+      sampleFn,
+    );
+    frameIntervalMs = FLING_SAMPLE_EVERY_MS;
+  }
 
-  const paint = totalEmptyVisibleMediaAcrossFrames(frames, viewport, emptyColors, classifyOptions);
+  // `load` has no session to fade across — the bar is real from first paint,
+  // so every blank frame counts immediately, unchanged from before round 3.
+  const arrivalWindowMs = driveMode.mode === "load" ? 0 : opts.arrivalWindowMs;
+  const paint = totalEmptyMediaAcrossFrames(frames, viewport, emptyColors, {
+    ...paintClassifyOptions,
+    arrivalWindowMs,
+    frameIntervalMs,
+  });
   const visibleRectsPerFrame = frames.map((states) =>
     states.filter((s) => isVisible(s.rect, viewport)).map((s) => s.rect),
   );
@@ -408,7 +498,7 @@ async function run(opts) {
   });
 
   await browser.close();
-  return { paint, gaps, frames: frames.length };
+  return { paint, gaps, frames: frames.length, mode: driveMode.mode };
 }
 
 async function main() {
@@ -425,11 +515,16 @@ async function main() {
   for (let i = 0; i < opts.reps; i++) {
     const r = await run(opts);
     reps.push(r);
-    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames}`);
+    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} mode=${r.mode}`);
   }
   const paintSum = reps.reduce((s, r) => s + r.paint, 0);
   const gapSum = reps.reduce((s, r) => s + r.gaps, 0);
   console.log(`total: paint=${paintSum} gaps=${gapSum}`);
+  if (reps.some((r) => r.mode === "paced")) {
+    console.log(
+      "NOTE: --paced is a slow, evenly-spaced crawl — not proof of fast-motion behaviour. Use the default (or --duration) fling session before closing a lane.",
+    );
+  }
   if (!opts.headed || !opts.channel) {
     console.log(
       "NOTE: headless/synthetic run is a FLOOR, not proof — confirm with --headed --channel chrome or a real device before closing a lane.",

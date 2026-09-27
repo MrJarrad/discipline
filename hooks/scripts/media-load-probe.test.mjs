@@ -10,7 +10,14 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { parseArgs, driveInteraction, driveFlingSession, NETWORK_PROFILES } from "./media-load-probe.mjs";
+import {
+  parseArgs,
+  driveInteraction,
+  driveFlingSession,
+  resolveDriveMode,
+  NETWORK_PROFILES,
+  DEFAULT_FLING_DURATION_MS,
+} from "./media-load-probe.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const script = join(repo, "hooks", "scripts", "media-load-probe.mjs");
@@ -48,14 +55,29 @@ test("parseArgs reads every named flag and splits viewport into width/height", (
   assert.equal(opts.frames, 10);
 });
 
-test("parseArgs 1.96.0 defaults: no channel, not headed, no duration/settle, one rep, 24px gap tolerance", () => {
+test("parseArgs 1.96.0 defaults: no channel, not headed, not paced, no duration/settle, one rep, 24px gap tolerance", () => {
   const opts = parseArgs(["https://example.com"]);
   assert.equal(opts.channel, null);
   assert.equal(opts.headed, false);
+  assert.equal(opts.paced, false, "the realistic fling session is the default — paced is opt-in only (fix round 3)");
   assert.equal(opts.duration, 0);
   assert.equal(opts.settle, 0);
   assert.equal(opts.reps, 1);
   assert.equal(opts.gapTolerance, 24);
+});
+
+test("parseArgs reads --paced (boolean, no value consumed) and the round-3 classification flags", () => {
+  const opts = parseArgs([
+    "https://x.test",
+    "--paced",
+    "--min-structure-edge", "15",
+    "--arrival-window-ms", "300",
+    "--interaction", "drag",
+  ]);
+  assert.equal(opts.paced, true);
+  assert.equal(opts.minStructureEdge, 15);
+  assert.equal(opts.arrivalWindowMs, 300);
+  assert.equal(opts.interaction, "drag", "the boolean --paced flag must not eat the next flag's value");
 });
 
 test("parseArgs reads --channel, --headed (boolean, no value consumed), --duration, --settle, --reps, --gap-tolerance", () => {
@@ -185,6 +207,29 @@ test("driveFlingSession refuses `load` — it has no fling shape", async () => {
   );
 });
 
+// --- resolveDriveMode (1.96.0 fix round 3): scroll/drag default to the -----
+// realistic fling session; --paced opts back into the old paced crawl; load
+// is always its own fixed-frame mode regardless of either flag.
+
+test("resolveDriveMode: load is always its own mode, ignoring --paced and --duration", () => {
+  assert.deepEqual(resolveDriveMode({ interaction: "load", paced: false, duration: 0 }), { mode: "load" });
+  assert.deepEqual(resolveDriveMode({ interaction: "load", paced: true, duration: 5000 }), { mode: "load" });
+});
+
+test("resolveDriveMode: scroll/drag default to a fling session at DEFAULT_FLING_DURATION_MS when --duration is not given", () => {
+  assert.deepEqual(resolveDriveMode({ interaction: "scroll", paced: false, duration: 0 }), { mode: "fling", durationMs: DEFAULT_FLING_DURATION_MS });
+  assert.deepEqual(resolveDriveMode({ interaction: "drag", paced: false, duration: 0 }), { mode: "fling", durationMs: DEFAULT_FLING_DURATION_MS });
+});
+
+test("resolveDriveMode: an explicit --duration extends the fling session past the default", () => {
+  assert.deepEqual(resolveDriveMode({ interaction: "drag", paced: false, duration: 60000 }), { mode: "fling", durationMs: 60000 });
+});
+
+test("resolveDriveMode: --paced opts back into the old paced crawl, regardless of --duration", () => {
+  assert.deepEqual(resolveDriveMode({ interaction: "scroll", paced: true, duration: 0 }), { mode: "paced" });
+  assert.deepEqual(resolveDriveMode({ interaction: "drag", paced: true, duration: 60000 }), { mode: "paced" });
+});
+
 // --- CLI usage path (no playwright import needed for this path) --------------
 
 test("no URL argument prints usage and exits 1 before touching playwright", () => {
@@ -269,6 +314,27 @@ test("the probe supports naming not-yet-painted placeholder colours and classifi
   assert.match(src, /placeholder-colors/);
   assert.match(src, /color-tolerance/);
   assert.match(src, /min-painted-fraction/);
+});
+
+// --- 1.96.0 fix round 3: realistic-by-default fling session, --paced opt-in,
+// arrival window, structure-edge bound ---------------------------------------
+
+test("the file supports --paced (opt-in only) and documents it as not proof of fast-motion behaviour", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /--paced/);
+  assert.match(src, /not proof of fast-motion behaviour/);
+});
+
+test("the probe supports --arrival-window-ms and --min-structure-edge", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /arrival-window-ms/);
+  assert.match(src, /min-structure-edge/);
+});
+
+test("main() prints the drive mode per rep and the paced-mode caveat when any rep used it", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /mode=\$\{r\.mode\}/);
+  assert.match(src, /r\.mode === "paced"/);
 });
 
 test("parseArgs splits --placeholder-colors on commas and defaults to an empty list", () => {
