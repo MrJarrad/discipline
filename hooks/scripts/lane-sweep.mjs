@@ -31,9 +31,19 @@
    `<repo>/worktrees/` whose branch is merged into `origin/main` and removes
    only those. Refuses any path outside `worktrees/` — `main` (and any
    release clone or mirror) can never be a target, whatever its branch name.
+
+   Registry backstop (`progress-hooks` fix round, 2026-09-27): the default
+   (non-`--worktrees`) mode also purges any `progress-registry.json` entry
+   whose progress file (or, if never created, dispatch time) is older than
+   24 hours. `progress-registry-cleanup.mjs`, wired to `SubagentStop`, is the
+   PRIMARY removal path — this is the backstop for a lane whose doer session
+   crashed or was force-stopped without ever firing that hook, so its entry
+   would otherwise sit in the registry forever, nagging on every check.
 */
 import { execFileSync } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
 import { resolve, sep } from "node:path";
+import { loadRegistry, saveRegistry } from "../bin/progress-registry.mjs";
 
 // --- pure matcher: testable with a fake process/port table -----------------
 
@@ -341,6 +351,56 @@ function runWorktreeSweep(repo, dryRun) {
   process.exit(0);
 }
 
+// --- registry backstop (progress-hooks fix round, 2026-09-27) ---------------
+
+export const REGISTRY_STALE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Pure: which registry entries are stale enough for the backstop to drop —
+ * `statLookup(path)` -> mtimeMs | null, injected so tests never touch real
+ * files. An entry is stale once its progress file's own mtime (or, absent a
+ * file, its `dispatchedAt`) is `maxAgeMs` or older — the primary removal
+ * path (`SubagentStop`) should always beat this to it; this only ever
+ * catches what that one missed.
+ * @returns {{path: string}[]} the entries to remove
+ */
+export function staleRegistryEntries(entries, now, maxAgeMs, statLookup) {
+  return entries.filter((e) => {
+    const mtime = statLookup(e.path) ?? e.dispatchedAt;
+    return now - mtime >= maxAgeMs;
+  });
+}
+
+function realStatLookup(path) {
+  try {
+    return existsSync(path) ? statSync(path).mtimeMs : null;
+  } catch {
+    return null;
+  }
+}
+
+function sweepStaleRegistryEntries(dryRun) {
+  let entries;
+  try {
+    entries = loadRegistry();
+  } catch {
+    return; // no registry, or unreadable — nothing to purge, never an error
+  }
+  const stale = staleRegistryEntries(entries, Date.now(), REGISTRY_STALE_MS, realStatLookup);
+  if (stale.length === 0) return;
+  const staleSet = new Set(stale.map((e) => e.path));
+  for (const e of stale) {
+    console.log(`registry path=${e.path} action=${dryRun ? "would purge" : "purged"} reason="stale > 24h, SubagentStop cleanup never fired"`);
+  }
+  if (!dryRun) {
+    try {
+      saveRegistry(entries.filter((e) => !staleSet.has(e.path)));
+    } catch {
+      /* best-effort backstop — never fail the sweep over it */
+    }
+  }
+}
+
 // --- main --------------------------------------------------------------------
 
 function parseArgs(argv) {
@@ -386,6 +446,8 @@ function main() {
   if (!any) {
     console.log("lane-sweep: nothing to stop");
   }
+
+  sweepStaleRegistryEntries(dryRun);
 
   process.exit(0);
 }

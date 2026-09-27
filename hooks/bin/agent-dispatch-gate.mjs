@@ -68,6 +68,7 @@
    The check is exported as a pure function so the tests drive it directly;
    the CLI wrapper only does stdin/stdout. */
 import { readFileSync } from "node:fs";
+import { loadRegistry, saveRegistry, upsertLane, expandHome } from "./progress-registry.mjs";
 
 export const PROMPT_WORD_CAP = 600;
 
@@ -216,7 +217,13 @@ export function checkLineNoReadBack(prompt) {
 
 // `Size: component` / `Size: system` briefs — `line` is exempt.
 const ABOVE_LINE_SIZE = /Size:\s*(component|system)\b/i;
-const PROGRESS_HEADING = /##\s*Progress\b/i;
+// Anchored to the true start of a line (the `m` flag makes `^` match after
+// every `\n`, not just the string start) — a brief that quotes the heading
+// in backticks mid-sentence (e.g. a Context bullet reading "write to
+// `## Progress` every 10 min") never starts a line with `##`, so it is never
+// mistaken for the real heading. `.search()` with no anchor found whichever
+// mention came first in the prompt, real or quoted.
+const PROGRESS_HEADING = /^##\s*Progress\b/im;
 
 /* A real path, not prose that happens to mention a filename: either
    backticked (any leading `~/` or `/`, ending in a `.ext`), or a bare
@@ -230,25 +237,32 @@ const PROGRESS_HEADING = /##\s*Progress\b/i;
 const PROGRESS_PATH =
   /`((?:~\/|\/)[^\s`]*\.[A-Za-z0-9]+)`|(?:^|\s)((?:~\/|\/)\S*\.[A-Za-z0-9]+)/g;
 
-/* True when `section` contains a path (per PROGRESS_PATH) whose own file
-   name contains "progress" (case-insensitive) — `progress.md`,
-   `agent-progress.md`, etc. A path to any other file, however real the path
-   is, does not count. */
-function hasProgressPath(section) {
+/* The first path in `section` (per PROGRESS_PATH) whose own file name
+   contains "progress" (case-insensitive) — `progress.md`, `agent-progress.md`,
+   etc. — or null. A path to any other file, however real the path is, does
+   not count. Exported so a doer-side hook can resolve the same lane's
+   progress-file path from its own brief, rather than re-deriving the rule. */
+export function findProgressPath(section) {
+  if (!section) return null;
   const re = new RegExp(PROGRESS_PATH.source, "g");
   let match;
   while ((match = re.exec(section))) {
     const path = match[1] || match[2];
     const fileName = path.split("/").pop();
-    if (/progress/i.test(fileName)) return true;
+    if (/progress/i.test(fileName)) return path;
   }
-  return false;
+  return null;
+}
+
+function hasProgressPath(section) {
+  return findProgressPath(section) !== null;
 }
 
 // Slice from the `## Progress` heading up to (not including) the next `## `
 // heading, or to the end of the prompt — the same walk `lockedDecisionsLines`
 // uses for `## Locked decisions`. null when there is no `## Progress` heading.
-function progressSectionText(prompt) {
+// Exported for the same reuse reason as findProgressPath above.
+export function progressSectionText(prompt) {
   const idx = prompt.search(PROGRESS_HEADING);
   if (idx === -1) return null;
   const rest = prompt.slice(idx);
@@ -366,13 +380,47 @@ function deny(reason) {
   process.exit(0);
 }
 
+/* The registry-write half of `progress-hooks` fix round (2026-09-27,
+   coordinator: "make it need no memory" — `progress-watch.mjs` only ran if
+   the parent remembered to start it). A dispatch this gate is about to
+   ALLOW, that named a real above-line `## Progress` path, is registered here
+   — the same tool call that starts the lane is the one that starts tracking
+   it, so there is no separate step for the parent to forget. Exempt
+   dispatches (Explore/Plan) and line lanes (no `## Progress` section)
+   register nothing — never throws; a registry write failure is never worse
+   than the dispatch it would otherwise have blocked.
+
+   `sessionId` (reviewer round 2 red: cross-session leak) is the PARENT
+   session's own `session_id` — a field every hook input carries — stamped
+   onto the row so `progress-registry-check.mjs` can later report ONLY to
+   the session that owns it. Without this a dispatched DOER's own session
+   (a different `session_id`, hit by the same process-level `PostToolUse`/
+   `UserPromptSubmit` wiring) could see status lines about lanes that are
+   none of its business. */
+export function registerLaneFromPrompt(prompt, sessionId, now = Date.now()) {
+  const section = progressSectionText(String(prompt || ""));
+  const path = section ? findProgressPath(section) : null;
+  if (!path) return;
+  try {
+    const entries = loadRegistry();
+    saveRegistry(
+      upsertLane(entries, { path: expandHome(path), sessionId: sessionId ?? null, dispatchedAt: now, lastMtime: null, fired: [] }),
+    );
+  } catch {
+    /* registry write failed — the dispatch itself must not be blocked over it */
+  }
+}
+
 function main() {
   const input = readHookInput();
   // Unparseable or non-dispatch input is not this gate's business — a hook that
   // denies on its own confusion is worse than no hook.
   if (!input || typeof input !== "object" || !input.tool_input) allow();
   const verdict = checkAgentDispatch(input.tool_input);
-  if (verdict.ok) allow();
+  if (verdict.ok) {
+    if (!verdict.exempt) registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
+    allow();
+  }
   deny(verdict.reason);
 }
 

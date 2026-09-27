@@ -97,9 +97,12 @@ test("the one rule is the contract pointer", () => {
 // Ceiling raised 246 -> 256 at 1.95.0: `lanes-survive-interruption` added the
 // milestone-is-a-progress-line-AND-a-WIP-commit rule — real growth, no
 // references/ dir to offload into.
-test("doer-rules.md stays under its 256-line ceiling", () => {
+// Ceiling raised 256 -> 270 at 1.98.0: `progress-hooks` added the step-number
+// line format plus both mechanical clock checks (doer-side hook, parent-side
+// watcher script) — real growth, no references/ dir to offload into.
+test("doer-rules.md stays under its 270-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 256, `doer-rules.md is ${lines} lines; the ceiling is 256`);
+  assert.ok(lines <= 270, `doer-rules.md is ${lines} lines; the ceiling is 270`);
 });
 
 test("doer-rules carries the four standing sections", () => {

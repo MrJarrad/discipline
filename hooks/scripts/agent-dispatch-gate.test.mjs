@@ -11,7 +11,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
@@ -19,14 +20,20 @@ import {
   checkSkillsNamed,
   checkSourceContractLockRows,
   checkComponentSystemProgress,
+  registerLaneFromPrompt,
   promptWords,
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
   SOURCE_CONTRACT_CELLS,
 } from "../bin/agent-dispatch-gate.mjs";
+import { loadRegistry } from "../bin/progress-registry.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const gate = join(repo, "hooks", "bin", "agent-dispatch-gate.mjs");
+
+function tempRegistryPath() {
+  return join(mkdtempSync(join(tmpdir(), "dispatch-gate-registry-")), "registry.json");
+}
 
 // --- Fixtures -------------------------------------------------------------
 
@@ -428,6 +435,100 @@ test("prose still refused — a Progress section naming no path at all", () => {
   const verdict = checkComponentSystemProgress(prompt);
   assert.equal(verdict.item, "progress-path");
   assert.match(verdict.reason, /progress-path:/);
+});
+
+// A red finding: the gate refused a brief whose Context bullet quoted the
+// progress heading in backticks before the real heading — `.search()` with
+// no line anchor matched the first mention of "## Progress" anywhere in the
+// prompt, backticked or not, so the quoted mention (with no path after it)
+// was taken for the section and the real heading below it, path and all,
+// was never read. Only a heading at the true start of a line counts.
+test("a Context bullet quoting `## Progress` in backticks before the real heading still passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n" +
+      "**Context.** Write to `## Progress` every 10 minutes per doer-rules.md.\n\n" +
+      "## Progress\n`/Users/x/vault/main/projects/p/evidence/progress.md`\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
+// --- Lane registry (progress-hooks fix round, 2026-09-27: "make it need no
+// memory") --------------------------------------------------------------
+
+test("registerLaneFromPrompt writes a lane entry for a real ## Progress path, stamped with the session id", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, "parent-session-abc", 1000);
+    const entries = loadRegistry(registryPath);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+    assert.equal(entries[0].sessionId, "parent-session-abc");
+    assert.equal(entries[0].dispatchedAt, 1000);
+    assert.deepEqual(entries[0].fired, []);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("registerLaneFromPrompt stamps null when no session id is on the hook input", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, undefined, 1000);
+    assert.equal(loadRegistry(registryPath)[0].sessionId, null);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("registerLaneFromPrompt registers nothing for a line lane (no ## Progress)", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(WELL_FORMED.prompt, "parent-session-abc");
+    assert.deepEqual(loadRegistry(registryPath), []);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("the hook process registers a lane for a well-formed component dispatch, stamped with session_id off the hook input", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: COMPONENT_WITH_PROGRESS, session_id: "parent-session-xyz" }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  const entries = loadRegistry(registryPath);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+  assert.equal(entries[0].sessionId, "parent-session-xyz");
+});
+
+test("the hook process registers nothing for an Explore/Plan exemption", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: { ...MALFORMED, subagent_type: "Explore" } }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  assert.deepEqual(loadRegistry(registryPath), []);
+});
+
+test("the hook process registers nothing for a denied (malformed) dispatch", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: MALFORMED }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  assert.deepEqual(loadRegistry(registryPath), []);
 });
 
 // --- Wiring ---------------------------------------------------------------
