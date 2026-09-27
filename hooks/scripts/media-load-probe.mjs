@@ -51,7 +51,7 @@
 //    old paced, evenly-spaced crawl is opt-in only (`--paced`), and prints
 //    its own "not proof of fast-motion behaviour" note when used.
 // 2. A blank slot only counts once it's stayed blank past `arrivalWindowMs`
-//    (default the page's own ~250ms fade) — `classifyEmptyAcrossFrames`,
+//    (default 300ms, strictly past the fling session's own 250ms sampling cadence) — `classifyEmptyAcrossFrames`,
 //    tracked per element across frames.
 // 3. The trivial-sliver exemption only fires when the element's rect has
 //    actually MOVED since the last frame it was seen in — never a static
@@ -67,7 +67,7 @@
 //     [--gap-width-ratio 2] \
 //     [--placeholder-colors "#eeeeee,#f2f2f2"] [--color-tolerance 8] \
 //     [--min-painted-fraction 0.05] [--min-painted-stddev 10] \
-//     [--min-structure-edge 20] [--arrival-window-ms 250]
+//     [--min-structure-edge 20] [--arrival-window-ms 300]
 //   node media-load-probe.mjs --help
 //
 // Requires `playwright` (`npm i -D playwright` in the invoking repo; resolved

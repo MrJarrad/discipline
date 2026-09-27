@@ -261,12 +261,21 @@ export function isTrivialSliver(state, viewport, minVisibleAreaFraction) {
 //   `frameIntervalMs`) — past one fade cycle, not during it.
 //
 // `arrivalWindowMs` defaults to the page's own approved fade duration
-// (round 11, ~250ms) so a slot stuck blank past one full fade cycle is a
-// real miss, never a sample that landed mid-arrival. `load`'s single
-// fixed-frame check passes `arrivalWindowMs: 0` (there is no session to fade
-// across — the bar is real from first paint) so every load-time defect is
-// still caught on its very first blank frame, exactly as before this round.
-export const DEFAULT_ARRIVAL_WINDOW_MS = 250;
+// (round 11, ~250ms) PLUS one full sampling margin, so a slot stuck blank
+// past one full fade cycle is a real miss, never a sample that landed
+// mid-arrival. It must be STRICTLY GREATER than the fling session's own
+// sampling cadence (`FLING_SAMPLE_EVERY_MS`, `media-load-probe.mjs`, also
+// `250`) — a live proof run against this fix's own first cut found the
+// window EQUAL to the cadence: `blankMs (0 + 250) >= arrivalWindowMs (250)`
+// was already true on a slot's very FIRST sampled blank frame, flagging it
+// immediately and defeating the whole debounce (paint read as high as 185 on
+// `preview.jarrad.design/holding`, almost all of it mid-fade tiles, not
+// defects). `300` needs two consecutive blank samples (500ms) before it
+// counts, comfortably past one ~250ms fade. `load`'s single fixed-frame
+// check passes `arrivalWindowMs: 0` (there is no session to fade across —
+// the bar is real from first paint) so every load-time defect is still
+// caught on its very first blank frame, exactly as before this round.
+export const DEFAULT_ARRIVAL_WINDOW_MS = 300;
 
 // Best-effort identity for tracking one element across frames when the
 // caller doesn't supply its own `state.id` — `src`/`currentSrc` (attached by

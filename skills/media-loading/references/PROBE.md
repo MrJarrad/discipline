@@ -58,7 +58,7 @@ Two independent counts, both must be **0**:
      EMPTY, never masks a real one.
   6. **Debounce against the page's own entrance fade** (fix round 3): a
      blank, non-sliver-exempt slot only counts once it's stayed that way for
-     `--arrival-window-ms` (default `250`, the page's own approved
+     `--arrival-window-ms` (default `300`, strictly past the fling session's own 250ms sampling cadence, so a single sample can never cross it alone)
      decode-gated fade) of running wall-clock time — tracked per element
      across frames (`classifyEmptyAcrossFrames`, keyed by `src`/`currentSrc`)
      — never on the single frame that happens to land mid-fade. `load`'s
@@ -111,7 +111,7 @@ Two independent counts, both must be **0**:
 | `--min-painted-fraction 0-1` | `0.05` | Share of a slot's cropped pixels that must differ from every empty colour before the slot counts as painted (path a — background-match). |
 | `--min-painted-stddev N` | `10` | Luma standard deviation a crop must cross to count as painted via structure alone (path b), rescuing real content that's mostly background-close. |
 | `--min-structure-edge N` | `20` | (fix round 3) Largest single-step luma jump between spatially-adjacent pixels a crop must ALSO cross before path (b) rescues it — a smooth gradient/shimmer skeleton has real spread but no real edge, so spread alone no longer counts as structure. |
-| `--arrival-window-ms MS` | `250` | (fix round 3) How long a slot must stay blank (consecutive sampled frames × the drive mode's own cadence) before it counts — the page's own approved entrance fade duration, so a sample landing mid-fade isn't a defect. Forced to `0` for `--interaction load` (no session to fade across). |
+| `--arrival-window-ms MS` | `300` | (fix round 3) How long a slot must stay blank (consecutive sampled frames × the drive mode's own cadence) before it counts — strictly past the fling session's own 250ms sampling cadence (`FLING_SAMPLE_EVERY_MS`), so a single sample can never cross it alone; past the page's own approved ~250ms entrance fade either way. Forced to `0` for `--interaction load` (no session to fade across). |
 | `--min-visible-area 0-1` | `0.15` | Share of an element's own natural (unclipped) area that must be on screen before its paint state is judged at all — below this AND above 0 AND the element is in MOTION since the previous frame (fix round 3), it's a trivial edge sliver, exempted; a static tile (at rest, on load) at the same small share is judged normally, and exactly `0` visible area (fully clipped/hidden) is never exempted either way. |
 | `--help`, `-h` | — | Print usage and exit `0`. Recognised anywhere in argv, including as the URL slot — never navigated to as a URL (fix round 2). |
 

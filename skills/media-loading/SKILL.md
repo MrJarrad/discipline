@@ -121,7 +121,7 @@ judgment only while it's actually IN MOTION (moved since the previous frame)
 judged like any other slot (never a slot that's fully clipped/hidden either
 way — that stays a hard defect). And a blank slot only counts once it's
 stayed that way past the page's own entrance-fade duration (`--arrival-
-window-ms`, default 250ms) — never on the single sampled frame that lands
+window-ms`, default 300ms — strictly past the fling session's own 250ms cadence, so one sample can never cross it alone) — never on the single sampled frame that lands
 mid-fade. It prints two numbers:
 
 - **paint** — a visible, non-trivial-sliver (or in-motion-sliver) slot whose

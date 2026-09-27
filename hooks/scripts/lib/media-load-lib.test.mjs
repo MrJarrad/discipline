@@ -24,6 +24,7 @@ import {
   mediaIdentity,
   classifyEmptyAcrossFrames,
   totalEmptyMediaAcrossFrames,
+  DEFAULT_ARRIVAL_WINDOW_MS,
   median,
   groupRectsIntoColumns,
   columnInternalGaps,
@@ -379,6 +380,24 @@ test("a slot blank across enough consecutive frames to cross the arrival window 
 test("arrivalWindowMs: 0 (load's own mode) counts a blank slot on its very first frame, unchanged from before this round", () => {
   const blank = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
   assert.equal(totalEmptyMediaAcrossFrames([[blank]], VIEWPORT, [WHITE], { arrivalWindowMs: 0, frameIntervalMs: 50 }), 1);
+});
+
+// Regression: a live proof run against this fix's own first cut found
+// DEFAULT_ARRIVAL_WINDOW_MS (250) EQUAL to the fling session's own sampling
+// cadence (`FLING_SAMPLE_EVERY_MS`, also 250, in media-load-probe.mjs) — so
+// `blankMs (0 + 250) >= arrivalWindowMs (250)` was already true on a slot's
+// FIRST sampled blank frame, flagging it immediately and defeating the whole
+// debounce (paint read as high as 185 on the real holding page, almost all
+// of it mid-fade tiles). The default must survive one full fling-cadence
+// sample without tripping, and only trip once a second one lands.
+test("the DEFAULT arrival window is strictly past one fling-session sampling interval (250ms) — a single blank sample at that cadence never trips it alone", () => {
+  const FLING_SAMPLE_EVERY_MS = 250; // media-load-probe.mjs's own constant — not imported (no cross-file dependency in a pure-lib test), just its value
+  const blank = { id: "a", rect: onscreen(), clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE) };
+  const oneSample = totalEmptyMediaAcrossFrames([[blank]], VIEWPORT, [WHITE], { frameIntervalMs: FLING_SAMPLE_EVERY_MS });
+  const twoSamples = totalEmptyMediaAcrossFrames([[blank], [blank]], VIEWPORT, [WHITE], { frameIntervalMs: FLING_SAMPLE_EVERY_MS });
+  assert.equal(oneSample, 0, "one 250ms blank sample must never trip the default window alone");
+  assert.ok(twoSamples > 0, "two consecutive 250ms blank samples (500ms) must trip it");
+  assert.ok(DEFAULT_ARRIVAL_WINDOW_MS > FLING_SAMPLE_EVERY_MS, "the default window must be strictly greater than the fling cadence it's measured against");
 });
 
 test("a slot that leaves the DOM (windowed-mount removal) and reappears blank later restarts the arrival window — no stale streak carried over", () => {
