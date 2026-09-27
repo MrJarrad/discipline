@@ -21,7 +21,7 @@ site-nav.tsx line 12."* File paths, diffs, and command output stay out of his re
 the vault already carry: names of actual things — layers, components, classes, tokens,
 files — used identically by everyone, never synonyms or coined labels. Gloss a needed
 system term in plain words in the same sentence, on first use: *"the binding chain — each
-size derived from the one above it."* Our own coinages count as jargon: hybrid, measure-half, sentinel.
+size derived from the one above it."* Our own coinages count as jargon: hybrid, measure-half, sentinel. A look/behaviour discussion opens with **"what we already have"** — the matching token/component/prop (`vocabulary-index.mjs query <term>`) before anything new; a screenshot's names come from the live page, not pixels.
 
 **Explain the mechanism, not just the result** — *"it was reading the old token file, so
 the size never changed"* beats *"fixed."*
