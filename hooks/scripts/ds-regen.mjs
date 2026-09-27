@@ -31,19 +31,24 @@
    Usage:
      node ds-regen.mjs --export <zip|dir> --repo <DS path> [--dry-run]
        [--vocab-out <json path>] [--vocab-portfolio <product repo path>]
+       [--no-vocab-index]
    Exit 0 vendored/regenerated/PR'd (or a clean --dry-run print) · 1 any
    step failed, or the export is not newer than latest, naming which.
 
    VOCABULARY-INDEX HOOK POINT (vocabulary lock, 2026-09-27, item 1 — "the
-   index regenerates mechanically ... whenever the DS changes"): when
-   `--vocab-out` is given, a successful regen rebuilds `vocabulary-index.mjs`
-   from the just-regenerated worktree (tokens, components, motion props, the
+   index regenerates mechanically ... whenever the DS changes"): DEFAULT ON.
+   A successful regen rebuilds `vocabulary-index.mjs` from the
+   just-regenerated worktree (tokens, components, motion props, the
    Figma<->code check against the export just vendored) and writes it to
-   that path. Best-effort — a failure here is logged and never fails the DS
-   regen itself; the index is a convenience read, not a release gate. */
+   `--vocab-out`, or `defaultVocabIndexPath()` (this script's own directory,
+   `vocabulary-index.json`) when `--vocab-out` is omitted. `--no-vocab-index`
+   turns the step off entirely. Best-effort either way — a failure here is
+   logged and never fails the DS regen itself; the index is a convenience
+   read, not a release gate. */
 import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot, ownerRepoFromOrigin } from "./repo-layout.mjs";
 import { buildIndex } from "./vocabulary-index.mjs";
 
@@ -56,21 +61,32 @@ export function parseArgs(argv) {
     else if (a === "--repo") out.repo = argv[++i];
     else if (a === "--vocab-out") out.vocabOut = argv[++i];
     else if (a === "--vocab-portfolio") out.vocabPortfolio = argv[++i];
+    else if (a === "--no-vocab-index") out.vocabIndexDisabled = true;
   }
   if (out.export) out.export = resolve(out.export);
   if (out.repo) out.repo = normalizeRepoRoot(out.repo);
   return out;
 }
 
+/* Default vocabulary-index.json location when `--vocab-out` isn't given —
+   next to this script, so `vocabulary-index.mjs query <term> --index
+   <this path>` (the reply-rule/define-terms lookup) always has something
+   fresh to read without the caller wiring a path through. */
+export function defaultVocabIndexPath() {
+  return join(dirname(fileURLToPath(import.meta.url)), "vocabulary-index.json");
+}
+
 /* Best-effort vocabulary-index rebuild — see "VOCABULARY-INDEX HOOK POINT"
-   above. Never throws; logs and returns on any failure so a broken index
-   build can't fail an otherwise-good DS regen. */
+   above. DEFAULT ON: runs unless `--no-vocab-index` was passed. Never
+   throws; logs and returns on any failure so a broken index build can't
+   fail an otherwise-good DS regen. */
 export function runVocabIndexStep(worktreePath, args) {
-  if (!args.vocabOut) return;
+  if (args.vocabIndexDisabled) return;
+  const outPath = args.vocabOut || defaultVocabIndexPath();
   try {
     const index = buildIndex({ dsRoot: worktreePath, portfolioRoot: args.vocabPortfolio });
-    writeFileSync(args.vocabOut, JSON.stringify(index, null, 2));
-    console.log(`vocabulary-index: wrote ${args.vocabOut} — ${JSON.stringify(index.counts)}`);
+    writeFileSync(outPath, JSON.stringify(index, null, 2));
+    console.log(`vocabulary-index: wrote ${outPath} — ${JSON.stringify(index.counts)}`);
   } catch (err) {
     console.error(`ds-regen: vocabulary-index rebuild failed (non-fatal) — ${err.message}`);
   }
@@ -220,7 +236,7 @@ function vendorExport(exportPath, worktreePath, dryRun) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.export || !args.repo) {
-    console.error("Usage: node ds-regen.mjs --export <zip|dir> --repo <DS path> [--dry-run] [--vocab-out <path>] [--vocab-portfolio <path>]");
+    console.error("Usage: node ds-regen.mjs --export <zip|dir> --repo <DS path> [--dry-run] [--vocab-out <path>] [--vocab-portfolio <path>] [--no-vocab-index]");
     process.exit(1);
   }
 
@@ -241,7 +257,7 @@ function main() {
     console.log(`  would vendor ${args.export} -> ${join(worktreePath, "design", "handoff", versionDir)}`);
     console.log(`  repoint ${join(worktreePath, "design", "handoff", "latest")} -> ${versionDir}`);
     for (const s of steps) console.log(`  would run: ${s} (cwd=${worktreePath})`);
-    if (args.vocabOut) console.log(`  would rebuild vocabulary-index -> ${args.vocabOut}`);
+    if (!args.vocabIndexDisabled) console.log(`  would rebuild vocabulary-index -> ${args.vocabOut || defaultVocabIndexPath()}`);
     console.log(`  would commit "design: regen tokens (${versionDir})", push ${branch}, open PR, remove the worktree`);
     process.exit(0);
   }

@@ -344,29 +344,47 @@ export function buildIndex({ dsRoot, portfolioRoot, motionLawPath, handoffDir, g
 }
 
 /* Case-insensitive substring match across every row kind. Returns one flat
-   list, each row tagged with its `kind` and the field that matched. */
+   list, each row tagged with its `kind` and the field that matched.
+
+   Matches on TWO axes: the row's own fields (name/value/prop/etc, as
+   before), AND the row's category — its `kind` label ("token",
+   "component", "prop", "motion-prop") or its `source` file path. A
+   category term alone — "motion", "token", "component" — has no reason to
+   appear in any individual row's name/value, so a fields-only match missed
+   it entirely (round 2 review red: `query motion` returned zero
+   motion-prop rows, only components whose name happened to contain
+   "motion"). "motion" is a substring of the "motion-prop" kind label, so
+   it now returns every motion-prop row; "token"/"component"/"prop" return
+   their whole category the same way. */
 export function queryIndex(index, term) {
   const needle = term.toLowerCase();
   const hits = [];
+  const categoryOrSource = (kind, source) => kind.toLowerCase().includes(needle) || String(source || "").toLowerCase().includes(needle);
+
   for (const t of index.tokens || []) {
-    if (t.name.toLowerCase().includes(needle) || String(t.value).toLowerCase().includes(needle)) {
+    if (t.name.toLowerCase().includes(needle) || String(t.value).toLowerCase().includes(needle) || categoryOrSource("token", t.source)) {
       hits.push({ kind: "token", ...t });
     }
   }
   for (const c of index.components || []) {
-    if (c.name.toLowerCase().includes(needle)) hits.push({ kind: "component", ...c });
+    if (c.name.toLowerCase().includes(needle) || categoryOrSource("component", c.source)) hits.push({ kind: "component", ...c });
   }
   for (const p of index.props || []) {
     if (
       p.component.toLowerCase().includes(needle) ||
       p.prop.toLowerCase().includes(needle) ||
-      p.values.some((v) => String(v).toLowerCase().includes(needle))
+      p.values.some((v) => String(v).toLowerCase().includes(needle)) ||
+      categoryOrSource("prop", p.source)
     ) {
       hits.push({ kind: "prop", ...p });
     }
   }
   for (const mp of index.motionProps || []) {
-    if (mp.prop.toLowerCase().includes(needle) || mp.values.some((v) => String(v).toLowerCase().includes(needle))) {
+    if (
+      mp.prop.toLowerCase().includes(needle) ||
+      mp.values.some((v) => String(v).toLowerCase().includes(needle)) ||
+      categoryOrSource("motion-prop", mp.source)
+    ) {
       hits.push({ kind: "motion-prop", ...mp });
     }
   }

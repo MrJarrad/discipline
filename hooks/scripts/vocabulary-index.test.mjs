@@ -293,6 +293,27 @@ test("queryIndex matches tokens, components, props, and motion props by substrin
   assert.equal(queryIndex(index, "nonexistent-term").length, 0);
 });
 
+test("queryIndex matches on CATEGORY, not just row fields — a category term with no field hit still returns that category's rows", () => {
+  const index = {
+    tokens: [{ name: "--duration-500", value: "500ms", source: "tokens.generated.css" }],
+    components: [{ name: "Footer", source: "footer.tsx", repo: "portfolio" }],
+    props: [{ component: "Action", prop: "layout", typeName: "ActionLayout", values: ["primary"], source: "action.tsx" }],
+    motionProps: [
+      { prop: "entry", values: ["stagger", "together"], default: "together", source: "motion-law.md" },
+      { prop: "trigger", values: ["load", "navigate"], default: "load", source: "motion-law.md" },
+    ],
+  };
+  // "motion" appears in none of the motionProps rows' own prop/value fields,
+  // only in the "motion-prop" kind label and the motion-law.md source —
+  // round 2 review red: this returned 0 before the category/source match.
+  const motionHits = queryIndex(index, "motion");
+  assert.equal(motionHits.length, 2);
+  assert.ok(motionHits.every((h) => h.kind === "motion-prop"));
+
+  assert.equal(queryIndex(index, "token").length, 1);
+  assert.equal(queryIndex(index, "component").length, 1);
+});
+
 // --- CLI smoke test --------------------------------------------------
 
 test("CLI build writes an index file and query finds a row in it", () => {

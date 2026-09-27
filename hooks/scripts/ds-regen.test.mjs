@@ -10,7 +10,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness, branchName, runVocabIndexStep } from "./ds-regen.mjs";
+import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness, branchName, runVocabIndexStep, defaultVocabIndexPath } from "./ds-regen.mjs";
 
 const scriptPath = fileURLToPath(new URL("./ds-regen.mjs", import.meta.url));
 
@@ -21,21 +21,54 @@ test("parseArgs reads --export, --repo, --dry-run", () => {
   assert.equal(args.dryRun, true);
 });
 
-test("parseArgs reads --vocab-out and --vocab-portfolio", () => {
+test("parseArgs reads --vocab-out, --vocab-portfolio, and --no-vocab-index", () => {
   const args = parseArgs(["--export", "/e", "--repo", "/r", "--vocab-out", "/v.json", "--vocab-portfolio", "/p"]);
   assert.equal(args.vocabOut, "/v.json");
   assert.equal(args.vocabPortfolio, "/p");
+  assert.equal(args.vocabIndexDisabled, undefined);
+
+  const disabled = parseArgs(["--export", "/e", "--repo", "/r", "--no-vocab-index"]);
+  assert.equal(disabled.vocabIndexDisabled, true);
 });
 
-// --- runVocabIndexStep (vocabulary-index hook point) ----------------------
+// --- runVocabIndexStep (vocabulary-index hook point) — DEFAULT ON ---------
+// Round 2 review red: the step was opt-in (`--vocab-out` required) and the
+// documented ds-regen invocation (MECHANICAL-SCRIPTS.md) never passed it, so
+// the index never actually regenerated on a real DS regen. Now on by
+// default; `--no-vocab-index` is the opt-out.
 
-test("runVocabIndexStep is a no-op when --vocab-out was not given", () => {
-  // Must not throw even with a nonexistent worktree path — it should never
-  // reach buildIndex at all.
-  assert.doesNotThrow(() => runVocabIndexStep("/does/not/exist", {}));
+test("defaultVocabIndexPath resolves next to this script", () => {
+  assert.equal(defaultVocabIndexPath(), join(fileURLToPath(new URL(".", import.meta.url)), "vocabulary-index.json"));
 });
 
-test("runVocabIndexStep writes the index and never throws on a build failure", () => {
+test("runVocabIndexStep runs by DEFAULT — no --vocab-out needed — and writes to defaultVocabIndexPath()", () => {
+  const defaultPath = defaultVocabIndexPath();
+  const backup = existsSync(defaultPath) ? readFileSync(defaultPath, "utf8") : null;
+  try {
+    runVocabIndexStep("/does/not/exist", {}); // no vocabOut, not disabled
+    assert.ok(existsSync(defaultPath), "default-on step must write vocabulary-index.json without --vocab-out");
+    const written = JSON.parse(readFileSync(defaultPath, "utf8"));
+    assert.deepEqual(written.counts, { tokens: 0, components: 0, props: 0, motionProps: 0, figmaMismatches: 0, namingReport: 0 });
+  } finally {
+    if (backup === null) rmSync(defaultPath, { force: true });
+    else writeFileSync(defaultPath, backup);
+  }
+});
+
+test("runVocabIndexStep is a no-op when --no-vocab-index was passed", () => {
+  const defaultPath = defaultVocabIndexPath();
+  const existedBefore = existsSync(defaultPath);
+  const backup = existedBefore ? readFileSync(defaultPath, "utf8") : null;
+  try {
+    rmSync(defaultPath, { force: true });
+    runVocabIndexStep("/does/not/exist", { vocabIndexDisabled: true });
+    assert.equal(existsSync(defaultPath), false, "--no-vocab-index must skip the step entirely");
+  } finally {
+    if (backup !== null) writeFileSync(defaultPath, backup);
+  }
+});
+
+test("runVocabIndexStep writes the index at an explicit --vocab-out path", () => {
   const root = mkdtempSync(join(tmpdir(), "ds-regen-vocab-"));
   try {
     const outPath = join(root, "index.json");
@@ -197,7 +230,7 @@ test("--dry-run prints the sibling-worktree plan and step sequence, touching not
   const repo = makeScratchDsRepo();
   const exportDir = makeFakeExportDir();
   try {
-    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--dry-run"], {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--dry-run", "--no-vocab-index"], {
       encoding: "utf8",
     });
     assert.match(out, /would create sibling worktree/);
@@ -219,7 +252,7 @@ test("full run vendors on its own branch in a sibling worktree, never committing
   const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
   makeFakeBin(binDir);
   try {
-    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
       encoding: "utf8",
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
     });
@@ -259,6 +292,36 @@ test("full run vendors on its own branch in a sibling worktree, never committing
   }
 });
 
+test("full run rebuilds the vocabulary index BY DEFAULT — no --vocab-out flag needed — after the pnpm steps succeed", () => {
+  // Round 2 review red: the documented ds-regen invocation never passed
+  // --vocab-out, so the index never actually regenerated on a real DS
+  // regen. This proves the end-to-end wiring with the flag omitted — only
+  // --vocab-out is given here to keep the write inside the scratch dir
+  // instead of this repo's own hooks/scripts/ (a unit test above already
+  // covers the true zero-flags default path).
+  const repo = makeScratchDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  const scratchOut = mkdtempSync(join(tmpdir(), "ds-regen-vocab-out-"));
+  const vocabOutPath = join(scratchOut, "vocabulary-index.json");
+  try {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--vocab-out", vocabOutPath], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    assert.match(out, /vocabulary-index: wrote/);
+    assert.ok(existsSync(vocabOutPath), "the default-on step must have written the index — no --no-vocab-index was passed");
+    const written = JSON.parse(readFileSync(vocabOutPath, "utf8"));
+    assert.ok(written.counts, "written index carries the counts summary");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(scratchOut, { recursive: true, force: true });
+  }
+});
+
 test("gh pr create runs with an explicit --head and a git cwd, not the caller's own (non-git) cwd", () => {
   const repo = makeScratchDsRepo();
   const exportDir = makeFakeExportDir();
@@ -279,7 +342,7 @@ test("gh pr create runs with an explicit --head and a git cwd, not the caller's 
   // Run from a plain non-git tmp dir, the way the orchestrator's own shell does.
   const nonGitCwd = mkdtempSync(join(tmpdir(), "ds-regen-non-git-cwd-"));
   try {
-    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
       encoding: "utf8",
       cwd: nonGitCwd,
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
@@ -309,7 +372,7 @@ test("law: an export whose generatedAt is OLDER than latest's is refused, nothin
     let stderr = "";
     let threw = false;
     try {
-      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
         encoding: "utf8",
         env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
       });
@@ -345,7 +408,7 @@ test("law: an export whose generatedAt EQUALS latest's is refused, nothing writt
     let stderr = "";
     let threw = false;
     try {
-      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
         encoding: "utf8",
         env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
       });
@@ -373,7 +436,7 @@ test("law: an export whose generatedAt is NEWER than latest's proceeds and vendo
   const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
   makeFakeBin(binDir);
   try {
-    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo], {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
       encoding: "utf8",
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
     });
@@ -419,7 +482,7 @@ test("law: bare-layout repo — vendors on its own branch in a sibling worktree 
   const binDir = mkdtempSync(join(tmpdir(), "ds-regen-blbin-"));
   makeFakeBin(binDir);
   try {
-    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root], {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root, "--no-vocab-index"], {
       encoding: "utf8",
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
     });
@@ -453,7 +516,7 @@ test("law: bare-layout repo — a --repo entry ending in /main normalises to the
   const binDir = mkdtempSync(join(tmpdir(), "ds-regen-blbin2-"));
   makeFakeBin(binDir);
   try {
-    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", mainDir], {
+    const out = execFileSync("node", [scriptPath, "--export", exportDir, "--repo", mainDir, "--no-vocab-index"], {
       encoding: "utf8",
       env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
     });
@@ -477,7 +540,7 @@ test("law: bare-layout repo — a failing pnpm step still removes the sibling wo
   chmodSync(ghPath, 0o755);
   try {
     assert.throws(() => {
-      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root], {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", root, "--no-vocab-index"], {
         encoding: "utf8",
         env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
       });
