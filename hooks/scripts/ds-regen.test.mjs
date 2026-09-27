@@ -10,7 +10,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync,
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness, branchName } from "./ds-regen.mjs";
+import { parseArgs, nextVersionDir, parseChangesBlock, readGeneratedAt, readGeneratedAtFromExport, checkFreshness, branchName, runVocabIndexStep } from "./ds-regen.mjs";
 
 const scriptPath = fileURLToPath(new URL("./ds-regen.mjs", import.meta.url));
 
@@ -19,6 +19,38 @@ test("parseArgs reads --export, --repo, --dry-run", () => {
   assert.equal(args.export, "/e");
   assert.equal(args.repo, "/r");
   assert.equal(args.dryRun, true);
+});
+
+test("parseArgs reads --vocab-out and --vocab-portfolio", () => {
+  const args = parseArgs(["--export", "/e", "--repo", "/r", "--vocab-out", "/v.json", "--vocab-portfolio", "/p"]);
+  assert.equal(args.vocabOut, "/v.json");
+  assert.equal(args.vocabPortfolio, "/p");
+});
+
+// --- runVocabIndexStep (vocabulary-index hook point) ----------------------
+
+test("runVocabIndexStep is a no-op when --vocab-out was not given", () => {
+  // Must not throw even with a nonexistent worktree path — it should never
+  // reach buildIndex at all.
+  assert.doesNotThrow(() => runVocabIndexStep("/does/not/exist", {}));
+});
+
+test("runVocabIndexStep writes the index and never throws on a build failure", () => {
+  const root = mkdtempSync(join(tmpdir(), "ds-regen-vocab-"));
+  try {
+    const outPath = join(root, "index.json");
+    // worktreePath has none of the DS-shaped files — buildIndex tolerates
+    // that (empty rows), so this still writes a valid, empty-counts index.
+    runVocabIndexStep(root, { vocabOut: outPath });
+    const written = JSON.parse(readFileSync(outPath, "utf8"));
+    assert.deepEqual(written.counts, { tokens: 0, components: 0, props: 0, motionProps: 0, figmaMismatches: 0, namingReport: 0 });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("runVocabIndexStep logs and does not throw when --vocab-out points at an unwritable path", () => {
+  assert.doesNotThrow(() => runVocabIndexStep("/does/not/exist", { vocabOut: "/no/such/dir/index.json" }));
 });
 
 test("nextVersionDir starts at v1 when the handoff dir is empty", () => {

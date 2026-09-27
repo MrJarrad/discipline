@@ -99,6 +99,16 @@ a guess from a screenshot or resolution to the nearest-sounding existing term. R
 lip, and edge can each be distinct named things; picking the wrong one wastes a lane and a
 review (hoverboard 2026-09-08).
 
+### New-word flag, sourced from the vocabulary index
+
+Before a "which one?" question or a fresh glossary entry, check the operator's word
+against the standing vocabulary index (`hooks/scripts/vocabulary-index.mjs query
+<term>` — tokens, components, props, motion props, one row per source file). A hit maps
+the word straight to that name; a miss is flagged as new, in one line — *"'thruster
+edge' isn't in the index; closest is `disc` (action.tsx) — same thing, or new?"* — never
+silently coined into CONTEXT.md as if it already existed (vocabulary lock, 2026-09-27,
+item 5).
+
 - **DO:** "Row 4: `disc` edge (operator: 'the part that peeks out of the thruster')"
 - **DON'T:** "Row 4: ring rim smoothing"
 
