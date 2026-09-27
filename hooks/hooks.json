@@ -38,6 +38,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/journal-append.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-floor.mjs\""
+          }
+        ]
       }
     ],
     "SessionStart": [

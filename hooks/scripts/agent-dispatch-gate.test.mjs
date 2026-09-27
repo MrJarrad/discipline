@@ -430,6 +430,23 @@ test("prose still refused — a Progress section naming no path at all", () => {
   assert.match(verdict.reason, /progress-path:/);
 });
 
+// A red finding: the gate refused a brief whose Context bullet quoted the
+// progress heading in backticks before the real heading — `.search()` with
+// no line anchor matched the first mention of "## Progress" anywhere in the
+// prompt, backticked or not, so the quoted mention (with no path after it)
+// was taken for the section and the real heading below it, path and all,
+// was never read. Only a heading at the true start of a line counts.
+test("a Context bullet quoting `## Progress` in backticks before the real heading still passes", () => {
+  const prompt = WELL_FORMED.prompt.replace(
+    "**Done-when.**",
+    "Size: component.\n\n" +
+      "**Context.** Write to `## Progress` every 10 minutes per doer-rules.md.\n\n" +
+      "## Progress\n`/Users/x/vault/main/projects/p/evidence/progress.md`\n\n**Done-when.**",
+  );
+  assert.equal(checkComponentSystemProgress(prompt), null);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
 // --- Wiring ---------------------------------------------------------------
 
 test("hooks.json fires the gate on Agent dispatches", () => {

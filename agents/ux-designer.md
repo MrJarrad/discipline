@@ -42,8 +42,10 @@ Use chrome-devtools / browser tools for live viewport evidence.
   will build (enumerated), the assumptions you would otherwise make, and your questions —
   then stop with `next: parent (go?)` before any edit. Continue in the same context once
   the parent answers or says go (`doer-rules.md` § You are the doer).
-- **Then keep the progress file** at the brief's `## Progress` path — one timestamped line
-  per fixed milestone as you reach it (`doer-rules.md` § You are the doer).
+- **Then keep the progress file** at the brief's `## Progress` path — the read-back numbered
+  the steps; every line reads `step N of M — <name> — done` or `— in progress: <what>`. A
+  hook nudges past 10 minutes of silence; the line is still yours to write (`doer-rules.md`
+  § You are the doer).
 - **No polling loops or detached shells** — wait with a foreground command and a timeout
   (`doer-rules.md` § You are the doer).
 - Tasks referencing Figma or a live reference start with capture/audit, never screenshots alone.

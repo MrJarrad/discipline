@@ -216,7 +216,13 @@ export function checkLineNoReadBack(prompt) {
 
 // `Size: component` / `Size: system` briefs — `line` is exempt.
 const ABOVE_LINE_SIZE = /Size:\s*(component|system)\b/i;
-const PROGRESS_HEADING = /##\s*Progress\b/i;
+// Anchored to the true start of a line (the `m` flag makes `^` match after
+// every `\n`, not just the string start) — a brief that quotes the heading
+// in backticks mid-sentence (e.g. a Context bullet reading "write to
+// `## Progress` every 10 min") never starts a line with `##`, so it is never
+// mistaken for the real heading. `.search()` with no anchor found whichever
+// mention came first in the prompt, real or quoted.
+const PROGRESS_HEADING = /^##\s*Progress\b/im;
 
 /* A real path, not prose that happens to mention a filename: either
    backticked (any leading `~/` or `/`, ending in a `.ext`), or a bare
@@ -230,25 +236,32 @@ const PROGRESS_HEADING = /##\s*Progress\b/i;
 const PROGRESS_PATH =
   /`((?:~\/|\/)[^\s`]*\.[A-Za-z0-9]+)`|(?:^|\s)((?:~\/|\/)\S*\.[A-Za-z0-9]+)/g;
 
-/* True when `section` contains a path (per PROGRESS_PATH) whose own file
-   name contains "progress" (case-insensitive) — `progress.md`,
-   `agent-progress.md`, etc. A path to any other file, however real the path
-   is, does not count. */
-function hasProgressPath(section) {
+/* The first path in `section` (per PROGRESS_PATH) whose own file name
+   contains "progress" (case-insensitive) — `progress.md`, `agent-progress.md`,
+   etc. — or null. A path to any other file, however real the path is, does
+   not count. Exported so a doer-side hook can resolve the same lane's
+   progress-file path from its own brief, rather than re-deriving the rule. */
+export function findProgressPath(section) {
+  if (!section) return null;
   const re = new RegExp(PROGRESS_PATH.source, "g");
   let match;
   while ((match = re.exec(section))) {
     const path = match[1] || match[2];
     const fileName = path.split("/").pop();
-    if (/progress/i.test(fileName)) return true;
+    if (/progress/i.test(fileName)) return path;
   }
-  return false;
+  return null;
+}
+
+function hasProgressPath(section) {
+  return findProgressPath(section) !== null;
 }
 
 // Slice from the `## Progress` heading up to (not including) the next `## `
 // heading, or to the end of the prompt — the same walk `lockedDecisionsLines`
 // uses for `## Locked decisions`. null when there is no `## Progress` heading.
-function progressSectionText(prompt) {
+// Exported for the same reuse reason as findProgressPath above.
+export function progressSectionText(prompt) {
   const idx = prompt.search(PROGRESS_HEADING);
   if (idx === -1) return null;
   const rest = prompt.slice(idx);

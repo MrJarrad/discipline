@@ -19,8 +19,8 @@ Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `m
 findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red finding open**
 — the parent decides. You never patch code, merge, or relay self-report.
 
-- **First step: keep the progress file** at `## Progress` — one line per milestone reached
-  (`doer-rules.md` § You are the doer).
+- **First step: keep the progress file** at `## Progress` — each line reads `step N of M —
+  <name> — done` or `— in progress: <what>` (`doer-rules.md` § You are the doer).
 - **No polling loops or detached shells** — wait with a foreground command and a timeout
   (`doer-rules.md` § You are the doer).
 
