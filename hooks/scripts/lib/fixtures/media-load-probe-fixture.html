@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!--
+  media-load-probe fixture — 1.96.0 fix round 2. A live, static page proving
+  the probe both stays quiet on normal layout rhythm AND still catches every
+  round-1/round-17 false-pass shape. Served by serve-fixture.mjs on a
+  3240+ port (never opened as a file:// URL — the probe drives a real URL).
+
+  THREE NORMAL COLUMNS (x: 0-100, 150-250, 300-400), each a vertical stack of
+  real, distinctly-coloured tiles with a consistent 20px gap between
+  adjacent tiles — the "healthy rhythm" the gap scan's own median must
+  settle on. Column 2 is MISSING its third tile (case 1: "a missing tile in
+  a column") — a genuine ~150px hole, comfortably past 2x the 20px rhythm.
+
+  EIGHT ISOLATED SLOTS (x: 500+, each its own non-overlapping column with
+  exactly one tile — no internal gaps, so they never touch the gap-scan's
+  rhythm calculation) cover every paint-classification case: opacity-0,
+  covered, clipped, visibility:hidden, a uniform-colour placeholder (equal
+  to the page's own background — the real-world "broken img shows page bg
+  through" shape), a legitimately white-heavy image that must still read
+  painted, and (1.96.0 fix round 3) a smooth gradient loading skeleton and a
+  shimmer sweep — both real spread (crossing the stddev floor) but no real
+  edge, so both must still read EMPTY, never rescued as painted. Run this
+  fixture with a generous `--color-tolerance` (see PROBE.md) so the fraction
+  path alone already reads these two as empty, isolating exactly what the
+  structure-edge bound is for.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>media-load-probe fixture</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+  .stage { position: relative; width: 1250px; height: 750px; }
+  .tile { position: absolute; width: 100px; height: 100px; }
+  .label { position: absolute; font: 10px monospace; color: #999; }
+
+  /* Case: covered tile — an opaque sibling paints its own KNOWN placeholder
+     swatch colour over the real image (run the probe against this fixture
+     with `--placeholder-colors "#eeeeee"` — the recognisable, registered
+     "not-yet-painted" swatch this case is about; an UNregistered covering
+     colour would itself just read as real content, per round-1's own
+     definition of "empty": the page background or a NAMED placeholder). */
+  .cover-sibling {
+    position: absolute; left: 500px; top: 150px; width: 100px; height: 100px;
+    background: #eeeeee; z-index: 2;
+  }
+
+  /* Case: clipped tile — a zero-size overflow:hidden ancestor removes the
+     WHOLE element regardless of the element's own (larger) natural rect. */
+  .clip-ancestor {
+    position: absolute; left: 500px; top: 300px; width: 0; height: 0;
+    overflow: hidden;
+  }
+  .clip-ancestor img { position: absolute; left: 0; top: 0; width: 100px; height: 100px; }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- Column 1 — full rhythm, 5 tiles, 20px gaps (0,120,240,360,480). -->
+  <img class="tile" style="left:0px;   top:0px;"   src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+  <img class="tile" style="left:0px;   top:120px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+  <img class="tile" style="left:0px;   top:240px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+  <img class="tile" style="left:0px;   top:360px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+  <img class="tile" style="left:0px;   top:480px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+
+  <!-- Column 2 — CASE 1: a missing tile. Tiles at 0,120,360,480 — no tile
+       at 240 — leaves a ~150px hole (120+100=220 to 360) where the healthy
+       rhythm elsewhere on the page is 20px. -->
+  <img class="tile" style="left:150px; top:0px;"   src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+  <img class="tile" style="left:150px; top:120px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+  <img class="tile" style="left:150px; top:360px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+  <img class="tile" style="left:150px; top:480px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+
+  <!-- Column 3 — full rhythm, 5 tiles, 20px gaps, same shape as column 1. -->
+  <img class="tile" style="left:300px; top:0px;"   src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+  <img class="tile" style="left:300px; top:120px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+  <img class="tile" style="left:300px; top:240px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+  <img class="tile" style="left:300px; top:360px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+  <img class="tile" style="left:300px; top:480px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+
+  <!-- CASE 2: opacity-0 tile — real content, composited as nothing. -->
+  <div class="label" style="left:500px; top:-12px;">opacity-0</div>
+  <img class="tile" style="left:500px; top:0px; opacity:0;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+
+  <!-- CASE 3: covered tile — a real image, painted over by an opaque sibling. -->
+  <div class="label" style="left:500px; top:138px;">covered</div>
+  <img class="tile" style="left:500px; top:150px; z-index:1;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%232266cc'/%3E%3C/svg%3E">
+  <div class="cover-sibling"></div>
+
+  <!-- CASE 4: clipped tile — an overflow:hidden, zero-size ancestor leaves
+       no visible area, regardless of the img's own (larger) natural rect. -->
+  <div class="label" style="left:500px; top:288px;">clipped</div>
+  <div class="clip-ancestor">
+    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%2333aa55'/%3E%3C/svg%3E">
+  </div>
+
+  <!-- CASE 5: visibility:hidden tile — real painted-looking pixels, still empty. -->
+  <div class="label" style="left:500px; top:438px;">visibility:hidden</div>
+  <img class="tile" style="left:500px; top:450px; visibility:hidden;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cc3366'/%3E%3C/svg%3E">
+
+  <!-- CASE 6: uniform-colour placeholder — a broken/blank slot showing the
+       page's own white background through (the real-world "never a
+       placeholder swatch visible" shape), not a real photo. -->
+  <div class="label" style="left:500px; top:588px;">uniform placeholder</div>
+  <img class="tile" style="left:500px; top:600px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3C/svg%3E">
+
+  <!-- CASE 7 (true negative): a legitimately white-heavy real image — a
+       98%+ white canvas with a SMALL dark object (a "product shot on a
+       white page" shape, area under the 5% fraction floor on purpose — this
+       exercises the STRUCTURE/variance rescue specifically, not the
+       pre-existing background-match-fraction rule alone) — must still read
+       PAINTED. -->
+  <div class="label" style="left:650px; top:-12px;">white-heavy (must paint)</div>
+  <img class="tile" style="left:650px; top:0px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='60' r='8' fill='%23222222'/%3E%3C/svg%3E">
+
+  <!-- CASE 8 (1.96.0 fix round 3, must stay EMPTY): a smooth gradient
+       loading skeleton — real overall spread (#d0d0d0 to #ffffff, crossing
+       the stddev floor) but no single sharp jump between adjacent pixels —
+       the exact shape that fooled the stddev-only rescue. VERTICAL (top to
+       bottom): `cropRegionPixels` flattens the crop row-major, so a
+       one-way HORIZONTAL ramp wraps from its bright right edge to its dark
+       left edge every row — a real seam artefact, not the gradient's own
+       shape. Vertical keeps every row uniform, so the row-wrap never
+       introduces a jump the gradient itself doesn't have. -->
+  <div class="label" style="left:650px; top:138px;">gradient skeleton (must stay empty)</div>
+  <img class="tile" style="left:650px; top:150px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='0' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%23d0d0d0'/%3E%3Cstop offset='1' stop-color='%23ffffff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)'/%3E%3C/svg%3E">
+
+  <!-- CASE 9 (1.96.0 fix round 3, must stay EMPTY): a shimmer sweep — the
+       same real-spread-no-real-edge shape as case 8, but a symmetric
+       highlight band (dark-light-dark) rather than a one-way ramp, the
+       shape an animated shimmer keyframe actually freezes into. -->
+  <div class="label" style="left:650px; top:288px;">shimmer sweep (must stay empty)</div>
+  <img class="tile" style="left:650px; top:300px;" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cdefs%3E%3ClinearGradient id='s' x1='0' x2='1' y1='0' y2='0'%3E%3Cstop offset='0' stop-color='%23d0d0d0'/%3E%3Cstop offset='0.5' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%23d0d0d0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23s)'/%3E%3C/svg%3E">
+
+</div>
+</body>
+</html>

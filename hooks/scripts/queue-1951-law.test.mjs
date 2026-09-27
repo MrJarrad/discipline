@@ -68,9 +68,19 @@ test("the 1.95.1 CHANGED entry names the ruling and the Problem/Solution rule", 
   assert.match(entry, /fix-asks-problem-solution|Problem\/Solution|Problem:.*Solution:/);
 });
 
-test("plugin.json and marketplace.json agree at 1.95.1", () => {
+// Fixed 1.96.0 (surfaced by that release's own version bump): this test
+// originally pinned the exact string "1.95.1" — the pinning-gate shape every
+// other queue law test avoids via "at or past" (named explicitly in the
+// 1.93.2 CHANGED entry), so it broke on the very next release. Rewritten to
+// the same "at or past" shape as the other version-match checks; the
+// same-version agreement between the two files is still checked exactly.
+test("plugin.json and marketplace.json agree, at or past 1.95.1", () => {
   const plugin = JSON.parse(read(".claude-plugin/plugin.json"));
   const marketplace = JSON.parse(read(".claude-plugin/marketplace.json"));
-  assert.equal(plugin.version, "1.95.1");
-  assert.equal(marketplace.plugins[0].version, "1.95.1");
+  const atOrPast1951 = (v) => {
+    const [maj, min, patch] = v.split(".").map(Number);
+    return maj > 1 || (maj === 1 && min > 95) || (maj === 1 && min === 95 && patch >= 1);
+  };
+  assert.ok(atOrPast1951(plugin.version), `plugin.json is at ${plugin.version}, want at or past 1.95.1`);
+  assert.equal(plugin.version, marketplace.plugins[0].version, "plugin.json and marketplace.json must agree");
 });
