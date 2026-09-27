@@ -31,15 +31,11 @@
      node progress-floor.mjs < hook-input.json                              */
 import { readFileSync, statSync, existsSync } from "node:fs";
 import { findProgressPath, progressSectionText } from "./agent-dispatch-gate.mjs";
+import { expandHome } from "./progress-registry.mjs";
 
 export const STALE_MS = 10 * 60 * 1000;
 
-// Expand a `~/` path the same way a shell would — hook input never runs
-// through a shell, so `~` is never expanded for us.
-export function expandHome(path) {
-  if (!path.startsWith("~/")) return path;
-  return path.replace(/^~/, process.env.HOME || "");
-}
+export { expandHome };
 
 /* Read the transcript JSONL at `transcriptPath` and return the text of the
    FIRST user message that carries content — the brief. Stops as soon as it

@@ -11,7 +11,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
@@ -19,14 +20,20 @@ import {
   checkSkillsNamed,
   checkSourceContractLockRows,
   checkComponentSystemProgress,
+  registerLaneFromPrompt,
   promptWords,
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
   SOURCE_CONTRACT_CELLS,
 } from "../bin/agent-dispatch-gate.mjs";
+import { loadRegistry } from "../bin/progress-registry.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const gate = join(repo, "hooks", "bin", "agent-dispatch-gate.mjs");
+
+function tempRegistryPath() {
+  return join(mkdtempSync(join(tmpdir(), "dispatch-gate-registry-")), "registry.json");
+}
 
 // --- Fixtures -------------------------------------------------------------
 
@@ -445,6 +452,70 @@ test("a Context bullet quoting `## Progress` in backticks before the real headin
   );
   assert.equal(checkComponentSystemProgress(prompt), null);
   assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
+// --- Lane registry (progress-hooks fix round, 2026-09-27: "make it need no
+// memory") --------------------------------------------------------------
+
+test("registerLaneFromPrompt writes a lane entry for a real ## Progress path", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, 1000);
+    const entries = loadRegistry(registryPath);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+    assert.equal(entries[0].dispatchedAt, 1000);
+    assert.deepEqual(entries[0].fired, []);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("registerLaneFromPrompt registers nothing for a line lane (no ## Progress)", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(WELL_FORMED.prompt);
+    assert.deepEqual(loadRegistry(registryPath), []);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("the hook process registers a lane for a well-formed component dispatch", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: COMPONENT_WITH_PROGRESS }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  const entries = loadRegistry(registryPath);
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+});
+
+test("the hook process registers nothing for an Explore/Plan exemption", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: { ...MALFORMED, subagent_type: "Explore" } }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  assert.deepEqual(loadRegistry(registryPath), []);
+});
+
+test("the hook process registers nothing for a denied (malformed) dispatch", () => {
+  const registryPath = tempRegistryPath();
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: MALFORMED }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  assert.equal(result.status, 0);
+  assert.deepEqual(loadRegistry(registryPath), []);
 });
 
 // --- Wiring ---------------------------------------------------------------

@@ -28,22 +28,25 @@ it never restates what is here.
   **`step N of M — <name> — in progress: <what>`**, never a bare milestone label, one per
   fixed milestone as you reach it — never batch them at the end: `read-back returned` ·
   `red test written` · `cause found` · `green` · `gates green` · `uploaded/pushed` each
-  becomes its own step's line. The parent reads this file
-  on any operator status ask, quoting the dispatch time against the last milestone rather
-  than guessing an ETA; it never replaces the fixed evidence return below. **Both clock
-  checks are mechanical, not memory** (operator ruling 2026-09-27, `progress-hooks`: *"yes,
-  steps plus the 10-minute floor"*): a PostToolUse hook (`hooks/bin/progress-floor.mjs`)
-  checks the file's mtime on every tool call in your own session and, past 10 minutes
-  stale (or never created), injects a reminder to write **`still on step N of M — doing
-  X`** — it nudges, never blocks; the line is still yours to write. On the parent's side,
-  no Claude Code hook fires on a wall-clock timer alone, so the parent starts
-  `hooks/scripts/progress-watch.mjs <path>` in the background (Monitor tool) at dispatch —
-  it polls the mtime and prints one notification line: **No new milestone for 15
-  minutes** → the parent reads the worktree diff directly (a silent doer can still be
-  working); **no new milestone for 30 minutes** → the parent stops the lane and re-briefs a
-  fresh agent from the last recorded milestone, then exits (operator ruling 2026-09-21,
-  `lane-progress-file`: *"can we update discipline so progress isn't so blind?"*). **line
-  lanes keep no progress file** (§ Size class below) and neither hook applies to them.
+  becomes its own step's line. The parent reads this file on any operator status ask,
+  quoting the dispatch time against the last milestone rather than guessing an ETA; it never
+  replaces the fixed evidence return below. **Both clock checks are mechanical, needing no
+  memory** (operator ruling 2026-09-27, `progress-hooks`: *"yes, steps plus the 10-minute
+  floor"*; sharpened after a memory-dependent first cut: *"make it need no memory"*): a
+  PostToolUse hook (`hooks/bin/progress-floor.mjs`) checks the file's mtime on every tool
+  call in your own session and, past 10 minutes stale (or never created), injects a reminder
+  to write **`still on step N of M — doing X`** — it nudges, never blocks; the line is still
+  yours to write. No Claude Code hook fires on a wall-clock timer, so the parent's side needs
+  no memory either: `agent-dispatch-gate.mjs` registers the lane (path, dispatch time) the
+  moment its own dispatch is allowed, and `progress-registry-check.mjs` rides ordinary
+  parent-session events — `UserPromptSubmit` (so "eta?" always carries live lane status) and
+  `PostToolUse` — to inject **No new milestone for 15 minutes** → the parent reads the
+  worktree diff directly (a silent doer can still be working); **no new milestone for 30
+  minutes** → the parent stops the lane and re-briefs a fresh agent from the last recorded
+  milestone (operator ruling 2026-09-21, `lane-progress-file`: *"can we update discipline so
+  progress isn't so blind?"*). A lane leaves the registry on `SubagentStop`, or as a
+  crashed-session backstop, `lane-sweep.mjs`. **line lanes keep no progress file** (§ Size
+  class below) and register nothing.
 - **A milestone is a progress line AND a local WIP commit**, on the lane branch, same
   breath. Stage the lane's own touched paths **by name** — never `git add -A` / `commit
   -a`, which can sweep up an untracked probe script or scratch file that does not belong

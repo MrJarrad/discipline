@@ -68,6 +68,7 @@
    The check is exported as a pure function so the tests drive it directly;
    the CLI wrapper only does stdin/stdout. */
 import { readFileSync } from "node:fs";
+import { loadRegistry, saveRegistry, upsertLane, expandHome } from "./progress-registry.mjs";
 
 export const PROMPT_WORD_CAP = 600;
 
@@ -379,13 +380,37 @@ function deny(reason) {
   process.exit(0);
 }
 
+/* The registry-write half of `progress-hooks` fix round (2026-09-27,
+   coordinator: "make it need no memory" — `progress-watch.mjs` only ran if
+   the parent remembered to start it). A dispatch this gate is about to
+   ALLOW, that named a real above-line `## Progress` path, is registered here
+   — the same tool call that starts the lane is the one that starts tracking
+   it, so there is no separate step for the parent to forget. Exempt
+   dispatches (Explore/Plan) and line lanes (no `## Progress` section)
+   register nothing — never throws; a registry write failure is never worse
+   than the dispatch it would otherwise have blocked. */
+export function registerLaneFromPrompt(prompt, now = Date.now()) {
+  const section = progressSectionText(String(prompt || ""));
+  const path = section ? findProgressPath(section) : null;
+  if (!path) return;
+  try {
+    const entries = loadRegistry();
+    saveRegistry(upsertLane(entries, { path: expandHome(path), dispatchedAt: now, lastMtime: null, fired: [] }));
+  } catch {
+    /* registry write failed — the dispatch itself must not be blocked over it */
+  }
+}
+
 function main() {
   const input = readHookInput();
   // Unparseable or non-dispatch input is not this gate's business — a hook that
   // denies on its own confusion is worse than no hook.
   if (!input || typeof input !== "object" || !input.tool_input) allow();
   const verdict = checkAgentDispatch(input.tool_input);
-  if (verdict.ok) allow();
+  if (verdict.ok) {
+    if (!verdict.exempt) registerLaneFromPrompt(input.tool_input.prompt);
+    allow();
+  }
   deny(verdict.reason);
 }
 
