@@ -165,6 +165,48 @@ test("media-load-probe.mjs + libs all still carry their law-test pair", () => {
   }
 });
 
+// --- Fix round 3 (review round 2): arrival window, motion-bound sliver, -----
+// structure-edge bound, default fling session --------------------------------
+
+test("media-load-lib.mjs: the round-3 cross-frame classifier replaces the round-2 single-frame aggregate — one implementation, not two", () => {
+  const src = read("hooks/scripts/lib/media-load-lib.mjs");
+  assert.match(src, /export function classifyEmptyAcrossFrames/);
+  assert.match(src, /export function totalEmptyMediaAcrossFrames/);
+  assert.match(src, /export const DEFAULT_ARRIVAL_WINDOW_MS/);
+  assert.match(src, /export function isTrivialSliver/);
+  assert.match(src, /export function mediaIdentity/);
+  assert.doesNotMatch(src, /export function emptyVisibleMedia\b/, "superseded by classifyEmptyAcrossFrames — never two implementations of the same aggregate");
+  assert.doesNotMatch(src, /export function countEmptyVisibleMedia\b/);
+  assert.doesNotMatch(src, /export function totalEmptyVisibleMediaAcrossFrames\b/);
+});
+
+test("media-load-lib.mjs: the stddev rescue is now bounded by a real edge, not spread alone", () => {
+  const src = read("hooks/scripts/lib/media-load-lib.mjs");
+  assert.match(src, /export function regionMaxLumaJump/);
+  assert.match(src, /export const MIN_STRUCTURE_EDGE_JUMP/);
+  assert.match(src, /minStructureEdgeJump/);
+});
+
+test("media-load-probe.mjs: scroll/drag default to the realistic fling session; --paced is opt-in only", () => {
+  const src = read("hooks/scripts/media-load-probe.mjs");
+  assert.match(src, /export function resolveDriveMode/);
+  assert.match(src, /export const DEFAULT_FLING_DURATION_MS/);
+  assert.match(src, /--paced/);
+  assert.match(src, /not proof of fast-motion behaviour/);
+});
+
+test("media-load-probe.mjs: supports --arrival-window-ms and --min-structure-edge", () => {
+  const src = read("hooks/scripts/media-load-probe.mjs");
+  assert.match(src, /arrival-window-ms/);
+  assert.match(src, /min-structure-edge/);
+});
+
+test("the fixture proves both the gradient-skeleton and shimmer-sweep cases stay empty", () => {
+  const html = read("hooks/scripts/lib/fixtures/media-load-probe-fixture.html");
+  assert.match(html, /gradient skeleton/);
+  assert.match(html, /shimmer sweep/);
+});
+
 // --- CHANGED.txt + version bump ---------------------------------------------
 
 test("the 1.96.0 CHANGED entry names the ruling and the method rewrite", () => {

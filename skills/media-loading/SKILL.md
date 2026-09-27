@@ -109,18 +109,25 @@ clipped by an `overflow:hidden` ancestor, covered by an opaque sibling,
 `visibility:hidden`, or at `opacity:0` behind a parent). The paint signal is
 a full-page screenshot, cropped per slot to its rect intersected with the
 viewport and every clipping ancestor, classified against the page background
-and any named placeholder colours **plus internal structure** (a fix round's
-own finding: a white-heavy real photo or a dark-framed video can be mostly
-background-close by colour alone — real content almost always has edges/
-shading a flat swatch never does). A slot that's mostly scrolled past the
-viewport edge, showing only a trivial sliver of its own natural rect, is
-excluded from judgment entirely (never a slot that's fully clipped/hidden —
-that stays a hard defect). It prints two numbers:
+and any named placeholder colours **plus internal structure past a real
+edge** (a fix round's own finding: a white-heavy real photo or a dark-framed
+video can be mostly background-close by colour alone — real content almost
+always has edges/shading a flat swatch never does — but a smooth gradient/
+shimmer loading skeleton also has real spread without a real edge, so spread
+alone is never enough). A slot that's mostly scrolled past the viewport edge,
+showing only a trivial sliver of its own natural rect, is excluded from
+judgment only while it's actually IN MOTION (moved since the previous frame)
+— a static tile at the same small on-screen share, at rest or on load, is
+judged like any other slot (never a slot that's fully clipped/hidden either
+way — that stays a hard defect). And a blank slot only counts once it's
+stayed that way past the page's own entrance-fade duration (`--arrival-
+window-ms`, default 250ms) — never on the single sampled frame that lands
+mid-fade. It prints two numbers:
 
-- **paint** — a visible, non-trivial-sliver slot whose screenshot crop reads
-  as the page background/a placeholder colour AND shows no internal
-  structure: fully clipped away, covered, `visibility:hidden`, at
-  `opacity:0`, or simply never loaded.
+- **paint** — a visible, non-trivial-sliver (or in-motion-sliver) slot whose
+  screenshot crop reads as the page background/a placeholder colour AND shows
+  no real edge, for longer than one fade cycle: fully clipped away, covered,
+  `visibility:hidden`, at `opacity:0`, or simply never loaded.
 - **gaps** — a visible region with **no covering DOM element at all**
   (method 10's failure mode). Grouped **per column** (x-overlapping rects,
   the shape a masonry/independent-column layout actually has) — a column's
@@ -129,13 +136,16 @@ that stays a hard defect). It prints two numbers:
   across columns reads a real, everyday column gutter as a hole whenever one
   column's own row-gap is briefly exposed next to a taller neighbour).
 
-Both must be **0**. The probe supports a short fixed-frame mode (for `load`)
-and a long realistic session (`--duration`, a genuine fling/drag loop, not a
-single smooth crawl, plus a `--settle` dwell before a final sample) for
-`scroll`/`drag` — round 10's own finding was that a short synthetic drag
-didn't disagree with the operator's phone until the session ran long and
-real. Run `--reps` more than once and report every rep, not just one.
-Full flag reference and worked examples: `references/PROBE.md`.
+Both must be **0**. `scroll`/`drag` run a realistic fling/drag SESSION by
+DEFAULT (a genuine loop of varied fling gestures, not one smooth crawl,
+extendable past its default length with `--duration`, plus a `--settle`
+dwell before a final sample) — round 10's own finding was that a short
+synthetic drag didn't disagree with the operator's phone until the session
+ran long and real, and review round 2's own finding was that the old paced,
+evenly-spaced crawl (now opt-in only, `--paced`) disagreed sharply with the
+real thing on the same page. `load` runs its own short fixed-frame check.
+Run `--reps` more than once and report every rep, not just one. Full flag
+reference and worked examples: `references/PROBE.md`.
 
 - **DO:** run the probe for every interaction the surface exposes, on both
   browsers, at the realistic session length the surface allows, and attach
@@ -150,6 +160,9 @@ Full flag reference and worked examples: `references/PROBE.md`.
 - **DON'T:** run the probe once on `load` and call a scrolling/draggable
   surface covered — an interaction the probe didn't drive is an interaction
   the bar doesn't know about yet.
+- **DON'T:** close a lane on a `--paced` run alone — it's an opt-in smoke
+  check, never proof of fast-motion behaviour (review round 2's own finding:
+  it read 0 misses where the same session at real fling speed read 16-36).
 
 ## Where this is enforced (pointer, not restated)
 

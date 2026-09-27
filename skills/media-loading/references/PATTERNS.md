@@ -155,8 +155,60 @@ page and its real CSS (`globals.css`'s `.holding-canvas-row { column-gap: var
 A live static fixture (`hooks/scripts/lib/fixtures/media-load-probe-fixture.
 html` + `serve-fixture.mjs`) proves both directions at once on a real page:
 three healthy columns plus one genuine missing tile (gaps=1, never 0 — the
-scan must still catch a real hole), and six isolated paint cases (opacity-0,
-covered-by-a-registered-placeholder-colour, clipped, `visibility:hidden`, a
-uniform-colour placeholder equal to the page background, and a white-heavy
-true negative that must read painted) — verified paint=5, gaps=1 exactly, on
-both chromium and WebKit.
+scan must still catch a real hole), and (as of fix round 3) eight isolated
+paint cases (opacity-0, covered-by-a-registered-placeholder-colour, clipped,
+`visibility:hidden`, a uniform-colour placeholder equal to the page
+background, a white-heavy true negative that must read painted, a smooth
+gradient loading skeleton, and a shimmer sweep) — verified paint=7, gaps=1
+exactly, on both chromium and WebKit.
+
+## Discipline PR #52 fix round 3 — fast-fling paint misses, a sliver exemption that fired at rest, and a rescue that passed a skeleton
+Review round 2 re-ran fix round 2's own probe for real against
+`preview.jarrad.design/holding` and found three more reds, all reproduced
+live before any code changed:
+
+- **Fast-fling mode disagreed sharply with the paced crawl.** `--duration`
+  (the docs' own "real test" mode) read `paint=16-36`; the short, evenly-
+  paced `STEP_PACE_MS` crawl read `0`, on the same page and session shape.
+  Diagnosis (screenshot crops of every flagged slot, classified by eye):
+  every flagged slot was a tile mid its own operator-approved ~250ms
+  decode-gated fade — real content arriving, sampled on the one frame that
+  happened to land inside the fade — never a slot genuinely stuck blank
+  longer than a fade cycle. The paced crawl's own artificial per-step pause
+  gives the page's decode pipeline time to keep up that a real fast fling
+  never grants, masking the same real defect class round 14 already named
+  for video decode. Fixed two ways: (1) `classifyEmptyAcrossFrames`
+  (`lib/media-load-lib.mjs`) only counts a blank slot once it's stayed blank
+  for `--arrival-window-ms` (default 250ms) of running time, tracked per
+  element (`src`/`currentSrc` identity) across frames — never on a single
+  mid-fade sample; (2) `scroll`/`drag` now run the realistic fling session
+  by DEFAULT (`DEFAULT_FLING_DURATION_MS`, 8s, extend with `--duration`) —
+  the old paced crawl is opt-in only (`--paced`), printing its own "not proof
+  of fast-motion behaviour" note whenever used, so it can never again pass as
+  the default evidence for a lane.
+- **The sliver exemption fired at rest, not just in motion.** Round 2's
+  exemption (`visibleAreaFraction` + a nonzero-but-under-15% check) applied
+  unconditionally, so a tile sitting at the fold at first paint — never
+  moving, never mid-transit — read exempt if it happened to be small enough
+  on screen, hiding a genuinely blank tile. Fixed: the exemption only fires
+  when the element's rect has actually MOVED since the previous frame it was
+  seen in (`classifyEmptyAcrossFrames`'s own motion check) — a static tile,
+  whatever share of its own rect is on screen, is judged on its crop like any
+  other slot.
+- **The luma-stddev rescue passed a gradient/shimmer loading skeleton.** A
+  smooth CSS gradient/shimmer placeholder has real overall luma spread
+  (stddev ~11, crossing the round-2 `10` floor) without being real content —
+  the rescue's own "never the reverse" comment broke. Fixed:
+  `regionMaxLumaJump` (largest single-step luma jump between spatially-
+  adjacent pixels, `cropRegionPixels`'s own row-major crop order) must ALSO
+  cross `--min-structure-edge` (default 20) before the stddev path rescues a
+  crop — a smooth ramp has real spread but no real edge; a genuine
+  edge/shadow/highlight has both. Two new fixture tiles (a gradient skeleton,
+  a shimmer sweep — both VERTICAL gradients, avoiding a false row-wrap seam a
+  horizontal one-way ramp introduces in row-major crop order) prove both
+  still read empty; the pre-existing white-heavy true negative still reads
+  painted (its real edge is large — luma jump ~208 in the live fixture,
+  comfortably past the 20 floor).
+
+Verified live against the fixture (paint=7, gaps=1, both engines) and against
+`preview.jarrad.design/holding` per the fix's own evidence return.
