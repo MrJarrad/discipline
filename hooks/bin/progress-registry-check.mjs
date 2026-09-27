@@ -30,12 +30,22 @@
    per silence, never once per tool call. Only lanes with something newly
    due produce output; an empty or all-fresh registry is silent, every time.
 
-   Known limitation, stated rather than hidden: `hooks.json` wiring is
-   process-level, not session-role-scoped — the SAME PostToolUse `*` entry
-   also fires inside a dispatched doer's own session (see
-   `progress-floor.mjs`'s header for the same fact). Worst case, a doer's own
-   session sees an accurate, harmless status line about OTHER lanes; this
-   script never denies or alters any tool call, in either session. */
+   Reviewer round 2 red, fixed: `hooks.json` wiring is process-level, not
+   session-role-scoped — the SAME `PostToolUse *`/`UserPromptSubmit` entries
+   also fire inside a dispatched DOER's own session (see `progress-floor.mjs`
+   for the same fact about its own wiring). Before this fix, ANY session
+   running this script read the WHOLE registry, leaking status lines about
+   the parent's other lanes into a doer's own context. Fixed by keying every
+   registry row with the dispatching session's own `session_id`
+   (`agent-dispatch-gate.mjs`'s `registerLaneFromPrompt`) and filtering here
+   to rows whose `sessionId` matches THIS invocation's own `input.session_id`
+   — a doer session's `session_id` is never the parent's, so it matches
+   nothing and reports nothing; an entry with no recorded session id
+   (`sessionId: null`, or a registry row pre-dating this fix) also never
+   matches a real session id, so an unidentifiable row fails closed to
+   silence rather than leaking. Non-matching rows are left byte-for-byte
+   untouched in the registry — their tier/mtime state advances only when the
+   session that actually owns them polls. */
 import { existsSync, statSync, readFileSync } from "node:fs";
 import { loadRegistry, saveRegistry } from "./progress-registry.mjs";
 import { tick, tierMessage } from "../scripts/progress-watch.mjs";
@@ -48,12 +58,16 @@ function readHookInput() {
   }
 }
 
-/* Pure: one pass over the registry. Returns { updatedEntries, messages }.
-   `statLookup(path)` -> mtimeMs | null, injected so tests never touch real
-   files. */
-export function checkRegistry(entries, now, statLookup) {
+/* Pure: one pass over the registry, scoped to `sessionId`. Returns
+   { updatedEntries, messages }. `statLookup(path)` -> mtimeMs | null,
+   injected so tests never touch real files. A row whose `sessionId` does not
+   strictly equal `sessionId` (including a row with none recorded, or an
+   invocation with no `sessionId` of its own) is passed through unchanged and
+   never reported — the cross-session leak fix. */
+export function checkRegistry(entries, now, statLookup, sessionId) {
   const messages = [];
   const updatedEntries = entries.map((entry) => {
+    if (entry.sessionId !== sessionId) return entry;
     const mtime = statLookup(entry.path) ?? entry.dispatchedAt;
     const state = { lastMtime: entry.lastMtime ?? null, fired: new Set(entry.fired || []) };
     const result = tick(state, { mtime, now });
@@ -73,11 +87,11 @@ function realStatLookup(path) {
 
 function main() {
   const eventArg = process.argv[2] || "PostToolUse";
-  readHookInput(); // consumed for shape-parity with every other hook; unused otherwise
+  const input = readHookInput();
   const entries = loadRegistry();
   if (entries.length === 0) process.exit(0);
 
-  const { updatedEntries, messages } = checkRegistry(entries, Date.now(), realStatLookup);
+  const { updatedEntries, messages } = checkRegistry(entries, Date.now(), realStatLookup, input.session_id ?? null);
   try {
     saveRegistry(updatedEntries);
   } catch {

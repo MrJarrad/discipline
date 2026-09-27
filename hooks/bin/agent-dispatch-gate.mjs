@@ -388,14 +388,24 @@ function deny(reason) {
    it, so there is no separate step for the parent to forget. Exempt
    dispatches (Explore/Plan) and line lanes (no `## Progress` section)
    register nothing — never throws; a registry write failure is never worse
-   than the dispatch it would otherwise have blocked. */
-export function registerLaneFromPrompt(prompt, now = Date.now()) {
+   than the dispatch it would otherwise have blocked.
+
+   `sessionId` (reviewer round 2 red: cross-session leak) is the PARENT
+   session's own `session_id` — a field every hook input carries — stamped
+   onto the row so `progress-registry-check.mjs` can later report ONLY to
+   the session that owns it. Without this a dispatched DOER's own session
+   (a different `session_id`, hit by the same process-level `PostToolUse`/
+   `UserPromptSubmit` wiring) could see status lines about lanes that are
+   none of its business. */
+export function registerLaneFromPrompt(prompt, sessionId, now = Date.now()) {
   const section = progressSectionText(String(prompt || ""));
   const path = section ? findProgressPath(section) : null;
   if (!path) return;
   try {
     const entries = loadRegistry();
-    saveRegistry(upsertLane(entries, { path: expandHome(path), dispatchedAt: now, lastMtime: null, fired: [] }));
+    saveRegistry(
+      upsertLane(entries, { path: expandHome(path), sessionId: sessionId ?? null, dispatchedAt: now, lastMtime: null, fired: [] }),
+    );
   } catch {
     /* registry write failed — the dispatch itself must not be blocked over it */
   }
@@ -408,7 +418,7 @@ function main() {
   if (!input || typeof input !== "object" || !input.tool_input) allow();
   const verdict = checkAgentDispatch(input.tool_input);
   if (verdict.ok) {
-    if (!verdict.exempt) registerLaneFromPrompt(input.tool_input.prompt);
+    if (!verdict.exempt) registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
     allow();
   }
   deny(verdict.reason);

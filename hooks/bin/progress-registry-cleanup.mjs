@@ -8,6 +8,16 @@
    `firstUserMessageText`/`resolveProgressPath` pair — reused here, not
    re-derived) and removes that one entry from the registry.
 
+   Reviewer round 2 red finding, fixed: a `SubagentStop` hook's input carries
+   TWO distinct transcript fields — `transcript_path` (the PARENT session's
+   own transcript, the one that just received the completion event) and
+   `agent_transcript_path` (the subagent's own transcript — the one that
+   actually carries the finished lane's brief, `## Progress` path and all).
+   Reading `transcript_path` here would read the wrong file — the parent's
+   transcript never contains the doer's own first-user-message brief in the
+   shape `firstUserMessageText`/`resolveProgressPath` expect. Must be
+   `agent_transcript_path`.
+
    A lane the dispatch gate never registered (a `line` lane, or a dispatch
    this hook cannot resolve a path for) removes nothing — a no-op, not an
    error. `lane-sweep.mjs` is the backstop for a lane whose SubagentStop
@@ -27,7 +37,7 @@ function readHookInput() {
 
 function main() {
   const input = readHookInput();
-  const transcriptPath = input.transcript_path;
+  const transcriptPath = input.agent_transcript_path;
   if (!transcriptPath || !existsSync(transcriptPath)) process.exit(0);
 
   let brief = "";

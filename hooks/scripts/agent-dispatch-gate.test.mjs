@@ -457,16 +457,28 @@ test("a Context bullet quoting `## Progress` in backticks before the real headin
 // --- Lane registry (progress-hooks fix round, 2026-09-27: "make it need no
 // memory") --------------------------------------------------------------
 
-test("registerLaneFromPrompt writes a lane entry for a real ## Progress path", () => {
+test("registerLaneFromPrompt writes a lane entry for a real ## Progress path, stamped with the session id", () => {
   const registryPath = tempRegistryPath();
   process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
   try {
-    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, 1000);
+    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, "parent-session-abc", 1000);
     const entries = loadRegistry(registryPath);
     assert.equal(entries.length, 1);
     assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+    assert.equal(entries[0].sessionId, "parent-session-abc");
     assert.equal(entries[0].dispatchedAt, 1000);
     assert.deepEqual(entries[0].fired, []);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+  }
+});
+
+test("registerLaneFromPrompt stamps null when no session id is on the hook input", () => {
+  const registryPath = tempRegistryPath();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    registerLaneFromPrompt(COMPONENT_WITH_PROGRESS.prompt, undefined, 1000);
+    assert.equal(loadRegistry(registryPath)[0].sessionId, null);
   } finally {
     delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
   }
@@ -476,17 +488,17 @@ test("registerLaneFromPrompt registers nothing for a line lane (no ## Progress)"
   const registryPath = tempRegistryPath();
   process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
   try {
-    registerLaneFromPrompt(WELL_FORMED.prompt);
+    registerLaneFromPrompt(WELL_FORMED.prompt, "parent-session-abc");
     assert.deepEqual(loadRegistry(registryPath), []);
   } finally {
     delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
   }
 });
 
-test("the hook process registers a lane for a well-formed component dispatch", () => {
+test("the hook process registers a lane for a well-formed component dispatch, stamped with session_id off the hook input", () => {
   const registryPath = tempRegistryPath();
   const result = spawnSync(process.execPath, [gate], {
-    input: JSON.stringify({ tool_name: "Agent", tool_input: COMPONENT_WITH_PROGRESS }),
+    input: JSON.stringify({ tool_name: "Agent", tool_input: COMPONENT_WITH_PROGRESS, session_id: "parent-session-xyz" }),
     encoding: "utf8",
     env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
   });
@@ -494,6 +506,7 @@ test("the hook process registers a lane for a well-formed component dispatch", (
   const entries = loadRegistry(registryPath);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].path, "/Users/x/vault/main/projects/p/evidence/2026-09-25/progress.md");
+  assert.equal(entries[0].sessionId, "parent-session-xyz");
 });
 
 test("the hook process registers nothing for an Explore/Plan exemption", () => {
