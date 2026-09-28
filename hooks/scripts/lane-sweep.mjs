@@ -43,7 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
 import { resolve, sep } from "node:path";
-import { loadRegistry, saveRegistry } from "../bin/progress-registry.mjs";
+import { withRegistryLock } from "../bin/progress-registry.mjs";
 
 // --- pure matcher: testable with a fake process/port table -----------------
 
@@ -380,25 +380,24 @@ function realStatLookup(path) {
 }
 
 function sweepStaleRegistryEntries(dryRun) {
-  let entries;
+  let stale;
   try {
-    entries = loadRegistry();
+    stale = withRegistryLock((entries) => {
+      const found = staleRegistryEntries(entries, Date.now(), REGISTRY_STALE_MS, realStatLookup);
+      if (found.length === 0 || dryRun) return { entries, stale: found };
+      const staleSet = new Set(found.map((e) => e.path));
+      return { entries: entries.filter((e) => !staleSet.has(e.path)), stale: found };
+    }).stale;
   } catch {
     return; // no registry, or unreadable — nothing to purge, never an error
   }
-  const stale = staleRegistryEntries(entries, Date.now(), REGISTRY_STALE_MS, realStatLookup);
-  if (stale.length === 0) return;
-  const staleSet = new Set(stale.map((e) => e.path));
+  if (!stale || stale.length === 0) return;
   for (const e of stale) {
     console.log(`registry path=${e.path} action=${dryRun ? "would purge" : "purged"} reason="stale > 24h, SubagentStop cleanup never fired"`);
   }
-  if (!dryRun) {
-    try {
-      saveRegistry(entries.filter((e) => !staleSet.has(e.path)));
-    } catch {
-      /* best-effort backstop — never fail the sweep over it */
-    }
-  }
+  // The purge itself already ran inside withRegistryLock above (when !dryRun) — same
+  // lock-held read-mutate-write as every other registry writer, so this backstop can never
+  // race a concurrent register/check/cleanup and clobber it.
 }
 
 // --- main --------------------------------------------------------------------

@@ -58,6 +58,13 @@ instance's `space/spacer-*` token, never a literal; between two siblings → the
 `gap` / `row-gap`, token-bound. **A Spacer never renders a DOM node.** A block's own
 `pad:$space/spacer-*` stays padding (operator ruling 2026-09-13).
 
+**A `:root` token sheet imported later wins ties against equal-specificity theme blocks.**
+CSS cascade order, not source order in your head, decides an equal-specificity collision — a
+DS token sheet imported after a component's own theme block silently overrides it. Import the
+token sheet into its own `@layer` (`layer(tokens)` or house equivalent) so unlayered
+component theme rules keep winning regardless of import order (hoverboard,
+2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27` item 5).
+
 **Dark mode is a token swap**, not per-component `dark:` colour overrides. Tokens are declared once; a theme class flips values. Components reference stable names.
 
 **Consumers supply Suisse** via `--font-suisse`. Font files stay with each app — do not vendor font copies into the package.

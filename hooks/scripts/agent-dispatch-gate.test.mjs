@@ -10,8 +10,8 @@
 // Run: node --test hooks/scripts/agent-dispatch-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { readFileSync, mkdtempSync } from "node:fs";
+import { spawnSync, execFileSync } from "node:child_process";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -25,8 +25,13 @@ import {
   PROMPT_WORD_CAP,
   EXEMPT_SUBAGENTS,
   SOURCE_CONTRACT_CELLS,
+  findRepoContext,
+  otherSessionsOnRepo,
+  activeSiblingWorktrees,
+  buildActiveWorkWarning,
+  activeWorkWarning,
 } from "../bin/agent-dispatch-gate.mjs";
-import { loadRegistry } from "../bin/progress-registry.mjs";
+import { loadRegistry, saveRegistry, withRegistryLock } from "../bin/progress-registry.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const gate = join(repo, "hooks", "bin", "agent-dispatch-gate.mjs");
@@ -45,7 +50,11 @@ export const WELL_FORMED = {
     "You are the Engineer.",
     "",
     "**Goal.** The nav row binds every dimension through the export's token names.",
-    "**Context.** Contract: the design-handoff pair at the path below; repo ~/JHD/portfolio/main, branch chore/foundations.",
+    // A path with no real repo behind it — the active-work check (below)
+    // fails closed to nothing-to-warn-about for a repo it can't `git` against,
+    // which keeps this fixture's "prints nothing" test meaningful without
+    // depending on any real machine's actual worktree state.
+    "**Context.** Contract: the design-handoff pair at the path below; repo ~/JHD/no-such-fixture-repo/main, branch chore/foundations.",
     "**Constraints.** Standing rules: doer-rules.md. Skills: quality, test-first, handoff-to-code.",
     "**Done-when.** unbound-custom-props and the checksum test are green.",
     "",
@@ -468,6 +477,7 @@ test("registerLaneFromPrompt writes a lane entry for a real ## Progress path, st
     assert.equal(entries[0].sessionId, "parent-session-abc");
     assert.equal(entries[0].dispatchedAt, 1000);
     assert.deepEqual(entries[0].fired, []);
+    assert.equal(entries[0].repo, `${process.env.HOME}/JHD/no-such-fixture-repo/main`, "the Repo line off the brief must be recorded on the row too");
   } finally {
     delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
   }
@@ -540,4 +550,190 @@ test("hooks.json fires the gate on Agent dispatches", () => {
   assert.ok(entry, "no PreToolUse entry matching Agent");
   assert.match(entry.hooks[0].command, /agent-dispatch-gate\.mjs/);
   assert.match(entry.hooks[0].command, /\$\{CLAUDE_PLUGIN_ROOT\}/);
+});
+
+// --- Active-work warning (operator-approved scope add, 2026-09-28 — warn
+// before dispatching into a repo that may already have work in flight;
+// never a deny) ------------------------------------------------------------
+
+test("findRepoContext reads a backticked Repo path and a relative worktree path, joined against it", () => {
+  const prompt = "## Context\n- Repo `~/JHD/portfolio`, worktree `worktrees/fix-1f8b8b4-nav`.\n";
+  assert.deepEqual(findRepoContext(prompt), {
+    repoPath: `${process.env.HOME}/JHD/portfolio`,
+    worktreePath: `${process.env.HOME}/JHD/portfolio/worktrees/fix-1f8b8b4-nav`,
+  });
+});
+
+test("findRepoContext reads a bare (non-backticked) Repo path with no worktree named", () => {
+  const prompt = "Context: repo ~/JHD/portfolio/main, branch chore/foundations.";
+  assert.deepEqual(findRepoContext(prompt), { repoPath: `${process.env.HOME}/JHD/portfolio/main`, worktreePath: null });
+});
+
+test("findRepoContext accepts an absolute worktree path as-is, not joined against repo", () => {
+  const prompt = "Repo `/Users/x/repo`, worktree `/Users/x/repo/../elsewhere-lane`.";
+  assert.deepEqual(findRepoContext(prompt), { repoPath: "/Users/x/repo", worktreePath: "/Users/x/repo/../elsewhere-lane" });
+});
+
+test("findRepoContext returns null for a brief naming no repo at all", () => {
+  assert.equal(findRepoContext("Fix the thing, no path mentioned."), null);
+});
+
+test("otherSessionsOnRepo: a different session's row on the same repo is returned; this session's own row and other repos are not", () => {
+  const entries = [
+    { path: "/a/progress.md", sessionId: "other-session", repo: "/repo/x" },
+    { path: "/b/progress.md", sessionId: "this-session", repo: "/repo/x" },
+    { path: "/c/progress.md", sessionId: "other-session", repo: "/repo/y" },
+    { path: "/d/progress.md", sessionId: null, repo: "/repo/x" }, // unresolved — never reported
+  ];
+  const result = otherSessionsOnRepo(entries, "/repo/x", "this-session");
+  assert.equal(result.length, 1);
+  assert.equal(result[0].path, "/a/progress.md");
+});
+
+test("otherSessionsOnRepo returns [] when repoPath is null (brief named no repo)", () => {
+  assert.deepEqual(otherSessionsOnRepo([{ path: "/a", sessionId: "s", repo: "/repo/x" }], null, "this-session"), []);
+});
+
+test("activeSiblingWorktrees: dirty or recently-changed worktrees are flagged; this lane's own is excluded even if dirty", () => {
+  const now = Date.now();
+  const statuses = [
+    { path: "/repo/own-worktree", dirty: true, changedAt: now },
+    { path: "/repo/other-dirty", dirty: true, changedAt: null },
+    { path: "/repo/other-recent", dirty: false, changedAt: now - 5 * 60 * 1000 },
+    { path: "/repo/other-stale", dirty: false, changedAt: now - 45 * 60 * 1000 },
+    { path: "/repo/other-clean-no-commits", dirty: false, changedAt: null },
+  ];
+  const result = activeSiblingWorktrees(statuses, "/repo/own-worktree", now);
+  assert.deepEqual(
+    result.map((r) => r.path).sort(),
+    ["/repo/other-dirty", "/repo/other-recent"],
+  );
+});
+
+test("activeSiblingWorktrees with no own worktree named excludes nothing by path", () => {
+  const now = Date.now();
+  const statuses = [{ path: "/repo/a", dirty: true, changedAt: null }];
+  assert.equal(activeSiblingWorktrees(statuses, null, now).length, 1);
+});
+
+test("buildActiveWorkWarning returns null when both signals are empty", () => {
+  assert.equal(buildActiveWorkWarning({ otherSessions: [], activeWorktrees: [], repoPath: "/repo/x" }), null);
+});
+
+test("buildActiveWorkWarning names the other session and its progress file", () => {
+  const msg = buildActiveWorkWarning({
+    otherSessions: [{ path: "/other/progress.md", sessionId: "sess-2" }],
+    activeWorktrees: [],
+    repoPath: "/repo/x",
+  });
+  assert.match(msg, /sess-2/);
+  assert.match(msg, /\/other\/progress\.md/);
+  assert.match(msg, /warning, not a block/);
+});
+
+test("buildActiveWorkWarning names a dirty worktree and a recently-changed one distinctly", () => {
+  const msg = buildActiveWorkWarning({
+    otherSessions: [],
+    activeWorktrees: [
+      { path: "/repo/dirty-one", dirty: true, changedAt: null },
+      { path: "/repo/recent-one", dirty: false, changedAt: Date.now() },
+    ],
+    repoPath: "/repo/x",
+  });
+  assert.match(msg, /\/repo\/dirty-one has uncommitted changes/);
+  assert.match(msg, /\/repo\/recent-one changed in the last 30 minutes/);
+});
+
+// --- activeWorkWarning end-to-end: real registry + real scratch git repos --
+
+function tempDir(prefix) {
+  return mkdtempSync(join(tmpdir(), prefix));
+}
+
+function makeScratchRepo() {
+  const dir = tempDir("dispatch-gate-activework-repo-");
+  execFileSync("git", ["init", "-q", dir]);
+  execFileSync("git", ["-C", dir, "config", "user.email", "test@example.com"]);
+  execFileSync("git", ["-C", dir, "config", "user.name", "test"]);
+  writeFileSync(join(dir, "f.txt"), "1\n");
+  execFileSync("git", ["-C", dir, "add", "."]);
+  execFileSync("git", ["-C", dir, "commit", "-q", "-m", "init"]);
+  return dir;
+}
+
+test("activeWorkWarning: another session's registry row on the same repo produces a warning", () => {
+  const registryPath = join(tempDir("dispatch-gate-registry-"), "registry.json");
+  const repoDir = makeScratchRepo();
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    saveRegistry([{ path: "/other/progress.md", sessionId: "other-session", dispatchedAt: 1, lastMtime: null, fired: [], repo: repoDir }], registryPath);
+    const prompt = `## Context\n- Repo \`${repoDir}\`, worktree \`nonexistent-lane\`.\n`;
+    const warning = activeWorkWarning(prompt, "this-session");
+    assert.match(warning, /other-session/);
+    assert.match(warning, /\/other\/progress\.md/);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test("activeWorkWarning: a dirty sibling worktree in the target repo produces a warning", () => {
+  const registryPath = join(tempDir("dispatch-gate-registry-"), "registry.json");
+  const repoDir = makeScratchRepo();
+  const siblingWorktree = join(tempDir("dispatch-gate-sibling-"), "sibling");
+  execFileSync("git", ["-C", repoDir, "worktree", "add", siblingWorktree, "-b", "sibling-branch"]);
+  writeFileSync(join(siblingWorktree, "f.txt"), "dirty\n"); // uncommitted change
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    const prompt = `## Context\n- Repo \`${repoDir}\`, worktree \`this-lane-worktree\`.\n`;
+    const warning = activeWorkWarning(prompt, "this-session");
+    assert.match(warning, new RegExp(siblingWorktree.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(warning, /uncommitted changes/);
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+    execFileSync("git", ["-C", repoDir, "worktree", "remove", "--force", siblingWorktree]).toString();
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test("activeWorkWarning: no-warning case — clean repo, no other sessions, dispatch's own worktree excluded even though it's the one that exists", () => {
+  const registryPath = join(tempDir("dispatch-gate-registry-"), "registry.json");
+  const repoDir = makeScratchRepo(); // repoDir itself is the only worktree, clean, just committed
+  process.env.DISCIPLINE_PROGRESS_REGISTRY = registryPath;
+  try {
+    const prompt = `## Context\n- Repo \`${repoDir}\`, worktree \`${repoDir}\`.\n`;
+    const warning = activeWorkWarning(prompt, "this-session");
+    assert.equal(warning, null, "the only worktree is this dispatch's own (named explicitly) — nothing to warn about");
+  } finally {
+    delete process.env.DISCIPLINE_PROGRESS_REGISTRY;
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test("activeWorkWarning returns null for a brief naming no repo, and never throws for an unreadable repo path", () => {
+  assert.equal(activeWorkWarning("Fix the thing.", "this-session"), null);
+  assert.doesNotThrow(() => activeWorkWarning("Repo `/does/not/exist`.", "this-session"));
+});
+
+test("the hook process's PreToolUse allow carries the active-work warning as additionalContext, never denies", () => {
+  const registryPath = join(tempDir("dispatch-gate-registry-"), "registry.json");
+  const repoDir = makeScratchRepo();
+  saveRegistry([{ path: "/other/progress.md", sessionId: "other-session-live", dispatchedAt: 1, lastMtime: null, fired: [], repo: repoDir }], registryPath);
+  const prompt = COMPONENT_WITH_PROGRESS.prompt.replace(
+    /repo [^\n]+?, branch chore\/foundations\./,
+    `repo ${repoDir}, branch chore/foundations.`,
+  );
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: { ...COMPONENT_WITH_PROGRESS, prompt }, session_id: "this-session-live" }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  try {
+    assert.equal(result.status, 0, "a warning must never deny the dispatch");
+    const out = JSON.parse(result.stdout);
+    assert.equal(out.hookSpecificOutput.permissionDecision, "allow");
+    assert.match(out.hookSpecificOutput.additionalContext, /other-session-live/);
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
 });

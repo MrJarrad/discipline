@@ -46,7 +46,7 @@
    logged and never fails the DS regen itself; the index is a convenience
    read, not a release gate. */
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { laneWorktreePath, mainWorktreeOf, normalizeRepoRoot, ownerRepoFromOrigin } from "./repo-layout.mjs";
@@ -162,16 +162,24 @@ export function readGeneratedAt(dirPath) {
   }
 }
 
+// `execFileSync`'s default `maxBuffer` is 1MB — a real DS design-system-handoff
+// json (every token, component, motion prop) reliably clears that; the 8MB
+// export that surfaced this bug threw `ENOBUFS` inside the `try`, which read
+// as a silent "no readable generatedAt" refusal (bug found running 1.98.0,
+// 2026-09-28). 64MB is generous headroom for a single json file without
+// switching to a streaming read this script has no other need for.
+const UNZIP_MAX_BUFFER = 64 * 1024 * 1024;
+
 /* Same as `readGeneratedAt` but for the incoming `--export`, which may be a
    zip (peeked via `unzip -Z1`/`unzip -p`, never extracted) or an
    already-unzipped dir. */
 export function readGeneratedAtFromExport(exportPath) {
   if (!exportPath.endsWith(".zip")) return readGeneratedAt(exportPath);
   try {
-    const listing = execFileSync("unzip", ["-Z1", exportPath], { encoding: "utf8" }).split("\n");
+    const listing = execFileSync("unzip", ["-Z1", exportPath], { encoding: "utf8", maxBuffer: UNZIP_MAX_BUFFER }).split("\n");
     const entry = listing.find((e) => HANDOFF_JSON_RE.test(e));
     if (!entry) return null;
-    const text = execFileSync("unzip", ["-p", exportPath, entry], { encoding: "utf8" });
+    const text = execFileSync("unzip", ["-p", exportPath, entry], { encoding: "utf8", maxBuffer: UNZIP_MAX_BUFFER });
     const data = JSON.parse(text);
     return typeof data.generatedAt === "string" ? data.generatedAt : null;
   } catch {
@@ -207,6 +215,27 @@ export function checkFreshness(exportPath, repo) {
   return { ok: true };
 }
 
+// A plugin dir export names its files with a download-safe timestamp stamp
+// (`…-design-system-handoff-2026-09-27-17-35-13.json`); a zip export's own
+// internal entries are already canonical. `handoff.config` (and every other
+// downstream consumer, `pnpm run tokens` included) expects the FIXED
+// unstamped name — a stamped one vendored as-is ENOENT'd `pnpm run tokens`
+// (bug found running 1.98.0, 2026-09-28). Strips a trailing
+// `-YYYY-MM-DD-HH-MM-SS` stamp off any vendored filename, zip or dir alike,
+// so both paths land on the same canonical names.
+const STAMPED_SUFFIX_RE = /-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}(?=\.[a-zA-Z0-9]+$)/;
+
+export function normalizeVendoredNames(targetDir) {
+  for (const entry of readdirSync(targetDir)) {
+    if (!STAMPED_SUFFIX_RE.test(entry)) continue;
+    const canonical = entry.replace(STAMPED_SUFFIX_RE, "");
+    const from = join(targetDir, entry);
+    const to = join(targetDir, canonical);
+    if (existsSync(to)) unlinkSync(to); // a canonical copy already vendored — never leave two
+    renameSync(from, to);
+  }
+}
+
 /* `worktreePath` is the base to vendor into — the lane's own sibling
    worktree, never `<repo>/main` directly. Existing-entries scan reads from
    `worktreePath` too, since it's a fresh checkout of `main`'s own current
@@ -228,6 +257,7 @@ function vendorExport(exportPath, worktreePath, dryRun) {
   } else {
     cpSync(exportPath, targetDir, { recursive: true });
   }
+  normalizeVendoredNames(targetDir);
   if (existsSync(latestLink)) unlinkSync(latestLink);
   symlinkSync(versionDir, latestLink);
   return { targetDir, latestLink, versionDir };
@@ -277,12 +307,25 @@ function main() {
     process.exit(1);
   }
 
-  function cleanupWorktree() {
+  // `deleteBranch` is true on every FAILURE path — a failed run must leave
+  // nothing behind to trip the next one (bug found running 1.98.0,
+  // 2026-09-28: a failed run left `chore/ds-regen-v19-2026-09-28` behind,
+  // had to `git branch -D` it by hand before re-running). A SUCCESSFUL run
+  // keeps its branch — it was just pushed with a PR open on it.
+  function cleanupWorktree(deleteBranch) {
     try {
       run("git", ["-C", gitDir, "worktree", "remove", "--force", worktreePath]);
       run("git", ["-C", gitDir, "worktree", "prune"]);
     } catch {
       // best-effort — nothing more to do if this fails too
+    }
+    if (deleteBranch) {
+      try {
+        run("git", ["-C", gitDir, "branch", "-D", branch]);
+      } catch {
+        // best-effort — a branch that never got created (e.g. `git worktree
+        // add` itself failed) has nothing to delete
+      }
     }
   }
 
@@ -291,7 +334,7 @@ function main() {
     vendored = vendorExport(args.export, worktreePath, false);
   } catch (err) {
     console.error(`ds-regen: did not vendor the export — ${err.message}`);
-    cleanupWorktree();
+    cleanupWorktree(true);
     process.exit(1);
   }
 
@@ -301,7 +344,7 @@ function main() {
       run(cmd, cmdArgs, { cwd: worktreePath });
     } catch (err) {
       console.error(`ds-regen: did not complete "${s}" — ${err.message}`);
-      cleanupWorktree();
+      cleanupWorktree(true);
       process.exit(1);
     }
   }
@@ -320,7 +363,13 @@ function main() {
   console.log(`VALUE-DRIFT count: ${valueDriftCount}`);
 
   try {
-    run("git", ["-C", worktreePath, "add", "design/handoff"]);
+    // `-A`, not `design/handoff` only — the `pnpm run tokens` step above
+    // regenerates its own outputs elsewhere in the tree (CSS et al.); a
+    // vendored-export-only commit silently dropped them (bug found running
+    // 1.98.0, 2026-09-28: the header lane had to re-run `pnpm run tokens`
+    // and commit the CSS itself). This worktree carries nothing else — it
+    // was just created fresh off `main` for this lane.
+    run("git", ["-C", worktreePath, "add", "-A"]);
     run("git", ["-C", worktreePath, "commit", "-m", `design: regen tokens (${vendored.versionDir})`]);
     run("git", ["-C", worktreePath, "push", "-u", "origin", branch]);
     // `gh --repo` only ever accepts `[HOST/]OWNER/REPO`, never a filesystem
@@ -337,10 +386,10 @@ function main() {
     console.log(prOut.trim());
   } catch (err) {
     console.error(`ds-regen: did not commit/push/PR — ${err.message}`);
-    cleanupWorktree();
+    cleanupWorktree(true);
     process.exit(1);
   }
-  cleanupWorktree();
+  cleanupWorktree(false); // success — the branch stays, pushed, for the PR
   process.exit(0);
 }
 

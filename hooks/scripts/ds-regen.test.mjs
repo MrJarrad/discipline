@@ -557,3 +557,150 @@ test("law: bare-layout repo — a failing pnpm step still removes the sibling wo
     rmSync(binDir, { recursive: true, force: true });
   }
 });
+
+// --- bugs found running 1.98.0 (2026-09-28) --------------------------------
+
+test("a failing pnpm step also deletes the lane's own branch, not only the worktree (bug: a failed run left chore/ds-regen-v19-2026-09-28 behind, had to `branch -D` it by hand before re-running)", () => {
+  const repo = makeScratchDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(pnpmPath, "#!/usr/bin/env bash\necho 'fake pnpm: fails' 1>&2\nexit 1\n");
+  chmodSync(pnpmPath, 0o755);
+  try {
+    assert.throws(() => {
+      execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const branches = execFileSync("git", ["-C", repo, "branch", "--list", expectedBranch], { encoding: "utf8" }).trim();
+    assert.equal(branches, "", `a failed run must delete its own branch (${expectedBranch}), found: ${branches || "(none — pass)"}`);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("a run that fails vendoring the export also deletes its own branch", () => {
+  const repo = makeScratchDsRepo();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  const missingExport = join(tmpdir(), "ds-regen-does-not-exist-" + Date.now());
+  try {
+    assert.throws(() => {
+      execFileSync("node", [scriptPath, "--export", missingExport, "--repo", repo, "--no-vocab-index"], {
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+      });
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const branches = execFileSync("git", ["-C", repo, "branch", "--list", expectedBranch], { encoding: "utf8" }).trim();
+    assert.equal(branches, "", "a vendor failure must delete its own branch too");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("a successful run does NOT delete its own branch — it stays open for the PR", () => {
+  const repo = makeScratchDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  try {
+    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const branches = execFileSync("git", ["-C", repo, "branch", "-r"], { encoding: "utf8" });
+    assert.match(branches, new RegExp(`origin/${expectedBranch.replace(/\//g, "\\/")}`), "a successful run's branch must survive, pushed, for the PR");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("a dir export with STAMPED filenames is vendored under their unstamped canonical name (bug: handoff.config expects the unstamped name, pnpm run tokens ENOENT'd on the stamped one)", () => {
+  const repo = makeScratchDsRepo();
+  const exportDir = mkdtempSync(join(tmpdir(), "ds-regen-stamped-export-"));
+  writeFileSync(join(exportDir, "design-handoff.md"), "# Export\n\n## Changes\n- a: b\n");
+  // The exact shape from the evidence: a stamped design-system-handoff json,
+  // as a plugin dir export (not a zip) names it on disk.
+  writeFileSync(
+    join(exportDir, "jhd-spec-designsystem-design-system-handoff-2026-09-27-17-35-13.json"),
+    JSON.stringify({ schema: "design-system-handoff", generatedAt: "2026-09-27T17:35:13.000Z" }),
+  );
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  makeFakeBin(binDir);
+  try {
+    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const files = execFileSync("git", ["-C", repo, "ls-tree", "-r", "--name-only", expectedBranch], { encoding: "utf8" });
+    assert.match(files, /design-system-handoff\.json$/m, "the vendored file must carry the UNSTAMPED canonical name");
+    assert.doesNotMatch(files, /design-system-handoff-2026-09-27-17-35-13\.json/, "the stamped filename must not survive vendoring");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("a successful run commits the pnpm-regenerated outputs, not only the vendored export (bug: a run committed only design/handoff — the regenerated CSS never made it into the commit, a later lane had to re-run pnpm run tokens and commit it by hand)", () => {
+  const repo = makeScratchDsRepo();
+  const exportDir = makeFakeExportDir();
+  const binDir = mkdtempSync(join(tmpdir(), "ds-regen-bin-"));
+  // A pnpm stub that actually writes a generated-output file on `run tokens`
+  // — the real regen step's whole point — outside design/handoff/, so a
+  // `git add design/handoff`-only commit would drop it silently.
+  const pnpmPath = join(binDir, "pnpm");
+  writeFileSync(
+    pnpmPath,
+    "#!/usr/bin/env bash\nif [ \"$2\" = \"tokens\" ] && [ \"$1\" = \"run\" ]; then mkdir -p src/styles && echo '/* generated */' > src/styles/tokens.generated.css; fi\necho \"fake pnpm: $*\"\nexit 0\n",
+  );
+  chmodSync(pnpmPath, 0o755);
+  const ghPath = join(binDir, "gh");
+  writeFileSync(ghPath, "#!/usr/bin/env bash\necho 'https://github.com/example/ds/pull/2'\nexit 0\n");
+  chmodSync(ghPath, 0o755);
+  try {
+    execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expectedBranch = branchName(`v1-${today}`);
+    const files = execFileSync("git", ["-C", repo, "ls-tree", "-r", "--name-only", expectedBranch], { encoding: "utf8" });
+    assert.match(files, /src\/styles\/tokens\.generated\.css/, "the pnpm-regenerated output must be committed alongside the vendored export");
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(exportDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("readGeneratedAtFromExport reads generatedAt from a zip entry bigger than the 1MB default execFileSync maxBuffer (bug: an 8MB DS json threw, silently read as 'no readable generatedAt')", () => {
+  const exportRoot = mkdtempSync(join(tmpdir(), "ds-regen-bigzip-"));
+  const jsonName = "jhd-spec-design-system-handoff.json";
+  // Pad well past the default 1MB execFileSync maxBuffer.
+  const padding = "x".repeat(8 * 1024 * 1024);
+  writeFileSync(join(exportRoot, jsonName), JSON.stringify({ schema: "design-system-handoff", generatedAt: "2026-09-27T17:35:13.000Z", padding }));
+  const zipPath = join(exportRoot, "export.zip");
+  execFileSync("zip", ["-q", "-j", zipPath, join(exportRoot, jsonName)]);
+  try {
+    const generatedAt = readGeneratedAtFromExport(zipPath);
+    assert.equal(generatedAt, "2026-09-27T17:35:13.000Z");
+  } finally {
+    rmSync(exportRoot, { recursive: true, force: true });
+  }
+});
