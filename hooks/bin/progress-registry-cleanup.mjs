@@ -24,7 +24,7 @@
    never fired at all (a crashed or force-stopped session) — see its own
    `--purge-stale-registry` mode. */
 import { readFileSync, existsSync } from "node:fs";
-import { loadRegistry, saveRegistry, removeLane } from "./progress-registry.mjs";
+import { removeLane, withRegistryLock } from "./progress-registry.mjs";
 import { firstUserMessageText, resolveProgressPath, expandHome } from "./progress-floor.mjs";
 
 function readHookInput() {
@@ -51,8 +51,7 @@ function main() {
   if (!rawPath) process.exit(0);
 
   try {
-    const entries = loadRegistry();
-    saveRegistry(removeLane(entries, expandHome(rawPath)));
+    withRegistryLock((entries) => removeLane(entries, expandHome(rawPath)));
   } catch {
     /* cleanup failure is never worse than a stale-but-harmless registry row */
   }

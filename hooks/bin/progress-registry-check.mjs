@@ -47,7 +47,7 @@
    untouched in the registry — their tier/mtime state advances only when the
    session that actually owns them polls. */
 import { existsSync, statSync, readFileSync } from "node:fs";
-import { loadRegistry, saveRegistry } from "./progress-registry.mjs";
+import { withRegistryLock } from "./progress-registry.mjs";
 import { tick, tierMessage } from "../scripts/progress-watch.mjs";
 
 function readHookInput() {
@@ -63,12 +63,21 @@ function readHookInput() {
    injected so tests never touch real files. A row whose `sessionId` does not
    strictly equal `sessionId` (including a row with none recorded, or an
    invocation with no `sessionId` of its own) is passed through unchanged and
-   never reported — the cross-session leak fix. */
+   never reported — the cross-session leak fix.
+
+   The silence clock is `max(dispatchedAt, file mtime)`, never the bare file
+   mtime (bug found running 1.98.0, 2026-09-28): a lane re-dispatched onto a
+   path an EARLIER lane already wrote to reuses that stale, already-old file
+   — read raw, its mtime is minutes or hours in the past, so the very first
+   check after dispatch computed `elapsedMs` against it and fired "30 min
+   silent" instantly. `dispatchedAt` is this lane's own true start; the file
+   can never be evidence of silence from before that moment. */
 export function checkRegistry(entries, now, statLookup, sessionId) {
   const messages = [];
   const updatedEntries = entries.map((entry) => {
     if (entry.sessionId !== sessionId) return entry;
-    const mtime = statLookup(entry.path) ?? entry.dispatchedAt;
+    const fileMtime = statLookup(entry.path) ?? entry.dispatchedAt;
+    const mtime = Math.max(fileMtime, entry.dispatchedAt);
     const state = { lastMtime: entry.lastMtime ?? null, fired: new Set(entry.fired || []) };
     const result = tick(state, { mtime, now });
     if (result.tier) messages.push(tierMessage(result.tier, entry.path));
@@ -88,12 +97,14 @@ function realStatLookup(path) {
 function main() {
   const eventArg = process.argv[2] || "PostToolUse";
   const input = readHookInput();
-  const entries = loadRegistry();
-  if (entries.length === 0) process.exit(0);
 
-  const { updatedEntries, messages } = checkRegistry(entries, Date.now(), realStatLookup, input.session_id ?? null);
+  let messages = [];
   try {
-    saveRegistry(updatedEntries);
+    ({ messages = [] } = withRegistryLock((entries) => {
+      if (entries.length === 0) return { entries, messages: [] };
+      const { updatedEntries, messages: found } = checkRegistry(entries, Date.now(), realStatLookup, input.session_id ?? null);
+      return { entries: updatedEntries, messages: found };
+    }) || {});
   } catch {
     /* persistence failure never blocks the parent's turn */
   }

@@ -43,6 +43,8 @@ Don't wire visual changes directly to a continuously-changing input (e.g., mouse
 
 **Prefer CSS transitions over keyframes for anything rapidly re-triggered.** Transitions can be interrupted and retargeted mid-flight; keyframes restart from zero. Toasts, toggled states, and anything a user might fire repeatedly in quick succession should use transitions.
 
+**Retargeting a running animation still shows as a jump** if the retarget itself is coarse — re-arming a CSS transition or bursting `playbackRate` changes reads as a stutter even though the property is technically transition-driven. Pace the motion once and keep it on a single timeline; two strips running on separate timelines desync from each other even when each one individually looks smooth (hoverboard, 2026-09-27 — item 3).
+
 **Use blur to mask an imperfect crossfade.** When two states swap and no combination of easing/duration removes the sense of "two objects overlapping," add a subtle `filter: blur(2px)` (cap around 20px — heavier blur is expensive, especially in Safari) during the transition to visually bridge the states.
 
 **Animate entry with `@starting-style`** where browser support allows, instead of a `useEffect`-driven `mounted` flag:
@@ -85,6 +87,10 @@ How movers relate in time is **defined by the loaded motion law** when one exist
 **CSS variables are inheritable — updating one on a parent recalculates styles for every child.** In a list or drawer with many items, prefer setting `transform` directly on the specific element over updating a shared `--variable` on the container.
 
 **Framer Motion (Motion) caveat: its shorthand props (`x`, `y`, `scale`) are NOT hardware-accelerated** — they run via `requestAnimationFrame` on the main thread and drop frames when the browser is busy (e.g., during page load). For guaranteed hardware acceleration, animate the full `transform` string instead: `animate={{ transform: "translateX(100px)" }}`. CSS animations run off the main thread and stay smooth under the same load — prefer CSS for predetermined animations, JS (with this caveat in mind) for dynamic/interruptible ones.
+
+**iOS WebKit presents no frames while the main thread is busy — that holds even for compositor-driven CSS animations.** Smoothness during a heavy load phase (asset decode, hydration, a build step) needs every main-thread task kept under ~16ms across the animation's whole run: split the build phase, move decode/parse work to a Worker, pre-bake textures, and code-split rather than trusting "it's CSS, it's off the main thread" alone (hoverboard, 2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27` item 2).
+
+**Bake textures on the same GL backend the renderer ships with.** Canvas2D `lighter`/additive compositing is not bit-reproducible across rasterizers, and alpha-tested detail (fur, particles) amplifies the drift — a texture baked on one GL backend can visibly mismatch on another (hoverboard, 2026-09-27 — item 6).
 
 ## Accessibility
 

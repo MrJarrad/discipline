@@ -57,6 +57,16 @@ return before the link is sent (operator ruling 2026-09-20, `accuracy-before-the
 two proofs being in the doer's return — never on a reviewer verdict. The operator still judges
 look, first and alone.
 
+**A motion claim is proven from a real recording, read frame by frame — never from computed-style
+polls or analytic rate logs.** Those said "smooth" three times while the screen showed desynced
+digits and skips. The parent tiles one run before any link goes out (hoverboard, 2026-09-27 —
+`hoverboard-viewer-loader-lessons-2026-09-27` item 1; auto-memory
+`motion-verified-from-recorded-pixels`). **A 3D page's recording needs the real GPU** — a headless
+software-WebGL capture showed a multi-second freeze that the real Metal GPU showed as under a
+second; log the WebGL renderer string in the recording and treat a software renderer as voiding
+any timing claim about 3D readiness (hoverboard, 2026-09-28 —
+`hoverboard-loader-curve-lessons-2026-09-28` item 1).
+
 **Pixel proof is scoped by size class** (`doer-rules.md` § Size class): **component** work's
 pixel proof is **one screenshot per Figma sample width (375 / 768 / 1280 / 1920), checked at
 a glance** — not a pixel-assertion battery across viewports and states; **line** carries no

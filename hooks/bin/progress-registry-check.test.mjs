@@ -107,6 +107,25 @@ test("a lane whose file was never created uses dispatchedAt as the clock", () =>
   assert.match(result.messages[0], /\/never\/progress\.md/);
 });
 
+test("a lane re-dispatched onto a path an EARLIER lane already wrote to is not flagged silent the instant it dispatches (bug found running 1.98.0, 2026-09-28: the silence clock must be max(dispatchedAt, file mtime), never the bare stale file mtime)", () => {
+  const now = Date.now();
+  const staleFileMtime = now - THIRTY_MIN_MS - 60000; // the OLD lane's last write, long before this dispatch
+  const dispatchedAt = now; // THIS lane was just dispatched
+  const entries = [{ path: "/reused/progress.md", sessionId: SID, dispatchedAt, lastMtime: null, fired: [] }];
+  const result = checkRegistry(entries, now, () => staleFileMtime, SID);
+  assert.deepEqual(result.messages, [], "must not fire off a stale file mtime from before this lane's own dispatch");
+});
+
+test("once the re-dispatched lane's own dispatchedAt is itself 30+ min in the past, it fires normally even with a stale file underneath it", () => {
+  const now = Date.now();
+  const dispatchedAt = now - THIRTY_MIN_MS - 60000;
+  const staleFileMtime = dispatchedAt - 60000; // older still — the previous lane's leftover write
+  const entries = [{ path: "/reused/progress.md", sessionId: SID, dispatchedAt, lastMtime: null, fired: [] }];
+  const result = checkRegistry(entries, now, () => staleFileMtime, SID);
+  assert.equal(result.messages.length, 1);
+  assert.match(result.messages[0], /30 min silent/);
+});
+
 // --- cross-session leak (reviewer round 2 red) --------------------------------
 
 test("a lane registered under a DIFFERENT session id is neither reported nor mutated", () => {

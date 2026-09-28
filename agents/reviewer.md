@@ -29,7 +29,7 @@ findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red find
 Fail any and **return immediately**, naming it — a moving tree or a red build certifies nothing.
 
 1. **Deterministic gates are green.** On red, return one red finding, "deterministic gate red", with the check and its output.
-2. **One worktree, one agent.** Review on your **own** lane-named tree (`doer-rules.md` § Repo and safety), never a path another lane can remove under you.
+2. **One worktree, one agent.** Review on your **own** lane-named tree, never a path another lane can remove under you (`doer-rules.md` § Repo and safety — also the "pre-existing" rule).
 3. **A look-lane review is solicited only with the operator's yes recorded** — mechanism-only changes are exempt and review immediately ([reviewer-preconditions-and-tier.md](references/reviewer-preconditions-and-tier.md)).
 4. **Round budget remains** (below).
 

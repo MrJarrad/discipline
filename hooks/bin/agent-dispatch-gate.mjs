@@ -67,8 +67,10 @@
 
    The check is exported as a pure function so the tests drive it directly;
    the CLI wrapper only does stdin/stdout. */
-import { readFileSync } from "node:fs";
-import { loadRegistry, saveRegistry, upsertLane, expandHome } from "./progress-registry.mjs";
+import { readFileSync, realpathSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { upsertLane, expandHome, withRegistryLock, loadRegistry } from "./progress-registry.mjs";
 
 export const PROMPT_WORD_CAP = 600;
 
@@ -363,7 +365,18 @@ function readHookInput() {
   }
 }
 
-function allow() {
+function allow(additionalContext) {
+  if (additionalContext) {
+    console.log(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "allow",
+          additionalContext,
+        },
+      }),
+    );
+  }
   process.exit(0);
 }
 
@@ -378,6 +391,165 @@ function deny(reason) {
     }),
   );
   process.exit(0);
+}
+
+/* ACTIVE-WORK WARNING (operator-approved scope add, 2026-09-28 —
+   `~/JHD/vault/main/projects/jhd-discipline/evidence/2026-09-28-registry-regen/lock.md`:
+   operator "yes" to warning, never blocking, before dispatching an agent
+   into a repo that may already have work in flight). Two independent
+   signals, both best-effort and fail-open — neither ever denies a dispatch,
+   and any error anywhere in here (a `git` call, a stat, a malformed brief)
+   is swallowed and treated as "nothing to warn about":
+
+     (a) another session's own registry row already names the same repo —
+         read straight off the registry this gate itself maintains, no new
+         state;
+     (b) the target repo has a sibling worktree (`git worktree list`) that
+         is dirty (`git status --porcelain`) or has moved in the last 30
+         minutes (`git log -1 --format=%ct`), and it is not the worktree
+         THIS dispatch itself names — a lane about to be created has no
+         worktree yet, so it naturally never self-flags.
+
+   Repo/worktree are read off the SAME `## Context`-style prose every real
+   brief already carries (`Repo `<path>`, ... worktree `<path>``, backticked
+   or bare, same tolerance as `findProgressPath`) — no new brief grammar to
+   learn or enforce. */
+
+// `repo` (case-insensitive) followed, anywhere before the next comma/
+// whitespace run, by an absolute or `~/` path — backticked or bare, exactly
+// the two shapes `findProgressPath` already accepts for a progress path.
+const REPO_PATH_RE = /\brepo\b[^\n`~/]{0,20}`?((?:~\/|\/)[^\s`,]+)`?/i;
+const WORKTREE_PATH_RE = /\bworktree\b[^\n`]{0,20}`?([^\s`,]+)`?/i;
+
+/* `{ repoPath, worktreePath } | null` — `worktreePath` is null when the
+   brief names no worktree (e.g. a dispatch working directly in `<repo>/main`).
+   A relative worktree path (the house `worktrees/<lane-name>` shape) is
+   resolved against `repoPath`; absolute/`~/` forms are used as-is. */
+export function findRepoContext(prompt) {
+  const text = String(prompt || "");
+  const repoMatch = REPO_PATH_RE.exec(text);
+  if (!repoMatch) return null;
+  const repoPath = expandHome(repoMatch[1].replace(/[).,;]+$/, ""));
+  const worktreeMatch = WORKTREE_PATH_RE.exec(text);
+  let worktreePath = null;
+  if (worktreeMatch) {
+    const raw = worktreeMatch[1].replace(/[).,;]+$/, "");
+    worktreePath = /^(~\/|\/)/.test(raw) ? expandHome(raw) : join(repoPath, raw);
+  }
+  return { repoPath, worktreePath };
+}
+
+const ACTIVE_WORK_STALE_MS = 30 * 60 * 1000;
+const ACTIVE_WORK_WORKTREE_CAP = 20; // bounded — never walk an unbounded worktree list
+
+/* Pure: given the already-loaded registry, the `{ repoPath, worktreePath }`
+   this dispatch itself names, and the caller's OWN sessionId, decide which
+   OTHER registry rows name the same repo. `worktreePath`/`repoPath` null
+   (no repo parsed from the brief) always returns []. */
+export function otherSessionsOnRepo(entries, repoPath, sessionId) {
+  if (!repoPath) return [];
+  return entries.filter((e) => e.repo === repoPath && e.sessionId && e.sessionId !== sessionId);
+}
+
+/* Pure: given a list of `{ path, dirty, changedAt }` worktree statuses
+   (already read — see `realWorktreeStatuses` for the impure git side) and
+   the dispatch's OWN worktree path (if named), which of the OTHER worktrees
+   look like live work: dirty, or changed within `ACTIVE_WORK_STALE_MS`. */
+export function activeSiblingWorktrees(statuses, ownWorktreePath, now = Date.now()) {
+  return statuses.filter((s) => {
+    if (ownWorktreePath && s.path === ownWorktreePath) return false;
+    if (s.dirty) return true;
+    return typeof s.changedAt === "number" && now - s.changedAt < ACTIVE_WORK_STALE_MS;
+  });
+}
+
+/* Pure: composes both signals into the one warning string this gate injects
+   via `additionalContext`, or null when there is nothing to say. Never
+   throws — callers pass already-computed, already-fail-open inputs. */
+export function buildActiveWorkWarning({ otherSessions, activeWorktrees, repoPath }) {
+  if (otherSessions.length === 0 && activeWorktrees.length === 0) return null;
+  const lines = [`Active-work warning — ${repoPath} may already have work in flight:`];
+  for (const s of otherSessions) {
+    lines.push(`- another session (${s.sessionId}) has a live lane registered on this repo — its progress file: ${s.path}`);
+  }
+  for (const w of activeWorktrees) {
+    const why = w.dirty ? "has uncommitted changes" : "changed in the last 30 minutes";
+    lines.push(`- worktree ${w.path} ${why} and is not this dispatch's own worktree`);
+  }
+  lines.push("This is a warning, not a block — check before you proceed if this looks like a collision.");
+  return lines.join("\n");
+}
+
+// Impure, bounded, fail-open: real `git worktree list` + per-worktree
+// status/mtime. Any single worktree's git calls failing (removed mid-scan,
+// not actually a git dir, etc.) drops just that one entry, never the whole
+// scan. Capped at ACTIVE_WORK_WORKTREE_CAP entries so a repo with an
+// unusual number of worktrees can't make a dispatch's own gate slow.
+export function realWorktreeStatuses(repoPath) {
+  let listing;
+  try {
+    listing = execFileSync("git", ["-C", repoPath, "worktree", "list", "--porcelain"], { encoding: "utf8" });
+  } catch {
+    return [];
+  }
+  const paths = listing
+    .split("\n\n")
+    .map((block) => /^worktree (.+)$/m.exec(block)?.[1])
+    .filter(Boolean)
+    .slice(0, ACTIVE_WORK_WORKTREE_CAP);
+  const statuses = [];
+  for (const wtPath of paths) {
+    let dirty = false;
+    let changedAt = null;
+    try {
+      dirty = execFileSync("git", ["-C", wtPath, "status", "--porcelain"], { encoding: "utf8" }).trim().length > 0;
+    } catch {
+      continue; // not a readable worktree — skip, never let one bad entry sink the scan
+    }
+    try {
+      const epochSeconds = execFileSync("git", ["-C", wtPath, "log", "-1", "--format=%ct"], { encoding: "utf8" }).trim();
+      if (epochSeconds) changedAt = Number(epochSeconds) * 1000;
+    } catch {
+      /* no commits yet, or unreadable — dirty flag alone still stands */
+    }
+    statuses.push({ path: wtPath, dirty, changedAt });
+  }
+  return statuses;
+}
+
+/* The one entry point `main()` calls: repo context off the brief, this
+   session's OWN registered rows (read fresh off the registry this same
+   dispatch is about to write), and a real worktree scan — folded into the
+   warning string, or null. Never throws; every internal step already is,
+   this just makes sure a mistake in the composition itself can't either. */
+export function activeWorkWarning(prompt, sessionId) {
+  try {
+    const context = findRepoContext(prompt);
+    if (!context?.repoPath) return null;
+    const entries = loadRegistry();
+    const otherSessions = otherSessionsOnRepo(entries, context.repoPath, sessionId);
+    const statuses = realWorktreeStatuses(context.repoPath);
+    // `git worktree list` reports its own canonicalised (realpath'd) paths —
+    // on macOS that's `/private/var/...`, not the `/var/...` symlink a path
+    // parsed straight off the brief's own text carries. Resolve the brief's
+    // own worktree path the same way before comparing, so "this dispatch's
+    // own worktree" actually matches rather than false-warning about itself.
+    // A worktree that doesn't exist yet (the normal case: the gate runs
+    // BEFORE the lane creates it) has nothing to resolve — keep the raw
+    // path; it simply won't be in `statuses` yet either.
+    let ownWorktreePath = context.worktreePath;
+    if (ownWorktreePath) {
+      try {
+        ownWorktreePath = realpathSync(ownWorktreePath);
+      } catch {
+        /* not created yet — raw path stands, harmlessly matches nothing */
+      }
+    }
+    const activeWorktrees = activeSiblingWorktrees(statuses, ownWorktreePath);
+    return buildActiveWorkWarning({ otherSessions, activeWorktrees, repoPath: context.repoPath });
+  } catch {
+    return null;
+  }
 }
 
 /* The registry-write half of `progress-hooks` fix round (2026-09-27,
@@ -401,10 +573,10 @@ export function registerLaneFromPrompt(prompt, sessionId, now = Date.now()) {
   const section = progressSectionText(String(prompt || ""));
   const path = section ? findProgressPath(section) : null;
   if (!path) return;
+  const repo = findRepoContext(prompt)?.repoPath ?? null;
   try {
-    const entries = loadRegistry();
-    saveRegistry(
-      upsertLane(entries, { path: expandHome(path), sessionId: sessionId ?? null, dispatchedAt: now, lastMtime: null, fired: [] }),
+    withRegistryLock((entries) =>
+      upsertLane(entries, { path: expandHome(path), sessionId: sessionId ?? null, dispatchedAt: now, lastMtime: null, fired: [], repo }),
     );
   } catch {
     /* registry write failed — the dispatch itself must not be blocked over it */
@@ -418,8 +590,12 @@ function main() {
   if (!input || typeof input !== "object" || !input.tool_input) allow();
   const verdict = checkAgentDispatch(input.tool_input);
   if (verdict.ok) {
-    if (!verdict.exempt) registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
-    allow();
+    let warning = null;
+    if (!verdict.exempt) {
+      registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
+      warning = activeWorkWarning(input.tool_input.prompt, input.session_id);
+    }
+    allow(warning);
   }
   deny(verdict.reason);
 }
