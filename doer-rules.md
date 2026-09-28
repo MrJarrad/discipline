@@ -129,6 +129,9 @@ stop only their own pids** — the parent sweeps verification servers at every l
   the operator's live dev server).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
+- **A "pre-existing" claim is proven against `main`, never a branch ancestor.** Twice a lane
+  proved it against its own first commit and hid its own regression (hoverboard, 2026-09-27 —
+  `hoverboard-viewer-loader-lessons-2026-09-27` item 7).
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`,
   `.claude/settings*.json`) — a blocked or denied command is a finding to return to the
   parent, never a workaround.
@@ -194,6 +197,11 @@ before relaying; a row that still fails there reopens the lane instead of being 
 operator as fixed (2026-09-23, `reproduce-lane-already-works-before-relay`; baton row:
 `skills/routing/SKILL.md` § Baton handoff table).
 
+**The parent reads the table, not the summary, before relaying a number.** A doer's own prose
+summary can contradict its own table — one round's summary said "worst hold ~2.9s" while its
+own table showed up to 5s (hoverboard, 2026-09-28 — `hoverboard-loader-curve-lessons-2026-09-28`
+item 2). The table is the source; the summary is not re-derived truth.
+
 **No prose recap, no narrative** — the table and the gate output are the report. Budget:
 **≤ 250 words**, excluding the per-criterion table and the verbatim gate output. Over
 budget is a signal the run was under-scoped, not a licence to narrate. **The evidence
@@ -255,7 +263,11 @@ nothing, and every PR ran twice). Every JHD repo with a workflow:
 
 Doers run verification servers on `:3220` and up. Two ports are reserved and never started,
 stopped, or reused by a dispatched agent: **`:3210` the operator's live dev server** and
-**`:3211` the hoverboard viewer**. This is the process-ownership rule applied to servers —
+**`:3211` the hoverboard viewer**. **A lane never edits or builds inside the operator's own
+viewer checkout, whichever port it serves from** — one lane did, and the operator's live
+viewer served half-done work (hoverboard, 2026-09-27 — item 8); a lane always works in its
+own lane-named worktree, never the checkout a port happens to be pointed at. This is the
+process-ownership rule applied to servers —
 see § You are the doer for the general case (never kill, restart, or reuse a process you
 did not start).
 

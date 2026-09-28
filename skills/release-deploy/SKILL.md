@@ -42,6 +42,11 @@ each step is independently reversible, and rehearse the rollback *before* you sh
 - A `file:` sibling consumer runs `pnpm install --force` and asserts the installed copy before
   any gate or deploy — pnpm copies `file:` deps into its store, so a plain install is a no-op.
 - Record the **last-known-good** version *before* you ship — that's your rollback target.
+- **Cloudflare Workers static-assets edge-caches `index.html` across a deploy.** A stale
+  `index.html` served from that edge cache can point at hashed chunks the new deploy already
+  deleted, and the page never loads. Carry the previous deploy's chunks forward at deploy time
+  rather than assuming the entry HTML and the chunk set always land in lockstep (hoverboard,
+  2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27` item 4).
 
 ### 2. Deploy — dark, behind an off flag
 - Deploy the artifact with the new behaviour **gated by a flag defaulting to off**. Nothing
@@ -115,6 +120,12 @@ A deploy blocked by a permission rule is a **finding**, not an obstacle to route
 Never edit `~/.claude/**` or `.claude/settings*.json` to widen your own access and retry.
 DO: "`gh pr merge` denied → return 'merge blocked by permission rule X; next: parent'".
 DON'T: "add `Bash(gh *)` to settings.json and retry."
+
+**Auto-mode blocking Release Ops on a production deploy is not solved by an in-chat approval —
+it needs a user-level `autoMode.allow` rule naming the repo and the commands.** The parent
+cannot read or edit its own settings; the fix is to hand the operator one runnable command
+(with a backup) rather than retry, escalate a permission prompt, or work around it another way
+(hoverboard, 2026-09-28 — `hoverboard-loader-curve-lessons-2026-09-28` item 5).
 
 ## Where this sits
 

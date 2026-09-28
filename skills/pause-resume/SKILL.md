@@ -57,6 +57,12 @@ pause without the courtesy — committed branch work survives, the session
 resumes from vault — but pause is the clean, deliberate version, not a
 safety net to lean on.
 
+**After any session restart, read every lane's progress file before assuming state** — an
+unplanned loss leaves no snapshot naming what was in flight, and one lane once sat stalled
+for 4 hours unnoticed because nobody re-checked it (hoverboard, 2026-09-27 — item 9). Treat
+the registry / cockpit's lane list as the index, then open each named progress file, not
+just the ones the operator happens to ask about.
+
 ## Cross-references
 
 - `routing` rule 8 (baton, parent-only `Agent`) — pause does not change who
