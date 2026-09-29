@@ -1,45 +1,43 @@
-#!/usr/bin/env node
-/* PostToolUse (all tools) — the commit half of the `progress-hooks` doer
-   floor. `doer-rules.md` § You are the doer already says "a milestone is a
+/* The commit half of the `progress-hooks` doer floor — a library of pure
+   and small-impure pieces `progress-floor.mjs` imports and calls from its
+   own `main()` (folded in per the lock's own words: "extend the 10-min
+   progress-floor hook"; one spawn per tool call, not two).
+   `doer-rules.md` § You are the doer already says "a milestone is a
    progress line AND a local WIP commit" and names the shape (stage by name,
-   never `add -A`, never stash) — `progress-floor.mjs` mechanises the first
+   never `add -A`, never stash) — `progress-floor.mjs` mechanised the first
    half (the progress line); nothing mechanised the second. A lane can write
    a progress line every 10 minutes and still sit on 15 uncommitted files, as
    `lanes-survive-interruption` (2026-09-25) already found once.
 
-   Fires the same way `progress-floor.mjs` does — after every tool call in
-   the doer's own session, resolving the lane's WORKTREE (not its progress
-   path) from the brief's `Repo`/`worktree` lines via
-   `agent-dispatch-gate.mjs`'s own `findRepoContext` — reused rather than
-   re-derived, so a brief the dispatch gate parsed is read the same way here.
-   `git status --porcelain` against that worktree plus the on-disk mtime of
-   each changed path decides staleness; past 10 minutes uncommitted, it
-   injects a reminder via `additionalContext` — never a deny, fail-open at
-   every step (no brief, no worktree, not a git dir, git unavailable).
+   Resolves the lane's WORKTREE (not its progress path) from the brief's
+   `Repo`/`worktree` lines via `agent-dispatch-gate.mjs`'s own
+   `findRepoContext` — reused rather than re-derived. `git status
+   --porcelain` against that worktree plus the on-disk mtime of each changed
+   path decides staleness; past 10 minutes uncommitted, `wipReminderForWorktree`
+   returns a reminder string for the caller to fold into its own
+   `additionalContext` — never a deny, fail-open at every step (no worktree,
+   not a git dir, git unavailable).
 
    Throttled to at most once per minute PER WORKTREE (a small JSON cache,
    `~/.claude/wip-floor-throttle.json`, mirroring the shape of
-   `progress-registry.mjs`'s own state file) — this hook runs on every tool
-   call, so an unthrottled git-status-plus-stat-every-changed-path cost on
-   every single call would be needless overhead once the reminder has
-   already fired for the same staleness window; a throttled repeat call also
-   skips ALL git/stat work, the cheapest path a repeat call can take.
+   `progress-registry.mjs`'s own state file) — a throttled repeat call skips
+   ALL git/stat work, the cheapest path a repeat call can take. On every
+   write, the cache is pruned of entries whose worktree no longer exists on
+   disk or that are older than 24h — an unbounded lane count over a long
+   session must never grow this file forever.
 
    A deleted path with no reason on disk to read an mtime from is skipped
    when computing staleness (its age can't be measured) rather than treated
-   as always-stale or always-fresh — the other changed paths still count.
-
-   Usage: fires from hooks.json; also callable directly for a dry-run —
-     node wip-floor.mjs < hook-input.json                                    */
+   as always-stale or always-fresh — the other changed paths still count. */
 import { readFileSync, statSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import { findRepoContext } from "./agent-dispatch-gate.mjs";
-import { firstUserMessageText } from "./progress-floor.mjs";
 
 export const WIP_STALE_MS = 10 * 60 * 1000;
 export const THROTTLE_MS = 60 * 1000;
+export const THROTTLE_PRUNE_MS = 24 * 60 * 60 * 1000;
 
 /* Resolve the lane's own git worktree directory from a brief's text — the
    worktree line when the brief names one, else the repo line itself (a
@@ -139,59 +137,49 @@ export function isThrottled(map, worktreePath, now = Date.now()) {
   return typeof last === "number" && now - last < THROTTLE_MS;
 }
 
-function readHookInput() {
-  try {
-    return JSON.parse(readFileSync(0, "utf8") || "{}");
-  } catch {
-    return {};
+/* Drop any entry older than THROTTLE_PRUNE_MS, and any entry whose worktree
+   path no longer exists on disk — a lane that finished and its worktree was
+   removed, or a long session accumulating one row per lane it ever touched,
+   must never grow this cache forever. Injectable `existsFn` for tests. */
+export function pruneThrottle(map, now = Date.now(), existsFn = existsSync) {
+  const pruned = {};
+  for (const [worktreePath, firedAt] of Object.entries(map)) {
+    if (typeof firedAt !== "number") continue;
+    if (now - firedAt > THROTTLE_PRUNE_MS) continue;
+    if (!existsFn(worktreePath)) continue;
+    pruned[worktreePath] = firedAt;
   }
+  return pruned;
 }
 
-function main() {
-  const input = readHookInput();
-  const transcriptPath = input.transcript_path;
-  if (!transcriptPath || !existsSync(transcriptPath)) process.exit(0);
-
-  let brief = "";
-  try {
-    brief = firstUserMessageText(readFileSync(transcriptPath, "utf8"));
-  } catch {
-    process.exit(0);
-  }
-
-  const worktreePath = resolveWorktreePath(brief);
-  if (!worktreePath) process.exit(0); // no resolvable worktree — nothing to check
-
-  const now = Date.now();
+/* The one entry point the caller (`progress-floor.mjs`'s `main()`) needs:
+   given a resolved worktree path, the reminder string or null. Composes
+   every piece above — throttle check (cheapest path, no git/stat work at
+   all when throttled), `git status --porcelain`, path parsing, oldest-age
+   computation, the pure decision, and — only when a reminder actually
+   fires — a pruned throttle write. Never throws; every internal step
+   already fails open. */
+export function wipReminderForWorktree(worktreePath, now = Date.now()) {
   const throttleMap = loadThrottle();
-  if (isThrottled(throttleMap, worktreePath, now)) process.exit(0); // cheapest path: no git/stat work at all
+  if (isThrottled(throttleMap, worktreePath, now)) return null; // cheapest path: no git/stat work at all
 
   let statusOutput;
   try {
     statusOutput = execFileSync("git", ["-C", worktreePath, "status", "--porcelain"], { encoding: "utf8" });
   } catch {
-    process.exit(0); // not a git dir (worktree not created yet), or git unavailable
+    return null; // not a git dir (worktree not created yet), or git unavailable
   }
 
   const paths = parsePorcelainPaths(statusOutput);
-  if (paths.length === 0) process.exit(0); // clean worktree
+  if (paths.length === 0) return null; // clean worktree
 
   const oldestAgeMs = oldestChangeAgeMs(worktreePath, paths, now);
   const message = wipReminder(worktreePath, { changedCount: paths.length, oldestAgeMs });
-  if (!message) process.exit(0);
+  if (!message) return null;
 
-  throttleMap[worktreePath] = now;
-  saveThrottle(throttleMap);
+  const pruned = pruneThrottle(throttleMap, now);
+  pruned[worktreePath] = now;
+  saveThrottle(pruned);
 
-  console.log(
-    JSON.stringify({
-      hookSpecificOutput: {
-        hookEventName: "PostToolUse",
-        additionalContext: message,
-      },
-    }),
-  );
-  process.exit(0);
+  return message;
 }
-
-if (process.argv[1] && process.argv[1].endsWith("wip-floor.mjs")) main();

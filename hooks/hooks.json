@@ -48,10 +48,6 @@
           },
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/wip-floor.mjs\""
-          },
-          {
-            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-registry-check.mjs\" PostToolUse"
           }
         ]

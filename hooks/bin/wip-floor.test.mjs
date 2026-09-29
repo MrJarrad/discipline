@@ -1,18 +1,18 @@
-// Tests for the WIP-commit floor hook (`2026-09-29-wip-floor` lock, operator
-// "yes"): a reminder, never a block, when a lane's own worktree has
-// uncommitted changes older than 10 minutes. Pure decisions unit-tested
-// directly; the CLI process driven end to end against a real git worktree.
+// Tests for the WIP-commit floor library (`2026-09-29-wip-floor` lock,
+// operator "yes" — fix round 2: folded into `progress-floor.mjs`'s own
+// `main()`, so this module carries no CLI/process entry of its own anymore;
+// `progress-floor.test.mjs` covers the end-to-end/wiring behaviour).
 // Run: node --test hooks/bin/wip-floor.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync, execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, utimesSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, utimesSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import {
   WIP_STALE_MS,
   THROTTLE_MS,
+  THROTTLE_PRUNE_MS,
   resolveWorktreePath,
   parsePorcelainPaths,
   oldestChangeAgeMs,
@@ -21,10 +21,9 @@ import {
   loadThrottle,
   saveThrottle,
   isThrottled,
+  pruneThrottle,
+  wipReminderForWorktree,
 } from "./wip-floor.mjs";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const hook = join(here, "wip-floor.mjs");
 
 // --- wipReminder (pure decision) --------------------------------------------
 
@@ -135,7 +134,32 @@ test("loadThrottle reads a missing or corrupt file as empty", () => {
   assert.deepEqual(loadThrottle(bad), {});
 });
 
-// --- CLI process, end to end -------------------------------------------------
+// --- pruneThrottle -----------------------------------------------------------
+
+test("pruneThrottle drops an entry older than THROTTLE_PRUNE_MS even if the worktree exists", () => {
+  const now = 1_000_000_000;
+  const map = { "/wt": now - THROTTLE_PRUNE_MS - 1 };
+  assert.deepEqual(pruneThrottle(map, now, () => true), {});
+});
+
+test("pruneThrottle drops an entry whose worktree no longer exists, even if fresh", () => {
+  const now = 1_000_000_000;
+  const map = { "/gone": now - 1000 };
+  assert.deepEqual(pruneThrottle(map, now, () => false), {});
+});
+
+test("pruneThrottle keeps a fresh entry for an existing worktree", () => {
+  const now = 1_000_000_000;
+  const map = { "/wt": now - 1000 };
+  assert.deepEqual(pruneThrottle(map, now, () => true), { "/wt": now - 1000 });
+});
+
+test("pruneThrottle drops a malformed (non-numeric) entry", () => {
+  const now = 1_000_000_000;
+  assert.deepEqual(pruneThrottle({ "/wt": "not-a-number" }, now, () => true), {});
+});
+
+// --- wipReminderForWorktree, end to end against a real git worktree ----------
 
 function makeGitWorktree() {
   const dir = mkdtempSync(join(tmpdir(), "wip-floor-repo-"));
@@ -148,120 +172,96 @@ function makeGitWorktree() {
   return dir;
 }
 
-function makeSession(worktreeDir) {
-  const dir = mkdtempSync(join(tmpdir(), "wip-floor-session-"));
-  const transcriptPath = join(dir, "session.jsonl");
-  const throttlePath = join(dir, "throttle.json");
-  const brief = `Repo \`${worktreeDir}\`, working directly on main.\n\n## Progress\n\`${join(dir, "progress.md")}\`\n`;
-  writeFileSync(transcriptPath, JSON.stringify({ type: "user", message: { content: brief } }) + "\n");
-  return { dir, transcriptPath, throttlePath };
-}
-
-const run = (input, env = {}) =>
-  spawnSync(process.execPath, [hook], {
-    input: JSON.stringify(input),
-    encoding: "utf8",
-    env: { ...process.env, ...env },
-  });
-
-test("hook process: stale uncommitted change — reminder injected", () => {
+test("wipReminderForWorktree: stale uncommitted change — reminder, and throttle written", () => {
   const worktreeDir = makeGitWorktree();
   const changedFile = join(worktreeDir, "a.mjs");
   writeFileSync(changedFile, "stale\n");
   const staleTime = new Date(Date.now() - WIP_STALE_MS - 60000);
   utimesSync(changedFile, staleTime, staleTime);
-  const { transcriptPath, throttlePath } = makeSession(worktreeDir);
-
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.equal(result.status, 0);
-  const out = JSON.parse(result.stdout);
-  assert.equal(out.hookSpecificOutput.hookEventName, "PostToolUse");
-  assert.match(out.hookSpecificOutput.additionalContext, /commit a WIP snapshot now/);
-  assert.match(out.hookSpecificOutput.additionalContext, new RegExp(worktreeDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    const message = wipReminderForWorktree(worktreeDir);
+    assert.match(message, /commit a WIP snapshot now/);
+    assert.match(message, new RegExp(worktreeDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.ok(typeof loadThrottle(throttlePath)[worktreeDir] === "number");
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });
 
-test("hook process: fresh uncommitted change — silent", () => {
+test("wipReminderForWorktree: fresh uncommitted change — null", () => {
   const worktreeDir = makeGitWorktree();
   writeFileSync(join(worktreeDir, "a.mjs"), "fresh\n");
-  const { transcriptPath, throttlePath } = makeSession(worktreeDir);
-
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "");
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    assert.equal(wipReminderForWorktree(worktreeDir), null);
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });
 
-test("hook process: clean worktree (no changes at all) — silent", () => {
+test("wipReminderForWorktree: clean worktree — null", () => {
   const worktreeDir = makeGitWorktree();
-  const { transcriptPath, throttlePath } = makeSession(worktreeDir);
-
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "");
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    assert.equal(wipReminderForWorktree(worktreeDir), null);
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });
 
-test("hook process: no resolvable worktree (line-lane brief) — silent", () => {
-  const dir = mkdtempSync(join(tmpdir(), "wip-floor-session-"));
-  const transcriptPath = join(dir, "session.jsonl");
-  writeFileSync(
-    transcriptPath,
-    JSON.stringify({ type: "user", message: { content: "Size: line.\n\nJust fix the file." } }) + "\n",
-  );
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: join(dir, "throttle.json") });
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "");
-});
-
-test("hook process: Repo line pointing at a non-git directory — silent, never throws", () => {
+test("wipReminderForWorktree: not a git directory — null, never throws", () => {
   const dir = mkdtempSync(join(tmpdir(), "wip-floor-notgit-"));
-  const { transcriptPath, throttlePath } = makeSession(dir);
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "");
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    assert.equal(wipReminderForWorktree(dir), null);
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });
 
-test("hook process: missing transcript path — allowed, never throws", () => {
-  const result = run({ transcript_path: "/does/not/exist.jsonl" });
-  assert.equal(result.status, 0);
-  assert.equal(result.stdout.trim(), "");
-});
-
-test("hook process: throttle holds — a second stale call within a minute stays silent", () => {
+test("wipReminderForWorktree: throttle holds — a second stale call within a minute stays silent", () => {
   const worktreeDir = makeGitWorktree();
   const changedFile = join(worktreeDir, "a.mjs");
   writeFileSync(changedFile, "stale\n");
   const staleTime = new Date(Date.now() - WIP_STALE_MS - 60000);
   utimesSync(changedFile, staleTime, staleTime);
-  const { transcriptPath, throttlePath } = makeSession(worktreeDir);
-
-  const first = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.notEqual(first.stdout.trim(), "");
-
-  const second = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.equal(second.status, 0);
-  assert.equal(second.stdout.trim(), "", "throttled repeat call must stay silent");
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    const first = wipReminderForWorktree(worktreeDir);
+    assert.notEqual(first, null);
+    const second = wipReminderForWorktree(worktreeDir);
+    assert.equal(second, null, "throttled repeat call must stay silent");
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });
 
-test("hook process: throttle expired (backdated entry) — reminder fires again", () => {
+test("wipReminderForWorktree: firing prunes a stale entry for an already-removed worktree", () => {
   const worktreeDir = makeGitWorktree();
   const changedFile = join(worktreeDir, "a.mjs");
   writeFileSync(changedFile, "stale\n");
   const staleTime = new Date(Date.now() - WIP_STALE_MS - 60000);
   utimesSync(changedFile, staleTime, staleTime);
-  const { transcriptPath, throttlePath } = makeSession(worktreeDir);
-  saveThrottle({ [worktreeDir]: Date.now() - THROTTLE_MS - 1000 }, throttlePath);
+  const throttlePath = join(mkdtempSync(join(tmpdir(), "wip-throttle-")), "throttle.json");
 
-  const result = run({ transcript_path: transcriptPath }, { DISCIPLINE_WIP_THROTTLE: throttlePath });
-  assert.notEqual(result.stdout.trim(), "");
-});
+  // A worktree that no longer exists on disk, pre-seeded into the cache.
+  const removedWorktree = mkdtempSync(join(tmpdir(), "wip-floor-removed-"));
+  rmSync(removedWorktree, { recursive: true, force: true });
+  saveThrottle({ [removedWorktree]: Date.now() - THROTTLE_MS - 1000 }, throttlePath);
 
-// --- wiring --------------------------------------------------------------
-
-test("hooks.json fires wip-floor on PostToolUse for every tool", async () => {
-  const { readFileSync } = await import("node:fs");
-  const repo = join(here, "..", "..");
-  const hooks = JSON.parse(readFileSync(join(repo, "hooks", "hooks.json"), "utf8"));
-  const post = hooks.hooks.PostToolUse;
-  const entry = post.find((h) => h.hooks.some((c) => /wip-floor\.mjs/.test(c.command)));
-  assert.ok(entry, "no PostToolUse entry wiring wip-floor.mjs");
-  assert.equal(entry.matcher, "*", "must fire on every tool, not a subset");
+  process.env.DISCIPLINE_WIP_THROTTLE = throttlePath;
+  try {
+    wipReminderForWorktree(worktreeDir);
+    const after = loadThrottle(throttlePath);
+    assert.ok(!(removedWorktree in after), "removed worktree's entry must be pruned on write");
+    assert.ok(worktreeDir in after, "the firing worktree's own entry must be written");
+  } finally {
+    delete process.env.DISCIPLINE_WIP_THROTTLE;
+  }
 });

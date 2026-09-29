@@ -7,7 +7,7 @@
 // Run: node --test hooks/bin/progress-floor.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +21,7 @@ import {
   reminderText,
   staleReminder,
 } from "./progress-floor.mjs";
+import { WIP_STALE_MS } from "./wip-floor.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const hook = join(here, "progress-floor.mjs");
@@ -193,14 +194,86 @@ test("hook process: unparseable stdin — allowed, never throws", () => {
   assert.equal(result.stdout.trim(), "");
 });
 
+// --- WIP-floor folded in (`2026-09-29-wip-floor`, fix round 2) --------------
+
+function makeGitWorktree() {
+  const dir = mkdtempSync(join(tmpdir(), "progress-floor-wip-repo-"));
+  execFileSync("git", ["init", "-q"], { cwd: dir });
+  execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: dir });
+  execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
+  writeFileSync(join(dir, "README.md"), "seed\n");
+  execFileSync("git", ["add", "README.md"], { cwd: dir });
+  execFileSync("git", ["commit", "-q", "-m", "seed"], { cwd: dir });
+  return dir;
+}
+
+function runWithThrottle(input, throttlePath) {
+  return spawnSync(process.execPath, [hook], {
+    input: JSON.stringify(input),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_WIP_THROTTLE: throttlePath },
+  });
+}
+
+test("hook process: stale worktree, no ## Progress at all — WIP reminder still fires", () => {
+  const worktreeDir = makeGitWorktree();
+  const changedFile = join(worktreeDir, "a.mjs");
+  writeFileSync(changedFile, "stale\n");
+  const staleTime = new Date(Date.now() - WIP_STALE_MS - 60000);
+  utimesSync(changedFile, staleTime, staleTime);
+
+  const dir = mkdtempSync(join(tmpdir(), "progress-floor-wip-session-"));
+  const transcriptPath = join(dir, "session.jsonl");
+  const brief = `Size: line. Repo \`${worktreeDir}\`, working directly on main.\n\nJust fix the file.`;
+  writeFileSync(transcriptPath, JSON.stringify({ type: "user", message: { content: brief } }) + "\n");
+
+  const result = runWithThrottle({ transcript_path: transcriptPath }, join(dir, "throttle.json"));
+  assert.equal(result.status, 0);
+  const out = JSON.parse(result.stdout);
+  assert.match(out.hookSpecificOutput.additionalContext, /commit a WIP snapshot now/);
+});
+
+test("hook process: both progress file AND worktree stale — one call, both reminders joined", () => {
+  const worktreeDir = makeGitWorktree();
+  const changedFile = join(worktreeDir, "a.mjs");
+  writeFileSync(changedFile, "stale\n");
+  const wipStaleTime = new Date(Date.now() - WIP_STALE_MS - 60000);
+  utimesSync(changedFile, wipStaleTime, wipStaleTime);
+
+  const { progressPath, transcriptPath, dir } = makeSession();
+  const brief =
+    `Size: component. Repo \`${worktreeDir}\`, working directly on main.\n\n` +
+    `## Progress\n\`${progressPath}\`\n\n**Done-when.**`;
+  writeFileSync(transcriptPath, JSON.stringify({ type: "user", message: { content: brief } }) + "\n");
+  writeFileSync(progressPath, "2026-09-27T18:00:00Z dispatched\n");
+  const progressStaleTime = new Date(Date.now() - 11 * 60 * 1000);
+  utimesSync(progressPath, progressStaleTime, progressStaleTime);
+
+  const result = runWithThrottle({ transcript_path: transcriptPath }, join(dir, "throttle.json"));
+  assert.equal(result.status, 0);
+  const out = JSON.parse(result.stdout);
+  assert.match(out.hookSpecificOutput.additionalContext, /still on step N of M — doing X/);
+  assert.match(out.hookSpecificOutput.additionalContext, /commit a WIP snapshot now/);
+});
+
+test("hook process: no Repo line at all — WIP half stays silent, never throws", () => {
+  const { progressPath, transcriptPath } = makeSession();
+  writeTranscript(transcriptPath, progressPath);
+  const result = run({ transcript_path: transcriptPath });
+  assert.equal(result.status, 0);
+  assert.equal(result.stdout.trim(), "");
+});
+
 // --- wiring --------------------------------------------------------------
 
-test("hooks.json fires progress-floor on PostToolUse for every tool", async () => {
+test("hooks.json fires progress-floor on PostToolUse for every tool, and wip-floor.mjs is folded in (no separate spawn)", async () => {
   const { readFileSync } = await import("node:fs");
   const repo = join(here, "..", "..");
   const hooks = JSON.parse(readFileSync(join(repo, "hooks", "hooks.json"), "utf8"));
   const post = hooks.hooks.PostToolUse;
-  const entry = post.find((h) => /progress-floor\.mjs/.test(h.hooks[0].command));
+  const entry = post.find((h) => h.hooks.some((c) => /progress-floor\.mjs/.test(c.command)));
   assert.ok(entry, "no PostToolUse entry wiring progress-floor.mjs");
   assert.equal(entry.matcher, "*", "must fire on every tool, not a subset");
+  const separateWipEntry = post.some((h) => h.hooks.some((c) => /[^-]wip-floor\.mjs/.test(c.command)));
+  assert.equal(separateWipEntry, false, "wip-floor.mjs must not be wired as its own PostToolUse spawn");
 });

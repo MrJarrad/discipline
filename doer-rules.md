@@ -56,9 +56,7 @@ it never restates what is here.
   names the WIP sha it corresponds to. A stopped portfolio lane left ~295 uncommitted
   lines across six files and no progress file when its session ended — recovery was a
   fresh agent told to WIP-commit the leftovers first (`lanes-survive-interruption`,
-  2026-09-25). `wip-floor.mjs` reminds, mechanically, once your own worktree sits
-  uncommitted past 10 minutes — a reminder, never a block; the commit above is still yours
-  to make (`2026-09-29-wip-floor`).
+  2026-09-25). `wip-floor.mjs` reminds past 10 min uncommitted — never a block.
 - Execute inline; your final message is the deliverable. **NEVER call `Agent`.**
 - No spawn-and-wait. A task that looks like it needs a specialist is a scoping signal for
   the parent, not a licence to sub-dispatch.

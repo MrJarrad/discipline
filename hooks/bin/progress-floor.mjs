@@ -27,11 +27,20 @@
    orchestrator session, or a brief this hook cannot parse) → allow silently,
    every time. Mechanical, no agent judgement (the lock's own words).
 
+   Also fires the commit half of the same floor (`2026-09-29-wip-floor`
+   lock, "extend the 10-min progress-floor hook"): once the brief's own
+   `Repo`/`worktree` lines resolve to a lane worktree, `wip-floor.mjs`'s
+   `wipReminderForWorktree` checks that worktree's own staleness the same
+   way — folded into THIS hook's one spawn per tool call rather than a
+   second process, and joined into the same `additionalContext` when both
+   fire together.
+
    Usage: fires from hooks.json; also callable directly for a dry-run —
      node progress-floor.mjs < hook-input.json                              */
 import { readFileSync, statSync, existsSync } from "node:fs";
 import { findProgressPath, progressSectionText } from "./agent-dispatch-gate.mjs";
 import { expandHome } from "./progress-registry.mjs";
+import { resolveWorktreePath, wipReminderForWorktree } from "./wip-floor.mjs";
 
 export const STALE_MS = 10 * 60 * 1000;
 
@@ -130,40 +139,50 @@ function main() {
     process.exit(0);
   }
 
+  const messages = [];
+
   const rawPath = resolveProgressPath(brief);
-  if (!rawPath) process.exit(0); // no progress lane — nothing to check
+  if (rawPath) {
+    const path = expandHome(rawPath);
+    let fileExists = false;
+    let fileAgeMs = 0;
+    try {
+      const st = statSync(path);
+      fileExists = true;
+      fileAgeMs = Date.now() - st.mtimeMs;
+    } catch {
+      fileExists = false;
+    }
 
-  const path = expandHome(rawPath);
-  let fileExists = false;
-  let fileAgeMs = 0;
-  try {
-    const st = statSync(path);
-    fileExists = true;
-    fileAgeMs = Date.now() - st.mtimeMs;
-  } catch {
-    fileExists = false;
+    // Falls back to the transcript file's own birth as a dispatch-time proxy
+    // when the progress file has never been written — the transcript exists
+    // from the session's first turn, so its mtime approximates dispatch time
+    // closely enough for a 10-minute floor.
+    let dispatchAgeMs = Infinity;
+    try {
+      const transcriptStat = statSync(transcriptPath);
+      dispatchAgeMs = Date.now() - transcriptStat.birthtimeMs;
+    } catch {
+      /* leave at Infinity — remind rather than stay silent */
+    }
+
+    const progressMessage = staleReminder(path, { fileExists, fileAgeMs, dispatchAgeMs });
+    if (progressMessage) messages.push(progressMessage);
   }
 
-  // Falls back to the transcript file's own birth as a dispatch-time proxy
-  // when the progress file has never been written — the transcript exists
-  // from the session's first turn, so its mtime approximates dispatch time
-  // closely enough for a 10-minute floor.
-  let dispatchAgeMs = Infinity;
-  try {
-    const transcriptStat = statSync(transcriptPath);
-    dispatchAgeMs = Date.now() - transcriptStat.birthtimeMs;
-  } catch {
-    /* leave at Infinity — remind rather than stay silent */
+  const worktreePath = resolveWorktreePath(brief);
+  if (worktreePath) {
+    const wipMessage = wipReminderForWorktree(worktreePath);
+    if (wipMessage) messages.push(wipMessage);
   }
 
-  const message = staleReminder(path, { fileExists, fileAgeMs, dispatchAgeMs });
-  if (!message) process.exit(0);
+  if (messages.length === 0) process.exit(0);
 
   console.log(
     JSON.stringify({
       hookSpecificOutput: {
         hookEventName: "PostToolUse",
-        additionalContext: message,
+        additionalContext: messages.join("\n\n"),
       },
     }),
   );
