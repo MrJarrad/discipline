@@ -308,6 +308,12 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
 
   const tracked = new Map(); // identity -> { rect, blankMs }
   const flagged = [];
+  // Diagnosis-only (row 151 a/b lane): the max blank streak ever reached per
+  // identity across the whole session, whether or not it crossed
+  // `arrivalWindowMs` — the probe's own pass/fail stays the `flagged` count
+  // above; this is additive, read by callers that want "which tile, how
+  // long" rather than only "zero or not".
+  const maxBlankMsById = new Map();
 
   framesOfStates.forEach((states, frameIndex) => {
     const seen = new Set();
@@ -327,6 +333,7 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
       if (blankNow) {
         const blankMs = (prev?.blankMs ?? 0) + frameIntervalMs;
         tracked.set(id, { rect: state.rect, blankMs });
+        if (blankMs > (maxBlankMsById.get(id) ?? 0)) maxBlankMsById.set(id, blankMs);
         if (blankMs >= arrivalWindowMs) {
           flagged.push({ frameIndex, id, rect: state.rect, pixels: state.pixels });
         }
@@ -342,7 +349,7 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
     }
   });
 
-  return { total: flagged.length, flagged };
+  return { total: flagged.length, flagged, maxBlankMsById };
 }
 
 // The probe's paint number: `classifyEmptyAcrossFrames(...).total`. Zero is
