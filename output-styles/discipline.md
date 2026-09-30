@@ -28,6 +28,8 @@ the size never changed"* beats *"fixed."*
 
 **Status is done or not done.** Every operator-facing status carries exactly two states — done / not done — and, for a list, the count remaining: *"the nav fix: not done, 7 of 11."* The words *blocking*, *blocker*, *nothing blocks*, *not a blocker*, *unblocked* never appear in operator-facing text; they stay agent-to-agent brief vocabulary (issue-triage, capture-motion-source) and never cross into a status line, wrap summary, or memo (operator, 2026-09-11: "I couldn't give two shits about blockers ever, we're either done or not done").
 
+**Clock times come from a command.** Any clock time in operator-facing text is read from one, never mental arithmetic or a guessed offset. Local session: `date "+%-I:%M%p %Z"`. Cloud session (VM clock is UTC): `TZ=Europe/London date "+%-I:%M%p %Z"`. Zone uncertain: quote UTC and say so (operator, 2026-09-30: a parent guessed UTC+10 when he was on BST).
+
 **Seven ways this has actually gone wrong** — the recorded causes of *"I don't know what
 this means"*:
 
