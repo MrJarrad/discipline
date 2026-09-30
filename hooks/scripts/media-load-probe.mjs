@@ -96,7 +96,7 @@
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import {
-  totalEmptyMediaAcrossFrames,
+  classifyEmptyAcrossFrames,
   totalColumnGapsAcrossFrames,
   isVisible,
   isVisibilityHidden,
@@ -413,9 +413,19 @@ async function run(opts) {
   if (opts.channel) launchOpts.channel = opts.channel;
   if (opts.headed) launchOpts.headless = false;
   const browser = await engine.launch(launchOpts);
+  // Access-gated targets (a Workers version preview behind Cloudflare
+  // Access): `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` in the calling
+  // env, when both are set, ride every request as service-token headers —
+  // never logged, never a CLI flag (a flag value would show up in `ps`).
+  const extraHTTPHeaders = {};
+  if (process.env.CF_ACCESS_CLIENT_ID && process.env.CF_ACCESS_CLIENT_SECRET) {
+    extraHTTPHeaders["CF-Access-Client-Id"] = process.env.CF_ACCESS_CLIENT_ID;
+    extraHTTPHeaders["CF-Access-Client-Secret"] = process.env.CF_ACCESS_CLIENT_SECRET;
+  }
   const context = await browser.newContext({
     viewport: { width: opts.width, height: opts.height },
     deviceScaleFactor: opts.dpr,
+    ...(Object.keys(extraHTTPHeaders).length ? { extraHTTPHeaders } : {}),
   });
   const page = await context.newPage();
   await throttle(page, opts.network);
@@ -484,11 +494,18 @@ async function run(opts) {
   // `load` has no session to fade across — the bar is real from first paint,
   // so every blank frame counts immediately, unchanged from before round 3.
   const arrivalWindowMs = driveMode.mode === "load" ? 0 : opts.arrivalWindowMs;
-  const paint = totalEmptyMediaAcrossFrames(frames, viewport, emptyColors, {
+  // Diagnosis-only (row 151 a/b lane): classify once, keep the per-identity
+  // max-blank-streak map alongside the probe's own `paint` count — never a
+  // second classification pass, `classifyEmptyAcrossFrames` is the one
+  // implementation `totalEmptyMediaAcrossFrames` itself calls.
+  const classified = classifyEmptyAcrossFrames(frames, viewport, emptyColors, {
     ...paintClassifyOptions,
     arrivalWindowMs,
     frameIntervalMs,
   });
+  const paint = classified.total;
+  const perTileMaxBlankMs = Object.fromEntries(classified.maxBlankMsById);
+  const tilesOver500ms = Object.values(perTileMaxBlankMs).filter((ms) => ms >= 500).length;
   const visibleRectsPerFrame = frames.map((states) =>
     states.filter((s) => isVisible(s.rect, viewport)).map((s) => s.rect),
   );
@@ -498,7 +515,14 @@ async function run(opts) {
   });
 
   await browser.close();
-  return { paint, gaps, frames: frames.length, mode: driveMode.mode };
+  return {
+    paint,
+    gaps,
+    frames: frames.length,
+    mode: driveMode.mode,
+    perTileMaxBlankMs,
+    tilesOver500ms,
+  };
 }
 
 async function main() {
@@ -520,6 +544,11 @@ async function main() {
   const paintSum = reps.reduce((s, r) => s + r.paint, 0);
   const gapSum = reps.reduce((s, r) => s + r.gaps, 0);
   console.log(`total: paint=${paintSum} gaps=${gapSum}`);
+  // Diagnosis-only (row 151 a/b lane): one machine-parseable line with every
+  // rep's per-tile detail, prefixed so a caller can grep it out of the
+  // browser/driver noise above — never the probe's own pass/fail, which
+  // stays the plain-text `paint=`/`gaps=` lines above.
+  console.log(`RESULT_JSON:${JSON.stringify({ url: opts.url, viewport: opts.viewport, dpr: opts.dpr, browser: opts.browser, network: opts.network, interaction: opts.interaction, reps })}`);
   if (reps.some((r) => r.mode === "paced")) {
     console.log(
       "NOTE: --paced is a slow, evenly-spaced crawl — not proof of fast-motion behaviour. Use the default (or --duration) fling session before closing a lane.",
