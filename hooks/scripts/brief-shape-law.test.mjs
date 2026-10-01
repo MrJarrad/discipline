@@ -39,9 +39,12 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // SOURCE-CONTRACT-LOCKS.md and HOUSE-RULES.md rather than inlined in full.
 // Ceiling raised 1450 -> 1500 at 1.95.0: `media-load-standard` added the
 // media-touching-lane done-when clause (`media-loading`) — real growth.
-test("the dispatch-brief skill stays under its 1450-word ceiling", () => {
+// Ceiling raised 1500 -> 1520 at 1.102.0: the literal `Skills:` line, the Bash
+// agent-label sentence and the BRIEF-CRAFT pointer — the lesson rollout's briefing
+// facts live in references/BRIEF-CRAFT.md; only the pointers are here.
+test("the dispatch-brief skill stays under its 1520-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1500, `dispatch-brief is ${count} words; the ceiling is 1500`);
+  assert.ok(count <= 1520, `dispatch-brief is ${count} words; the ceiling is 1520`);
 });
 
 test("the scenario table has exactly eight rows", () => {
