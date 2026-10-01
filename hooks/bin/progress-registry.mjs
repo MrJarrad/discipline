@@ -52,7 +52,7 @@
    bounded synchronous wait and a stale-lock steal so a crashed holder can
    never wedge the registry shut — fail-open past the deadline, the same
    posture every other path in this file already takes. */
-import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, unlinkSync, statSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -75,7 +75,10 @@ export function loadRegistry(path = registryPath()) {
 
 export function saveRegistry(entries, path = registryPath()) {
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(entries, null, 2) + "\n");
+  // Temp + rename: a reader (or a crash mid-write) never sees a half-written file.
+  const temp = `${path}.${process.pid}.tmp`;
+  writeFileSync(temp, JSON.stringify(entries, null, 2) + "\n");
+  renameSync(temp, path);
 }
 
 // Pure: add or replace the lane keyed by its own progress path — a
