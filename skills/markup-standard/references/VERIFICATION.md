@@ -39,6 +39,14 @@ produced, so it's reproducible by construction.
 9. **[Exceed tier] No-JS pass** — `curl` plus a Playwright `javaScriptEnabled: false`
    context against every route; nav works, all text is present, every video has a
    `poster`.
+10. **Meta-content pass** — for every route (from the sitemap plus any noindex
+    route), `curl` the served HTML and assert: `<title>` present, unique across
+    routes, matches the one pattern, at most about 60 characters; `meta description`
+    present, unique, about 70–160 characters; exactly one canonical link; `og:image`
+    and `twitter:image` present and the image URL returns 200 as an image (1200×630);
+    every icon `<link>` and the manifest resolve; every `<img>` carries `alt`; noindex
+    routes are absent from the sitemap. Output is a per-route table; any blank cell is
+    a finding. Wording quality is `brand-voice`'s read, not this pass's.
 
 None of these require a passing "vibe" read of the JSX — every check above resolves to
 a count, a boolean, or an axe violation list. Attach the actual output (outline list,
