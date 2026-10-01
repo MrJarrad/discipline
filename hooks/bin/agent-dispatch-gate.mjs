@@ -91,18 +91,28 @@ const DESCRIPTION_SHAPE = /^(cloud|local) — ([A-Za-z][A-Za-z0-9 -]*?) \(([^()]
 
 /* Does this Bash command launch an agent? `claude` with `-p`/`--print`/`--cloud`,
    `workflow.mjs`, the Mac-queue runner, or a write of a Mac-queue job file — each
-   at the start of a shell segment, so a quoted mention or `cat workflow.mjs`
-   never counts. */
+   at the start of a shell segment. Heredoc bodies and quoted spans are removed
+   first (`stripNonCode`), so a commit message, a README heredoc or a `grep "…"`
+   that merely mentions a launch never counts (reviewer R1, 1.102.0). */
+export function stripNonCode(command = "") {
+  let text = String(command);
+  // Heredoc bodies: everything from the line after `<<[-]'TAG'` up to the TAG line.
+  text = text.replace(/<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n[\s\S]*?(?:\n\s*\2(?=\n|$)|$)/g, (m) => m.slice(0, m.indexOf("\n")));
+  // Quoted spans (newlines inside them are not segment boundaries).
+  return text.replace(/'[^']*'|"(?:\\[\s\S]|[^"\\])*"/g, '""');
+}
 const SEGMENT_START = String.raw`(?:^|[;&|(\n])\s*(?:[A-Za-z_]\w*=\S*\s+)*`;
 const AGENT_LAUNCHES = [
   new RegExp(SEGMENT_START + String.raw`(?:\S*/)?claude\s(?:[^;&|\n]*\s)?(?:-p|--print|--cloud)(?=\s|$)`),
   new RegExp(SEGMENT_START + String.raw`(?:node\s+)?\S*workflow\.mjs(?=\s|$)`),
   new RegExp(SEGMENT_START + String.raw`(?:(?:ba)?sh\s+)?\S*mac-queue/run\.sh(?=\s|$)`),
-  /\bgit\s+add\b[^;&|\n]*queue\/mac\/pending\//,
-  /(?:>|\btee\s)\s*\S*queue\/mac\/pending\//,
+  new RegExp(SEGMENT_START + String.raw`git\s+add\b[^;&|\n]*queue/mac/pending/`),
+  /\s>>?\s*\S*queue\/mac\/pending\//,
+  /(?:^|[;&|(\n])\s*tee\s+(?:-a\s+)?\S*queue\/mac\/pending\/|\|\s*tee\s+(?:-a\s+)?\S*queue\/mac\/pending\//,
 ];
 export function launchesAgent(command = "") {
-  return AGENT_LAUNCHES.some((re) => re.test(String(command)));
+  const text = stripNonCode(command);
+  return AGENT_LAUNCHES.some((re) => re.test(text));
 }
 
 /* Bash that launches an agent carries `local — persona (model): task` (or

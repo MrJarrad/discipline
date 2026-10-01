@@ -144,7 +144,8 @@ sessions"*). A look row reads "say yes and it goes into the main code" and the y
 merge approval — merge on it, cited in the merge message. Technical changes (CI, scripts, tests,
 mechanism, deps, infra) merge on gates green + no red finding with no operator ask, quoting the
 ruling in the commit; if a safety check still blocks, quote it once, then fold the merge into the
-next look yes. Offer "reply 'merge when green' once" at most once per session. Never route
+next look yes. Offer "reply 'merge when green' once" at most once per session. Scope and Destructive category changes stay operator rows
+(`agents/references/reviewer-two-axis.md`). Never route
 around the guard (no auto-merge toggles, no settings writes).
 
 **Completion criterion:** Short *Ready for review* — what changed, what to check.

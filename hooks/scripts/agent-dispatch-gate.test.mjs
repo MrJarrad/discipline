@@ -814,3 +814,37 @@ test("hooks.json routes Bash through the dispatch gate as well as the commit gat
   assert.ok(matching.some((c) => c.includes("agent-dispatch-gate.mjs")), "Bash must reach agent-dispatch-gate.mjs");
   assert.ok(matching.some((c) => c.includes("commit-gate.mjs")), "commit-gate keeps its Bash matcher");
 });
+
+// --- Round 2 (reviewer R1): prose that merely mentions a launch is never gated ---
+
+test("heredoc bodies, quoted spans and quoted git-add text never count as an agent launch", () => {
+  const negatives = {
+    "commit heredoc body line starts claude -p": "git commit -F - <<'EOF'\nfix the gate\nclaude -p 'x' is now labelled\nEOF",
+    "README heredoc with a claude -p code line": "cat > README.md <<'EOF'\n## Usage\nclaude -p 'task'\nEOF",
+    "notes heredoc line running workflow.mjs": "cat >> notes.md <<EOF\nnode hooks/scripts/workflow.mjs spec.json\nEOF",
+    "commit -m with an embedded newline then claude --print": 'git commit -m "gate\nclaude --print is covered"',
+    "gh pr create --body with an embedded newline then claude -p": 'gh pr create --title t --body "summary\nclaude -p x"',
+    "commit message mentioning git add queue/mac/pending/": 'git commit -m "chore: git add queue/mac/pending/ job"',
+    "grep for the git-add text": 'grep "git add queue/mac/pending/" CHANGED.txt',
+    "python heredoc editing the gate test": "python3 - <<'E'\ns = \"claude -p 'x'\"\nopen(p,'w').write(s)\nnode workflow.mjs\nE",
+    "single-quoted newline span": "echo 'a\nclaude --cloud b'",
+  };
+  for (const [name, command] of Object.entries(negatives)) {
+    assert.equal(launchesAgent(command), false, name);
+    assert.equal(checkBashAgentLabel({ command }).ok, true, name);
+  }
+});
+
+test("true positives still deny after stripping: real newline segments, launch after a heredoc, quoted task text", () => {
+  for (const command of [
+    "cd x\nclaude -p 'do it'",
+    "cat <<'EOF' > brief.md\nbody\nEOF\nclaude --print < brief.md",
+    "claude -p \"quoted task\" --permission-mode auto",
+    "echo job > queue/mac/pending/job.md",
+    "git add queue/mac/pending/job.md",
+    "cd repo && git add queue/mac/pending/job.md",
+    "cat x | tee queue/mac/pending/job.md",
+  ]) {
+    assert.equal(launchesAgent(command), true, command);
+  }
+});

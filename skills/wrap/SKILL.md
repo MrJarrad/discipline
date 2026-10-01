@@ -68,5 +68,5 @@ Six checks, each with its own procedure in [CLOSING-CHECKS.md](references/CLOSIN
 | **Link health** | every link in what was written this session resolves — a verification pass, not a cleanup pass |
 | **Estate sync** | the estate map and captures ground reflect what this session changed |
 | **Repo topology** | every clone of a shared origin accounted for, none left behind a push |
-| **Push at wrap** | what the operator authorized is pushed; **the vault is on `origin/main` and the report names that sha** |
+| **Push at wrap** | what the operator authorized is pushed; nothing else; **the vault is on `origin/main` and the report names that sha** |
 | **Version sync (Claude)** | the installed plugin matches the repo, `CHANGED.txt` current |
