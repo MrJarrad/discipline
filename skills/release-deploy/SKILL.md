@@ -41,6 +41,11 @@ each step is independently reversible, and rehearse the rollback *before* you sh
   exactly what is in production and diff it against the last-good release.
 - A `file:` sibling consumer runs `pnpm install --force` and asserts the installed copy before
   any gate or deploy — pnpm copies `file:` deps into its store, so a plain install is a no-op.
+- **Build scripts never assume a writable grandparent.** Workers Builds checks out under an
+  unwritable `/opt` and builds every branch: fall back to `$TMPDIR` for a sibling clone, rewrite
+  `file:` specs in `package.json` and the lockfile together, land the scripts on main before
+  connecting (older branches go red), and read build duration from the version `created_on` —
+  the check's start and end are posted at one instant.
 - Record the **last-known-good** version *before* you ship — that's your rollback target.
 - **Cloudflare Workers static-assets edge-caches `index.html` across a deploy.** A stale
   `index.html` served from that edge cache can point at hashed chunks the new deploy already

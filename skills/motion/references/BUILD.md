@@ -110,6 +110,28 @@ How movers relate in time is **defined by the loaded motion law** when one exist
 }
 ```
 
+## From-state is CSS; JS only reveals
+
+Operator, 2026-09-30: *"is the flash / anything else an issue because we're java scripting
+thing that should be css"* — yes. The stylesheet owns an element's initial visual state; a
+canvas with no CSS default is visible from first paint and depends on JS hiding it in time,
+and a fast refresh beats JS (hoverboard refresh-flash, 2026-09-30).
+
+- Any enter animation's from-state is authored in CSS; JS never sets it.
+- **A default-hidden rule targets the one element that has a reveal path** — never a bare
+  selector (`canvas { opacity: 0 }` also hid the `.wireframe-overlay` canvas nothing reveals).
+  The done-when enumerates every other element the selector matches.
+- **A default-hidden element needs a fallback reveal**, guarded to run only if the entrance
+  never ran — otherwise a build error leaves a blank page where it used to leave the last frame.
+
+## Motion proof reads real paths
+
+A motion fix proven only by a synthetic constant-speed scroll is not proven: three rounds passed
+headless while the operator saw "only the first text block". Measure real reading paths
+(flick-and-coast, stop-start), and when the operator names a reference that "handles this well",
+read the reference first (rung 2) — a time-based, once-at-top-80% model answered in one read what
+three builds did not (portfolio cloud session 3, 2026-10-01).
+
 ## Feel rows (input/scroll/hover speed)
 
 A row about how fast something should feel — scroll speed, hover-dwell, drag response —

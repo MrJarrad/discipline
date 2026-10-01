@@ -77,7 +77,7 @@ A long declared duration on a strong ease-out curve can still pass — worked ex
 
 | Class | Rule |
 | --- | --- |
-| **Flash-before-enter** | Rest paints, then hide, then play. First painted frame of an enter must be the **from-state**. |
+| **Flash-before-enter** | Rest paints, then hide, then play. First painted frame of an enter is the CSS-authored **from-state** ([BUILD.md](references/BUILD.md)). |
 | **Hidden-complete** | Animation reaches `to` while hidden; unhide pops finished state. Full travel must play while visible. |
 | **Pause-stack** | `animation-play-state: paused` stacks a second full delay after unhide. |
 | **Recipe-not-live** | Constants/tests pin a recipe the live DOM path never mounts. |

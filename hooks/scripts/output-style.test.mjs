@@ -227,10 +227,11 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
 // lock-row-kind row.
 // Ceiling raised 1450 -> 1500 at 1.95.0: `media-load-standard` added the
 // media-touching-lane done-when clause (`media-loading`).
+// Ceiling raised 1500 -> 1520 at 1.102.0 (see brief-shape-law.test.mjs).
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1500, `dispatch-brief is ${count} words; the ceiling is 1500`);
+  assert.ok(count <= 1520, `dispatch-brief is ${count} words; the ceiling is 1520`);
 });
 
 test("the eighteen-item list gates the contract pointer, skill-names-only, and done-when", () => {

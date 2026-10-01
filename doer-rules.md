@@ -72,6 +72,13 @@ it never restates what is here.
 - **No `until`/`while … sleep` polling loops and no detached shells inside a lane** — wait
   with a foreground command and a timeout (operator ruling 2026-09-21, `lane-end-sweep`:
   orphaned wait-loops up to two days old and six leftover servers found at wrap).
+- **Mid-run messages queue; they never land mid-stream.** A `SendMessage` inside a tool result
+  reads as possible injection to a careful doer, and an edit sent into a tree a reviewer is
+  reading fails the review's precondition. Scope additions go in after the agent stops
+  (resume) or in a fresh dispatch; a ruling that arrives mid-review queues until it returns.
+- **An interrupted lane restarts fresh, never resumes.** A network or API drop kills every
+  running lane at once: WIP-commit first, then re-brief each from its progress file and
+  worktree diff under `## State (untrusted draft; verify)`.
 - **A prior slice's claim is reproduced on the running build, never verified by reading the
   code.** `## State (untrusted draft; verify)` (`dispatch-brief`) is read as a claim to
   disprove, not a fact to build on — quote what you actually saw run in the read-back, not
@@ -129,12 +136,16 @@ stop only their own pids** — the parent sweeps verification servers at every l
   the operator's live dev server).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
-- **A "pre-existing" claim is proven against `main`, never a branch ancestor.** Twice a lane
-  proved it against its own first commit and hid its own regression (hoverboard, 2026-09-27 —
-  `hoverboard-viewer-loader-lessons-2026-09-27` item 7).
+- **A "pre-existing" claim is proven against `main`, never a branch ancestor, and by a second
+  party.** Twice a lane proved it against its own first commit and hid its own regression
+  (hoverboard, 2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27` item 7); a
+  `git stash` "failing on main" claim passed on a clean main in the reviewer's own tree
+  (2026-09-30). Merged is not on main: after any merge, confirm the change is reachable from
+  `origin/main` (`git branch -r --contains`, or a symbol grep) before recording it shipped.
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`,
   `.claude/settings*.json`) — a blocked or denied command is a finding to return to the
-  parent, never a workaround.
+  parent, never a workaround; a permission change is an operator row carrying the exact text,
+  never a self-granted rule (auto-mode refuses it, 2026-09-30).
 - **"Never edit tests" carries one exception: repointing a fixture or golden path** the change
   deliberately moves. Repoint the path, keep the assertion, and name the repoint in the evidence
   return. Weakening, deleting, or skipping an assertion is never the exception.
@@ -160,7 +171,14 @@ stop only their own pids** — the parent sweeps verification servers at every l
   idle-looking CPU samples — only its own exit code is red (hoverboard rounds 14–15, item 3).
 - **Never kill, restart, or reuse a process or port you did not start** — a running server,
   watcher, or background job belongs to whoever launched it; the same rule the Ports
-  section applies to servers extends to every process.
+  section applies to servers extends to every process. **Never kill by name** (`pkill
+  chrome-headless-shell` killed the lane's own suite and can kill other sessions' browsers):
+  record the pids you start and stop only those.
+- **Parallel lanes get their own registered port, and verify the server's cwd before
+  probing** (lanes measured another worktree's server — false greens and reds).
+  Under parallel load run the touched-file tests and leave the full suite to CI; after adding
+  a test also run the repo's law/scaffolding tests (`*-teardown`, `repo-scaffolding-law`),
+  which a new red-first test can trip though every touched test passes.
 - A consumer of a `file:` sibling dependency
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
@@ -258,6 +276,9 @@ nothing, and every PR ran twice). Every JHD repo with a workflow:
 4. **Install → typecheck → test → lint → build, once.** Extra installs only for a real
    dependency (e.g. a `file:` sibling).
 5. **Before adding a step, state its minutes and what it gates** in the PR/brief that adds it.
+6. **A failed run with empty output and 404 logs is exhausted Actions minutes, not code** —
+   check the check-run output first; then one PR comment naming minutes, local gates as the
+   evidence, a re-run after the reset. Never a code "fix".
 
 ## Ports
 

@@ -2,7 +2,7 @@
 // Run: node --test hooks/bin/progress-registry.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, existsSync, writeFileSync } from "node:fs";
+import { mkdtempSync, existsSync, writeFileSync, statSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadRegistry, saveRegistry, upsertLane, removeLane, registryPath } from "./progress-registry.mjs";
@@ -37,6 +37,17 @@ test("saveRegistry creates parent directories, then loadRegistry reads it back",
   saveRegistry(entries, path);
   assert.ok(existsSync(path));
   assert.deepEqual(loadRegistry(path), entries);
+});
+
+test("saveRegistry replaces the file atomically (temp + rename) and leaves no temp file behind", () => {
+  const dir = mkdtempSync(join(tmpdir(), "registry-atomic-"));
+  const path = join(dir, "registry.json");
+  saveRegistry([{ path: "/a" }], path);
+  const before = statSync(path).ino;
+  saveRegistry([{ path: "/b" }], path);
+  assert.notEqual(statSync(path).ino, before, "an in-place write keeps the inode; a rename replaces it");
+  assert.deepEqual(readdirSync(dir), ["registry.json"]);
+  assert.deepEqual(loadRegistry(path), [{ path: "/b" }]);
 });
 
 test("upsertLane adds a new lane", () => {

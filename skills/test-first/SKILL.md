@@ -118,6 +118,10 @@ DO:
   expect(nav.width).toBe(expected); // placed by grid-column from the export
 ```
 
+**A new red-first test can trip a repo-law test** (`react-root-teardown`: `hydrateRoot` without
+`unmount()`). After adding a test, run the repo's law/scaffolding tests (`*-teardown`,
+`repo-scaffolding-law`) with the touched files, not only CI-side.
+
 ## Checklist per cycle
 
 ```

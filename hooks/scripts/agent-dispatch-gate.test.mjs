@@ -30,6 +30,8 @@ import {
   activeSiblingWorktrees,
   buildActiveWorkWarning,
   activeWorkWarning,
+  checkBashAgentLabel,
+  launchesAgent,
 } from "../bin/agent-dispatch-gate.mjs";
 import { loadRegistry, saveRegistry, withRegistryLock } from "../bin/progress-registry.mjs";
 
@@ -735,5 +737,114 @@ test("the hook process's PreToolUse allow carries the active-work warning as add
     assert.match(out.hookSpecificOutput.additionalContext, /other-session-live/);
   } finally {
     rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+// --- Local agents launched from Bash carry the dispatch label (1.102.0) -----
+// Operator, 2026-10-01: "Ideally, the local agent bash uses the same naming
+// conventions as other agents, e.g (local) sonnet etc." The background-task
+// list shows a Bash call's `description`, so an agent launched through Bash is
+// labelled in the same shape as an Agent dispatch — and only agent launches are
+// gated: a dev server or a watcher is not an agent.
+
+const LABELLED = "local — Engineer (sonnet): lesson rollout";
+
+test("commands that launch an agent are recognised; plain commands are not", () => {
+  for (const command of [
+    "claude -p 'do the job' --permission-mode auto",
+    "cd ~/x && claude --print < brief.md",
+    "claude --cloud 'task'",
+    "node hooks/scripts/workflow.mjs spec.json",
+    "~/p/hooks/scripts/workflow.mjs spec.json",
+    "bash estate/mac-queue/run.sh",
+    "git add queue/mac/pending/job.md && git commit -m job",
+  ]) {
+    assert.equal(launchesAgent(command), true, command);
+  }
+  for (const command of [
+    "npm run dev",
+    "node --test hooks",
+    "git commit -m 'document claude -p labels'",
+    "cat hooks/scripts/workflow.mjs",
+    "grep -n claude --cloud notes.md",
+    "claude --version",
+  ]) {
+    assert.equal(launchesAgent(command), false, command);
+  }
+});
+
+test("a Bash agent launch without the label is blocked, naming the shape", () => {
+  for (const description of ["", "run the job", "Run claude", "local - Engineer (sonnet): x", "cloud — Engineer: x"]) {
+    const verdict = checkBashAgentLabel({ command: "claude -p 'x'", run_in_background: true, description });
+    assert.equal(verdict.ok, false, JSON.stringify(description));
+    assert.equal(verdict.item, "bash-description");
+    assert.match(verdict.reason, /local — persona \(model\): task/);
+  }
+});
+
+test("a labelled Bash agent launch passes, background or not", () => {
+  for (const run_in_background of [true, false]) {
+    assert.equal(checkBashAgentLabel({ command: "claude -p 'x'", run_in_background, description: LABELLED }).ok, true);
+  }
+  assert.equal(checkBashAgentLabel({ command: "node hooks/scripts/workflow.mjs s.json", description: "cloud — Reviewer (opus): sweep" }).ok, true);
+});
+
+test("plain Bash — a dev server, a watcher, anything not an agent — is never gated", () => {
+  for (const input of [
+    { command: "npm run dev", run_in_background: true },
+    { command: "git ls-remote --exit-code origin b", run_in_background: true, description: "watch" },
+    { command: "ls" },
+  ]) {
+    assert.equal(checkBashAgentLabel(input).ok, true, JSON.stringify(input));
+  }
+});
+
+test("the hook process denies an unlabelled Bash agent launch and passes the labelled one", () => {
+  const denied = JSON.parse(run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", run_in_background: true } }).stdout);
+  assert.equal(denied.hookSpecificOutput.permissionDecision, "deny");
+  assert.match(denied.hookSpecificOutput.permissionDecisionReason, /bash-description/);
+  const ok = run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", description: LABELLED } });
+  assert.equal(ok.stdout.trim(), "");
+  assert.equal(run({ tool_name: "Bash", tool_input: { command: "npm run dev", run_in_background: true } }).stdout.trim(), "");
+});
+
+test("hooks.json routes Bash through the dispatch gate as well as the commit gate", () => {
+  const hooks = JSON.parse(readFileSync(join(repo, "hooks", "hooks.json"), "utf8")).hooks.PreToolUse;
+  const matching = hooks.filter((h) => /\bBash\b/.test(h.matcher)).flatMap((h) => h.hooks.map((x) => x.command));
+  assert.ok(matching.some((c) => c.includes("agent-dispatch-gate.mjs")), "Bash must reach agent-dispatch-gate.mjs");
+  assert.ok(matching.some((c) => c.includes("commit-gate.mjs")), "commit-gate keeps its Bash matcher");
+});
+
+// --- Round 2 (reviewer R1): prose that merely mentions a launch is never gated ---
+
+test("heredoc bodies, quoted spans and quoted git-add text never count as an agent launch", () => {
+  const negatives = {
+    "commit heredoc body line starts claude -p": "git commit -F - <<'EOF'\nfix the gate\nclaude -p 'x' is now labelled\nEOF",
+    "README heredoc with a claude -p code line": "cat > README.md <<'EOF'\n## Usage\nclaude -p 'task'\nEOF",
+    "notes heredoc line running workflow.mjs": "cat >> notes.md <<EOF\nnode hooks/scripts/workflow.mjs spec.json\nEOF",
+    "commit -m with an embedded newline then claude --print": 'git commit -m "gate\nclaude --print is covered"',
+    "gh pr create --body with an embedded newline then claude -p": 'gh pr create --title t --body "summary\nclaude -p x"',
+    "commit message mentioning git add queue/mac/pending/": 'git commit -m "chore: git add queue/mac/pending/ job"',
+    "grep for the git-add text": 'grep "git add queue/mac/pending/" CHANGED.txt',
+    "python heredoc editing the gate test": "python3 - <<'E'\ns = \"claude -p 'x'\"\nopen(p,'w').write(s)\nnode workflow.mjs\nE",
+    "single-quoted newline span": "echo 'a\nclaude --cloud b'",
+  };
+  for (const [name, command] of Object.entries(negatives)) {
+    assert.equal(launchesAgent(command), false, name);
+    assert.equal(checkBashAgentLabel({ command }).ok, true, name);
+  }
+});
+
+test("true positives still deny after stripping: real newline segments, launch after a heredoc, quoted task text", () => {
+  for (const command of [
+    "cd x\nclaude -p 'do it'",
+    "cat <<'EOF' > brief.md\nbody\nEOF\nclaude --print < brief.md",
+    "claude -p \"quoted task\" --permission-mode auto",
+    "echo job > queue/mac/pending/job.md",
+    "git add queue/mac/pending/job.md",
+    "cd repo && git add queue/mac/pending/job.md",
+    "cat x | tee queue/mac/pending/job.md",
+  ]) {
+    assert.equal(launchesAgent(command), true, command);
   }
 });

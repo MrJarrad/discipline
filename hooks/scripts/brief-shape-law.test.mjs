@@ -39,9 +39,12 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // SOURCE-CONTRACT-LOCKS.md and HOUSE-RULES.md rather than inlined in full.
 // Ceiling raised 1450 -> 1500 at 1.95.0: `media-load-standard` added the
 // media-touching-lane done-when clause (`media-loading`) — real growth.
-test("the dispatch-brief skill stays under its 1450-word ceiling", () => {
+// Ceiling raised 1500 -> 1520 at 1.102.0: the literal `Skills:` line, the Bash
+// agent-label sentence and the BRIEF-CRAFT pointer — the lesson rollout's briefing
+// facts live in references/BRIEF-CRAFT.md; only the pointers are here.
+test("the dispatch-brief skill stays under its 1520-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1500, `dispatch-brief is ${count} words; the ceiling is 1500`);
+  assert.ok(count <= 1520, `dispatch-brief is ${count} words; the ceiling is 1520`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -106,9 +109,13 @@ test("the one rule is the contract pointer", () => {
 // of which port serves it, and the parent reading the table rather than the
 // doer's own summary before relaying a number — real growth, no references/
 // dir to offload into.
-test("doer-rules.md stays under its 281-line ceiling", () => {
+// Ceiling raised 281 -> 302 at 1.102.0: the lesson rollout (2026-10-01) encoded
+// mid-run messages, fresh restart after a drop, kill-by-name, parallel ports and
+// law tests, second-party "pre-existing", merged-is-not-on-main, empty-CI — each a
+// line or two, consolidated into the nearest existing bullet where one existed.
+test("doer-rules.md stays under its 302-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 281, `doer-rules.md is ${lines} lines; the ceiling is 281`);
+  assert.ok(lines <= 302, `doer-rules.md is ${lines} lines; the ceiling is 302`);
 });
 
 test("doer-rules carries the four standing sections", () => {

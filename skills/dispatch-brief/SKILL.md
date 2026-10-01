@@ -19,6 +19,8 @@ their measurement, never mechanisms; a confirmed read-back (`grilling`) is quote
 brief for any visual note; the parent's own additions are prefixed "parent:". Full rule
 and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
 
+Doer-blind facts: [BRIEF-CRAFT.md](references/BRIEF-CRAFT.md).
+
 ## Interrogate the brief
 
 Above line, the brief is read as the doer would and answered against a fixed
@@ -76,13 +78,13 @@ One AC per locked row, deferrals named, plus **AC-S** when a Source contract exi
 
 **Lock rows under a Source contract are a Source column, not `Means technically`** — three
 kinds only, quote plus its source, banned mechanism content, gate-enforced:
-[SOURCE-CONTRACT-LOCKS.md](references/SOURCE-CONTRACT-LOCKS.md) (Change 1, 2026-09-22).
+[SOURCE-CONTRACT-LOCKS.md](references/SOURCE-CONTRACT-LOCKS.md).
 
 ## The brief — four parts
 
 - **Goal** — what exists when done.
 - **Context** — contract pointer, repo/branch/cwd, primer.
-- **Constraints** — rulings quoted, gates, skills, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms, **`Size:`** (`line | component | system`, `doer-rules.md` § Size class) fixing the gate set, skill count, evidence, screenshots and upload policy for the lane. Geometry/pipeline briefs state their **invariants** — what must not change. **A look value binds every consumer to one token** — list consumers ([VALUE-CONSUMERS.md](references/VALUE-CONSUMERS.md)). A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now. **Every brief above `line` carries the fixed House rules block** — [HOUSE-RULES.md](references/HOUSE-RULES.md), copied whole, never restated.
+- **Constraints** — rulings quoted, gates, a literal `Skills:` line, push policy; **worktree name** (lane kind + sha), **gate timeout** (suite length, foreground), **`Rung:`** (`routing` § Rung ladder) with done-when in its terms, **`Size:`** (`line | component | system`, `doer-rules.md` § Size class) fixing the gate set, skill count, evidence, screenshots and upload policy for the lane. Geometry/pipeline briefs state their **invariants** — what must not change. **A look value binds every consumer to one token** — list consumers ([VALUE-CONSUMERS.md](references/VALUE-CONSUMERS.md)). A **measurement-named AC** (ratio, ΔE, CV) checks at the operator's crop first. A gate brief names **the contract path read at run time**; a pinning gate converts now. **Every brief above `line` carries the fixed House rules block** — [HOUSE-RULES.md](references/HOUSE-RULES.md), copied whole, never restated.
 - **Done-when** — the contract's verification; for UI, motion or prototype work, **the build up and the link sent** — the merge step owns the suite, the operator is the cheapest visual gate. **DO:** *"Rebuilt; re-run it."* **DON'T:** a screenshot pack. A built region's done-when names **pixel proof at the operator's framing** — computed-style reads are not proof ([ACCURACY.md](references/ACCURACY.md)). **The read-back precedes the build**: above line, the doer's first return is `## Read-back` and it stops for `next: parent (go?)` before any edit — never on `line`, gate-refused; the parent's reply is one line (`doer-rules.md` § You are the doer; `spend-levers` rules 1, 3, 2026-09-22). Evidence is the ledger plus gate tails only, narrative to the progress file (`spend-levers` rule 2). **The read-back states which object a dimension sizes** — a bare number ("48 or 64px wide") is read back against the thing it measures (board, canvas, instance) before dispatch, not assumed (hoverboard rounds 14–15, item 5: "48 or 64px" built as a 48px canvas made a 12px stick). **The brief restates the visible behaviour as a pixel check, not just the mechanism**, and states any parent trade against the look in the read-back, before the build (`hoverboard-loader-curve-lessons-2026-09-28` items 3–4). **Verification inside a lane is one deterministic repro plus three reps** — a heavier sweep is its own lane, after the fix (`doer-rules.md` § Size class). **A media-touching lane's done-when names the `media-load-probe.mjs` count** (deployed build, phone viewport, CPU+network throttle, Chromium+WebKit) at 0 — `media-loading`.
 - **`## Interrogated`** — result, or "inline, clear".
 - **`## Progress`** — the progress-file path, above line (`doer-rules.md` § You are the
@@ -104,7 +106,7 @@ Same four parts; done-when is **diff the build against the contract**. Carries t
 
 Label: `persona-(model)` from `model-routing`; `description` leads with surface — `cloud —
 persona (model): task` or `local`. Effort tier: `routine | contested | high-stakes`.
-`sonnet` is the default, not a ceiling; `haiku` for mechanical; any tier runs as a child
+Bash that launches an agent carries the same label (gate-enforced). `sonnet` is the default, not a ceiling; `haiku` for mechanical; any tier runs as a child
 when the job shape calls for it, justified in `## Interrogated` (`model-routing`).
 
 ## State (untrusted draft; verify)

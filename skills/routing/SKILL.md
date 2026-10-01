@@ -34,7 +34,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 2. **Figma reads go through `capture-figma` on the dispatched persona** — brief names file+node, **doer** reads live, parent **locates** only.
 3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
 5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
-6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; CI + parent decide. **Merge condition: gates green + no red finding open**, remitted by the parent. One review per change, LIGHT by default.
+6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; CI + parent decide. **Merge condition: gates green + no red finding open**, remitted by the parent. One review per change, LIGHT by default. Merge asks: `present-for-review` § 6.
 7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief.
 8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches, on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
 9. **Dispatch surface — "if a task can be done in cloud, it is."** Capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **when a lane opens**; `description` leads `cloud — ` / `local — `.

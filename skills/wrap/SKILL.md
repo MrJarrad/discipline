@@ -53,7 +53,7 @@ manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is
 Full text: [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
 
 - **Operator-facing by default** — compact outcomes, the four handover-prose moves (compact, redact, reference, name the next step). Never dump seven-section tables or plugin names unasked.
-- **Learn before the lint/commit gate** (operator ruling 2026-08-03) — mine the session for lessons *first*, so a lesson lands in the same commit as the wrap rather than the next one. The mid-session checkpoint exists so wrap is not the only catch.
+- **Learn before the lint/commit gate** (operator ruling 2026-08-03) — mine the session for lessons *first*, so a lesson lands in the same commit as the wrap rather than the next one. **Queued lessons ship in-session**: encode them into the plugin the same session, or name the release that will; logging alone is not the close. The mid-session checkpoint exists so wrap is not the only catch.
 - **Log the dispatch tally** — `cloud N / local M`, each local dispatch's one-clause machine-bound justification spot-listed (`routing` rule 9). An unjustified local count, or a cloud share trending down session over session, is drift to name.
 - **Log review rounds per change** — `<change>: N of <cap>` against the cap in `agents/reviewer.md` § Round cap, including changes that took the small-fix no-reviewer path (`0`) and any that **halted at the cap** with findings still open. A session trending toward the cap on every change means the briefs or the gates are failing upstream.
 - **Report personas and skills invoked** against `routing`'s tables; a mandated-skill zero on relevant work is a defect to log.
@@ -68,5 +68,5 @@ Six checks, each with its own procedure in [CLOSING-CHECKS.md](references/CLOSIN
 | **Link health** | every link in what was written this session resolves — a verification pass, not a cleanup pass |
 | **Estate sync** | the estate map and captures ground reflect what this session changed |
 | **Repo topology** | every clone of a shared origin accounted for, none left behind a push |
-| **Push at wrap** | what the operator authorized is pushed; nothing else |
+| **Push at wrap** | what the operator authorized is pushed; nothing else; **the vault is on `origin/main` and the report names that sha** |
 | **Version sync (Claude)** | the installed plugin matches the repo, `CHANGED.txt` current |
