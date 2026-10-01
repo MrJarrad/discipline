@@ -1,6 +1,6 @@
 ---
 name: markup-standard
-description: The definition of done for shipped HTML — semantic elements, landmarks, heading outline, link-vs-button, alt text, Tailwind class discipline, and head/meta hygiene, with a verification recipe. Use when writing or reviewing any HTML/JSX that ships to a browser, before marking UI work done, or when a reviewer needs to check served markup. Not the visual/token bar — that's design-craft; not AC-by-AC verification — that's qa-acceptance.
+description: The definition of done for shipped HTML — semantic elements, landmarks, heading outline, link-vs-button, alt text, Tailwind class discipline, head/meta hygiene, and meta content (page titles, descriptions, favicon/icon set, share images), with a verification recipe. Use when writing or reviewing any HTML/JSX that ships to a browser, before marking UI work done, or when a reviewer needs to check served markup. Not the visual/token bar — that's design-craft; not AC-by-AC verification — that's qa-acceptance.
 ---
 
 # Markup Standard
@@ -110,23 +110,26 @@ Per WHATWG's [alt attribute requirements](https://html.spec.whatwg.org/multipage
 
 ## Head/meta hygiene
 
-**[Audit #9]** — every route currently shares one static `<meta name="description">`
-and ships no Open Graph, Twitter Card, canonical link, or structured data; `/kit`
-inherits the bare root `<title>` with no override.
+**[Audit #9]** — every route shared one static description and shipped no Open Graph,
+Twitter Card, canonical or structured data. Every route: its own `<title>` and
+description, `openGraph` + `twitter` fields, one `canonical`, a JSON-LD `Person`/`WebSite`
+block in the root layout, and `robots: noindex` on prototype routes reachable at a real
+URL (**[Audit #11]**). Page-level content rules: next section.
 
-- **Per-page `<title>`, always overridden** — never inherit the root default on a route
-  that has its own identity (a case-study page, `/kit`).
-- **Per-page `description`**, sourced from real page content (case-study copy already
-  exists in `case-studies.ts`/`projects.ts` — wire it, don't invent new copy).
-- **`openGraph` + `twitter` fields** on every shareable route (Next.js's `Metadata` type
-  supports both natively — this is wiring, not a new dependency).
-- **One `canonical` link per route.**
-- **Structured data**: at minimum one JSON-LD `Person`/`WebSite` block in the root
-  layout; add `BreadcrumbList`/`Article`-equivalent per case study if the content
-  supports it.
-- **`robots: noindex`** on any prototype route reachable at a real URL before it ships
-  past dev — **[Audit #11]** flags `/v2` and `/projects/yardsale/v2` as crawlable today
-  with no `noindex`, both titled "(prototype)."
+## Meta content (SEO and share surfaces)
+
+Every web build is checked for these — part of done. Wording is `brand-voice`'s; this
+skill checks presence, uniqueness and consistency.
+
+- **Title**: one per route, unique, one site-wide pattern, about 60 characters max.
+- **Description**: one per route, unique, from real page content, about 70–160 characters.
+- **Alt text**: [Alt text policy](#alt-text-policy).
+- **Favicon/icon set**: tab, Apple touch and manifest icons all resolve.
+- **Share image**: 1200×630 `og:image` with alt on every shareable route.
+- **Noindex pages** stay out of the sitemap.
+
+Checklist and worked example: [META-CONTENT.md](references/META-CONTENT.md); check with
+VERIFICATION.md step 10.
 
 ## Class discipline (Tailwind)
 

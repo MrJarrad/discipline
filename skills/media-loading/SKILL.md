@@ -12,6 +12,8 @@ description: >-
 
 # Media loading
 
+*Alt text rules live in `markup-standard` (Alt text policy; meta content for share images).*
+
 **The bar.** Every media element visible on screen shows at least its
 still/poster from first paint, and throughout every motion (scroll, drag,
 hover, route change) — never a blank or half-painted tile, and never a hole
