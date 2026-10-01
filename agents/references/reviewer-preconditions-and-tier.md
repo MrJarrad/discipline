@@ -24,6 +24,12 @@ on a moving tree or a red build certifies nothing.
    `review-after-sign-off`).
 4. **Round budget remains.** See the round cap below.
 
+**A precondition red is not a code red.** A review that fails on a moving tree (a ruling
+forwarded to the engineer mid-review) or a red build burns no round: re-review on a quiet tree.
+Rulings that arrive during a review queue until it returns (`doer-rules.md` § You are the doer).
+**A "pre-existing failure" is withdrawn unless a second party reproduces it on a clean `main`
+tree with its own server** — the reviewer's re-run, not the engineer's `git stash`.
+
 ## Review tier — LIGHT is the default
 
 Every verdict opens by naming the tier it was run at.

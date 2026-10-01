@@ -31,7 +31,11 @@ and queued the chat as the doer — that hatch is deleted.
    `scripts/figma-capture.mjs`, or banked capture JSON). Parent capture-figma
    **locates** only (file key, node id, frame; MCP ping the tab is fine). A brief that
    pastes the finished prop table is a steer — name the node; live props win. Figma
-   screenshots in chat are context, never a substitute.
+   screenshots in chat are context, never a substitute. **Figma MCP tools reach only the
+   generic `claude` agent type** — `ux-designer` lanes cannot see the deferred `use_figma`
+   tools; a `claude`-type lane with an explicit ToolSearch `select:` list can. The annotation
+   setter re-escapes `&` on every whole-array write: write every entry from decoded text in one
+   shot and re-read.
 3. **Built-vs-design checks go through `audit-build`** ("the blocks are off",
    "doesn't match figma", post-port verification) — dispatched to UX Designer.
 4. **Live-site references go through `capture-website`** ("look at this site",

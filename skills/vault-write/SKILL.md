@@ -91,6 +91,13 @@ encoded: 1.73.0       # | pre-1.73.0 | queued | skipped(hoverboard-rig-specific)
 The write model, the per-kind templates, prose guidance and worked examples:
 [WRITING.md](references/WRITING.md).
 
+## Operator words and pasted images
+
+Records of operator words are verbatim and complete — a truncated quote made a reviewer flag the
+correct, complete one in a PR as fabricated. A pasted image may not reach the session's disk:
+match it to its file (view it, or compare timestamps against the message) before banking; if no
+file exists, file a description and say so — never the newest file in `images/`.
+
 ## Create properly — graph wiring is the write
 
 A note nobody can reach is not written. The write includes its graph wiring: the hub link

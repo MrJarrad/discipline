@@ -130,6 +130,10 @@ Any brief that interprets a look note is played back to the operator in plain wo
 read-back, in the operator's own terms, is quoted verbatim as the brief's contract line
 (operator ruling 2026-09-18, `brief-carries-operator-words`).
 
+A parent's read of an operator **recording or screenshot is a look note too**: frame-read, send
+a one-line read-back, brief only on confirmation (the rise round 3 was briefed on "image pops in
+mid-rise"; the operator: *"that was the opposite of my viewing of the experience"*).
+
 - **DO:** play back "so the rim should sit flush with the outer edge, no gap" and quote the operator's confirmation in the brief.
 - **DON'T:** dispatch a brief built from your own reading of "make it sit right" with no read-back.
 

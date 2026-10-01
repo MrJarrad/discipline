@@ -55,6 +55,24 @@ into the test is unverified** — the check must read the contract at run time a
 the mechanism (grid placement, token binding, the ruling's constant), never a number, stamp
 or hash carried into the assertion by hand (operator ruling, 2026-09-19).
 
+**Evidence that holds** (portfolio and hoverboard lessons, 2026-09-28 → 10-01):
+
+- **Timing is what is visible, not when an animation starts.** Sample per-frame visible
+  opacity (the product of ancestor opacities) or a recording; `getAnimations()` start times
+  said "reading order correct" three rounds while the footer was already on screen.
+- **Enumerate by what the operator sees, not the implementation's marker.** A probe that
+  counts one selector proves nothing about elements it does not select; reproduce at the
+  operator's framing from their screenshot before concluding "can't reproduce".
+- **"Values from code inspection" is not a measurement**, and a handover's counts are
+  claims — re-count or re-measure on the running build before a lane plans around them.
+- **A load fix is proven only by a matched A/B**: base and fix on the same Worker and
+  environment, interleaved, n ≥ 8. Before-on-CDN vs after-on-preview is confounded.
+- **Eye and number disagree → compare framings**, not the number: a side-by-side of what is on
+  screen at the trigger frame, then the operator picks one rule.
+- **A served-build check follows the entry's imports** (lazy chunks, `viewer-*.js` →
+  `style-*.css`) or reads the hydrated DOM; grepping the entry bundle alone proves staleness
+  falsely.
+
 ### 3. Block the close on any unmet or unverified AC
 
 If any AC is unmet, or you haven't actually verified it this session, **stop

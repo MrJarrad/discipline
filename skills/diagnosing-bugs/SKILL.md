@@ -25,6 +25,11 @@ don't, no amount of reading code and theorizing will save you.
 build a theory before that command exists and you've watched it fail, stop. Go
 build the loop instead.
 
+**Reproduce the operator's exact gesture, not a nearby one.** Two lanes ran single cold loads on
+phone WebKit and returned "no repro" for "refresh repeatedly" on desktop; the red showed only on
+warm-cache rapid reloads in headed Chromium (headless SwiftShader gave false negatives). The
+brief quotes the gesture; ask where it happens before the lane opens.
+
 Spend disproportionate effort here. Be aggressive, be creative, refuse to give up
 before trying several of the options below.
 

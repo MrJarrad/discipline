@@ -122,6 +122,8 @@ markdown hyperlink — no new Browser tab or window spawned as the present step.
 - **DON'T:** Open a new Browser tab/window they have to close.
 - **DON'T:** *The hairline pass is in Applications — go look.* (native homework still banned)
 - **DON'T:** Ask for a hard refresh or *nothing else until you look* — web present is one markdown hyperlink in chat; operator is never muted.
+- **One link per ask, never a corrected link underneath.** A stale link with "correction: use this one" below it got opened, and a fixed bug was reported still broken. Rebuild the row with the right link.
+- **Load the link yourself in a hydrated browser before sending it** — a preview sent on a doer's proof alone carried the full navigation on the holding page.
 - Agent-internal Browser for reviewer/ux-designer evidence is separate — not the operator packet.
 - Do not dump a screenshot as the review packet.
 
@@ -135,6 +137,15 @@ use hyperlink-in-chat from any parent.
 - Do **not** substitute "open Applications" or a screenshot.
 
 ### 6. Operator message
+
+**Merge asks fold into the yes; the operator never gets a standalone technical question**
+(operator, 2026-10-01: *"i approve visual stuff, all technical stuff is your domain in all
+sessions"*). A look row reads "say yes and it goes into the main code" and the yes **is** the
+merge approval — merge on it, cited in the merge message. Technical changes (CI, scripts, tests,
+mechanism, deps, infra) merge on gates green + no red finding with no operator ask, quoting the
+ruling in the commit; if a safety check still blocks, quote it once, then fold the merge into the
+next look yes. Offer "reply 'merge when green' once" at most once per session. Never route
+around the guard (no auto-merge toggles, no settings writes).
 
 **Completion criterion:** Short *Ready for review* — what changed, what to check.
 Native: after quit+relaunch. Web: include **one** markdown hyperlink in the same

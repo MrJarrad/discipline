@@ -35,6 +35,14 @@ and banked Capture sync silently drift from the live machine between sessions.
 
 After the checkpoint commit, `git push` (vault and any repo touched). Offsite remotes exist precisely so a dead machine loses nothing — a wrap that commits but doesn't push leaves the day's knowledge on one disk. If no remote is configured yet, run `scripts/setup-remotes.sh` from the vault root (one-time, needs gh CLI).
 
+**The vault lands on `main`, and the report proves it.** Cloud sessions write the vault on a
+`claude/*` branch; the next session reads `main`, so notes left on the branch start it from
+yesterday's cockpit. Operator, verbatim: *"it seems dangerous that vault was almost not pushed to main, that's crucial for wrap"*.
+Merge (or fast-forward) the session's vault branch into `main`, then verify
+`git ls-remote origin main` contains the wrap commit **before** the wrap report. A wrap report
+that does not name the `main` sha is incomplete (a "full wrap" was reported once with every note
+still on the branch; caught only when the operator asked).
+
 ## Section 0 — drain the runners first (absorbed from the 2026-08-01 wrap)
 
 Wrap does not start while any Agent / subagent dispatch is mid-flight. Every run
