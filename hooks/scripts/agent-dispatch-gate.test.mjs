@@ -30,6 +30,8 @@ import {
   activeSiblingWorktrees,
   buildActiveWorkWarning,
   activeWorkWarning,
+  checkBashAgentLabel,
+  launchesAgent,
 } from "../bin/agent-dispatch-gate.mjs";
 import { loadRegistry, saveRegistry, withRegistryLock } from "../bin/progress-registry.mjs";
 
@@ -736,4 +738,79 @@ test("the hook process's PreToolUse allow carries the active-work warning as add
   } finally {
     rmSync(repoDir, { recursive: true, force: true });
   }
+});
+
+// --- Local agents launched from Bash carry the dispatch label (1.102.0) -----
+// Operator, 2026-10-01: "Ideally, the local agent bash uses the same naming
+// conventions as other agents, e.g (local) sonnet etc." The background-task
+// list shows a Bash call's `description`, so an agent launched through Bash is
+// labelled in the same shape as an Agent dispatch — and only agent launches are
+// gated: a dev server or a watcher is not an agent.
+
+const LABELLED = "local — Engineer (sonnet): lesson rollout";
+
+test("commands that launch an agent are recognised; plain commands are not", () => {
+  for (const command of [
+    "claude -p 'do the job' --permission-mode auto",
+    "cd ~/x && claude --print < brief.md",
+    "claude --cloud 'task'",
+    "node hooks/scripts/workflow.mjs spec.json",
+    "~/p/hooks/scripts/workflow.mjs spec.json",
+    "bash estate/mac-queue/run.sh",
+    "git add queue/mac/pending/job.md && git commit -m job",
+  ]) {
+    assert.equal(launchesAgent(command), true, command);
+  }
+  for (const command of [
+    "npm run dev",
+    "node --test hooks",
+    "git commit -m 'document claude -p labels'",
+    "cat hooks/scripts/workflow.mjs",
+    "grep -n claude --cloud notes.md",
+    "claude --version",
+  ]) {
+    assert.equal(launchesAgent(command), false, command);
+  }
+});
+
+test("a Bash agent launch without the label is blocked, naming the shape", () => {
+  for (const description of ["", "run the job", "Run claude", "local - Engineer (sonnet): x", "cloud — Engineer: x"]) {
+    const verdict = checkBashAgentLabel({ command: "claude -p 'x'", run_in_background: true, description });
+    assert.equal(verdict.ok, false, JSON.stringify(description));
+    assert.equal(verdict.item, "bash-description");
+    assert.match(verdict.reason, /local — persona \(model\): task/);
+  }
+});
+
+test("a labelled Bash agent launch passes, background or not", () => {
+  for (const run_in_background of [true, false]) {
+    assert.equal(checkBashAgentLabel({ command: "claude -p 'x'", run_in_background, description: LABELLED }).ok, true);
+  }
+  assert.equal(checkBashAgentLabel({ command: "node hooks/scripts/workflow.mjs s.json", description: "cloud — Reviewer (opus): sweep" }).ok, true);
+});
+
+test("plain Bash — a dev server, a watcher, anything not an agent — is never gated", () => {
+  for (const input of [
+    { command: "npm run dev", run_in_background: true },
+    { command: "git ls-remote --exit-code origin b", run_in_background: true, description: "watch" },
+    { command: "ls" },
+  ]) {
+    assert.equal(checkBashAgentLabel(input).ok, true, JSON.stringify(input));
+  }
+});
+
+test("the hook process denies an unlabelled Bash agent launch and passes the labelled one", () => {
+  const denied = JSON.parse(run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", run_in_background: true } }).stdout);
+  assert.equal(denied.hookSpecificOutput.permissionDecision, "deny");
+  assert.match(denied.hookSpecificOutput.permissionDecisionReason, /bash-description/);
+  const ok = run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", description: LABELLED } });
+  assert.equal(ok.stdout.trim(), "");
+  assert.equal(run({ tool_name: "Bash", tool_input: { command: "npm run dev", run_in_background: true } }).stdout.trim(), "");
+});
+
+test("hooks.json routes Bash through the dispatch gate as well as the commit gate", () => {
+  const hooks = JSON.parse(readFileSync(join(repo, "hooks", "hooks.json"), "utf8")).hooks.PreToolUse;
+  const matching = hooks.filter((h) => /\bBash\b/.test(h.matcher)).flatMap((h) => h.hooks.map((x) => x.command));
+  assert.ok(matching.some((c) => c.includes("agent-dispatch-gate.mjs")), "Bash must reach agent-dispatch-gate.mjs");
+  assert.ok(matching.some((c) => c.includes("commit-gate.mjs")), "commit-gate keeps its Bash matcher");
 });

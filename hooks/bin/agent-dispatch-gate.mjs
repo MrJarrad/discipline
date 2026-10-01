@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* PreToolUse (Agent|Task) — makes five dispatch laws mechanical instead of
+/* PreToolUse (Agent|Task|Bash) — makes five dispatch laws mechanical instead of
    prompt-trusted. `routing` rule 9 has said since 1.74.0 that every dispatch
    `description` leads with its surface, `model-routing` has said the model is
    set explicitly and never inherited, `dispatch-brief` caps the brief, routing
@@ -8,6 +8,13 @@
    operator's words — and all five were still checked only by whoever
    remembered to check them. This gate reads the dispatch before it launches
    and denies it with the failing item named.
+
+   A sixth-surface check (1.102.0) covers Bash: an agent launched through Bash
+   (`claude -p` / `--print` / `--cloud`, `workflow.mjs`, the Mac-queue runner or
+   a Mac-queue job file) must carry the same `description` shape as an Agent
+   dispatch, because the background-task list shows that description and the
+   operator reads it to see that a local agent is running (operator,
+   2026-10-01). Only agent launches are gated — never a dev server or watcher.
 
    Seven checks, in order, first failure reported:
 
@@ -81,6 +88,38 @@ export const EXEMPT_SUBAGENTS = new Set(["Explore", "Plan"]);
 // dispatch-brief both write; a hyphen here would pass a description the law
 // files do not describe.
 const DESCRIPTION_SHAPE = /^(cloud|local) — ([A-Za-z][A-Za-z0-9 -]*?) \(([^()]+)\): *\S/;
+
+/* Does this Bash command launch an agent? `claude` with `-p`/`--print`/`--cloud`,
+   `workflow.mjs`, the Mac-queue runner, or a write of a Mac-queue job file — each
+   at the start of a shell segment, so a quoted mention or `cat workflow.mjs`
+   never counts. */
+const SEGMENT_START = String.raw`(?:^|[;&|(\n])\s*(?:[A-Za-z_]\w*=\S*\s+)*`;
+const AGENT_LAUNCHES = [
+  new RegExp(SEGMENT_START + String.raw`(?:\S*/)?claude\s(?:[^;&|\n]*\s)?(?:-p|--print|--cloud)(?=\s|$)`),
+  new RegExp(SEGMENT_START + String.raw`(?:node\s+)?\S*workflow\.mjs(?=\s|$)`),
+  new RegExp(SEGMENT_START + String.raw`(?:(?:ba)?sh\s+)?\S*mac-queue/run\.sh(?=\s|$)`),
+  /\bgit\s+add\b[^;&|\n]*queue\/mac\/pending\//,
+  /(?:>|\btee\s)\s*\S*queue\/mac\/pending\//,
+];
+export function launchesAgent(command = "") {
+  return AGENT_LAUNCHES.some((re) => re.test(String(command)));
+}
+
+/* Bash that launches an agent carries `local — persona (model): task` (or
+   `cloud —`) in its `description`, the one regex Agent dispatches use. */
+export function checkBashAgentLabel(toolInput = {}) {
+  const { command = "", description = "" } = toolInput;
+  if (!launchesAgent(command) || DESCRIPTION_SHAPE.test(description)) return { ok: true };
+  return {
+    ok: false,
+    item: "bash-description",
+    reason:
+      `Bash blocked — bash-description: this command launches an agent, so its \`description\` must read ` +
+      `\`local — persona (model): task\` (or \`cloud —\`), got ${JSON.stringify(description)}. ` +
+      `The background-task list shows this description; it is how the operator sees which local agent is running ` +
+      `(\`dispatch-brief\` § Persona + model, operator 2026-10-01).`,
+  };
+}
 
 // The three legal Source cells for a Source-contract lock row (Change 1).
 export const SOURCE_CONTRACT_CELLS = new Set(["export-silent", "export-vs-ruling", "operator-round"]);
@@ -588,6 +627,11 @@ function main() {
   // Unparseable or non-dispatch input is not this gate's business — a hook that
   // denies on its own confusion is worse than no hook.
   if (!input || typeof input !== "object" || !input.tool_input) allow();
+  if (input.tool_name === "Bash") {
+    const bash = checkBashAgentLabel(input.tool_input);
+    if (!bash.ok) deny(bash.reason);
+    allow();
+  }
   const verdict = checkAgentDispatch(input.tool_input);
   if (verdict.ok) {
     let warning = null;
