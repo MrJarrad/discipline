@@ -106,9 +106,13 @@ test("the one rule is the contract pointer", () => {
 // of which port serves it, and the parent reading the table rather than the
 // doer's own summary before relaying a number — real growth, no references/
 // dir to offload into.
-test("doer-rules.md stays under its 281-line ceiling", () => {
+// Ceiling raised 281 -> 302 at 1.102.0: the lesson rollout (2026-10-01) encoded
+// mid-run messages, fresh restart after a drop, kill-by-name, parallel ports and
+// law tests, second-party "pre-existing", merged-is-not-on-main, empty-CI — each a
+// line or two, consolidated into the nearest existing bullet where one existed.
+test("doer-rules.md stays under its 302-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 281, `doer-rules.md is ${lines} lines; the ceiling is 281`);
+  assert.ok(lines <= 302, `doer-rules.md is ${lines} lines; the ceiling is 302`);
 });
 
 test("doer-rules carries the four standing sections", () => {
