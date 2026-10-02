@@ -18,6 +18,8 @@ rebuild shipped a feed that was never compared to the export, three times
 | node id | binding | token / class (`codeSyntax.WEB`) | built at `file:line` | measured value | status |
 | --- | --- | --- | --- | --- | --- |
 
+A component-property row also carries a **class** column — see § 1b.
+
 - **A node in scope with no row is red** — not an omission to catch at review. Scope is the
   export node ids the brief names, expanded to every descendant the export states.
 - **Scope stops at an `◆instance of` boundary** — the instance is one row (its own props and
@@ -57,6 +59,20 @@ present or marked "none in scope." Under a Design Handoff export pair:
    **not present** in the built page by test or grep, never left as "should be gone."
 
 A class with nothing in scope for this lane still gets its line: `<class> — none in scope`.
+
+## 1b. Props parity — assess every Figma property
+
+The rule and the four class definitions live once, in `dispatch-brief/references/HOUSE-RULES.md`
+(§ Props by default). Per component in scope, before building, one row per Figma property
+(variant, boolean, instance swap, text), with a **class** column filled from that rule:
+
+| node id | property | class | code prop and values | reason (any class but build prop) | built at `file:line` | status |
+| --- | --- | --- | --- | --- | --- | --- |
+
+`class` is one of `build prop` · `state` · `responsive` · `Figma-only`. Only a **build prop**
+with a missing or renamed code prop (name or values) is a defect (`not-built`, red). Every
+other class carries its one-line reason; an unclear class is a question to the operator, not a
+guess. A property with no row is red, as for any node.
 
 ## 2. Variance never collapses into one literal
 

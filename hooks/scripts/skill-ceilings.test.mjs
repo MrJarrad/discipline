@@ -77,7 +77,9 @@ const CEILINGS = [
   // JSON-node-list check line.
   // Ceiling raised 1450 -> 1500 at 1.95.0: `lanes-survive-interruption` added
   // the media-load-probe re-run evidence line (`media-loading`).
-  { skill: "agents/reviewer.md", ceiling: 1500, before: 2017, frontmatterWords: 72 },
+  // Ceiling raised 1500 -> 1600 at 1.105.0: the props-by-default review line
+  // (rule text lives once in HOUSE-RULES; this line only carries severities).
+  { skill: "agents/reviewer.md", ceiling: 1600, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

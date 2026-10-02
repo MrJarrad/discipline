@@ -17,6 +17,15 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   node; grid placement is by column span, never px/computed maths.
 - **Component law** — one implementation per component/block; a wrapper composes the instance,
   it never forks it, even for an anatomy-changing prop.
+- **Props by default** — every Figma component property is assessed and classed: **build prop**
+  (a same-named code prop, same values), **state** (hover/pressed/focus: CSS or interaction
+  state), **responsive** (device/breakpoint variant: built as breakpoints) or **Figma-only**
+  (authoring/showcase convenience: not built). Any class but build prop needs a one-line reason;
+  an unclear class goes to the operator as a question. Beyond Figma, any value or behaviour a
+  designer could plausibly change per use (spacing, durations, on/off treatments, layout
+  choices) is a prop or setting with a token default; hard-coding needs a reason. An operator
+  "off" or "change" ruling sets a prop value and never deletes the implementation unless the
+  operator says remove.
 - **Contract order** — export (whole) → banked rulings → the operator's words this round, in
   that priority; a parent-authored "recommended" answer is never promoted to a rule.
 - **Pointers** — `fleet/rulings/token-rulings.md` (vault) for design-system rulings with
