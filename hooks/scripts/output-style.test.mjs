@@ -276,5 +276,6 @@ test("discipline.md: automated wakes get one line; rows are never back-reference
 test("discipline.md: the live task list is standing, one task per deliverable", () => {
   const style = readFileSync(new URL("../../output-styles/discipline.md", import.meta.url), "utf8");
   assert.match(style, /TaskCreate\/TaskUpdate[^.]*Plan panel/i);
+  assert.doesNotMatch(style, /more than one deliverable/i);
   assert.match(style, /one task per operator-level deliverable, not per lane/i);
 });
