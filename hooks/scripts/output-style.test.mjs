@@ -271,3 +271,10 @@ test("discipline.md: automated wakes get one line; rows are never back-reference
   assert.match(style, /automated wake[^.]*at most one line, no queue reprint/i);
   assert.match(style, /never a back-reference[^)]*earlier\/previous\/above message/i);
 });
+
+// 2026-10-02-plan-panel-task-list: the live task list is a standing rule.
+test("discipline.md: the live task list is standing, one task per deliverable", () => {
+  const style = readFileSync(new URL("../../output-styles/discipline.md", import.meta.url), "utf8");
+  assert.match(style, /TaskCreate\/TaskUpdate[^.]*Plan panel/i);
+  assert.match(style, /one task per operator-level deliverable, not per lane/i);
+});
