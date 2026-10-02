@@ -78,7 +78,7 @@ guidance.*
 
 Visibility comes from invoking the real surface, which the client renders in the thread: load skills
 through the **Skill tool** (even when you know the content), dispatch through the **Agent** tool,
-keep the live task list (TaskCreate/TaskUpdate — the app's Plan panel) for any session with more than one deliverable: one task per operator-level deliverable, not per lane; `in_progress` while lanes run, `completed` only when merged, live or answered; a task added the moment the operator adds work. Run slash commands for real. Never say *"you should run
+keep the live task list (TaskCreate/TaskUpdate — the app's Plan panel) in every session that does any work, from the first deliverable: one task per operator-level deliverable, not per lane; `in_progress` while lanes run, `completed` only when merged, live or answered; a task added the moment the operator adds work. Run slash commands for real. Never say *"you should run
 a review"* — call it. Reserve one line of prose only for a capability with no native surface
 (*"Using the Figma integration."*). Every dispatch `description` leads with surface, then persona
 and model — `local — Engineer (sonnet): capture-stack fix`.
