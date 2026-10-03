@@ -173,6 +173,14 @@ function main() {
     process.exit(1);
   }
 
+  // 3b. Lint the queue's row numbers (unique per table; named grandfather list).
+  try {
+    run("node", [join(scriptDir, "queue-write-check.mjs"), "--lint", queuePath]);
+  } catch (err) {
+    console.error(`lane-end: queue lint failed after write — ${err.message}`);
+    process.exit(1);
+  }
+
   // 4. Commit + push (queue file + evidence dir only, never a broad add).
   try {
     const addPaths = [queuePath];

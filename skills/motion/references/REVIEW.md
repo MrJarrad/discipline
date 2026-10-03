@@ -37,6 +37,8 @@ Every animation in the diff is measured against these. A violation is a finding.
 
 14. **Sampled proof for enter/exit (Change 5, 2026-09-22).** Any enter/exit claim is proven by sampling the animated property over time on the running build — a stylesheet-text assertion (`getComputedStyle` at rest, a CSS-rule grep) is a note, not proof. A round-5 exit "fade" once snapped straight to 0 (an animation/transition clash) with every stylesheet-text test green; only a sampled trace would have caught it. A claim backed only by stylesheet text is unreached, not met.
 
+15. **Computed-not-painted.** A motion claim proven by computed style, or by a local build when the brief names a deployed preview, is unreached, not met. Proof is painted frames across the whole transition, on the named preview or with the gap stated in the queue row; a stagger claim also asserts on-screen order, not just step gaps ([BUILD.md](BUILD.md) § Motion proof). A fix that changes which element animates re-checks the animation itself — **Block** when absent.
+
 ### Aggressive Escalation Triggers
 
 Flag these on sight, hard:

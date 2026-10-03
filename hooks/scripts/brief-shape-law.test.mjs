@@ -113,9 +113,11 @@ test("the one rule is the contract pointer", () => {
 // mid-run messages, fresh restart after a drop, kill-by-name, parallel ports and
 // law tests, second-party "pre-existing", merged-is-not-on-main, empty-CI — each a
 // line or two, consolidated into the nearest existing bullet where one existed.
-test("doer-rules.md stays under its 302-line ceiling", () => {
+// Ceiling raised 302 -> 306 at 1.106.0: the own-phone-layout check (queue 323,
+// `phone-layout-forgotten`) sits in Ports, the section the doer reads at that moment.
+test("doer-rules.md stays under its 306-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 302, `doer-rules.md is ${lines} lines; the ceiling is 302`);
+  assert.ok(lines <= 306, `doer-rules.md is ${lines} lines; the ceiling is 306`);
 });
 
 test("doer-rules carries the four standing sections", () => {

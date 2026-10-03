@@ -45,6 +45,8 @@ direction of a change, the mechanism that produces a value — list every such p
 one recommended answer each. This applies to feedback and fix rounds too: a fix
 targeting one of these properties is not exempt from the gate.
 
+**A likely typo, or a word with two physical readings** ("swivel or cure" — curve? bend? swing?), gets one confirming question with the recommended reading before dispatch, rung 1. Writing the reading down is not confirming it (hoverboard, 2026-10-02: a guessed "curve" became a built board flex; the operator meant swing).
+
 **Never coin a term for a feature or concept.** If the parent needs a word the
 operator hasn't used and no source names, that's an assumption to ask about, not a
 label to invent — cross-reference the vocabulary rule in `define-terms`.
