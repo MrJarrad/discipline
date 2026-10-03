@@ -36,3 +36,7 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
     same naming conventions as other agents, e.g (local) sonnet etc."*). The background-task list
     shows only that description; `agent-dispatch-gate.mjs` refuses `claude -p`/`--cloud`,
     `workflow.mjs` and Mac-queue launches without it. Plain dev servers and watchers are not gated.
+12. **Audit and props briefs link the banked defaults ruling, and the parent greps `fleet/rulings`
+    before any operator-ask row** (`figma-defaults-reasked`, 2026-10-02: a props audit flagged
+    Figma-vs-code default differences and a queue row asked the operator to change a default the
+    operator had already ruled all-on). Audits check names and value sets, not defaults.

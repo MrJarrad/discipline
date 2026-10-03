@@ -10,9 +10,15 @@
        whitespace-normalised so trailing-space/line-ending drift never
        produces a false negative.
 
+     duplicateRowNumbers(fileText) -> [{section, number}] — row numbers used
+       twice inside one `## ` table, minus the named GRANDFATHERED historic
+       double-numbered struck rows (renumbering them would break references).
+
    Usage (CLI): node queue-write-check.mjs <file> <row text>
-   Exit 0 the row is present · 1 the row is absent (row named on stderr) ·
-   2 usage error or an unreadable file.                                    */
+                node queue-write-check.mjs --lint <file>
+   Exit 0 the row is present / the lint is clean · 1 the row is absent (row
+   named on stderr) / a duplicate number (named on stderr) · 2 usage error or
+   an unreadable file.                                                     */
 import { existsSync, readFileSync } from "node:fs";
 
 const normalise = (text) => String(text).replace(/\s+/g, " ").trim();
@@ -24,7 +30,49 @@ export function rowWritten(fileText, rowText) {
   return normalise(fileText).includes(normalise(rowText));
 }
 
+const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
+
+/* Historic double-numbered rows — two runs numbered the same rows; all are
+   struck. Named per section; any number not listed here fails the lint. */
+export const GRANDFATHERED = {
+  "Cloud setup": range(302, 334),
+  Hoverboard: range(33, 44),
+};
+
+/* Row numbers repeated within one `## ` section's table. */
+export function duplicateRowNumbers(fileText) {
+  const seen = new Set();
+  const dups = [];
+  let section = "";
+  for (const line of String(fileText).split(/\r?\n/)) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) { section = h[1]; continue; }
+    const m = /^\|\s*(\d+[a-z]?)\s*\|/.exec(line);
+    if (!m) continue;
+    const key = `${section}\u0000${m[1]}`;
+    if (seen.has(key)) {
+      if (!(GRANDFATHERED[section] || []).includes(m[1]) && !dups.some((d) => d.section === section && d.number === m[1])) {
+        dups.push({ section, number: m[1] });
+      }
+    }
+    seen.add(key);
+  }
+  return dups;
+}
+
+function lint(file) {
+  if (!file || !existsSync(file)) {
+    console.error(`queue-write-check: cannot read ${file}`);
+    process.exit(2);
+  }
+  const dups = duplicateRowNumbers(readFileSync(file, "utf8"));
+  if (!dups.length) process.exit(0);
+  for (const d of dups) console.error(`queue-write-check: duplicate row number ${d.number} in "${d.section}"`);
+  process.exit(1);
+}
+
 function main() {
+  if (process.argv[2] === "--lint") lint(process.argv[3]);
   const [, , file, ...rest] = process.argv;
   const rowText = rest.join(" ");
 

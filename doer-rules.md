@@ -292,6 +292,8 @@ process-ownership rule applied to servers —
 see § You are the doer for the general case (never kill, restart, or reuse a process you
 did not start).
 
+**A phone or tablet question about a desktop component starts by checking whether that surface has its own phone layout** (Home does: queue 301). If it does, the question belongs to that layout's handoff — do not ask it of the desktop component (queue 323, 2026-10-02).
+
 ## Notes ledger
 
 A long dispatch that compacts loses the facts it earned. **Before any compaction, append

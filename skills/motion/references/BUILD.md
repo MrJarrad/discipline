@@ -132,6 +132,14 @@ headless while the operator saw "only the first text block". Measure real readin
 read the reference first (rung 2) — a time-based, once-at-top-80% model answered in one read what
 three builds did not (portfolio cloud session 3, 2026-10-01).
 
+## Motion proof is painted, on-device, in order
+
+Operator lessons 2026-10-02/03 (`flash-fix-broke-fade`, stagger 51dab4b). The done-when of any motion change states all three:
+
+- **Painted frames, never computed style.** Sample painted frames across the whole transition (CDP screencast or a recording). A computed read says 0 before anything paints: #232 kept the blur but moved the fade to children that did not paint under a fixed backdrop-filter sibling until the route committed, with computed opacity green throughout. A fix that changes which element animates re-checks the animation itself, not only the bug it targeted.
+- **The deployed preview is the proof surface.** A local-build pass is not device proof (stagger 51dab4b passed locally and failed on the operator's phone). When the preview cannot be driven (an Access block), the gap is stated in the operator's queue row, never left implicit.
+- **The painted script asserts on-screen order.** Assert which element appears at each step by position at that breakpoint, as well as the gaps between steps; gaps alone pass a wrongly ordered stagger.
+
 ## Feel rows (input/scroll/hover speed)
 
 A row about how fast something should feel — scroll speed, hover-dwell, drag response —

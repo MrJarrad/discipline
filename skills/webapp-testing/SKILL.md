@@ -72,6 +72,7 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 
 - The **test file(s)** and any **committed baseline snapshots**, plus the one-line run command.
 - For each test: **what it asserts** and **the red you saw** — "failed with `expected visible, got hidden` before the fix; green after." A green with no observed red is unverified.
+- For motion, **painted frames** across the whole transition (screencast or recording) — computed style is never proof (`motion` BUILD.md § Motion proof).
 - Viewport(s) actually tested — never claim cross-viewport coverage you didn't run.
 - Any masks/mocks and *why* (what non-determinism they neutralize).
 

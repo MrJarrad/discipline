@@ -80,6 +80,7 @@ A long declared duration on a strong ease-out curve can still pass — worked ex
 | **Flash-before-enter** | Rest paints, then hide, then play. First painted frame of an enter is the CSS-authored **from-state** ([BUILD.md](references/BUILD.md)). |
 | **Hidden-complete** | Animation reaches `to` while hidden; unhide pops finished state. Full travel must play while visible. |
 | **Pause-stack** | `animation-play-state: paused` stacks a second full delay after unhide. |
+| **Computed-not-painted** | A computed-style read says 0 before anything paints. Proof is painted frames across the whole transition ([BUILD.md](references/BUILD.md)). |
 | **Recipe-not-live** | Constants/tests pin a recipe the live DOM path never mounts. |
 
 Law-specific classes (**false overlap**, **raster-soup**, **glyph-stagger**, **law-clock drift**) **Block only when a law is loaded**. See [LAW.md](references/LAW.md).

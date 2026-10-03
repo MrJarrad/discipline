@@ -63,7 +63,9 @@ const CEILINGS = [
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
   { skill: "routing", ceiling: 1560, before: 3254, frontmatterWords: 90 },
-  { skill: "motion", ceiling: 1000, before: 5552, frontmatterWords: 58 },
+  // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
+  // row (detail lives in references/BUILD.md and REVIEW.md).
+  { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
   { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
