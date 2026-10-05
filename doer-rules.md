@@ -183,6 +183,10 @@ stop only their own pids** — the parent sweeps verification servers at every l
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
   copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
+- **Cloud install is `pnpm install --frozen-lockfile`.** A plain `pnpm install` rewrote
+  `pnpm-lock.yaml` (peer qualifiers, ~400 lines) and two lanes committed it. A lane never
+  commits the lockfile unless the task changes dependencies; the parent reads
+  `git diff --stat` of every lane before folding or merging (portfolio, 2026-10-03).
 - **A gate's fixture is the contract, never a copy.** A test, probe or fixture reads the
   banked export json, the design-system's generated tokens, or the ruling's constant file
   **at run time**; a value hand-copied into the assertion is a defect, whatever else the

@@ -140,6 +140,16 @@ Operator lessons 2026-10-02/03 (`flash-fix-broke-fade`, stagger 51dab4b). The do
 - **The deployed preview is the proof surface.** A local-build pass is not device proof (stagger 51dab4b passed locally and failed on the operator's phone). When the preview cannot be driven (an Access block), the gap is stated in the operator's queue row, never left implicit.
 - **The painted script asserts on-screen order.** Assert which element appears at each step by position at that breakpoint, as well as the gaps between steps; gaps alone pass a wrongly ordered stagger.
 
+## Name the model before tuning
+
+Operator lesson 2026-10-05 (hoverboard cursor companion: ~5 feel rounds tuned a riderless pendulum-and-tow model; asking "have we modelled a rider" fixed it in one round).
+
+- **Name the real-world thing the motion imitates** and research how it actually moves (Researcher lane) before tuning; state that model to the operator in plain words.
+- **Two "not right" rounds on one model: question the model, not the knobs.**
+- **Directions and signs (lean, turn, swing) are verified on the rendered output** at the operator's framing, or flagged unverified; never asserted from the internal variable (the bank shipped reversed because the sign was checked in code).
+- **When the operator is unsure, ship a switch/knob** so they compare by feel.
+- **After one device-vs-headless disagreement**, the next round starts from the operator's recording (`webapp-testing` § Pixel proof).
+
 ## Feel rows (input/scroll/hover speed)
 
 A row about how fast something should feel — scroll speed, hover-dwell, drag response —

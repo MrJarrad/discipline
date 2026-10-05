@@ -17,6 +17,7 @@ Read before authoring or reviewing a Playwright webapp test.
 - **Pin the viewport** you claim to test, and re-run 2–3× to prove it's not flaky before you leave it.
 - **Mock at the network boundary** with `page.route()` to force error/empty/slow states deterministically.
 - **Treat a baseline update as a review.** Look at the new snapshot, confirm the change is intended, *then* regenerate. Mask timestamps/animations/random data.
+- **Verify an on-screen claim from pixels** (recording or screenshot at the operator's framing); after one device-vs-headless disagreement, start the next round from the operator's recording and name a device-faithful check (`jhd-device-tests` in cloud).
 - **Extract a Page Object** once a second test touches the same flow — one file owns the locators.
 
 ## Don't
@@ -27,4 +28,5 @@ Read before authoring or reviewing a Playwright webapp test.
 - **Don't `--update-snapshots` to force green** without looking at the diff — that silently deletes the regression guard.
 - **Don't claim cross-viewport or cross-browser coverage** you didn't actually run.
 - **Don't mock your own components** — mock only the external network boundary.
+- **Don't pass a visual claim on DOM state** (opacity, node identity, `elementFromPoint`) or run a third headless-only round against a device disagreement.
 - **Don't leave a flaky test green.** One pass and one fail on the same code means the wait/mask is wrong; fix it or the test gets muted and stops guarding.

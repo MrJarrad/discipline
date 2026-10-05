@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Trigger on "still broken", "not picking up", a bug explicitly flagged as hard to pin down, a first fix attempt that failed, or any reproducible failure needing real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work.
+description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Trigger on "still broken", "not picking up", a bug explicitly flagged as hard to pin down, a first fix attempt that failed, any visual bug ("disappears", "flickers", "covered", "looks wrong") on any device or browser, or any reproducible failure needing real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work.
 ---
 
 # Diagnosing Bugs
@@ -32,6 +32,19 @@ brief quotes the gesture; ask where it happens before the lane opens.
 
 Spend disproportionate effort here. Be aggressive, be creative, refuse to give up
 before trying several of the options below.
+
+---
+
+## Visual bugs: the picture first
+
+Any visual bug, on any device or browser ("disappears", "flickers", "covered", "looks wrong"): the
+first step is the operator's recording or screen frames (ask for one if missing). Frame-step the
+failing moment and write down what is painted on top, in order, before any theory. Check the cheap
+visual causes before timing or state logic: stacking/z-index, clipping, an ancestor's opacity, a
+layer painted over. Verify the fix from pixels, never DOM state alone. Two rounds of one theory
+that do not move the operator's result: re-derive from the picture, not from the last theory.
+(Footer, 2026-10-05: ~10 rounds of timing and state theory; one frame-step showed the arriving
+image painting over it; fix was one z-index rule.) Pixel proof: `webapp-testing` § Pixel proof.
 
 ---
 
