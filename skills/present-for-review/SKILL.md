@@ -53,6 +53,8 @@ return before the link is sent (operator ruling 2026-09-20, `accuracy-before-the
 - A **coverage ledger** with a row for every item in the lane's contract (`qa-acceptance` §
   The coverage ledger). A missing row is red; the parent sends nothing on a ledger with holes.
 
+**The parent never presents UI whose controls were not operated** — the ledger carries a driven row per control type (`qa-acceptance` § The eight row classes); screenshots and a pixel diff prove look, not function (`ui-controls-never-clicked-2026-10-05`).
+
 **Neither is a review round**, and neither is shown to the operator. The link waits on these
 two proofs being in the doer's return — never on a reviewer verdict. The operator still judges
 look, first and alone.

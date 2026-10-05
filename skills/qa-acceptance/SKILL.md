@@ -139,6 +139,14 @@ reached the live site).
 8. **Absence** — every retired lock row and every node the new export removed, proven not
    present by test or grep, never assumed from the diff alone.
 
+**Interactive UI is verified by operating it, not by looking at it** (`ui-controls-never-clicked-2026-10-05`:
+a rebuilt panel passed on screenshots, a pixel diff and an every-knob-has-a-row test while every
+dropdown was broken). A lane that builds or rebuilds interactive UI carries **one class-5 row per
+control type it ships** (select, toggle, slider, input, button, menu, tab, whatever is there), each
+driven with **real mouse and keyboard input** against the running build, asserting the effect: it
+**opens, picks, applies** (the value changes and the thing it governs responds). Screenshots and pixel
+diffs prove look, never function; a control type with no driven row is a missing row, red.
+
 The reviewer's spot check **samples across classes, never several rows from one** — one
 row per class at minimum, never five rows from class 1 standing in for the other seven
 (`agents/reviewer.md`).

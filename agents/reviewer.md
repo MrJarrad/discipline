@@ -66,10 +66,11 @@ The engineer's evidence is **input to verify, not a verdict to relay**.
 - **Props by default** (rule and classes: `dispatch-brief/references/HOUSE-RULES.md`; ledger: `coverage-ledger.md` § 1b). **Red:** a build-prop Figma property with no code prop, under a Source contract or a live Figma read with no export; deleting an implementation the operator only switched off. **Amber:** a hard-coded designer-facing value with no reason. An unreasoned non-build class is a ledger gap, red.
 - **Re-derive the claim classes, never sample them.** **Enumeration**, **precedent** and **determinism** claims are **grep- or rerun-verified** in full — a two-minute-grep failure is a red finding even when the code is right.
 - **Attribution in law/ruling docs.** A parent's technical call written as an operator call ("operator calls") is red; only words the operator said carry their name (`session10-codify-candidates-2026-10-05` 9).
+- **Interactive UI: a driven row per control type.** Look-only evidence is red; re-operate one control unannounced (`qa-acceptance`).
 - **Behaviour claims** cite `[runtime]` or `[test]` evidence; diff-only on one → red.
 - **"Pre-existing" is proven against `main`**, never against a branch ancestor — show the check on `main` or it does not stand.
 - **A fix gate's floor sits between the pre-fix and the fixed reading**; **a "before" render comes from the before sha** ([reviewer-evidence-and-floor.md](references/reviewer-evidence-and-floor.md)).
-- **A probe never shares the build's constant.** A check reading the same token the build reads passes by construction; derive the expected value from the spec side.
+- **A probe never shares the build's constant.** A check reading the build's own token passes by construction; derive expected values from the spec side.
 - **A build-identity proof runs each arm in its own scratch tree with a real package install**.
 - **A media-touching diff's done-when is re-run, not read** — `media-load-probe.mjs` on the
   deployed build, both browsers, every interaction claimed; a claimed 0 the reviewer did not

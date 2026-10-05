@@ -27,6 +27,13 @@ Escalating the model instead of slicing is the failure this rule names: the nav 
 the strongest model available and still collapsed per-device and per-page export values into
 single literals, because nothing in the brief made the uncovered nodes visible.
 
+## Driven rows for interactive UI
+
+An interactive-UI lane's done-when names **one driven row per control type it ships** — real mouse
+and keyboard input against the running build, asserting open/pick/apply (`qa-acceptance` § The
+eight row classes). Screenshots and pixel diffs prove look, not function
+(`ui-controls-never-clicked-2026-10-05`).
+
 ## Pixel proof at the operator's framing
 
 A built region's done-when is a **headed screenshot at the operator's viewport and at each
