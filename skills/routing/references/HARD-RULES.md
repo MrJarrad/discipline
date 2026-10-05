@@ -26,8 +26,6 @@ and queued the chat as the doer — that hatch is deleted.
    **Question shape, not only topic:** "is X good for Y", "compare", "should we use" goes to
    the Researcher; the parent may give at most a one-line holding answer labelled unverified
    (session 9, 2026-10-04: Xcode Cloud answered inline with services named from memory).
-   **Session start:** grep the project backlog for rows marked "next session" / "NEXT SESSION"
-   and dispatch every no-input one, not only the handover's numbered list.
 2. **Figma reads go through `capture-figma` on the dispatched persona.** A pasted
    figma.com URL, "fresh sync", "the figma version", "discrepancies with figma", or
    any need for instance `componentProperties`, tokens/variables/variants/component

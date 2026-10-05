@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Trigger on "still broken", "not picking up", a bug explicitly flagged as hard to pin down, a first fix attempt that failed, any visual bug ("disappears", "flickers", "covered", "looks wrong") on any device or browser, or any reproducible failure needing real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work.
+description: Diagnosis discipline for hard or intermittent bugs and performance regressions — build a tight, red-capable feedback loop before forming any theory. Trigger on "still broken", "not picking up", a bug explicitly flagged as hard to pin down, a first fix attempt that failed, any visual bug ("disappears", "flickers", "covered", "looks wrong") on any device or browser, or any reproducible failure needing real investigation rather than a guess. Not for typo fixes or obvious one-line errors — that's normal work. Not for a design-vs-build mismatch — that's audit-build.
 ---
 
 # Diagnosing Bugs

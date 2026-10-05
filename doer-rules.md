@@ -182,7 +182,8 @@ stop only their own pids** — the parent sweeps verification servers at every l
 - A consumer of a `file:` sibling dependency
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
-  copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
+  copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11). `--force` and
+  `--frozen-lockfile` combine for such a consumer.
 - **Cloud install is `pnpm install --frozen-lockfile`.** A plain `pnpm install` rewrote
   `pnpm-lock.yaml` (peer qualifiers, ~400 lines) and two lanes committed it. A lane never
   commits the lockfile unless the task changes dependencies; the parent reads

@@ -43,7 +43,7 @@ test("release: look at the page visitors will see before asking for the go-live 
 test("routing: question shape goes to the Researcher; session start greps next-session backlog rows", () => {
   const h = read("skills/routing/references/HARD-RULES.md");
   assert.match(h, /"is X good for Y", "compare", "should we use" goes to\s+the Researcher/);
-  assert.match(h, /grep the project backlog for rows marked "next session"/);
+  assert.match(read("skills/vault-recall/SKILL.md"), /grep the project backlog for rows marked "next session"/);
   assert.match(h, /setup defect to close/);
 });
 
