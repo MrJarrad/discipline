@@ -91,6 +91,12 @@ and queued the chat as the doer — that hatch is deleted.
    refused, name which layer refused it (Claude's permission check, GitHub access, or network
    policy) and give the operator the one-time setting that closes it.
 
+   **A Mac job carries only the Mac-bound step** (operator, 2026-10-02: "why is this task going to a
+   local agent?"): split a release into cloud steps (gate, push) and a Mac step (plugin install),
+   and the brief names why each step is machine-bound. A Mac job that reads the vault pulls it
+   first — a stale checkout refused a gate on lessons already encoded. Cloud pushes branches but
+   not tags (git proxy 403 on `refs/tags`): release tags go via a Mac job until the proxy allows them.
+
    **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
    blocks only the check of the **deployed** surface. A doer slice verifying its
    own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound — cloud VMs build and

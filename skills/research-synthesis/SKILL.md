@@ -48,6 +48,10 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 - **Confidence** — high / medium / low, and what would change it
 - **Open questions** — unresolved gaps
 - **Alternatives** — when comparing options, name the rejected path in one line
+- **Tooling and vendor picks** — budget is free or near-free (operator, 2026-10-04: "way out of
+  budget, we're looking for free or close to"): recommend free options first, self-built ones
+  included as first-class candidates; a paid option appears only as the named alternative, with
+  its monthly cost.
 
 ## Non-negotiables
 

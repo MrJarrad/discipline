@@ -58,3 +58,16 @@ test("output style: numbered chat rows and a Build in Progress heading", () => {
   assert.match(s, /each open row prints as a numbered item/);
   assert.match(s, /## Build in Progress/);
 });
+
+test("Mac jobs carry only the Mac-bound step, pull the vault, and tags go via the Mac", () => {
+  const h = read("skills/routing/references/HARD-RULES.md");
+  assert.match(h, /A Mac job carries only the Mac-bound step/);
+  assert.match(h, /A Mac job that reads the vault pulls it\s+first/);
+  assert.match(h, /Cloud pushes branches but\s+not tags/);
+});
+
+test("tooling budget: free or near-free first, paid only as the named alternative", () => {
+  const r = read("skills/research-synthesis/SKILL.md");
+  assert.match(r, /budget is free or near-free/);
+  assert.match(r, /a paid option appears only as the named alternative, with\s+its monthly cost/);
+});
