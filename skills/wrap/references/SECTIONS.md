@@ -47,6 +47,11 @@ On wrap:
   plus any other — e.g. capture-app + jhd-discipline). Never rewrite untouched products.
   Put shipped/open/next-step and Figma-artifact freshness on the **project** file, not
   the cockpit. Do not put listener/Environment liveness on a project file.
+- **Standing backlog, never handover lists.** Each project keeps
+  `projects/<name>/<name>-backlog.md` — numbered rows, one line each, struck when done,
+  never deleted, numbers never reused. Work enters it the moment it is promised, parked or
+  deferred. The handover's "Next session" list is picked FROM the backlog and never replaces
+  it (operator, 2026-10-02: "stuff is just disapearing from the queue").
 - In-flight list: add/remove **this chat's** line only.
 - Merged/unpushed commits for a repo belong on that project's handover.
 - Open operator items for a project belong on that project's handover.

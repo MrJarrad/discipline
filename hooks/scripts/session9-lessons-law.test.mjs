@@ -71,3 +71,18 @@ test("tooling budget: free or near-free first, paid only as the named alternativ
   assert.match(r, /budget is free or near-free/);
   assert.match(r, /a paid option appears only as the named alternative, with\s+its monthly cost/);
 });
+
+test("figma defaults are display conventions; annotations never restate properties", () => {
+  const h = read("skills/handoff-to-code/SKILL.md");
+  assert.match(h, /`defaultValue` in an export is a display convention/);
+  assert.match(h, /never the build\s+default and never a deviation/);
+  assert.match(h, /Annotations never restate or contradict a component property/);
+  assert.match(h, /Annotations carry motion, interaction and behaviour only/);
+});
+
+test("standing per-project backlog; Needed from you prints queue plus backlog", () => {
+  const w = read("skills/wrap/references/SECTIONS.md");
+  assert.match(w, /projects\/<name>\/<name>-backlog\.md/);
+  assert.match(w, /picked FROM the backlog and never replaces\s+it/);
+  assert.match(read("output-styles/discipline.md"), /queue plus backlog/);
+});
