@@ -30,6 +30,8 @@ phone WebKit and returned "no repro" for "refresh repeatedly" on desktop; the re
 warm-cache rapid reloads in headed Chromium (headless SwiftShader gave false negatives). The
 brief quotes the gesture; ask where it happens before the lane opens.
 
+**A fix lane's done-when includes the failure reproduced red on the old build through real input** (real pointer events on the real page, not a scripted sim) before any fix; a fix proven only on a loop that was never red is unproven. Two hoverboard nose fixes passed a sim that never reproduced the fight on the old code (`sim-tested-wrong-build-shared-port-2026-10-05`). Serve the lane's own build on its own port (`doer-rules.md` § Ports).
+
 Spend disproportionate effort here. Be aggressive, be creative, refuse to give up
 before trying several of the options below.
 

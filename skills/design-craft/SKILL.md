@@ -56,6 +56,9 @@ ever** (tokens/components only).
 ## Verify before done (visual-truth)
 Render the surface at real viewports (desktop + mobile) — don't approve UI from a code diff alone. Name the surface + viewport you checked.
 
+## Config panels
+A config, knob or tuning panel defaults to the house config-panel standard (`config-panel.md` in jhd-design-system, derived from the live jarrad.design/hoverboard panel) — compose it, never fork it (`config-panel-standard-and-nice-motion-2026-10-05`).
+
 ## System changes are deliberate
 Need a new token/component? Propose it as a system change with rationale + where else it's reused — don't quietly inline a one-off.
 
