@@ -291,7 +291,7 @@ stopped, or reused by a dispatched agent: **`:3210` the operator's live dev serv
 **`:3211` the hoverboard viewer**. **A lane never edits or builds inside the operator's own
 viewer checkout, whichever port it serves from** — one lane did, and the operator's live
 viewer served half-done work (hoverboard, 2026-09-27 — item 8); a lane always works in its
-own lane-named worktree, never the checkout a port happens to be pointed at. This is the
+own lane-named worktree, never the checkout a port happens to be pointed at. **Each lane serves its own build on its own registered port and confirms the served bundle hash matches its worktree build before measuring** — port 5199 was held by an older lane's stale dev server and checks ran against old code (`sim-tested-wrong-build-shared-port-2026-10-05`). This is the
 process-ownership rule applied to servers —
 see § You are the doer for the general case (never kill, restart, or reuse a process you
 did not start).

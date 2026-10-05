@@ -33,6 +33,17 @@ or traditional physics for finer control: `{ type: "spring", mass: 1, stiffness:
 
 Don't wire visual changes directly to a continuously-changing input (e.g., mouse position) without a spring — direct 1:1 mapping feels artificial because it has no momentum. But know when *not* to animate at all: a functional graph in a banking app should track its input exactly, with no spring smoothing, because the animation there isn't decorative.
 
+## Following and settling
+
+Motion that follows an input (cursor, drag, wheel, a held toggle) or settles after one. Enter/exit/stagger stays with the t90 rules above. Numbers are measured from 14 React Bits components, not from this house's own prototype; feel is a `prototype` lane before any row locks. Lineage: `fleet/rulings/config-panel-standard-and-nice-motion-2026-10-05.md`, draft `2026-10-05-nice-motion-law-draft.md`.
+
+- **N1 Input is a target.** A continuous input never writes straight to the output; each channel goes through one low-pass (lerp or spring). Defect: output equals the raw pointer/scroll value.
+- **N2 One feel per component.** 1-4 moving channels, all on one spring config or ω within 7-11 /s. Defect: a channel with its own unrelated stiffness.
+- **N3 Soft time constants.** First-order follow: τ 70 ms-1 s, nothing continuous under 70 ms. Spring: ω 7-8 /s (critically damped) is the reference. Instant feedback (press, tint) stays 100-200 ms.
+- **N4 No overshoot on the main channel.** Spring damping ratio ζ ≥ 1 on position, size, rotation. Overshoot only on a discrete "moment", ≤ 10% (≤ 35% only on a clamped secondary squash channel).
+- **N5 Position drives, speed is a small capped extra.** Main pose comes from position. Velocity may add one secondary effect (squash, blur, caption tilt, landing offset), normalised and clamped to 1 (e.g. `vel / 2200`). Defect: main pose driven by speed or acceleration.
+- **N7 Interruptible, state kept.** A retarget mid-flight keeps position and velocity (no restart). Follow maths are dt-based (`1-(1-a)^k` or closed-form spring), never per-frame constants; cap dt at 0.04-0.05 s.
+
 ## Component-building principles
 
 **Buttons must feel responsive.** Add `transform: scale(0.97)` on `:active` with a fast transition (~160ms ease-out). This applies to any pressable element; keep the scale subtle (0.95-0.98).

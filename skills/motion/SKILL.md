@@ -73,6 +73,8 @@ Valid: spatial consistency, state indication, explanation, feedback, preventing 
 
 A long declared duration on a strong ease-out curve can still pass — worked examples in [BUILD.md](references/BUILD.md).
 
+t90 scopes to enter/exit and discrete transitions. Follow-and-settle motion is judged by N3, not t90; see BUILD.md.
+
 ### Standing defect classes (craft — Block regardless of law)
 
 | Class | Rule |
