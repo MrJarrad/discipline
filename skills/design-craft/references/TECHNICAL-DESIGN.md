@@ -35,7 +35,8 @@ wave; LCP ≤2.5s at p75. `priority` alone does not set `fetchPriority` on `next
 ### Law 2 — Focus ring survives forced-colors (§6 #2, §G "Focus ring visibility")
 
 **Acceptance criterion:** tab through every control with `forced-colors: active` emulated
-in DevTools Rendering — a ring is visible on all of them.
+in DevTools Rendering — a ring is visible on all of them. (This checks the ring only; that
+each control *works* is `qa-acceptance` § The eight row classes.)
 
 - **DO:** make `outline` + `outline-offset` the baseline focus indicator (rounded outlines
   are supported everywhere in the current support matrix); keep `box-shadow`/`ring` as a

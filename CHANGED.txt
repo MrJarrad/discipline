@@ -535,3 +535,4 @@ skills/animation-vocabulary/
 skills/motion-craft/
 skills/review-animations/
 skills/stress-plan/
+1.110.0 — `2026-10-05-ui-controls`: lesson [[ui-controls-never-clicked-2026-10-05]] (operator: "encode it now in 1.110.0"). Interactive UI is verified by operating every control type, not by looking: `qa-acceptance` § The eight row classes (one class-5 row per shipped control type, real mouse + keyboard, asserting open/pick/apply — the owner); `dispatch-brief/SKILL.md` Done-when pointer + `references/ACCURACY.md` § Driven rows for interactive UI (the brief names them; ceiling 1520 held by trimming prose); `present-for-review` § Before the link goes out (parent never presents UI whose controls were not operated); `agents/reviewer.md` § Evidence (look-only evidence is red); `design-craft/references/TECHNICAL-DESIGN.md` Law 2 points at the owner. New `ui-controls-law.test.mjs`. Ceilings unchanged (reviewer.md 1600 held by trimming).
