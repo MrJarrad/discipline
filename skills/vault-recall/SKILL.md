@@ -63,6 +63,8 @@ than guessing a single folder — the folder is determined by thing-then-aspect,
 
 **History mode:** Only when explicitly asked for history (e.g., "show me the superseded versions") return `status: superseded` records. Include `superseded_by:` links to see the lineage.
 
+**Session start:** grep the project backlog for rows marked "next session" / "NEXT SESSION" and dispatch every no-input one, not only the handover's numbered list (session 9, 2026-10-04).
+
 ---
 
 ## Check-before-derive rule — the gate

@@ -115,9 +115,11 @@ test("the one rule is the contract pointer", () => {
 // line or two, consolidated into the nearest existing bullet where one existed.
 // Ceiling raised 302 -> 306 at 1.106.0: the own-phone-layout check (queue 323,
 // `phone-layout-forgotten`) sits in Ports, the section the doer reads at that moment.
-test("doer-rules.md stays under its 306-line ceiling", () => {
+// Ceiling raised 306 -> 308 at 1.107.0: the cloud `--frozen-lockfile` / lockfile-never-committed
+// rule (`cloud-pnpm-install-rewrites-lockfile`) sits in Repo and safety beside the pnpm `file:` bullet.
+test("doer-rules.md stays under its 308-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 306, `doer-rules.md is ${lines} lines; the ceiling is 306`);
+  assert.ok(lines <= 308, `doer-rules.md is ${lines} lines; the ceiling is 308`);
 });
 
 test("doer-rules carries the four standing sections", () => {

@@ -96,6 +96,10 @@ reviewer" on its own is refused (2026-09-16, twice); separate the fix and the me
 dispatches while the fix is unreviewed, and never route a refused merge through a peer
 session.
 
+## Pre-promote: look at what visitors will see
+
+Before the operator is asked for a go-live yes, look at the page visitors will actually see at go-live (a parked version's holding page included), against live, at a Mac and a phone framing: chosen image widths vs rendered size, plus a screenshot. Tests, CI and "108/108 files present" are not "looks right" (release 8aeb23e, 2026-10-05: staged and declared go; the operator found every holding-page image pixelated).
+
 ## The checklist
 
 Every flag-gated deploy runs the checklist in

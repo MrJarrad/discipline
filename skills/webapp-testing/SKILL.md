@@ -76,6 +76,14 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 - Viewport(s) actually tested — never claim cross-viewport coverage you didn't run.
 - Any masks/mocks and *why* (what non-determinism they neutralize).
 
+## Pixel proof
+
+A visual "is it on screen" claim is verified from pixels (recording or screenshot at the operator's framing), never from DOM state alone. Opacity, node identity and `elementFromPoint` read "visible" under a layer that paints over; DOM probes explain a pixel failure, they never pass one (footer, 2026-10-04: ~250 headless runs and two probe generations held while the phone showed it covered for 1-3 s).
+
+**Headless is not the device.** Linux headless WebKit is not iOS Safari; a timeline (WAAPI `startTime`) proves intent, not what the phone paints. After one device-vs-headless disagreement, the next round's first step is the operator's own path from a recording (ask for it in that same reply), and its done-when names a device-faithful check. A third headless-only round is a routing failure.
+
+**Cloud device check:** `MrJarrad/jhd-device-tests` runs a tap path on a preview in real Mobile Safari (iOS Simulator, free runner), records the screen and returns a pixel verdict (`held` / `covered`); its README holds the trigger and request format. It reproduced the footer bug 6/6 and passed the fix 6/6.
+
 ## Anti-patterns
 
 - A "test" that navigates and screenshots but never `expect()`s anything — that's `agent-browser` wearing a test's clothes; it can't fail, so it proves nothing.

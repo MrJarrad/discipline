@@ -115,6 +115,16 @@ wrong mechanism is a defect.
    block it edges, `mid` (between siblings) builds as the container's `gap`, always token-bound,
    never a literal.
 
+8. A component set's property `defaultValue` in an export is a display convention — Figma
+   components are left "everything on" so the set shows all it can do — never the build
+   default and never a deviation. Code defaults come from locked rulings and from the
+   instances placed in the examples and pages; a ruling (e.g. no header overlay) sets the
+   default, and the Figma-named prop stays exposed with that value set per route.
+9. Annotations never restate or contradict a component property: a property is the only
+   home for what it can express. Annotations carry motion, interaction and behaviour only;
+   a note that lists a property's options or states its value is a defect, and code-only
+   concepts (parallax, per-asset settings) are notes, never a requested Figma property.
+
 **Done when** every node in scope is built and each standard applied or deviation-noted.
 
 ### 5. Copy is a lane, not a detail

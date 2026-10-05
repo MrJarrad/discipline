@@ -50,7 +50,7 @@ cloud sessions; each repo's `CLAUDE.md` "Cloud sessions" holds its recipe.
    `mcp__Claude_Code_Remote__add_repo` (MrJarrad/jhd-design-system), one inline
    `git clone --depth 1` to `/home/user/jhd-design-system/main` (the proxy caps 2 concurrent
    operations), `register_repo_root`, `ln -s` into `/home/jhd-design-system/main`; then
-   `pnpm install` before any commit.
+   `pnpm install --frozen-lockfile` before any commit.
 2. **Network:** Full access plus the `CF_ACCESS_CLIENT_ID`/`SECRET` token; `curl` jarrad.design at
    session start — the default environment 403s the operator's own sites and `*.workers.dev`, which
    sends every look/probe check to the Mac. Env-var edits apply only to sessions started after saving.
@@ -151,7 +151,7 @@ never edited.
 
 - **Setup-script cwd trap:** the environment's setup script runs in `/home/user` while
   the repo clone lands in `/home/user/<repo>` — a bare `pnpm install` in the brief or
-  setup script fails fatally before Claude starts. Use `cd /home/user/<repo> && pnpm install`,
+  setup script fails fatally before Claude starts. Use `cd /home/user/<repo> && pnpm install --frozen-lockfile`,
   or let the doer install per-run.
 - **`github_repo` field silently dropped** on create — repo binding only takes effect via
   `session_context.sources`.

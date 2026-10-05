@@ -23,6 +23,9 @@ and queued the chat as the doer — that hatch is deleted.
    live world → dispatch **Researcher**, whose method is `research-synthesis`
    (WebSearch + WebFetch; never training memory). Never answer research from
    memory; never substitute Explore/general-purpose for live-world research.
+   **Question shape, not only topic:** "is X good for Y", "compare", "should we use" goes to
+   the Researcher; the parent may give at most a one-line holding answer labelled unverified
+   (session 9, 2026-10-04: Xcode Cloud answered inline with services named from memory).
 2. **Figma reads go through `capture-figma` on the dispatched persona.** A pasted
    figma.com URL, "fresh sync", "the figma version", "discrepancies with figma", or
    any need for instance `componentProperties`, tokens/variables/variants/component
@@ -81,6 +84,18 @@ and queued the chat as the doer — that hatch is deleted.
    operator-facing surface is the deployed URL, and cloud egress 403s `*.workers.dev`;
    (b) **machine-bound stacks** — `:4411` capture listener, Capture.app helper,
    figma-daemon, interactive-auth MCPs; (c) **this machine's own state**.
+
+   **A cloud capability gap that is not machine-bound is a setup defect to close**, never a
+   reason to route to the Mac queue (operator, 2026-10-03: "there shouldn't be anything a cloud
+   session can't do unless it's actually something like running my mac"). When a cloud action is
+   refused, name which layer refused it (Claude's permission check, GitHub access, or network
+   policy) and give the operator the one-time setting that closes it.
+
+   **A Mac job carries only the Mac-bound step** (operator, 2026-10-02: "why is this task going to a
+   local agent?"): split a release into cloud steps (gate, push) and a Mac step (plugin install),
+   and the brief names why each step is machine-bound. A Mac job that reads the vault pulls it
+   first — a stale checkout refused a gate on lessons already encoded. Cloud pushes branches but
+   not tags (git proxy 403 on `refs/tags`): release tags go via a Mac job until the proxy allows them.
 
    **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
    blocks only the check of the **deployed** surface. A doer slice verifying its

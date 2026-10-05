@@ -10,6 +10,7 @@
 | **Tag** debug logs `[DEBUG-xxxx]` | Guarantees clean removal — one grep |
 | Write the regression test **before** the fix, at a **correct seam** | Locks in the real bug pattern, not a shallow proxy |
 | State the winning hypothesis in the **commit/PR message** | The next person debugging this doesn't repeat the search |
+| On a **visual bug**, frame-step the operator's recording and list what is painted on top before any theory | The cause is usually a layer painted over (z-index, clipping, ancestor opacity), visible in one frame |
 
 ## Don't
 
@@ -19,6 +20,7 @@
 | Fix before minimizing | Wrong bug in view means wrong fix ships |
 | "Log everything and grep" | Noise hides the signal you actually need |
 | Refactor architecture **during** diagnosis | That's a post-mortem follow-up, not part of the fix |
+| Theorise about timing or state, or trust a DOM probe, on a visual bug before looking at the pixels | Footer 2026-10-05: ~250 headless runs and two DOM probes said "fine" while the picture showed it covered |
 | Reach for this discipline on **typos or obvious one-line errors** | Normal work — the heavy loop is overkill and slows you down |
 
 ## Branch-specific

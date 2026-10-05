@@ -25,6 +25,8 @@ Parent procedure: [`skills/release-deploy/SKILL.md`](../SKILL.md).
 - [ ] `file:` sibling consumers run `pnpm install --force` and assert the installed copy before any gate or deploy; deploys verify the deployed artifact.
 - [ ] Artifact is immutable + identifiable: `<version/hash>`
 
+- [ ] **Pre-promote look:** the page visitors see at go-live (parked version's holding page included) screenshotted against live at a Mac and a phone framing, image widths vs rendered size checked — before the operator is asked.
+
 ### 2. Deploy — dark, flag OFF
 - [ ] Deployed to production with flag **defaulting to off** — nothing user-visible changed.
 - [ ] Health check green **at flag-off** — evidence: `<url/output>`
