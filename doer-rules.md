@@ -130,10 +130,14 @@ stop only their own pids** — the parent sweeps verification servers at every l
   got right. Prove the worktree with `git worktree list` before committing anything.
   **`git worktree remove` takes an explicit path read from `git worktree list` and verified
   under `<repo>/worktrees/`** — never a grep/pattern over the list, and `main` (or any path
-  not under `worktrees/`) is never a removal target, full stop (operator lesson 2026-09-21,
-  `never-remove-a-worktree-by-pattern`: a `grep | xargs git worktree remove --force` matched
-  `main` in four bare-layout repos and deleted them, losing untracked local state and killing
-  the operator's live dev server).
+  not under `worktrees/`) is never a removal target (`never-remove-a-worktree-by-pattern`,
+  2026-09-21: a `grep | xargs git worktree remove --force` deleted `main` in four repos).
+- **Resolve the remote; never reason from a stale local ref.** Before any claim about what is on
+  a remote or which base you build on, run `git ls-remote origin <branch>` or `git fetch origin
+  <branch>` — two lanes argued from hours-old `origin/<branch>` refs. **Commit and push with
+  `git -C <worktree-path>`, never a `cd … && git add -A && git commit` chain** — a failed `cd`
+  committed and pushed inside the vault. On a branch other lanes also push, fetch and rebase
+  immediately before every push (`session10-codify-candidates-2026-10-05` 1, 2, 7).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
 - **A "pre-existing" claim is proven against `main`, never a branch ancestor, and by a second
@@ -143,14 +147,12 @@ stop only their own pids** — the parent sweeps verification servers at every l
   (2026-09-30). Merged is not on main: after any merge, confirm the change is reachable from
   `origin/main` (`git branch -r --contains`, or a symbol grep) before recording it shipped.
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`,
-  `.claude/settings*.json`) — a blocked or denied command is a finding to return to the
-  parent, never a workaround; a permission change is an operator row carrying the exact text,
-  never a self-granted rule (auto-mode refuses it, 2026-09-30).
+  `.claude/settings*.json`) — a blocked command is a finding to return, never a workaround; a
+  permission change is an operator row carrying the exact text, never self-granted (2026-09-30).
 - **"Never edit tests" carries one exception: repointing a fixture or golden path** the change
   deliberately moves. Repoint the path, keep the assertion, and name the repoint in the evidence
   return. Weakening, deleting, or skipping an assertion is never the exception.
-- **Commit incrementally** — commit after each coherent slice so a long run strands nothing
-  uncommitted.
+- **Commit incrementally** after each coherent slice; a long run strands nothing uncommitted.
 - Deterministic gates (build, typecheck, suite, CI where the repo has it) are green on the
   sha you hand over. Gate tiering — which gates run per commit vs once before hand-off —
   is defined in `skills/quality/SKILL.md` § Gate tiering.
@@ -160,14 +162,12 @@ stop only their own pids** — the parent sweeps verification servers at every l
   stagger, or wait. A **prototype lane runs no suite at all** (`skills/prototype/SKILL.md`,
   **no suite in bake/ladder briefs themselves**): it renders, returns, and the suite runs
   once at bake, after the operator's pick.
-- **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full
-  suite and the reviewer both run **once, at merge**, never in front of the operator's yes
-  (`review-trails-the-operator`, `agents/reviewer.md` § Round cap).
+- **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full suite
+  and the reviewer run **once, at merge**, never before the operator's yes (`review-trails-the-operator`).
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
-  disown` both die with the tool shell that spawned them. A long suite (25–60 min, tens of
-  gates) is dispatched as its own gate-run lane that detaches and polls with a bounded wait,
-  never run inline from the session issuing the dispatch. Do not kill a slow gate for
+  disown` both die with the tool shell that spawned them. A long suite (25–60 min) is its own
+  gate-run lane that detaches and polls with a bounded wait. Do not kill a slow gate for
   idle-looking CPU samples — only its own exit code is red (hoverboard rounds 14–15, item 3).
 - **Never kill, restart, or reuse a process or port you did not start** — a running server,
   watcher, or background job belongs to whoever launched it; the same rule the Ports
@@ -183,10 +183,10 @@ stop only their own pids** — the parent sweeps verification servers at every l
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
   copies `file:` deps into its store, so a plain install is a no-op (portfolio, 2026-09-11).
-- **Cloud install is `pnpm install --frozen-lockfile`** (combines with `--force`). A plain `pnpm install` rewrote
-  `pnpm-lock.yaml` (peer qualifiers, ~400 lines) and two lanes committed it. A lane never
-  commits the lockfile unless the task changes dependencies; the parent reads
-  `git diff --stat` of every lane before folding or merging (portfolio, 2026-10-03).
+- **Cloud install is `pnpm install --frozen-lockfile`** (combines with `--force`): a plain install
+  rewrote `pnpm-lock.yaml` (~400 lines) and two lanes committed it. A lane never
+  commits the lockfile unless the task changes dependencies; the parent reads `git diff --stat`
+  of every lane before folding or merging (portfolio, 2026-10-03).
 - **A gate's fixture is the contract, never a copy.** A test, probe or fixture reads the
   banked export json, the design-system's generated tokens, or the ruling's constant file
   **at run time**; a value hand-copied into the assertion is a defect, whatever else the
@@ -205,7 +205,7 @@ inventing a shape per dispatch.
 
 | # | Field | What it is |
 |---|---|---|
-| 1 | **Final sha** | the commit the evidence certifies |
+| 1 | **Final sha** | the commit the evidence certifies; screenshots and probes are captured after the final commit, from that build, and name its sha (a panel lane sent evidence from before its last CSS fix) |
 | 2 | **Per-criterion table** | one row per AC / locked row: criterion, pass/fail, `file:line`. Every lane also returns a **coverage ledger** — one row per item in its contract (`item · source ref · file:line · measured value · status`), written before the work; a contract item with no row is red and deviation is a status value, never a second table. Rule and row shape: `skills/qa-acceptance/SKILL.md` § The coverage ledger; the contract skill says what an item is |
 | 3 | **Gate output verbatim** | build, typecheck, suite lines as they printed — never paraphrased |
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |

@@ -300,3 +300,39 @@ test("DISCIPLINE_LEDGER_GATE=0 is the opt-out; anything else leaves the gate on"
     rmSync(vault, { recursive: true, force: true });
   }
 });
+
+// Session-10 lesson 8: the gate keys on the repo being committed, not the first `cd`.
+test("a command that cds into a red repo first but commits in a green one is allowed", () => {
+  const red = makeRepo({ typecheckExit: 1 });
+  const green = makeRepo({ typecheckExit: 0 });
+  try {
+    const r = runGate(green, `cd ${red} && ls && cd ${green} && git commit -m "x"`);
+    assert.equal(r.stdout, "", "the committed repo (green) decides, not the first cd");
+  } finally {
+    rmSync(red, { recursive: true, force: true });
+    rmSync(green, { recursive: true, force: true });
+  }
+});
+
+test("git -C <path> commit gates on that path, not the session cwd or an earlier cd", () => {
+  const red = makeRepo({ typecheckExit: 1 });
+  const green = makeRepo({ typecheckExit: 0 });
+  try {
+    assert.equal(runGate(red, `git -C ${green} commit -m "x"`).stdout, "", "green target allowed from a red cwd");
+    assert.match(runGate(green, `git -C ${red} commit -m "x"`).stdout, /Typecheck gate/, "red target denied from a green cwd");
+  } finally {
+    rmSync(red, { recursive: true, force: true });
+    rmSync(green, { recursive: true, force: true });
+  }
+});
+
+test("a later cd into a red repo before the commit still denies", () => {
+  const red = makeRepo({ typecheckExit: 1 });
+  const green = makeRepo({ typecheckExit: 0 });
+  try {
+    assert.match(runGate(green, `cd ${green} && cd ${red} && git commit -m "x"`).stdout, /Typecheck gate/);
+  } finally {
+    rmSync(red, { recursive: true, force: true });
+    rmSync(green, { recursive: true, force: true });
+  }
+});

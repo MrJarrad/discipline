@@ -158,6 +158,7 @@ Operator lesson 2026-10-05 (hoverboard cursor companion: ~5 feel rounds tuned a 
 - **Name the real-world thing the motion imitates** and research how it actually moves (Researcher lane) before tuning; state that model to the operator in plain words.
 - **Two "not right" rounds on one model: question the model, not the knobs.**
 - **Directions and signs (lean, turn, swing) are verified on the rendered output** at the operator's framing, or flagged unverified; never asserted from the internal variable (the bank shipped reversed because the sign was checked in code).
+- **Reference before physics.** Ask for, or measure, a reference the operator likes before modelling (source or recording; one React Bits study plus a 3-channel position-driven board fixed what seven physics-tuning rounds left "wobbly/confused/fighting", `session10-codify-candidates-2026-10-05` 6).
 - **When the operator is unsure, ship a switch/knob** so they compare by feel.
 - **After one device-vs-headless disagreement**, the next round starts from the operator's recording (`webapp-testing` § Pixel proof).
 
