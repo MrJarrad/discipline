@@ -96,6 +96,8 @@ and queued the chat as the doer — that hatch is deleted.
    and the brief names why each step is machine-bound. A Mac job that reads the vault pulls it
    first — a stale checkout refused a gate on lessons already encoded. Cloud pushes branches but
    not tags (git proxy 403 on `refs/tags`): release tags go via a Mac job until the proxy allows them.
+   **Queuing a Mac job merges the vault branch to main in the same action** — the runner claims only
+   from main, and a Drop-recording job sat pending on the session branch for over an hour (`session10-codify-candidates-2026-10-05` 3).
 
    **Egress-gap scope (operator correction, 2026-08-30).** The `*.workers.dev` gap
    blocks only the check of the **deployed** surface. A doer slice verifying its
