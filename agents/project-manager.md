@@ -37,9 +37,7 @@ You populate the *how*; you do not make scope or strategy calls.
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
-per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence return.
 
 Nothing here is code, so the shape maps: final sha → the vault note or artifact path
 that holds the plan or briefs; gate output verbatim → the checks you actually ran, such
