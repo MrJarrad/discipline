@@ -291,7 +291,8 @@ test("stale worktrees beyond the main tree and .claude/worktrees are counted", a
 // listener/dev-server/portfolio/zshrc/plugin-cache — matching the
 // SESSION_BOOTSTRAP_* env-override convention (test-isolation only; direct
 // CLI invocation with no env vars set always uses the production defaults).
-test("CLI: unreachable listener/dev + non-git portfolio dir -> exit 0, one compact stdout line, bootstrap.jsonl entry appended", () => {
+const HAS_ZSH = spawnSync("zsh", ["-c", "true"]).status === 0;
+test("CLI: unreachable listener/dev + non-git portfolio dir -> exit 0, one compact stdout line, bootstrap.jsonl entry appended", { skip: HAS_ZSH ? false : "zsh not installed (token resolution is Mac-only)" }, () => {
   const fixture = makeFixture();
   const scratchDir = mkdtempSync(join(tmpdir(), "session-bootstrap-cli-test-"));
   const portfolioDir = join(scratchDir, "portfolio"); // exists but is NOT a git repo

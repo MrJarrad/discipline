@@ -50,9 +50,7 @@ Any gap → stop, name it, don't push.
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
-per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence return.
 
 ## Safety
 

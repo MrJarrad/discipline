@@ -336,3 +336,75 @@ test("a later cd into a red repo before the commit still denies", () => {
     rmSync(green, { recursive: true, force: true });
   }
 });
+
+// Audit finding 1: command shape decides whether and where a commit happens.
+const SHAPES = [
+  // [label, session repo is red?, command builder(redDir, greenDir), expect deny]
+  ["subshell cd into a red repo", false, (r) => `(cd ${r} && git commit -m x)`, true],
+  ["-C into a red repo", false, (r) => `git -C ${r} commit -m x`, true],
+  ["cd chain after other commands", false, (r) => `git add . && cd ${r} && git commit -m x`, true],
+  ["pushd into a red repo", false, (r) => `pushd ${r} && git commit -m x`, true],
+  ["bash -c body", false, (r) => `bash -c 'cd ${r} && git commit -m x'`, true],
+  ["env assignment before git", true, () => "FOO=1 git commit -m x", true],
+  ["commit message mentioning git commit", true, () => 'git commit -m "fix git commit gate"', true],
+  ["grep for the phrase is not a commit", true, () => "grep -rn 'git commit' docs/", false],
+  ["echo of the phrase is not a commit", true, () => "echo 'git commit later'", false],
+  ["--grep argument is not a commit", true, () => 'git log --grep="git commit"', false],
+  ["cd to a green repo then commit", true, (_r, g) => `cd ${g} && git commit -m x`, false],
+  // Reviewer r1 (7037bec) escapes — real commits the first parser let through.
+  ["absolute git path", true, () => "/usr/bin/git commit -m x", true],
+  ["if/then", true, () => "if true; then git commit -m x; fi", true],
+  ["while/do", true, () => "while true; do git commit -m x; done", true],
+  ["negation", true, () => "! git commit -m x", true],
+  ["brace group with cd", false, (r) => `{ cd ${r} && git commit -m x; }`, true],
+  ["eval", true, () => "eval 'git commit -m x'", true],
+  ["xargs", true, () => "xargs git commit", true],
+  ["timeout", true, () => "timeout 5 git commit -m x", true],
+  ["sudo -u", true, () => "sudo -u me git commit -m x", true],
+  ["env -i", true, () => "env -i git commit -m x", true],
+  ["env -C into red", false, (r) => `env -C ${r} git commit -m x`, true],
+  ["backticks", true, () => "`git commit -m x`", true],
+  ["bash -lc", true, () => "bash -lc 'git commit -m x'", true],
+  ["bash -c with cd into red", false, (r) => `bash -c 'cd ${r}; git commit'`, true],
+  // Shapes the reviewer confirmed already behave.
+  ["env assignment wrapper", true, () => "env X=1 git commit -m x", true],
+  ["git -c k=v", true, () => "git -c k=v commit -m x", true],
+  ["git -c twice", true, () => "git -c a=1 -c b=2 commit -m x", true],
+  ["command git", true, () => "command git commit -m x", true],
+  ["git --no-pager", true, () => "git --no-pager commit -m x", true],
+  ["-C red from green", false, (r) => `git -C ${r} commit -m x`, true],
+  ["newline then commit", true, () => "echo hi\ngit commit -m x", true],
+  ["cd on its own line", false, (r) => `cd ${r}\ngit commit -m x`, true],
+  ["cd || exit; commit", false, (r) => `cd ${r} || exit; git commit -m x`, true],
+  [";/&& inside quotes", true, () => 'git commit -m "a;b && c"', true],
+  ["heredoc message", true, () => "git commit -F - <<'EOF'\nmsg; foo\nEOF", true],
+  ["$(cat <<EOF) message", true, () => 'git commit -m "$(cat <<\'EOF\'\nfix: x\nEOF\n)"', true],
+  ["git commit-tree is not a commit", true, () => "git commit-tree abc", false],
+  ["git status", true, () => "git status", false],
+  ["-C green from red", true, (_r, g) => `git -C ${g} commit -m x`, false],
+  // Review r2 (bff2fc1): a commit line fed to a stdin shell.
+  ["echo piped into bash", true, () => "echo 'git commit -m x' | bash", true],
+  ["printf piped into sh", true, () => "printf 'git commit -m x' | sh", true],
+  ["here-string into bash", true, () => "bash <<< 'git commit'", true],
+  ["glued here-string after commit", true, () => "git commit<<<x", true],
+  ["piped through a filter into zsh", true, () => "echo 'git commit -m x' | cat | zsh", true],
+  ["env -S", true, () => "env -S 'git commit -m x'", true],
+  ["cd into red then piped shell", false, (r) => `cd ${r} && echo 'git commit -m x' | bash`, true],
+  ["bash running a script file is not re-parsed", true, () => "echo 'git commit' | bash script.sh", false],
+  ["echo piped into cat is not a commit", true, () => "echo 'git commit' | cat", false],
+  ["here-string of plain text into bash", true, () => "bash <<< 'ls -la'", false],
+  ["heredoc body mentioning git commit is data", true, () => "cat <<'EOF' > notes.md\nrun:\ngit commit -m x\nEOF", false],
+];
+for (const [label, sessionRed, build, expectDeny] of SHAPES) {
+  test(`command shape: ${label}`, () => {
+    const red = makeRepo({ typecheckExit: 1 });
+    const green = makeRepo({ typecheckExit: 0 });
+    try {
+      const result = runGate(sessionRed ? red : green, build(red, green));
+      assert.equal(/permissionDecision":"deny"/.test(result.stdout), expectDeny, result.stdout);
+    } finally {
+      rmSync(red, { recursive: true, force: true });
+      rmSync(green, { recursive: true, force: true });
+    }
+  });
+}

@@ -52,7 +52,7 @@ test("canMerge refuses an empty rollup — nothing to prove green against", () =
 
 function makeBareRemoteAndClone(nameHint) {
   const remoteDir = mkdtempSync(join(tmpdir(), `merge-after-review-remote-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", remoteDir]);
   const cloneDir = mkdtempSync(join(tmpdir(), `merge-after-review-clone-${nameHint}-`));
   execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
   execFileSync("git", ["-C", cloneDir, "config", "user.email", "test@example.com"]);
@@ -158,9 +158,9 @@ test("full run: all-SUCCESS + MERGEABLE merges via stubbed gh and ff-pulls main"
 
 function makeBareLayoutRepoAndUpstreamPush(nameHint) {
   const remoteDir = mkdtempSync(join(tmpdir(), `merge-after-review-blremote-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", remoteDir]);
   const root = mkdtempSync(join(tmpdir(), `merge-after-review-blroot-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", join(root, ".bare")]);
   execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
   execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
   const mainDir = join(root, "main");

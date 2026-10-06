@@ -149,8 +149,8 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
 }
 
 // Ruling names the CHANGED.txt top entry cites — `[[stem]]` wiki-links (the
-// house convention going forward) or an explicit `fleet/rulings/<stem>.md`
-// path. Only these can block a release under the named-only gate; any other
+// house convention going forward), an explicit `fleet/rulings/<stem>.md` path, or
+// a backticked `<stem>.md`. Only these can block a release under the named-only gate; any other
 // queued ruling is a warning, never a refusal.
 export function namedRulingsFromChangedEntry(entryText) {
   const names = new Set();
@@ -158,6 +158,11 @@ export function namedRulingsFromChangedEntry(entryText) {
     names.add(m[1].trim().replace(/\.md$/, ""));
   }
   for (const m of entryText.matchAll(/fleet\/rulings\/([^\s)`'"]+?)\.md/g)) {
+    names.add(m[1]);
+  }
+  // A backticked `<stem>.md` (any leading path dropped) — the form a CHANGED entry
+  // uses when it names a vault note by file, e.g. `jhd-discipline-handover.md`.
+  for (const m of entryText.matchAll(/`(?:[^`\s]*\/)?([^`\s/]+?)\.md`/g)) {
     names.add(m[1]);
   }
   return names;

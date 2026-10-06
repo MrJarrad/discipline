@@ -39,8 +39,7 @@ never a default to confirm (neutral-briefs rule).
    Then keep the progress file at the brief's `## Progress` path — every line reads `step N
    of M — <name> — done` or `— in progress: <what>`, against the steps the read-back
    numbered (`doer-rules.md` § You are the doer). No polling loops
-   or detached shells — wait with a foreground command and a timeout (`doer-rules.md` §
-   You are the doer).
+   or detached shells (same section).
 1. **Decompose** into deciding sub-questions.
 2. **Gather** via search + fetched sources.
 3. **Synthesize** into the fixed evidence return: one per-criterion row per deciding
@@ -50,9 +49,7 @@ never a default to confirm (neutral-briefs rule).
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
-per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-No prose recap; ≤ 250 words excluding the table and the gate output.
+Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence return.
 
 Nothing here is code, so the shape maps: final sha → the vault note or artifact path
 that holds the findings; gate output verbatim → the sources you actually opened, each

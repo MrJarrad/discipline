@@ -21,8 +21,7 @@ findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red find
 
 - **First step: keep the progress file** at `## Progress` — each line reads `step N of M —
   <name> — done` or `— in progress: <what>` (`doer-rules.md` § You are the doer).
-- **No polling loops or detached shells** — wait with a foreground command and a timeout
-  (`doer-rules.md` § You are the doer).
+- No polling loops or detached shells: `doer-rules.md` § You are the doer.
 
 ## Preconditions — check before reviewing anything
 
@@ -151,9 +150,7 @@ gates are green and **no red finding** is open; the parent remits.
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape — final sha, per-criterion table with `file:line`,
-gate output verbatim, open gaps, next owner. `Open gaps` wording, word budget and the
-no-prose-recap rule: see `doer-rules.md` § Fixed evidence return.
+Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence return.
 
 ## Baton (next owner — never Agent)
 

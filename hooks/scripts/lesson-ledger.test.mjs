@@ -195,6 +195,13 @@ test("namedRulingsFromChangedEntry reads [[stem]] wiki-links and fleet/rulings p
   assert.equal(names.size, 2);
 });
 
+test("namedRulingsFromChangedEntry reads a backticked `<stem>.md` name", () => {
+  const entry = "1.111.0 — closes `jhd-discipline-handover.md` and `projects/x/decisions/2026-10-02-gate-finding.md`.";
+  const names = namedRulingsFromChangedEntry(entry);
+  assert.ok(names.has("jhd-discipline-handover"));
+  assert.ok(names.has("2026-10-02-gate-finding"));
+});
+
 test("topChangedEntry stops at the first blank line", () => {
   const text = "1.88.0 — first entry text\nmore of the first entry\n\n1.87.0 — second entry\n";
   assert.equal(topChangedEntry(text), "1.88.0 — first entry text\nmore of the first entry");

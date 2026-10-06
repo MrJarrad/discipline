@@ -46,8 +46,7 @@ Use chrome-devtools / browser tools for live viewport evidence.
   the steps; every line reads `step N of M — <name> — done` or `— in progress: <what>`. A
   hook nudges past 10 minutes of silence; the line is still yours to write (`doer-rules.md`
   § You are the doer).
-- **No polling loops or detached shells** — wait with a foreground command and a timeout
-  (`doer-rules.md` § You are the doer).
+- No polling loops or detached shells: `doer-rules.md` § You are the doer.
 - Tasks referencing Figma or a live reference start with capture/audit, never screenshots alone.
 - Orbit plugin look/feel → `~/JHD/figma-plugins/main/orbit-tools`. Capture plugin / ingest → `~/JHD/figma-plugins/main/capture-figma`. Leftover Figma plugins → `~/JHD/figma-labs/main`. Never `design-tools`.
 - Creative / aesthetic forks → one recommendation to the operator, alternative named.
@@ -65,10 +64,7 @@ sheet rules the geometry question before any full render is spent.
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
-per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-For the word budget and the no-prose-recap rule, see `doer-rules.md` § Fixed evidence
-return.
+Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence return.
 
 **Rendered evidence is headed and pixel-asserted** — a screenshot at the operator's viewport
 and at each breakpoint family, with a pixel assertion on the region in question; a

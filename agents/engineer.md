@@ -69,8 +69,7 @@ your evidence even when the code is right.
   the steps; every line reads `step N of M — <name> — done` or `— in progress: <what>`. A
   hook nudges past 10 minutes of silence; the line is still yours to write (`doer-rules.md`
   § You are the doer).
-- **No polling loops or detached shells** — wait with a foreground command and a timeout
-  (`doer-rules.md` § You are the doer).
+- No polling loops or detached shells: `doer-rules.md` § You are the doer.
 - Read the full task and any linked plan before writing code.
 - Stay on the assigned task; file follow-ups for adjacent work.
 - Prefer the active repo workspace. Do not edit the vault working tree (`~/JHD/vault/main` or flat `~/JHD/vault`) unless the brief says so
@@ -101,10 +100,8 @@ than the engineer's **same current** locked table.
 
 Standing rules: `doer-rules.md` — read it whole.
 
-Use the **Fixed evidence return** shape defined in `doer-rules.md` — final sha,
-per-criterion table with `file:line`, gate output verbatim, open gaps, next owner.
-`Open gaps` wording, the word budget, and the no-prose-recap rule are defined there —
-see `doer-rules.md` § Fixed evidence return.
+Return the **Fixed evidence return** — shape, `Open gaps` wording, word budget and
+no-prose-recap rule: see `doer-rules.md` § Fixed evidence return.
 
 The return carries a **coverage ledger** — one row per item in the lane's contract, written
 before the work; a contract item with no row is a red finding and deviation is a status value,

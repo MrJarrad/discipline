@@ -20,7 +20,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 ## What's inside
 
-**47 skills** — craft and delivery discipline that any agent can draw on.
+**48 skills** — craft and delivery discipline that any agent can draw on.
 
 **Dispatch** — who does the work, on what model, in what brief:
 
