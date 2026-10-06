@@ -1313,8 +1313,6 @@ test("the retired term \"trivial/small-fix\" is absent from every live doc (CHAN
     "skills/routing/SKILL.md",
     "skills/present-for-review/SKILL.md",
     "skills/qa-acceptance/SKILL.md",
-    "hooks/scripts/queue-1860-law.test.mjs",
-    "hooks/scripts/queue-1870-law.test.mjs",
   ];
   for (const file of files) {
     assert.doesNotMatch(

@@ -27,8 +27,9 @@ fork it.
   (`DISCIPLINE_VAULT_ROOT`, skipped when no vault is present).
 - After editing `doer-rules.md`, sync product repos:
   `node hooks/scripts/sync-doer-rules.mjs <target-repo-path> [...]` writes
-  `.cursor/rules/doer-rules.mdc` in each target (the always-on path in product repos,
-  regardless of editor; the name is historical).
+  `.cursor/rules/doer-rules.mdc` in each target. `.cursor/rules/` is
+  the always-on layer's path regardless of editor — the directory name is historical,
+  not an editor dependency.
 
 ## Resuming
 Read this project's handover in the vault (`projects/jhd-discipline/`) and
