@@ -124,6 +124,7 @@ wrong mechanism is a defect.
    home for what it can express. Annotations carry motion, interaction and behaviour only;
    a note that lists a property's options or states its value is a defect, and code-only
    concepts (parallax, per-asset settings) are notes, never a requested Figma property.
+10. A locked `aspectRatio` builds the ratio, never the fixed height — `schema-v9-hints.md` § Aspect lock.
 
 **Done when** every node in scope is built and each standard applied or deviation-noted.
 

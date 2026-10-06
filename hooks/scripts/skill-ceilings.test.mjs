@@ -128,14 +128,14 @@ for (const { skill, ceiling, before } of CEILINGS) {
 // check: these skills never offloaded, and the offload tests above belong to skills
 // that did.
 const RATCHETS = [
-  { skill: "handoff-to-code", ceiling: 1730 }, // 1725 words at 1.111.0
+  { skill: "handoff-to-code", ceiling: 1745 }, // 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer)
   { skill: "capture-website", ceiling: 1720 }, // 1711 words at 1.111.0
   { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
   { skill: "model-routing", ceiling: 1660 }, // 1655 words at 1.111.0
   { skill: "present-for-review", ceiling: 1670 }, // 1661 words at 1.111.0
   { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
   { skill: "qa-acceptance", ceiling: 1700 }, // 1699 words at 1.111.0
-  { skill: "cloud-dispatch", ceiling: 1570 }, // 1569 words at 1.111.0
+  { skill: "cloud-dispatch", ceiling: 1610 }, // 1569 words at 1.111.0; raised 1570 -> 1610 at 1.112.0 (backlog 80/81: runner-claim line + mac-job-check pointer)
 ];
 
 for (const { skill, ceiling } of RATCHETS) {

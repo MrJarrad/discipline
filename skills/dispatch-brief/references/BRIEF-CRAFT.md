@@ -43,3 +43,6 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
 13. **A branch more than one lane pushes names every other lane on it** and requires fetch + rebase
     immediately before each push; the parent messages each running lane when the branch moves
     (three lanes shared `preview/companion-playground`; held only by that messaging, `session10-codify-candidates-2026-10-05` 2).
+14. **A brief's done-when ends at the merge of its round** (`merge-each-approved-round-2026-10-06`).
+    A brief that stacks a new round onto an unmerged branch is malformed: merge the approved round
+    first, then brief the next from main.
