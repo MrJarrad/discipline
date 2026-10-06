@@ -35,9 +35,12 @@ cloud sessions; each repo's `CLAUDE.md` "Cloud sessions" holds its recipe.
   re-upload of an expired unchanged file does not happen); Drive My Drive/JHD/Drop is secondary
   (connector caps downloads at 10 MB). Read R2 by REST `/r2/buckets/jhd-drop/objects` — `wrangler r2
   object list` does not exist — with `CLOUDFLARE_ACCOUNT_ID` in the environment and in the brief.
-- **Mac-only work returns by queue:** a job file in `queue/mac/pending/` on origin/main or any
-  `claude/*` branch is claimed by the Mac runner (`estate/mac-queue/`, `claude -p --permission-mode
-  auto` in the job's `repo:` under `$HOME`) and lands in `done/` or `failed/`. **Every job brief
+- **Mac-only work returns by queue:** a job file in `queue/mac/pending/` on origin/main is claimed
+  by the Mac runner (`estate/mac-queue/`, `claude -p --permission-mode auto` in the job's `repo:`
+  under `$HOME`) and lands in `done/` or `failed/`. `run.sh` also scans `origin/claude/*`, but jobs on
+  session branches sat unclaimed (2026-10-05; session 11's `9112034a` until it reached main): merge to
+  main first (`routing` rule 9). Run `hooks/scripts/mac-job-check.mjs <file>` before filing — no
+  `repo:` line fails exit 97. **Every job brief
   opens "You ARE the job; the `running/` entry is your own claim"** — a job once saw its own claim
   on main, concluded another run was live and exited "done" unprobed. The runner injects that line
   itself (vault-side, `skipped(other-repo)` here).

@@ -17,3 +17,13 @@ A schema-v9 brief adds hints beyond `col-span N/M` (grammar:
 
 `worked-example.md` (worked `col()`/`row()` read) and `export-shape.md` (rename ids, prop
 schemas) cover the rest.
+
+## Aspect lock
+
+`figma-aspect-lock-is-ratio-2026-10-06`: "in figma it is fixed but has aspect lock, which is figma's
+only native way to set and aspect ratio, so with width fill and height fixed with aspect lock the
+height is actually dynamic depending on the width." When a node's height is fixed and its aspect
+ratio is locked (export `aspectRatio.locked: true`, e.g. CardMedia Content
+`{"label":"3:2","locked":true}`), build the ratio (`aspect-ratio: 3 / 2`, width as exported, e.g.
+fill), never the literal height. The fixed height in the export is only Figma's current computed
+value. The coverage ledger row binds `aspect-ratio`, not a pixel height.
