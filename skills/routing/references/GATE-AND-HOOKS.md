@@ -52,7 +52,7 @@ when a prior transcript is past useful size.
   deterministic gates are green; red findings → parent `Agent`-dispatches engineer
   (`resume`); feel/render gap → parent `Agent`-dispatches ux-designer for agent evidence;
   merge condition met → parent **`present-for-review`** when live product, then merge
-  remittance; **round 3 with red still open → halt and present to the operator**.
+  remittance; **red still open at the round cap → halt, next: operator** (`agents/reviewer.md` § Round cap).
   Specialists are doers (`doer-rules.md` § You are the doer). Parent silence **after the completion ping** is a
   routing failure. Waiting **inside** the dispatch turn is also a routing failure.
 - **Engineer complete → reviewer.** Orchestrator must not relay engineer "done"/"fixed"/"parity" to the operator. **Merge is CI green + no red finding**, remitted by the parent — not a reviewer verdict relayed onward. **Brief gate first:** whole locked table in ACs — slice brief of whole-surface lock → malformed, do not dispatch (`review-the-lock-not-the-slice`). **Paired briefs:** reviewer brief = **same current locked table** as engineer, and names the lock's **live path** so the reviewer re-reads it; noted without failing is not a clear review. Do **not** solicit review until engineer claims **every locked row** or names operator-deferred rows.
