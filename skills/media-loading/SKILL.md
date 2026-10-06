@@ -163,8 +163,7 @@ reference and worked examples: `references/PROBE.md`.
   surface covered — an interaction the probe didn't drive is an interaction
   the bar doesn't know about yet.
 - **DON'T:** close a lane on a `--paced` run alone — it's an opt-in smoke
-  check, never proof of fast-motion behaviour (
-  a paced run read 0 misses where the same session at real fling speed read 16-36).
+  check, never proof of fast-motion behaviour (a paced run read 0 misses where the same session at real fling speed read 16-36).
 
 ## Where this is enforced (pointer, not restated)
 
