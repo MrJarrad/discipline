@@ -54,7 +54,7 @@ test("isUpToDate is true after writeSyncedFile writes the same source text", () 
 
 function makeBareRemoteAndClone(nameHint) {
   const remoteDir = mkdtempSync(join(tmpdir(), `rulebook-sync-remote-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", remoteDir]);
   const cloneDir = mkdtempSync(join(tmpdir(), `rulebook-sync-clone-${nameHint}-`));
   execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
   execFileSync("git", ["-C", cloneDir, "config", "user.email", "test@example.com"]);
@@ -236,9 +236,9 @@ test("idempotent re-run: a branch already pushed to origin (prior run died befor
 
 function makeBareLayoutRepoWithRemote(nameHint) {
   const remoteDir = mkdtempSync(join(tmpdir(), `rulebook-sync-blremote-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", remoteDir]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", remoteDir]);
   const root = mkdtempSync(join(tmpdir(), `rulebook-sync-blroot-${nameHint}-`));
-  execFileSync("git", ["init", "-q", "--bare", join(root, ".bare")]);
+  execFileSync("git", ["init", "-q", "-b", "main", "--bare", join(root, ".bare")]);
   execFileSync("git", ["-C", join(root, ".bare"), "remote", "add", "origin", remoteDir]);
   execFileSync("git", ["--git-dir", join(root, ".bare"), "worktree", "add", "-b", "main", join(root, "main")]);
   const mainDir = join(root, "main");
