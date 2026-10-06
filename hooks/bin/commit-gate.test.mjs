@@ -382,6 +382,17 @@ const SHAPES = [
   ["git commit-tree is not a commit", true, () => "git commit-tree abc", false],
   ["git status", true, () => "git status", false],
   ["-C green from red", true, (_r, g) => `git -C ${g} commit -m x`, false],
+  // Review r2 (bff2fc1): a commit line fed to a stdin shell.
+  ["echo piped into bash", true, () => "echo 'git commit -m x' | bash", true],
+  ["printf piped into sh", true, () => "printf 'git commit -m x' | sh", true],
+  ["here-string into bash", true, () => "bash <<< 'git commit'", true],
+  ["glued here-string after commit", true, () => "git commit<<<x", true],
+  ["piped through a filter into zsh", true, () => "echo 'git commit -m x' | cat | zsh", true],
+  ["env -S", true, () => "env -S 'git commit -m x'", true],
+  ["cd into red then piped shell", false, (r) => `cd ${r} && echo 'git commit -m x' | bash`, true],
+  ["bash running a script file is not re-parsed", true, () => "echo 'git commit' | bash script.sh", false],
+  ["echo piped into cat is not a commit", true, () => "echo 'git commit' | cat", false],
+  ["here-string of plain text into bash", true, () => "bash <<< 'ls -la'", false],
   ["heredoc body mentioning git commit is data", true, () => "cat <<'EOF' > notes.md\nrun:\ngit commit -m x\nEOF", false],
 ];
 for (const [label, sessionRed, build, expectDeny] of SHAPES) {

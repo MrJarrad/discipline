@@ -81,8 +81,9 @@ function splitSegments(command) {
   const out = []; // { words: string[], open: number, close: number }
   let words = [], word = "", has = false, open = 0, close = 0;
   const heredocs = []; // delimiters whose bodies start after the next newline
+  let pipeNext = false; // the next pushed segment reads the previous one's output
   const endWord = () => { if (has) words.push(word); word = ""; has = false; };
-  const endSeg = () => { endWord(); if (words.length || open || close) out.push({ words, open, close }); words = []; open = 0; close = 0; };
+  const endSeg = () => { endWord(); if (words.length || open || close) { out.push({ words, open, close, piped: pipeNext }); pipeNext = false; } words = []; open = 0; close = 0; };
   for (let i = 0; i < command.length; i++) {
     const ch = command[i];
     if (ch === "'") { const j = command.indexOf("'", i + 1); const end = j < 0 ? command.length : j; word += command.slice(i + 1, end); has = true; i = end; }
@@ -96,7 +97,8 @@ function splitSegments(command) {
     else if (ch === "\\" && command[i + 1] === "\n") i++; // line continuation
     else if (ch === "\\" && i + 1 < command.length) { word += command[++i]; has = true; }
     else if (ch === "#" && !has) { while (i < command.length && command[i] !== "\n") i++; i--; }
-    else if (ch === "<" && command[i + 1] === "<" && command[i + 2] !== "<") {
+    else if (ch === "<" && command.startsWith("<<<", i)) { endWord(); words.push("<<<"); i += 2; } // here-string: the next word is the text
+    else if (ch === "<" && command[i + 1] === "<") {
       const m = /^<<-?\s*(?:'([^']*)'|"([^"]*)"|([^\s;&|()<>]+))/.exec(command.slice(i));
       if (m) { heredocs.push(m[1] ?? m[2] ?? m[3]); endWord(); i += m[0].length - 1; }
     }
@@ -116,7 +118,11 @@ function splitSegments(command) {
         }
       } else endWord();
     }
-    else if (ch === ";" || ch === "|" || ch === "&" || ch === "`") { endSeg(); if (ch !== "`" && command[i + 1] === ch) i++; }
+    else if (ch === ";" || ch === "|" || ch === "&" || ch === "`") {
+      endSeg();
+      if (ch !== "`" && command[i + 1] === ch) i++;
+      else if (ch === "|") pipeNext = true;
+    }
     else if (ch === "(") { endSeg(); open++; }
     else if (ch === ")") { endSeg(); out.push({ words: [], open: 0, close: 1 }); }
     else { word += ch; has = true; }
@@ -155,7 +161,9 @@ function gitCommitAt(w, i, cur) {
 function commitTarget(command, baseCwd, depth = 0) {
   let cur = baseCwd;
   const stack = [];
+  let chain = ""; // words of the segments piped into the current one
   for (const seg of splitSegments(command)) {
+    if (!seg.piped) chain = "";
     for (let k = 0; k < seg.open; k++) stack.push(cur);
     let w = seg.words;
     // strip leaders (control words, wrappers and their options, VAR=value)
@@ -168,6 +176,10 @@ function commitTarget(command, baseCwd, depth = 0) {
       w = w.slice(1);
       while (w.length && w[0].startsWith("-") && w[0] !== "-") {
         if (name === "env" && w[0] === "-C" && w[1] !== undefined) cur = resolve(cur, expand(w[1]));
+        if (name === "env" && w[0] === "-S" && w[1] !== undefined && depth < 3) {
+          const inner = commitTarget(w[1], cur, depth + 1);
+          if (inner) return inner;
+        }
         const takesValue = lead.includes(w[0]);
         w = w.slice(takesValue ? 2 : 1);
       }
@@ -185,6 +197,17 @@ function commitTarget(command, baseCwd, depth = 0) {
       if (c > 0 && w[c + 1] !== undefined) {
         const inner = commitTarget(w[c + 1], cur, depth + 1);
         if (inner) return inner;
+      } else if (c < 0) {
+        // A shell with no -c and no script argument reads commands from stdin: the
+        // text piped into it, or its here-string, is a command line (fail closed).
+        const hs = w.indexOf("<<<");
+        const rest = w.slice(1).filter((x, n) => !x.startsWith("-") && n + 1 !== hs && n !== hs);
+        if (rest.length === 0) {
+          for (const src of [seg.piped ? chain : "", hs > 0 ? w[hs + 1] ?? "" : ""]) {
+            const inner = src ? commitTarget(src, cur, depth + 1) : null;
+            if (inner) return inner;
+          }
+        }
       }
     }
     for (let i = 0; i < w.length; i++) {
@@ -192,6 +215,7 @@ function commitTarget(command, baseCwd, depth = 0) {
       const at = gitCommitAt(w, i, cur);
       if (at) return at;
     }
+    chain += " " + seg.words.join(" ");
     for (let k = 0; k < seg.close; k++) if (stack.length) cur = stack.pop();
   }
   return null;
