@@ -66,35 +66,83 @@ function deny(reason) {
   process.exit(0);
 }
 
-// The repo a `git commit` command targets: walk every `cd <path>` that precedes
-// the commit (each resolved against the cwd the earlier ones left), then honour a
-// `git -C <path> commit`. Keying on the first `cd` gated the wrong repo when a
-// command visited a red repo before committing in another (session 10, 2026-10-05).
-// Handles quoted paths (repo paths can contain spaces).
+// The repo a `git commit` command targets, or null when the command does not
+// commit. The command is split into shell segments (&&, ||, ;, |, &, newline,
+// subshell parens) with quotes respected, then walked in order: `cd`/`pushd`
+// move the working directory (a `( … )` subshell restores it on exit), and a
+// segment whose command is `git [-C <path>] commit` is the target. `git commit`
+// appearing only as an argument (`grep 'git commit'`, `echo …`) is not a
+// commit, and `bash -c '…'` bodies are parsed the same way. Audit finding 1.
 function expand(raw) {
   return raw === "~" || raw.startsWith("~/") ? join(homedir(), raw.slice(1)) : raw;
 }
-function commitTarget(command, baseCwd) {
-  const commit = command.match(/\bgit\s+(?:-C\s+(?:"([^"]+)"|'([^']+)'|(\S+))\s+)?commit\b/);
-  const before = commit ? command.slice(0, commit.index) : command;
-  let cur = baseCwd;
-  for (const m of before.matchAll(/(?:^|&&|;|\|\|)\s*cd\s+(?:"([^"]+)"|'([^']+)'|([^\s&;|]+))/g)) {
-    cur = resolve(cur, expand(m[1] ?? m[2] ?? m[3]));
+
+function splitSegments(command) {
+  const out = []; // { words: string[], open: number, close: number }
+  let words = [], word = "", has = false, open = 0, close = 0;
+  const endWord = () => { if (has) words.push(word); word = ""; has = false; };
+  const endSeg = () => { endWord(); if (words.length || open || close) out.push({ words, open, close }); words = []; open = 0; close = 0; };
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (ch === "'") { const j = command.indexOf("'", i + 1); const end = j < 0 ? command.length : j; word += command.slice(i + 1, end); has = true; i = end; }
+    else if (ch === '"') {
+      has = true; i++;
+      for (; i < command.length && command[i] !== '"'; i++) {
+        if (command[i] === "\\" && i + 1 < command.length) i++;
+        word += command[i];
+      }
+    }
+    else if (ch === "\\" && i + 1 < command.length) { word += command[++i]; has = true; }
+    else if (/\s/.test(ch)) { if (ch === "\n") endSeg(); else endWord(); }
+    else if (ch === ";" || ch === "|" || ch === "&") { endSeg(); if (command[i + 1] === ch) i++; }
+    else if (ch === "(") { endSeg(); open++; }
+    else if (ch === ")") { endSeg(); out.push({ words: [], open: 0, close: 1 }); }
+    else { word += ch; has = true; }
   }
-  const c = commit && (commit[1] ?? commit[2] ?? commit[3]);
-  return c ? resolve(cur, expand(c)) : cur;
+  endSeg();
+  return out;
+}
+
+const WRAPPERS = new Set(["sudo", "command", "exec", "time", "env", "nohup", "builtin"]);
+const SHELLS = new Set(["bash", "sh", "zsh"]);
+
+function commitTarget(command, baseCwd, depth = 0) {
+  let cur = baseCwd;
+  const stack = [];
+  for (const seg of splitSegments(command)) {
+    for (let k = 0; k < seg.open; k++) stack.push(cur);
+    let w = seg.words;
+    while (w.length && (/^[A-Za-z_]\w*=/.test(w[0]) || WRAPPERS.has(w[0]))) w = w.slice(1);
+    if (w[0] === "cd" || w[0] === "pushd") {
+      const arg = w.slice(1).find((x) => !x.startsWith("-") || x === "-");
+      if (arg && arg !== "-") cur = resolve(cur, expand(arg));
+    } else if (SHELLS.has(w[0]) && w[1] === "-c" && w[2] !== undefined && depth < 3) {
+      const inner = commitTarget(w[2], cur, depth + 1);
+      if (inner) return inner;
+    } else if (w[0] === "git") {
+      let at = cur, i = 1;
+      while (i < w.length && w[i].startsWith("-")) {
+        if (w[i] === "-C" && w[i + 1] !== undefined) { at = resolve(at, expand(w[i + 1])); i += 2; }
+        else if (w[i] === "-c" || w[i] === "--git-dir" || w[i] === "--work-tree") i += 2;
+        else i++;
+      }
+      if (w[i] === "commit") return at;
+    }
+    for (let k = 0; k < seg.close; k++) if (stack.length) cur = stack.pop();
+  }
+  return null;
 }
 
 const input = readHookInput();
 const command = input.tool_input?.command || "";
 
-// Only gate actual `git commit` invocations (allow git commit --amend/--help
-// etc. through the same check — anything that writes a commit, including
-// `git -C <path> commit`, which lanes use instead of a `cd` chain).
-if (!/\bgit\s+(?:-C\s+(?:"[^"]+"|'[^']+'|\S+)\s+)?commit\b/.test(command)) allow();
-
+// Only gate actual `git commit` invocations (--amend/--help included — anything
+// that writes a commit, including `git -C <path> commit`, which lanes use
+// instead of a `cd` chain).
 const sessionCwd = input.cwd || process.cwd();
 const cwd = commitTarget(command, sessionCwd);
+if (cwd === null) allow();
+
 
 // Frontmatter gate — only when this commit's staged changes actually touch
 // skills/, and only against the target repo's own skills/ tree (never

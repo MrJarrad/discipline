@@ -336,3 +336,32 @@ test("a later cd into a red repo before the commit still denies", () => {
     rmSync(green, { recursive: true, force: true });
   }
 });
+
+// Audit finding 1: command shape decides whether and where a commit happens.
+const SHAPES = [
+  // [label, session repo is red?, command builder(redDir, greenDir), expect deny]
+  ["subshell cd into a red repo", false, (r) => `(cd ${r} && git commit -m x)`, true],
+  ["-C into a red repo", false, (r) => `git -C ${r} commit -m x`, true],
+  ["cd chain after other commands", false, (r) => `git add . && cd ${r} && git commit -m x`, true],
+  ["pushd into a red repo", false, (r) => `pushd ${r} && git commit -m x`, true],
+  ["bash -c body", false, (r) => `bash -c 'cd ${r} && git commit -m x'`, true],
+  ["env assignment before git", true, () => "FOO=1 git commit -m x", true],
+  ["commit message mentioning git commit", true, () => 'git commit -m "fix git commit gate"', true],
+  ["grep for the phrase is not a commit", true, () => "grep -rn 'git commit' docs/", false],
+  ["echo of the phrase is not a commit", true, () => "echo 'git commit later'", false],
+  ["--grep argument is not a commit", true, () => 'git log --grep="git commit"', false],
+  ["cd to a green repo then commit", true, (_r, g) => `cd ${g} && git commit -m x`, false],
+];
+for (const [label, sessionRed, build, expectDeny] of SHAPES) {
+  test(`command shape: ${label}`, () => {
+    const red = makeRepo({ typecheckExit: 1 });
+    const green = makeRepo({ typecheckExit: 0 });
+    try {
+      const result = runGate(sessionRed ? red : green, build(red, green));
+      assert.equal(/permissionDecision":"deny"/.test(result.stdout), expectDeny, result.stdout);
+    } finally {
+      rmSync(red, { recursive: true, force: true });
+      rmSync(green, { recursive: true, force: true });
+    }
+  });
+}
