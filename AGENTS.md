@@ -1,45 +1,40 @@
-# Product workspace — JHD discipline (Cloud-portable)
+# discipline — Claude Code plugin
 
-This repo carries **always-on discipline rules** under `.cursor/rules/` so cloud doers get
-invariants / routing / operator voice **without** the Mac home plugin. `.cursor/rules/` is
-the always-on layer's path regardless of editor — the directory name is historical, not an
-editor dependency.
+This repo is the **discipline plugin** (`.claude-plugin/plugin.json`): skills, agent
+charters, an always-on output style and event hooks, installed from the plugin
+marketplace. It is the canonical home of the library; products consume it, they do not
+fork it.
 
-`doer-rules.md` (repo root) is the standing rules file every dispatched doer reads whole;
-`node hooks/scripts/sync-doer-rules.mjs <target-repo-path> [...]` writes
-`.cursor/rules/doer-rules.mdc` (frontmatter + verbatim body) into each target — run it
-after any `doer-rules.md` edit and after standing up a new product (see
-`skills/new-product/SKILL.md`).
+## Layout
+| Path | What it is |
+|---|---|
+| `skills/<name>/SKILL.md` (+ `references/`) | Auto-triggered craft and delivery skills; the description is the trigger surface |
+| `agents/` | Doer charters (engineer, reviewer, researcher, ux-designer, project-manager, releaseops) |
+| `doer-rules.md` | Standing rules every dispatched doer reads whole; `operator-rules.md` is the operator-facing counterpart |
+| `output-styles/discipline.md` | The always-on orchestrator persona |
+| `hooks/hooks.json` + `hooks/bin/` | Event handlers only (commit gate, typecheck marker, progress floors) |
+| `hooks/scripts/` | Dev tools and their tests (the directory name is historical; none are hooks) |
+| `scripts/` | Container setup shell |
+| `CHANGED.txt` | Release log, newest first |
 
-## Cloud Environment (jhd-fleet)
-The repo-file `.cursor/environment.json` auto-applies when a cloud doer starts from **this**
-repo (or any other Phase-1 Fleet remote). **One repo on disk** — install links
-discipline (when needed), clones vault, symlinks captures when present; it does
-**not** clone sibling products.
+## Working here
+- One rule, one owner: state a rule in one file and link to it elsewhere
+  (`skills/skill-authoring`, `agents/` point at `doer-rules.md`).
+- Tests: `node --test hooks/scripts/<name>.test.mjs` or `node --test hooks/bin/<name>.test.mjs`;
+  there is no single runner yet. Skill body ceilings: `hooks/scripts/skill-ceilings.test.mjs`.
+- A release bumps `version` in `.claude-plugin/plugin.json` and `marketplace.json` together
+  and adds a `CHANGED.txt` entry; the commit gate checks the lesson ledger on a version bump
+  (`DISCIPLINE_VAULT_ROOT`, skipped when no vault is present).
+- After editing `doer-rules.md`, sync product repos:
+  `node hooks/scripts/sync-doer-rules.mjs <target-repo-path> [...]` writes
+  `.cursor/rules/doer-rules.mdc` in each target (the always-on path in product repos,
+  regardless of editor; the name is historical).
 
-On resume: this project's `projects/<name>/<name>-handover.md` (infer from workspace), then
-`~/JHD/vault/main/orchestrator/cockpit.md` or `~/JHD/vault/orchestrator/cockpit.md`.
-**After transcript summary / continued chat, re-read project handover before dispatch or wrap** — summary ≠ handover.
-If vault is **missing** on Cloud → warn and use in-repo docs; do not invent
-HANDOVER or pretend in-repo docs are the full brain.
+## Resuming
+Read this project's handover in the vault (`projects/jhd-discipline/`) and
+`orchestrator/cockpit.md`. If the vault is absent (cloud), say so and use the in-repo docs;
+do not invent a handover.
 
-## Orchestrator self-check
-Before ending a turn where a product was touched:
-```
-[ ] Handover current?
-[ ] If closing: wrap skill complete (not handover-only)?
-[ ] No parent product edits?
-[ ] Vault writes went through vault-write?
-```
-
-Cross-repo edits are expected (discipline improvements from product work) — PR the
-`jhd-discipline` remote for rails and skills.
-
-## Local Mac
-Install **jhd-discipline** from Team Marketplace. In-repo rules still apply and keep cloud
-and local aligned. Obsidian opens `~/JHD/vault/main`.
-
-## Anti-pattern
-Do not implement product work from a discipline-only checkout when the product remote
-is the job — move or start the correct-repo session first. Orchestrator sessions may
-still open on vault and dispatch outward.
+## Boundary
+Implement product work in the product repo, not here. Improvements to rules and skills
+discovered during product work are PRs to this repo.

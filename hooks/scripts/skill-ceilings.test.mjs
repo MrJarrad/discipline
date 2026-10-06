@@ -122,6 +122,30 @@ for (const { skill, ceiling, before } of CEILINGS) {
   });
 }
 
+// Ratchet ceilings (audit 2026-10-05, finding 9): the eight bodies over 1,500 words that
+// had no ceiling. Set at current size rounded up to ten words, so a body can only
+// shrink or be raised here on purpose, with the reason beside the number. No offload
+// check: these skills never offloaded, and the offload tests above belong to skills
+// that did.
+const RATCHETS = [
+  { skill: "handoff-to-code", ceiling: 1730 }, // 1725 words at 1.111.0
+  { skill: "capture-website", ceiling: 1720 }, // 1711 words at 1.111.0
+  { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
+  { skill: "model-routing", ceiling: 1660 }, // 1655 words at 1.111.0
+  { skill: "present-for-review", ceiling: 1670 }, // 1661 words at 1.111.0
+  { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
+  { skill: "qa-acceptance", ceiling: 1700 }, // 1699 words at 1.111.0
+  { skill: "cloud-dispatch", ceiling: 1570 }, // 1569 words at 1.111.0
+];
+
+for (const { skill, ceiling } of RATCHETS) {
+  test(`${skill} stays under its ${ceiling}-word ratchet ceiling`, () => {
+    const doc = `skills/${skill}/SKILL.md`;
+    const count = bodyWords(read(doc));
+    assert.ok(count <= ceiling, `${doc} body is ${count} words; the ratchet ceiling is ${ceiling} — raise it only with a reason`);
+  });
+}
+
 // The description is the trigger surface: shorten it and the skill stops firing,
 // which is a worse failure than a long body. `frontmatterWords` is each file's count
 // as it stood before the slim, so a later trim that buys body room out of the trigger
