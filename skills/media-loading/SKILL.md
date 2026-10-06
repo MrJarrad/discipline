@@ -93,8 +93,8 @@ exceptions argued per surface.
     mobile's own layout; verify against what mobile actually renders, never
     a shrunk desktop capture.
 
-Full source citations (which round found which defect, and the operator
-wording that closed each one) are in `references/PATTERNS.md`.
+Source citations per method, and the probe's current classification rules, are in
+`references/PATTERNS.md`.
 
 ## Done-when — the probe, not a look
 
@@ -105,14 +105,14 @@ at a phone viewport + DPR, drives a named interaction (`load` / `scroll` /
 pixels** for the duration — never `.complete`/DOM presence, which reads PASS
 on a stuck-at-opacity-0 element with its bytes already decoded (the exact
 failure method 3 exists to stop), and never a canvas read of the element's
-own source bitmap either (a fix round's own finding: that samples the
+own source bitmap either (that samples the
 SOURCE, not the composited page, so it still reads PASS on a slot that's
 clipped by an `overflow:hidden` ancestor, covered by an opaque sibling,
 `visibility:hidden`, or at `opacity:0` behind a parent). The paint signal is
 a full-page screenshot, cropped per slot to its rect intersected with the
 viewport and every clipping ancestor, classified against the page background
 and any named placeholder colours **plus internal structure past a real
-edge** (a fix round's own finding: a white-heavy real photo or a dark-framed
+edge** (a white-heavy real photo or a dark-framed
 video can be mostly background-close by colour alone — real content almost
 always has edges/shading a flat swatch never does — but a smooth gradient/
 shimmer loading skeleton also has real spread without a real edge, so spread
@@ -134,7 +134,7 @@ mid-fade. It prints two numbers:
   (method 10's failure mode). Grouped **per column** (x-overlapping rects,
   the shape a masonry/independent-column layout actually has) — a column's
   own internal gaps compared against the frame's own recurring row-gap
-  height, never merged across columns (a fix round's own finding: merging
+  height, never merged across columns (merging
   across columns reads a real, everyday column gutter as a hole whenever one
   column's own row-gap is briefly exposed next to a taller neighbour).
 
@@ -143,7 +143,7 @@ DEFAULT (a genuine loop of varied fling gestures, not one smooth crawl,
 extendable past its default length with `--duration`, plus a `--settle`
 dwell before a final sample) — round 10's own finding was that a short
 synthetic drag didn't disagree with the operator's phone until the session
-ran long and real, and review round 2's own finding was that the old paced,
+ran long and real, and the old paced,
 evenly-spaced crawl (now opt-in only, `--paced`) disagreed sharply with the
 real thing on the same page. `load` runs its own short fixed-frame check.
 Run `--reps` more than once and report every rep, not just one. Full flag
@@ -163,8 +163,8 @@ reference and worked examples: `references/PROBE.md`.
   surface covered — an interaction the probe didn't drive is an interaction
   the bar doesn't know about yet.
 - **DON'T:** close a lane on a `--paced` run alone — it's an opt-in smoke
-  check, never proof of fast-motion behaviour (review round 2's own finding:
-  it read 0 misses where the same session at real fling speed read 16-36).
+  check, never proof of fast-motion behaviour (
+  a paced run read 0 misses where the same session at real fling speed read 16-36).
 
 ## Where this is enforced (pointer, not restated)
 
