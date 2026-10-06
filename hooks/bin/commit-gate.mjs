@@ -34,7 +34,7 @@
    never a refusal. Lessons are unaffected — a queued lesson still blocks
    every release, same as before. */
 import { readFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { checkSkillsDir } from "../scripts/frontmatter-check.mjs";
@@ -80,6 +80,7 @@ function expand(raw) {
 function splitSegments(command) {
   const out = []; // { words: string[], open: number, close: number }
   let words = [], word = "", has = false, open = 0, close = 0;
+  const heredocs = []; // delimiters whose bodies start after the next newline
   const endWord = () => { if (has) words.push(word); word = ""; has = false; };
   const endSeg = () => { endWord(); if (words.length || open || close) out.push({ words, open, close }); words = []; open = 0; close = 0; };
   for (let i = 0; i < command.length; i++) {
@@ -92,9 +93,30 @@ function splitSegments(command) {
         word += command[i];
       }
     }
+    else if (ch === "\\" && command[i + 1] === "\n") i++; // line continuation
     else if (ch === "\\" && i + 1 < command.length) { word += command[++i]; has = true; }
-    else if (/\s/.test(ch)) { if (ch === "\n") endSeg(); else endWord(); }
-    else if (ch === ";" || ch === "|" || ch === "&") { endSeg(); if (command[i + 1] === ch) i++; }
+    else if (ch === "#" && !has) { while (i < command.length && command[i] !== "\n") i++; i--; }
+    else if (ch === "<" && command[i + 1] === "<" && command[i + 2] !== "<") {
+      const m = /^<<-?\s*(?:'([^']*)'|"([^"]*)"|([^\s;&|()<>]+))/.exec(command.slice(i));
+      if (m) { heredocs.push(m[1] ?? m[2] ?? m[3]); endWord(); i += m[0].length - 1; }
+    }
+    else if (/\s/.test(ch)) {
+      if (ch === "\n") {
+        endSeg();
+        // skip heredoc bodies: they are data, not commands
+        for (const delim of heredocs.splice(0)) {
+          let j = i + 1;
+          while (j < command.length) {
+            let e = command.indexOf("\n", j); if (e < 0) e = command.length;
+            const line = command.slice(j, e).trim();
+            j = e + 1;
+            if (line === delim) break;
+          }
+          i = j - 1;
+        }
+      } else endWord();
+    }
+    else if (ch === ";" || ch === "|" || ch === "&" || ch === "`") { endSeg(); if (ch !== "`" && command[i + 1] === ch) i++; }
     else if (ch === "(") { endSeg(); open++; }
     else if (ch === ")") { endSeg(); out.push({ words: [], open: 0, close: 1 }); }
     else { word += ch; has = true; }
@@ -103,30 +125,72 @@ function splitSegments(command) {
   return out;
 }
 
-const WRAPPERS = new Set(["sudo", "command", "exec", "time", "env", "nohup", "builtin"]);
-const SHELLS = new Set(["bash", "sh", "zsh"]);
+// Words that sit before the real command and are skipped; the value is the set of
+// options that take a separate value (`sudo -u me`, `env -C dir`, `xargs -n 1`).
+const LEADERS = {
+  "!": [], "{": [], "}": [], if: [], while: [], until: [], then: [], do: [], else: [], elif: [],
+  time: [], command: [], exec: [], builtin: [], nohup: [],
+  sudo: ["-u", "-g", "-h", "-p", "-C", "-D", "-R", "-T", "-U"],
+  env: ["-C", "-u", "-S"],
+  timeout: ["-s", "-k"],
+  xargs: ["-n", "-I", "-P", "-L", "-s", "-d", "-E", "-a"],
+  nice: ["-n"],
+};
+const SHELLS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
 
+// `git [global opts] commit` starting at words[i]? → true when it is a commit.
+function gitCommitAt(w, i, cur) {
+  let at = cur, k = i + 1;
+  while (k < w.length && w[k].startsWith("-")) {
+    if (w[k] === "-C" && w[k + 1] !== undefined) { at = resolve(at, expand(w[k + 1])); k += 2; }
+    else if (w[k] === "-c" || w[k] === "--git-dir" || w[k] === "--work-tree" || w[k] === "--namespace") k += 2;
+    else k++;
+  }
+  return w[k] === "commit" ? at : null;
+}
+
+// Fails closed: an unquoted `git … commit` anywhere in a segment's words counts, even
+// behind a wrapper this parser does not know (`xargs`, `timeout`, `sudo -u me`, an
+// absolute `/usr/bin/git`) — gated at the working directory the walk has reached.
 function commitTarget(command, baseCwd, depth = 0) {
   let cur = baseCwd;
   const stack = [];
   for (const seg of splitSegments(command)) {
     for (let k = 0; k < seg.open; k++) stack.push(cur);
     let w = seg.words;
-    while (w.length && (/^[A-Za-z_]\w*=/.test(w[0]) || WRAPPERS.has(w[0]))) w = w.slice(1);
-    if (w[0] === "cd" || w[0] === "pushd") {
+    // strip leaders (control words, wrappers and their options, VAR=value)
+    for (;;) {
+      if (!w.length) break;
+      if (/^[A-Za-z_]\w*=/.test(w[0])) { w = w.slice(1); continue; }
+      const lead = w[0] in LEADERS ? LEADERS[w[0]] : null;
+      if (!lead) break;
+      const name = w[0];
+      w = w.slice(1);
+      while (w.length && w[0].startsWith("-") && w[0] !== "-") {
+        if (name === "env" && w[0] === "-C" && w[1] !== undefined) cur = resolve(cur, expand(w[1]));
+        const takesValue = lead.includes(w[0]);
+        w = w.slice(takesValue ? 2 : 1);
+      }
+      if (name === "timeout" && w.length && /^[\d.]+[smhd]?$/.test(w[0])) w = w.slice(1);
+    }
+    const cmd = w.length ? basename(w[0]) : "";
+    if (cmd === "cd" || cmd === "pushd") {
       const arg = w.slice(1).find((x) => !x.startsWith("-") || x === "-");
       if (arg && arg !== "-") cur = resolve(cur, expand(arg));
-    } else if (SHELLS.has(w[0]) && w[1] === "-c" && w[2] !== undefined && depth < 3) {
-      const inner = commitTarget(w[2], cur, depth + 1);
+    } else if (cmd === "eval" && depth < 3) {
+      const inner = commitTarget(w.slice(1).join(" "), cur, depth + 1);
       if (inner) return inner;
-    } else if (w[0] === "git") {
-      let at = cur, i = 1;
-      while (i < w.length && w[i].startsWith("-")) {
-        if (w[i] === "-C" && w[i + 1] !== undefined) { at = resolve(at, expand(w[i + 1])); i += 2; }
-        else if (w[i] === "-c" || w[i] === "--git-dir" || w[i] === "--work-tree") i += 2;
-        else i++;
+    } else if (SHELLS.has(cmd) && depth < 3) {
+      const c = w.findIndex((x, n) => n > 0 && /^-[a-z]*c[a-z]*$/.test(x));
+      if (c > 0 && w[c + 1] !== undefined) {
+        const inner = commitTarget(w[c + 1], cur, depth + 1);
+        if (inner) return inner;
       }
-      if (w[i] === "commit") return at;
+    }
+    for (let i = 0; i < w.length; i++) {
+      if (basename(w[i]) !== "git") continue;
+      const at = gitCommitAt(w, i, cur);
+      if (at) return at;
     }
     for (let k = 0; k < seg.close; k++) if (stack.length) cur = stack.pop();
   }
