@@ -9,12 +9,12 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { macJobProblems } from "./mac-job-check.mjs";
 
-const job = (fm, body = "You ARE the job.\n") => `---\n${fm}\n---\n${body}`;
+const job = (fm, body = "You ARE the job. No background tasks, no subagents.\n") => `---\n${fm}\n---\n${body}`;
 
 test("a job with a repo: line under /Users or ~ is clean", () => {
   assert.deepEqual(macJobProblems(job("repo: /Users/jarrad.harvey/JHD/hoverboard/main")), []);
   assert.deepEqual(macJobProblems(job("from: x\nrepo: ~/JHD/vault/main")), []);
-  assert.deepEqual(macJobProblems(job('repo: "/Users/a/b"')), []);
+  assert.deepEqual(macJobProblems(job('repo: "~/a/b"')), []);
 });
 
 test("a missing, empty or non-home repo: is named (runner exit 97)", () => {
@@ -26,6 +26,21 @@ test("a missing, empty or non-home repo: is named (runner exit 97)", () => {
 
 test("an empty brief is named (runner exit 98)", () => {
   assert.match(macJobProblems(job("repo: ~/x", "  \n"))[0], /empty brief/);
+});
+
+test("repo: is held to run.sh's rule: ~ or the Mac home only; CRLF and tab are named", () => {
+  assert.match(macJobProblems(job("repo: /home/user/x"))[0], /under \$HOME/);
+  assert.match(macJobProblems(job("repo: /Users/other/x"))[0], /under \$HOME/);
+  assert.match(macJobProblems(job("repo:\t~/x"))[0], /under \$HOME/);
+  assert.match(macJobProblems(job("repo: ~/x").replace(/\n/g, "\r\n"))[0], /CRLF/);
+});
+
+test("a body of only --- is an empty brief (run.sh drops --- lines)", () => {
+  assert.match(macJobProblems(job("repo: ~/x", "---\n"))[0], /empty brief/);
+});
+
+test("a brief must say no background tasks, no subagents (600 s ceiling)", () => {
+  assert.match(macJobProblems(job("repo: ~/x", "You ARE the job.\n"))[0], /no background tasks/);
 });
 
 test("CLI exits 0 clean, 1 on a missing repo:, 2 on an unreadable file", () => {

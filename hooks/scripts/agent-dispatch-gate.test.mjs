@@ -31,6 +31,8 @@ import {
   buildActiveWorkWarning,
   activeWorkWarning,
   checkBashAgentLabel,
+  checkBashKillByName,
+  killsByName,
   launchesAgent,
 } from "../bin/agent-dispatch-gate.mjs";
 import { loadRegistry, saveRegistry, withRegistryLock } from "../bin/progress-registry.mjs";
@@ -847,4 +849,12 @@ test("true positives still deny after stripping: real newline segments, launch a
   ]) {
     assert.equal(launchesAgent(command), true, command);
   }
+});
+
+test("kill-by-name: pkill/killall as the command is blocked; the word as text is not (1.113.0)", () => {
+  for (const c of ["pkill chrome-headless-shell", "killall node", "cd x && pkill -f vite", "sudo killall -9 node", "ls | xargs pkill", "/usr/bin/pkill foo"])
+    assert.equal(checkBashKillByName({ command: c }).ok, false, c);
+  for (const c of ["grep pkill doer-rules.md", 'echo "pkill x"', "git commit -m 'gate pkill and killall'", "kill 4242", "cat <<'EOF'\npkill x\nEOF"])
+    assert.equal(killsByName(c), false, c);
+  assert.match(checkBashKillByName({ command: "pkill x" }).reason, /kill <pid>/);
 });

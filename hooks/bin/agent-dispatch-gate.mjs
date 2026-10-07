@@ -115,6 +115,25 @@ export function launchesAgent(command = "") {
   return AGENT_LAUNCHES.some((re) => re.test(text));
 }
 
+/* Is `pkill`/`killall` the command being run (at the start of a shell segment, optionally
+   behind `sudo`/`env`/a path)? Quoted spans and heredoc bodies are stripped first, so
+   `grep pkill`, `echo "pkill x"` and a commit message that mentions it pass. */
+const KILL_BY_NAME = new RegExp(SEGMENT_START + String.raw`(?:(?:sudo|env|xargs|nohup|exec)\s+(?:-\S+\s+)*)*(?:\S*/)?(?:pkill|killall)(?=\s|$)`);
+export function killsByName(command = "") {
+  return KILL_BY_NAME.test(stripNonCode(command));
+}
+export function checkBashKillByName(toolInput = {}) {
+  if (!killsByName(toolInput.command)) return { ok: true };
+  return {
+    ok: false,
+    item: "kill-by-name",
+    reason:
+      "Bash blocked — kill-by-name: `pkill`/`killall` match processes by name and can kill another session's " +
+      "browser, server or suite on a shared machine. Record the pids you start and `kill <pid>` only those " +
+      "(`doer-rules.md` § Repo and safety, `agent-ops` hardening lesson 2026-10-01).",
+  };
+}
+
 /* Bash that launches an agent carries `local — persona (model): task` (or
    `cloud —`) in its `description`, the one regex Agent dispatches use. */
 export function checkBashAgentLabel(toolInput = {}) {
@@ -638,6 +657,8 @@ function main() {
   // denies on its own confusion is worse than no hook.
   if (!input || typeof input !== "object" || !input.tool_input) allow();
   if (input.tool_name === "Bash") {
+    const kill = checkBashKillByName(input.tool_input);
+    if (!kill.ok) deny(kill.reason);
     const bash = checkBashAgentLabel(input.tool_input);
     if (!bash.ok) deny(bash.reason);
     allow();

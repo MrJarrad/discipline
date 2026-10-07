@@ -9,16 +9,33 @@
    stderr) · 2 usage error or unreadable file.                              */
 import { existsSync, readFileSync } from "node:fs";
 
+// The Mac user's home — run.sh requires `repo:` under $HOME; an absolute path is
+// accepted only under this (override with JHD_MAC_HOME), `~` always.
+const MAC_HOME = (process.env.JHD_MAC_HOME || "/Users/jarrad.harvey").replace(/\/+$/, "");
+export const NO_BACKGROUND = /no background tasks,? no subagents/i;
+
 export function macJobProblems(text) {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(String(text));
-  if (!m) return ["no frontmatter block (a job opens with --- … --- carrying repo:)"];
-  const line = /^repo:[ \t]*(.*)$/m.exec(m[1]);
-  const repo = line ? line[1].replace(/["']/g, "").trim() : "";
+  const t = String(text);
+  // run.sh parses with awk `/^---$/` — a CRLF file has no frontmatter to it (exit 97).
+  if (t.includes("\r")) return ["CRLF line endings: the runner reads no frontmatter (exit 97); save with LF"];
+  const lines = t.split("\n");
+  const fences = [];
+  lines.forEach((l, i) => { if (l === "---") fences.push(i); });
+  if (lines[0] !== "---" || fences.length < 2)
+    return ["no frontmatter block (a job opens with --- … --- carrying repo:)"];
+  // run.sh: first `repo:` line between the first and second fence, `repo:` + spaces only (a tab is kept).
+  const head = lines.slice(1, fences[1]);
+  const line = head.find((l) => l.startsWith("repo:"));
+  const repo = line === undefined ? "" : line.replace(/^repo:[ ]*/, "").replace(/["']/g, "");
   const problems = [];
-  if (!repo) problems.push("repo: line missing or empty (runner exit 97)");
-  else if (!(repo.startsWith("~") || repo.startsWith("/Users/") || repo.startsWith("/home/")))
-    problems.push(`repo: '${repo}' is not under $HOME (runner exit 97)`);
-  if (!m[2].trim()) problems.push("empty brief (runner exit 98)");
+  if (!repo.trim()) problems.push("repo: line missing or empty (runner exit 97)");
+  else if (!(repo === "~" || repo.startsWith("~/") || repo === MAC_HOME || repo.startsWith(MAC_HOME + "/")))
+    problems.push(`repo: '${repo}' is not under $HOME (~ or ${MAC_HOME}; runner exit 97)`);
+  // run.sh brief: every line after the first fence pair, minus any `---` line.
+  const body = lines.slice(fences[1] + 1).filter((l) => l !== "---").join("\n");
+  if (!body.trim()) problems.push("empty brief (runner exit 98)");
+  else if (!NO_BACKGROUND.test(body))
+    problems.push('brief lacks "no background tasks, no subagents" (a headless job that backgrounds work is killed at the 600 s ceiling)');
   return problems;
 }
 
