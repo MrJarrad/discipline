@@ -20,8 +20,7 @@ it for the probe history; this skill states the procedure only.
 - Gates, machine-bound work (`:4411` capture listener, present-for-review, interactive-auth
   MCPs) → local `Agent`, per `routing` rule 9.
 - `Agent` `isolation:"remote"` — undocumented, no gating table, no fallback contract.
-  Re-probed 2026-08-28 with every prerequisite fixed: it still silently ran **local**
-  with no error. Do not build the way of working on it; re-probe only when Anthropic
+  It silently runs **local** with no error. Do not build the way of working on it; re-probe only when Anthropic
   documents a programmatic cloud `Agent` path.
 
 ## Cloud-first projects, Drop intake, the Mac bridge
@@ -37,10 +36,13 @@ cloud sessions; each repo's `CLAUDE.md` "Cloud sessions" holds its recipe.
   object list` does not exist — with `CLOUDFLARE_ACCOUNT_ID` in the environment and in the brief.
 - **Mac-only work returns by queue:** a job file in `queue/mac/pending/` on origin/main is claimed
   by the Mac runner (`estate/mac-queue/`, `claude -p --permission-mode auto` in the job's `repo:`
-  under `$HOME`) and lands in `done/` or `failed/`. `run.sh` also scans `origin/claude/*`, but jobs on
-  session branches sat unclaimed (2026-10-05; session 11's `9112034a` until it reached main): merge to
-  main first (`routing` rule 9). Run `hooks/scripts/mac-job-check.mjs <file>` before filing — no
-  `repo:` line fails exit 97. **Every job brief
+  under `$HOME`) and lands in `done/` or `failed/`. Session-branch jobs sat unclaimed: merge to
+  main first (`routing` rule 9). Run `hooks/scripts/mac-job-check.mjs <file>` before filing — it
+  mirrors the runner's exit 97 (`repo:`), 98 (empty brief) and requires the next line.
+  **Every job brief says "no background tasks, no subagents"** — a headless job that backgrounds
+  long work is killed at the 600 s background-wait ceiling (2026-09-30, 2026-10-07).
+  Previews need no Mac: cloud cannot `upload` portfolio versions, but a `preview/*` push
+  publishes the Workers Builds alias (`present-for-review`). **Every job brief
   opens "You ARE the job; the `running/` entry is your own claim"** — a job once saw its own claim
   on main, concluded another run was live and exited "done" unprobed. The runner injects that line
   itself (vault-side, `skipped(other-repo)` here).

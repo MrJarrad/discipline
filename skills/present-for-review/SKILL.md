@@ -127,6 +127,8 @@ markdown hyperlink — no new Browser tab or window spawned as the present step.
 - **One link per ask, never a corrected link underneath.** A stale link with "correction: use this one" below it got opened, and a fixed bug was reported still broken. Rebuild the row with the right link.
 - **Load the link yourself in a hydrated browser before sending it** — a preview sent on a doer's proof alone carried the full navigation on the holding page.
 - **Before relaying a preview link, the parent runs `git ls-remote origin <branch>` and confirms it equals the lane's claimed sha, and reads the check for that exact sha.** A 200 from the preview proves nothing about which build it serves (`preview-link-relayed-before-push-verified-2026-10-05`).
+- **The parent views the evidence before the link** (`one-shot-defect-rounds-2026-10-07`; checks in `doer-rules.md` § Repo and safety); an "unverified" the doer could have checked is sent back, not relayed.
+- **Cloud portfolio previews:** a `preview/*` push publishes `https://preview-<branch>-jhd-preview-staging.jh-229.workers.dev`.
 - Agent-internal Browser for reviewer/ux-designer evidence is separate — not the operator packet.
 - Do not dump a screenshot as the review packet.
 

@@ -26,4 +26,4 @@ height is actually dynamic depending on the width." When a node's height is fixe
 ratio is locked (export `aspectRatio.locked: true`, e.g. CardMedia Content
 `{"label":"3:2","locked":true}`), build the ratio (`aspect-ratio: 3 / 2`, width as exported, e.g.
 fill), never the literal height. The fixed height in the export is only Figma's current computed
-value. The coverage ledger row binds `aspect-ratio`, not a pixel height.
+value.

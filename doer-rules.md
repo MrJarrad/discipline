@@ -164,6 +164,12 @@ stop only their own pids** — the parent sweeps verification servers at every l
   once at bake, after the operator's pick.
 - **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full suite
   and the reviewer run **once, at merge**, never before the operator's yes (`review-trails-the-operator`).
+- **A look lane's link goes out only after the doer's own repro of three checks** (`one-shot-defect-rounds-2026-10-07`):
+  a **production build** or the deployed preview, never only the dev server (the minifier once folded
+  `transform:none; translate:0 105%` and an element never painted); **pixel proof at rest** at the operator's framing;
+  the **input profile he will use** (phone touch + momentum, trackpad momentum; real GPU via a Mac job only for visual
+  3D, while he looks at other links). *"The checks … live INSIDE the build lane as the doer's own repro"* — one repro +
+  3 reps, never a new review round, review still trails the yes.
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
   disown` both die with the tool shell that spawned them. A long suite (25–60 min) is its own
@@ -173,7 +179,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   watcher, or background job belongs to whoever launched it; the same rule the Ports
   section applies to servers extends to every process. **Never kill by name** (`pkill
   chrome-headless-shell` killed the lane's own suite and can kill other sessions' browsers):
-  record the pids you start and stop only those.
+  record the pids you start and stop only those. The Bash gate (`agent-dispatch-gate.mjs`) blocks a `pkill`/`killall` command.
 - **Parallel lanes get their own registered port, and verify the server's cwd before
   probing** (lanes measured another worktree's server — false greens and reds).
   Under parallel load run the touched-file tests and leave the full suite to CI; after adding
