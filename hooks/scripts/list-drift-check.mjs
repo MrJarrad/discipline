@@ -88,9 +88,9 @@ export function parseBacklog(text) {
 
 const git = (repo, ...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 
-/* Merged means on the default branch: origin/HEAD, else main, else master, else HEAD. */
+/* Merged means on the default branch: origin/HEAD, else main, else master, else origin/main, else origin/master, else HEAD. */
 function defaultRef(path) {
-  for (const ref of ["origin/HEAD", "main", "master"]) {
+  for (const ref of ["origin/HEAD", "main", "master", "origin/main", "origin/master"]) {
     try { git(path, "rev-parse", "--verify", "-q", `${ref}^{commit}`); return ref; } catch {}
   }
   return "HEAD";
@@ -113,13 +113,13 @@ export function mergedIndex(repos) {
   }
   // Repos a ref can mean: owner/repo by remote slug, a bare name by basename. A bare
   // `#n` means the backlog's own project repo (name, jhd-name or name minus jhd-);
-  // an unmapped project with several repos supplied means none (unknown), never the union.
+  // an unmapped project means none (unknown) however many repos were supplied, never the union.
   const match = (m, project) => {
     if (m[1]) return list.filter((r) => r.slug === m[1]);
     if (!m[2]) {
       if (project === undefined) return list;
       const own = list.filter((r) => r.name === project || r.name === `jhd-${project}` || project === `jhd-${r.name}`);
-      return own.length || list.length > 1 ? own : list;
+      return own;
     }
     const want = (ALIAS[m[2].toLowerCase()] || m[2]).toLowerCase();
     return list.filter((r) => r.name === want || r.name === `jhd-${want}` || r.slug.split("/")[1]?.toLowerCase() === want);

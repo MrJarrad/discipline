@@ -36,6 +36,8 @@ export function markerPathFor(cwd) {
 }
 
 export function writeMarker(cwd, marker) {
+  // A repo that is not there (the hook saw an unexpanded `$S/x`) gets no marker and no directory.
+  if (!existsSync(cwd)) return marker;
   const dir = join(cwd, ".claude");
   mkdirSync(dir, { recursive: true });
   writeFileSync(markerPathFor(cwd), JSON.stringify(marker, null, 2));

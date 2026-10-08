@@ -120,10 +120,10 @@ function makeVaultWithQueue() {
   return vault;
 }
 
-function makeTargetRepoWithPr() {
+function makeTargetRepoWithPr(name) {
   const remoteDir = mkdtempSync(join(tmpdir(), "lane-end-target-remote-"));
   execFileSync("git", ["init", "-q", "--bare", remoteDir]);
-  const repo = mkdtempSync(join(tmpdir(), "lane-end-target-"));
+  const repo = name ? join(mkdtempSync(join(tmpdir(), "lane-end-target-")), name) : mkdtempSync(join(tmpdir(), "lane-end-target-"));
   execFileSync("git", ["clone", "-q", remoteDir, repo]);
   execFileSync("git", ["-C", repo, "config", "user.email", "test@example.com"]);
   execFileSync("git", ["-C", repo, "config", "user.name", "test"]);
@@ -303,7 +303,7 @@ function laneEndWithBacklog(extra) {
   execFileSync("git", ["-C", vault, "add", "."]);
   execFileSync("git", ["-C", vault, "commit", "-q", "-m", "backlog"]);
   execFileSync("git", ["-C", vault, "push", "-q"]);
-  const repo = makeTargetRepoWithPr();
+  const repo = makeTargetRepoWithPr("p"); // named for the backlog project: a bare #n maps by name
   execFileSync("git", ["-C", repo, "commit", "-q", "--allow-empty", "-m", "thing (#7)"]);
   const sha = execFileSync("git", ["-C", repo, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
   const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
