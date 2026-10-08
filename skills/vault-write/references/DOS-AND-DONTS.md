@@ -29,4 +29,4 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
   (`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`). Don't fork
   a third description of the schema here.
 - **Don't call a vault write banked on a push.** DO: `git merge-base --is-ancestor <sha> origin/main` exits 0 — in cloud after the session branch's PR merge, locally after `git push origin HEAD:main` (with 2/4/8/16 s backoff on a GitHub 500). DON'T: `git push origin HEAD` and queue the Mac job.
-- **Don't push during a lease-guarded rewrite.** DO: stop the parent and the runner from preflight to DONE. DON'T: save a note mid-rewrite and refuse it a fourth time.
+- **Don't push during a lease-guarded rewrite.** DO: stop the parent and the runner from preflight to DONE. DON'T: save a note mid-rewrite — three refusals of one rewrite came from exactly that.
