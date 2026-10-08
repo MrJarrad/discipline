@@ -169,6 +169,14 @@ function main() {
 
   // 2b. Backlog flip / add — computed before any write so a refusal writes nothing.
   let backlog = null;
+  if (args["backlog-row"] && args["backlog-add"]) {
+    console.error("lane-end: --backlog-row and --backlog-add are exclusive; pass one");
+    process.exit(1);
+  }
+  if (args.backlog && !args["backlog-row"] && !args["backlog-add"]) {
+    console.error("lane-end: --backlog needs --backlog-row (with --status) or --backlog-add");
+    process.exit(1);
+  }
   if (args.backlog && (args["backlog-row"] || args["backlog-add"])) {
     const bpath = join(args.vault, String(args.backlog));
     let btext;
@@ -197,7 +205,13 @@ function main() {
   }
 
   writeFileSync(queuePath, replaced.text, "utf8");
-  if (backlog) writeFileSync(backlog.path, backlog.text, "utf8");
+  if (backlog) {
+    try { writeFileSync(backlog.path, backlog.text, "utf8"); } catch (err) {
+      writeFileSync(queuePath, queueText, "utf8"); // no half-landed lane: put the queue back
+      console.error(`lane-end: cannot write ${backlog.path}: ${err.message}`);
+      process.exit(1);
+    }
+  }
 
   // 3. Grep the write back.
   try {
