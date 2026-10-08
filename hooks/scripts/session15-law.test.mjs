@@ -14,9 +14,9 @@ test("s15 item 2: operator-rules checkpoint stages named paths, never git add -A
   assert.match(t, /git add <named paths>/);
 });
 
-test("s15: version 1.119.0 in both manifests and CHANGED entries (1.115.0 through 1.119.0)", () => {
-  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.119.0"/);
-  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.119.0"/);
+test("s15: version 1.120.0 in both manifests and CHANGED entries (1.115.0 through 1.120.0)", () => {
+  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.120.0"/);
+  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.120.0"/);
   assert.match(read("CHANGED.txt"), /^1\.117\.0 — /m);
   assert.match(read("CHANGED.txt"), /^1\.116\.0 — /m);
   assert.match(read("CHANGED.txt"), /^1\.115\.0 — /m);
@@ -43,4 +43,11 @@ test("lists-never-stale: lane-end row and wrap both run the drift check", () => 
 test("1.116.0 review N1/N4: pointers match the heading; context-fill states the marker TTL", () => {
   assert.doesNotMatch(read("agents/reviewer.md"), /`wrap` § Follow-ups;/);
   assert.match(read("hooks/bin/context-fill.mjs"), /older than 10 minutes counts as manual/);
+});
+
+test("s15 1.120.0: CHANGED entry for no-paid-github, and rules name the gate-run tail", () => {
+  assert.match(read("CHANGED.txt"), /^1\.120\.0 — .*no-paid-github/m);
+  assert.match(read("doer-rules.md"), /<!-- gate-run-tail -->/);
+  assert.match(read("skills/routing/SKILL.md"), /No GitHub Actions on private repos: the full suite\/build runs once per PR in a cloud gate-run lane/);
+  assert.doesNotMatch(read("skills/routing/SKILL.md"), /PR CI read/);
 });

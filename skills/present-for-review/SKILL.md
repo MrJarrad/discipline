@@ -146,8 +146,8 @@ use hyperlink-in-chat from any parent.
 **Merge asks fold into the yes; the operator never gets a standalone technical question**
 (operator, 2026-10-01: *"i approve visual stuff, all technical stuff is your domain in all
 sessions"*). A look row reads "say yes and it goes into the main code" and the yes **is** the
-merge approval — merge on it, cited in the merge message. Technical changes (CI, scripts, tests,
-mechanism, deps, infra) merge on gates green + no red finding with no operator ask, quoting the
+merge approval — merge on it, cited in the merge message. Technical changes (scripts, tests,
+mechanism, deps, infra) merge on the gate-run tail + no red finding with no operator ask, quoting the
 ruling in the commit; if a safety check still blocks, quote it once, then fold the merge into the
 next look yes. Offer "reply 'merge when green' once" at most once per session. Scope and Destructive category changes stay operator rows
 (`agents/references/reviewer-two-axis.md`). Never route

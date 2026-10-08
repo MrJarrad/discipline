@@ -115,7 +115,11 @@ case "$sub" in
         echo "https://github.com/example/repo/pull/1"
         ;;
       checks)
-        exit 0
+        echo "no checks reported (Actions are off)" >&2
+        exit 1
+        ;;
+      view)
+        echo '{"mergeable":"MERGEABLE"}'
         ;;
       list)
         echo "[]"

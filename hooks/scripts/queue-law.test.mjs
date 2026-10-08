@@ -1157,7 +1157,7 @@ test("doer-rules.md's component row names the Figma sample widths, one per width
 test("doer-rules.md states the CI-once, lane-verification, no-background, and own-pids rules", () => {
   carries(
     "doer-rules.md",
-    "Full test suite, production build and deploy checks run once per PR in CI**, never inside",
+    "Full test suite, production build and deploy checks run once per PR in a cloud gate-run lane**",
   );
   carries(
     "doer-rules.md",
@@ -1267,10 +1267,10 @@ test("INTERROGATE.md carries a ninth question naming the size class check", () =
 
 // --- routing: CI-once, parent sweeps servers --------------------------------
 
-test("routing states CI runs the full suite/build once per PR and the parent sweeps servers at lane end", () => {
+test("routing states the full suite runs once per PR in a gate-run lane and the parent sweeps servers at lane end", () => {
   carries(
     "skills/routing/SKILL.md",
-    "CI runs the full suite/build once per PR, never inside each lane",
+    "runs once per PR in a cloud gate-run lane, tail on the PR",
   );
   carries(
     "skills/routing/SKILL.md",

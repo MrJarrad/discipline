@@ -46,7 +46,7 @@ A **wide refactor** is one mechanical change whose blast radius fans across the 
 Sequence as **expand–contract**:
 
 1. **Expand** — add the new form beside the old; nothing breaks.
-2. **Migrate** — batches sized by blast radius (per package/directory); CI green batch to batch because the old form still exists.
+2. **Migrate** — batches sized by blast radius (per package/directory); suite green batch to batch because the old form still exists.
 3. **Contract** — delete the old form once no caller remains.
 
 Don't force a wide refactor into a tracer bullet. When batches can't stay green alone,

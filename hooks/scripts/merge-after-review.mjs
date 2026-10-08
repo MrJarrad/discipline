@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* merge-after-review — replaces the parent's manual merge chain and the
    lesson-14 helper (`scripts-not-agents`, 2026-09-22). Refuses to touch
-   anything unless the named PR's `statusCheckRollup` is all SUCCESS and
+   anything unless the named PR records a passing gate-run tail on its head
+   sha (or, with no tail, every `statusCheckRollup` check is SUCCESS) and
    `mergeable` is true; otherwise squash-merges, deletes the branch,
    fast-forwards the repo's own main, and prunes worktrees. `--then-build`
    chains `release-build.mjs --repo <repo>` after a successful merge.
@@ -33,22 +34,50 @@ export function parseArgs(argv) {
   return out;
 }
 
-/* `status` is `{ statusCheckRollup: [{conclusion}, ...], mergeable: "MERGEABLE"|"CONFLICTING"|"UNKNOWN" }`
-   (the shape of `gh pr view --json statusCheckRollup,mergeable`). Returns
-   `{ ok: true }` or `{ ok: false, reason }` — never merges on anything but
-   every check SUCCESS and an explicit MERGEABLE. An empty rollup (no
-   checks configured) is refused too — nothing to prove green against. */
-export function canMerge(status) {
-  const rollup = status.statusCheckRollup || [];
-  if (rollup.length === 0) {
-    return { ok: false, reason: "no status checks reported — nothing to prove green against" };
+/* Gate-run tail (ruling `no-paid-github`, 2026-10-08): the full suite runs in
+   a cloud gate-run lane and its tail is posted on the PR as a comment whose
+   first line is `<!-- gate-run-tail -->`, then
+   `gate-run: PASS|FAIL sha=<40-hex head sha> exit=<n> cmd=<suite command>`,
+   then the tail in a code fence. Only a tail whose sha equals the PR head
+   counts; the latest matching comment wins; PASS with exit!=0 reads as FAIL.
+   Returns `{ verdict, sha }` or null. */
+export const GATE_RUN_MARKER = "<!-- gate-run-tail -->";
+export function gateRunTail(comments, headSha) {
+  let found = null;
+  for (const c of comments || []) {
+    const body = String(c.body || "");
+    if (!body.startsWith(GATE_RUN_MARKER)) continue;
+    const m = body.match(/^gate-run: (PASS|FAIL) sha=([0-9a-f]{40}) exit=(\d+)/m);
+    if (!m || m[2] !== headSha) continue;
+    found = { verdict: m[1] === "PASS" && m[3] === "0" ? "PASS" : "FAIL", sha: m[2] };
   }
-  const notSuccess = rollup.filter((c) => c.conclusion !== "SUCCESS");
-  if (notSuccess.length > 0) {
-    return {
-      ok: false,
-      reason: `${notSuccess.length} check(s) not SUCCESS: ${notSuccess.map((c) => c.conclusion).join(", ")}`,
-    };
+  return found;
+}
+
+/* `status` is `{ statusCheckRollup, mergeable, headRefOid, comments }` (the
+   shape of `gh pr view --json statusCheckRollup,mergeable,headRefOid,comments`).
+   Returns `{ ok: true }` or `{ ok: false, reason }`. A gate-run tail on the head
+   sha decides the suite: PASS makes a missing or failed GitHub check non-blocking,
+   FAIL refuses. With no tail for the head sha, the rollup rule stands (every
+   check SUCCESS; an empty rollup is refused). `mergeable` must always be
+   MERGEABLE. */
+export function canMerge(status) {
+  const tail = gateRunTail(status.comments, status.headRefOid);
+  if (tail?.verdict === "FAIL") {
+    return { ok: false, reason: "gate-run tail on the head sha is FAIL" };
+  }
+  if (!tail) {
+    const rollup = status.statusCheckRollup || [];
+    if (rollup.length === 0) {
+      return { ok: false, reason: "no gate-run tail on the head sha and no status checks — nothing to prove green against; run the gate-run lane and post its tail on the PR" };
+    }
+    const notSuccess = rollup.filter((c) => c.conclusion !== "SUCCESS");
+    if (notSuccess.length > 0) {
+      return {
+        ok: false,
+        reason: `no gate-run tail on the head sha and ${notSuccess.length} check(s) not SUCCESS: ${notSuccess.map((c) => c.conclusion).join(", ")}`,
+      };
+    }
   }
   if (status.mergeable !== "MERGEABLE") {
     return { ok: false, reason: `mergeable=${status.mergeable}, not MERGEABLE` };
@@ -70,7 +99,7 @@ function main() {
 
   let status;
   try {
-    const out = run("gh", ["pr", "view", prNumber, "--repo", ownerRepo, "--json", "statusCheckRollup,mergeable"]);
+    const out = run("gh", ["pr", "view", prNumber, "--repo", ownerRepo, "--json", "statusCheckRollup,mergeable,headRefOid,comments"]);
     status = JSON.parse(out);
   } catch (err) {
     console.error(`merge-after-review: did not read PR status — ${err.message}`);

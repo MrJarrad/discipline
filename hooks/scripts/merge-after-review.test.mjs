@@ -10,7 +10,7 @@ import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, canMerge } from "./merge-after-review.mjs";
+import { parseArgs, canMerge, gateRunTail } from "./merge-after-review.mjs";
 
 const scriptPath = fileURLToPath(new URL("./merge-after-review.mjs", import.meta.url));
 
@@ -46,6 +46,47 @@ test("canMerge refuses an empty rollup — nothing to prove green against", () =
   const verdict = canMerge(status);
   assert.equal(verdict.ok, false);
   assert.match(verdict.reason, /nothing to prove green/);
+});
+
+// --- gate-run tail (ruling no-paid-github, 2026-10-08) -----------------------
+const SHA = "a".repeat(40);
+const tail = (verdict, sha = SHA, exit = 0) => ({
+  body: `<!-- gate-run-tail -->\ngate-run: ${verdict} sha=${sha} exit=${exit} cmd=pnpm test\n\`\`\`\nok\n\`\`\``,
+});
+
+test("gateRunTail reads a PASS tail on the head sha, latest comment wins", () => {
+  assert.equal(gateRunTail([tail("PASS")], SHA).verdict, "PASS");
+  assert.equal(gateRunTail([tail("PASS"), tail("FAIL", SHA, 1)], SHA).verdict, "FAIL");
+});
+
+test("gateRunTail ignores a tail for another sha, a missing marker, or PASS with nonzero exit", () => {
+  assert.equal(gateRunTail([tail("PASS", "b".repeat(40))], SHA), null);
+  assert.equal(gateRunTail([{ body: `gate-run: PASS sha=${SHA} exit=0` }], SHA), null);
+  assert.equal(gateRunTail([tail("PASS", SHA, 2)], SHA).verdict, "FAIL");
+});
+
+test("canMerge: a passing head-sha tail makes an empty or failed GitHub rollup non-blocking", () => {
+  for (const statusCheckRollup of [[], [{ conclusion: "FAILURE" }]]) {
+    const v = canMerge({ statusCheckRollup, mergeable: "MERGEABLE", headRefOid: SHA, comments: [tail("PASS")] });
+    assert.equal(v.ok, true);
+  }
+});
+
+test("canMerge: a passing tail does not override a conflicting PR", () => {
+  const v = canMerge({ statusCheckRollup: [], mergeable: "CONFLICTING", headRefOid: SHA, comments: [tail("PASS")] });
+  assert.equal(v.ok, false);
+});
+
+test("canMerge: a FAIL tail on the head sha refuses even with green checks", () => {
+  const v = canMerge({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", headRefOid: SHA, comments: [tail("FAIL", SHA, 1)] });
+  assert.equal(v.ok, false);
+  assert.match(v.reason, /gate-run/);
+});
+
+test("canMerge: a stale tail (other sha) falls back to the rollup rule", () => {
+  const v = canMerge({ statusCheckRollup: [], mergeable: "MERGEABLE", headRefOid: SHA, comments: [tail("PASS", "b".repeat(40))] });
+  assert.equal(v.ok, false);
+  assert.match(v.reason, /gate-run tail/);
 });
 
 // --- full run: scratch bare remote + clone, stubbed gh ----------------------

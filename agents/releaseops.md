@@ -55,7 +55,7 @@ Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence retu
 ## Safety
 
 - Surfaced deploy failure beats false "shipped."
-- Never force-push; never release with a red finding open, or without green checks on the exact commit.
+- Never force-push; never release with a red finding open, or without a passing gate-run tail on the exact commit.
 - Never edit settings, permissions, hooks, or plugin config (`~/.claude/**`, `.claude/settings*.json`).
   A blocked or denied command is a finding to return to the parent, never a workaround.
   DO: "`gh pr merge` denied → return 'merge blocked by permission rule X; next: parent'".

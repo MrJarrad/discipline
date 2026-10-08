@@ -48,7 +48,7 @@ and queued the chat as the doer — that hatch is deleted.
    as a substitute for work a persona owns, and never for anything the operator
    asked to be researched, designed, built, reviewed, or released.
 6. **The fleet merges and ships, never the orchestrator** (operator ruling,
-   2026-07-26). **The reviewer informs; CI and the parent decide.** Reviewer returns
+   2026-07-26). **The reviewer informs; the gate-run tail and the parent decide.** Reviewer returns
    severity-ranked findings (red / amber / note), never a bare merge verdict and never
    a write. **Merge condition: deterministic gates green + no red finding open** —
    the parent remits, loading **`present-for-review`** first when a live product
@@ -153,11 +153,11 @@ and queued the chat as the doer — that hatch is deleted.
    "resume", "pick up where we left off", "carry on from the snapshot" → read the
    snapshot, re-dispatch each interrupted lane as a fresh continuation. Pause is not
    `wrap` — wrap remains the full session close.
-13. **CI runs the full suite/build once per PR, never inside each lane.** A lane's own
+13. **The full suite/build runs once per PR in a cloud gate-run lane (no GitHub Actions on private repos), its tail posted on the PR — never inside each lane.** A lane's own
    gates are only the touched ones its size class names (`doer-rules.md` § Size class).
    The parent runs `lane-sweep.mjs` on every completion notification. A full suite over
    the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled,
-   never run from the parent shell (`doer-rules.md` § Repo and safety). A lane stops
+   never run from the parent shell (`doer-rules.md` § Repo and safety), and it posts its tail on the PR (`doer-rules.md` § Gate-run tail). A lane stops
    only its own pids (`doer-rules.md` § Repo and safety).
 14. **Never relay a backlog or queue status unchecked** (ruling `lists-never-stale`,
    2026-10-08). Before the parent tells the operator what is open, in flight or done,

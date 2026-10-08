@@ -161,10 +161,10 @@ function syncOneRepo(repo, sourceText, version, dryRun) {
       const prOut = run("gh", ["pr", "create", ...repoArgs, "--head", branch, "--title", `chore: sync doer-rules.md (${version})`, "--body", "Automated rulebook sync."], opts);
       prUrl = prOut.trim();
     }
-    // Poll CI once, synchronously — the law test stubs `gh` to return a
-    // settled rollup immediately; a real run relies on `gh pr checks --watch`
-    // blocking until the checks settle.
-    run("gh", ["pr", "checks", branch, ...repoArgs, "--watch"], opts);
+    // No Actions on private repos (`no-paid-github`): the sync PR edits one
+    // rules file, so it merges on `mergeable` alone — no checks to wait for.
+    const view = JSON.parse(run("gh", ["pr", "view", branch, ...repoArgs, "--json", "mergeable"], opts));
+    if (view.mergeable === "CONFLICTING") throw new Error(`rulebook-sync: ${branch} is CONFLICTING, not merging`);
     run("gh", ["pr", "merge", branch, ...repoArgs, "--squash", "--delete-branch"], opts);
     run("git", ["-C", gitDir, "pull", "--ff-only"]);
     if (branchAlreadyPushed) {
