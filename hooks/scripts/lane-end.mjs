@@ -14,7 +14,8 @@
    (3) greps the write back with `queue-write-check.mjs`; (4) `git add`s only
    the queue file plus `--evidence <dir>` (if given), commits naming the row,
    and pushes; (5) if `--pr <owner/repo#n>` is given, prints the PR's
-   `statusCheckRollup` conclusions and `mergeable`.
+   gate verdict: the gate-run tail on the head sha, else the check rollup, plus
+   `mergeable` (a missing or failed GitHub check is not red under a passing tail).
 
    Lists never stale (ruling `lists-never-stale`, 2026-10-08): `--backlog <file in
    vault> --backlog-row <n> --status "<status>"` flips that backlog row (status
@@ -42,6 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { canMerge, gateRunTail } from "./merge-after-review.mjs";
 import { addRow, setRowStatus } from "./list-drift-check.mjs";
 
 export function parseArgs(argv) {
@@ -254,8 +256,12 @@ function main() {
   if (args.pr) {
     try {
       const [repo, num] = String(args.pr).split("#");
-      const out = run("gh", ["pr", "view", num, "--repo", repo, "--json", "statusCheckRollup,mergeable"]);
-      console.log(out);
+      const out = run("gh", ["pr", "view", num, "--repo", repo, "--json", "statusCheckRollup,mergeable,headRefOid,comments"]);
+      const st = JSON.parse(out);
+      const tail = gateRunTail(st.comments, st.headRefOid);
+      console.log(`mergeable=${st.mergeable} gate-run tail ${tail ? tail.verdict : "absent"}`);
+      const v = canMerge(st);
+      if (!v.ok) failures.push(`pr gate: ${v.reason}`);
     } catch (err) {
       failures.push(`pr status: ${err.message}`);
     }

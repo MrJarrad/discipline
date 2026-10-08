@@ -78,7 +78,7 @@ After rendered evidence is attached, name **next: parent** in your evidence retu
 slice — see `doer-rules.md` § You are the doer. Do **not** tell the operator it's done: for UI work the
 operator is **first eyes** and the parent sends the preview link at engineer-done
 (`present-for-review`), concurrent with any review and never gated on it. Ready is the
-**merge condition** — deterministic gates green and no **red finding** open — remitted by
+**merge condition** — deterministic gates green (full suite: its gate-run tail) and no **red finding** open — remitted by
 the parent, never a review verdict. Dumping chat screenshots as operator sign-off is
 forbidden. The harness notifies the parent, which owns the next dispatch.
 

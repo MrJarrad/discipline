@@ -346,3 +346,39 @@ test("N3: --backlog alone, or --backlog-row with --backlog-add, is refused befor
     assert.match(readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"), /1\. old row/);
   }
 });
+
+// --- --pr reads the gate-run tail, not just GitHub checks (no-paid-github) ---
+
+function runLaneEndPr(prJson) {
+  const vault = makeVaultWithQueue();
+  const binDir = mkdtempSync(join(tmpdir(), "lane-end-prbin-"));
+  writeFileSync(join(binDir, "gh"), `#!/usr/bin/env bash\necho '${prJson}'\n`);
+  chmodSync(join(binDir, "gh"), 0o755);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  try {
+    return spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--row", "1", "--section", "Discipline", "--text", "1. new row", "--pr", "owner/repo#9"], { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } });
+  } finally {
+    rmSync(vault, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+    rmSync(sessionDir, { recursive: true, force: true });
+  }
+}
+const H = "c".repeat(40);
+const body = (v, sha = H) => `<!-- gate-run-tail -->\\ngate-run: ${v} sha=${sha} exit=${v === "PASS" ? 0 : 1} cmd=t`;
+
+test("--pr: an empty GitHub rollup is not red when the PR records a passing gate-run tail", () => {
+  const r = runLaneEndPr(`{"statusCheckRollup":[],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"body":"${body("PASS")}"}]}`);
+  assert.doesNotMatch(r.stderr, /pr gate/);
+  assert.match(r.stdout, /gate-run tail PASS/);
+});
+
+test("--pr: a failed GitHub check is not red when the PR records a passing gate-run tail", () => {
+  const r = runLaneEndPr(`{"statusCheckRollup":[{"conclusion":"FAILURE"}],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"body":"${body("PASS")}"}]}`);
+  assert.doesNotMatch(r.stderr, /pr gate/);
+});
+
+test("--pr: no tail and no checks is red, naming the gate-run lane", () => {
+  const r = runLaneEndPr(`{"statusCheckRollup":[],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[]}`);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr + r.stdout, /pr gate.*gate-run/s);
+});

@@ -111,8 +111,8 @@ asks for a read-back stop; the dispatch gate refuses one that does** (operator r
 upload per batch of lanes, not per lane" scopes the batch case; a lane dispatched alone
 uploads its own screenshots when it lands.
 
-**Full test suite, production build and deploy checks run once per PR in CI**, never inside
-each lane. **Verification inside a lane is one deterministic repro plus three reps**; a
+**Full test suite, production build and deploy checks run once per PR in a cloud gate-run lane**
+(`no-paid-github`), never inside each lane. **Verification inside a lane is one deterministic repro plus three reps**; a
 heavier sweep is its own lane after the fix. **No background runs inside a lane.** **Lanes
 stop only their own pids** — the parent sweeps verification servers at every lane end.
 
@@ -153,7 +153,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   deliberately moves. Repoint the path, keep the assertion, and name the repoint in the evidence
   return. Weakening, deleting, or skipping an assertion is never the exception.
 - **Commit incrementally** after each coherent slice; a long run strands nothing uncommitted.
-- Deterministic gates (build, typecheck, suite, CI where the repo has it) are green on the
+- Deterministic gates (build, typecheck, suite — its gate-run tail where the suite is a gate-run lane) are green on the
   sha you hand over. Gate tiering — which gates run per commit vs once before hand-off —
   is defined in `skills/quality/SKILL.md` § Gate tiering.
 - **Touched gates per row; one full suite per lane.** Each commit re-runs only the gates that
@@ -173,7 +173,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
   disown` both die with the tool shell that spawned them. A long suite (25–60 min) is its own
-  gate-run lane that detaches and polls with a bounded wait. Do not kill a slow gate for
+  gate-run lane that detaches and polls with a bounded wait, then posts its tail on the PR (§ Gate-run tail). Do not kill a slow gate for
   idle-looking CPU samples — only its own exit code is red (hoverboard rounds 14–15, item 3).
 - **Never kill, restart, or reuse a process or port you did not start** — a running server,
   watcher, or background job belongs to whoever launched it; the same rule the Ports
@@ -182,7 +182,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   record the pids you start and stop only those. The Bash gate (`agent-dispatch-gate.mjs`) blocks a `pkill`/`killall` command.
 - **Parallel lanes get their own registered port, and verify the server's cwd before
   probing** (lanes measured another worktree's server — false greens and reds).
-  Under parallel load run the touched-file tests and leave the full suite to CI; after adding
+  Under parallel load run the touched-file tests and leave the full suite to the gate-run lane; after adding
   a test also run the repo's law/scaffolding tests (`*-teardown`, `repo-scaffolding-law`),
   which a new red-first test can trip though every touched test passes.
 - A consumer of a `file:` sibling dependency
@@ -276,22 +276,22 @@ missing from the table is not-done, not an oversight to leave for the reviewer t
 
 ## CI
 
-Ruling `2026-09-23-ci-shape` (jhd-portfolio and jhd-design-system hit GitHub Actions'
-September private-repo minutes quota — two `continue-on-error` report-only steps gated
-nothing, and every PR ran twice). Every JHD repo with a workflow:
-1. **A CI step is a gate or it does not exist.** No `continue-on-error: true` report-only
-   steps — a report nobody reads is minutes for nothing. Reports live in a vault audit, run
-   locally or in a lane, never in CI.
-2. **One run per change** — `on: pull_request` only; drop the merge-to-main run (PRs
-   squash-merge green, so it re-runs what the PR run already proved).
-3. **Cancel superseded runs** — `concurrency: { group: <workflow>-${{ github.ref }},
-   cancel-in-progress: true }` so a new push kills the stale run instead of both finishing.
-4. **Install → typecheck → test → lint → build, once.** Extra installs only for a real
-   dependency (e.g. a `file:` sibling).
-5. **Before adding a step, state its minutes and what it gates** in the PR/brief that adds it.
-6. **A failed run with empty output and 404 logs is exhausted Actions minutes, not code** —
-   check the check-run output first; then one PR comment naming minutes, local gates as the
-   evidence, a re-run after the reset. Never a code "fix".
+Ruling `no-paid-github` (2026-10-08; supersedes `2026-09-23-ci-shape`): private-repo Actions
+exhausted the allowance and jobs stopped starting. **No GitHub Actions run on private repos** —
+workflows are manual-only, never relied on for merge, never re-run or paid for; nothing else that
+bills GitHub (Codespaces, LFS bandwidth, Packages) is used. Previews build on Cloudflare Workers
+Builds; the merge gate's full suite is a cloud gate-run lane (below). A GitHub run that fails with
+empty output and 404 logs is the allowance, not code — never "fix" code for it.
+
+## Gate-run tail
+
+The gate-run lane runs the repo's full suite (install → typecheck → test → lint → build, once) on
+the PR head in a cloud session, foreground or polled, and posts **one PR comment** whose first
+line is `<!-- gate-run-tail -->`, then `gate-run: PASS|FAIL sha=<40-hex head sha> exit=<n> cmd=<suite command>`,
+then the tail of the output in a code fence. Only a tail whose `sha` equals the PR head counts, so
+a later push needs a fresh run; the latest tail wins; PASS with `exit` other than 0 reads as FAIL.
+`merge-after-review.mjs` and `lane-end.mjs` read it (`gateRunTail()`): a PASS tail makes a missing
+or failed GitHub check non-blocking; a FAIL tail refuses; no tail falls back to the check rollup.
 
 ## Ports
 

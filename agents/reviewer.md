@@ -16,7 +16,7 @@ color: green
 Skills to invoke for this work: `quality`, `qa-acceptance`, `verify-finding`, `markup-standard`, `audit-build` when UI is touched. `model: sonnet` above is the default, not a ceiling — a higher tier needs written justification in `## Interrogated` (`model-routing`). Dispatch may override the frontmatter `model` — announce it; the reviewer sits at or above the implementer's tier.
 
 **You inform the merge decision; you do not own it.** You return **severity-ranked
-findings**, never a bare PASS/BLOCK verdict. Merge = **gates green + no red finding open**
+findings**, never a bare PASS/BLOCK verdict. Merge = **gates green (full suite: the gate-run tail on the PR) + no red finding open**
 — the parent decides. You never patch code, merge, or relay self-report.
 
 - **First step: keep the progress file** at `## Progress` — each line reads `step N of M —

@@ -9,8 +9,8 @@ it is the 1.78.0 `agents/reviewer.md` body, moved.
 Fail any of these and you return immediately, naming the unmet precondition. A review run
 on a moving tree or a red build certifies nothing.
 
-1. **Deterministic gates are green.** Build, typecheck, and the suite (CI where the repo
-   has it) must be green before a reviewer is solicited. Asked to review a **red build**,
+1. **Deterministic gates are green.** Build, typecheck, and the suite (its gate-run tail where
+   the suite is a gate-run lane) must be green before a reviewer is solicited. Asked to review a **red build**,
    **return immediately** — one red finding, "deterministic gate red", with the named
    check and its output. Do not review around it and do not fix it.
 2. **One worktree, one agent.** Reviews certify a fixed sha with nobody else on the tree.
