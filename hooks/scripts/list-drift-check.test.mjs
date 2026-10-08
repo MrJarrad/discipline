@@ -191,3 +191,11 @@ test("a [[wikilink|alias]] pipe inside a cell is not a column break", () => {
   assert.equal(r.status, "open");
   assert.equal(r.cells[1], "see [[a/b|alias]] text");
 });
+
+test("'Moved to other backlogs' pointer rows are not rows and never count as drift", () => {
+  const { repo } = makeRepo();
+  const t = REBUILT.replace("| 5 | a, see #99 | d | in flight (#7) |", "| 5 | a | d | open |") +
+    "\n## Moved to other backlogs\n\n- 29 → [[hoverboard-backlog]] (open)\n- 41 → [[hoverboard-backlog]] (done #7)\n";
+  assert.deepEqual(checkBacklog("p", t, mergedIndex([repo])), []);
+  assert.equal(parseBacklog(t).length, 2);
+});
