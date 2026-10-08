@@ -38,31 +38,46 @@ export function parseArgs(argv) {
    a cloud gate-run lane and its tail is posted on the PR as a comment whose
    first line is `<!-- gate-run-tail -->`, then
    `gate-run: PASS|FAIL sha=<40-hex head sha> exit=<n> cmd=<suite command>`,
-   then the tail in a code fence. Only a tail whose sha equals the PR head
-   counts; the latest matching comment wins; PASS with exit!=0 reads as FAIL.
-   Returns `{ verdict, sha }` or null. */
+   then the tail in a code fence. A tail counts only when its author is in
+   `trusted` (the PR's repo owner and the authenticated `gh` user; empty list,
+   no tail), its sha equals the PR head, and `exit=` is digits then whitespace
+   or end of line. The latest matching comment wins; PASS with exit!=0 or a
+   `# fail [1-9]` line in the fence reads as FAIL. Returns `{ verdict, sha }`
+   or null. */
 export const GATE_RUN_MARKER = "<!-- gate-run-tail -->";
-export function gateRunTail(comments, headSha) {
+export function gateRunTail(comments, headSha, trusted = []) {
   let found = null;
   for (const c of comments || []) {
     const body = String(c.body || "");
-    if (!body.startsWith(GATE_RUN_MARKER)) continue;
-    const m = body.match(/^gate-run: (PASS|FAIL) sha=([0-9a-f]{40}) exit=(\d+)/m);
+    if (!body.startsWith(GATE_RUN_MARKER) || !trusted.includes(c.author?.login)) continue;
+    const m = body.match(/^gate-run: (PASS|FAIL) sha=([0-9a-f]{40}) exit=(\d+)(?=\s|$)/m);
     if (!m || m[2] !== headSha) continue;
-    found = { verdict: m[1] === "PASS" && m[3] === "0" ? "PASS" : "FAIL", sha: m[2] };
+    const green = m[1] === "PASS" && m[3] === "0" && !/# fail [1-9]/.test(body);
+    found = { verdict: green ? "PASS" : "FAIL", sha: m[2] };
   }
   return found;
 }
 
-/* `status` is `{ statusCheckRollup, mergeable, headRefOid, comments }` (the
-   shape of `gh pr view --json statusCheckRollup,mergeable,headRefOid,comments`).
+/* Logins whose gate-run tail counts: the repo owner and the authenticated
+   `gh` user (a failed `gh api user` leaves the owner alone). */
+export function trustedLogins(ownerRepo, runGh) {
+  const out = [String(ownerRepo).split("/")[0]];
+  try {
+    out.push(runGh(["api", "user", "--jq", ".login"]).trim());
+  } catch {}
+  return out;
+}
+
+/* `status` is `{ statusCheckRollup, mergeable, headRefOid, comments, trusted }`
+   (the first four are `gh pr view --json statusCheckRollup,mergeable,headRefOid,comments`;
+   `trusted` comes from `trustedLogins`).
    Returns `{ ok: true }` or `{ ok: false, reason }`. A gate-run tail on the head
    sha decides the suite: PASS makes a missing or failed GitHub check non-blocking,
    FAIL refuses. With no tail for the head sha, the rollup rule stands (every
    check SUCCESS; an empty rollup is refused). `mergeable` must always be
    MERGEABLE. */
 export function canMerge(status) {
-  const tail = gateRunTail(status.comments, status.headRefOid);
+  const tail = gateRunTail(status.comments, status.headRefOid, status.trusted);
   if (tail?.verdict === "FAIL") {
     return { ok: false, reason: "gate-run tail on the head sha is FAIL" };
   }
@@ -101,6 +116,7 @@ function main() {
   try {
     const out = run("gh", ["pr", "view", prNumber, "--repo", ownerRepo, "--json", "statusCheckRollup,mergeable,headRefOid,comments"]);
     status = JSON.parse(out);
+    status.trusted = trustedLogins(ownerRepo, (a) => run("gh", a));
   } catch (err) {
     console.error(`merge-after-review: did not read PR status — ${err.message}`);
     process.exit(1);

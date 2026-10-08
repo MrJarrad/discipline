@@ -34,17 +34,13 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 2. **Figma reads go through `capture-figma` on the dispatched persona** — brief names file+node, **doer** reads live, parent **locates** only.
 3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
 5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
-6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; the parent decides. **Merge condition: gates green + no red finding open**, remitted by the parent. One review per change, LIGHT by default. Merge asks: `present-for-review` § 6.
+6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; the parent decides. **Merge condition: gates green + no red finding open**. One review per change, LIGHT by default. Merge asks: `present-for-review` § 6.
 7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief.
-8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches, on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
-9. **Dispatch surface — "if a task can be done in cloud, it is."** Capability, never lane taxonomy. **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **when a lane opens**; `description` leads `cloud — ` / `local — `.
+8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
+9. **Dispatch surface — "if a task can be done in cloud, it is."** **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **at lane open**; `description` leads `cloud — ` / `local — `.
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
-11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending double-dispatches. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
-13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates
-    are only its touched ones. **The
-    parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the
-    Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never
-    run from the parent shell.**
+11. **Dispatch on the completion notification only** — resume prompts are noise. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
+13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`).
 
 ## Resume vs fresh (read before any baton row)
