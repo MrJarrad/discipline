@@ -1,4 +1,4 @@
-# routing — the twelve hard rules in full
+# routing — the hard rules in full
 
 SKILL.md carries each rule as the one line that decides a dispatch. This file is the
 full text: the evidence behind each rule, the failure that produced it, and the
@@ -153,4 +153,18 @@ and queued the chat as the doer — that hatch is deleted.
    "resume", "pick up where we left off", "carry on from the snapshot" → read the
    snapshot, re-dispatch each interrupted lane as a fresh continuation. Pause is not
    `wrap` — wrap remains the full session close.
+13. **CI runs the full suite/build once per PR, never inside each lane.** A lane's own
+   gates are only the touched ones its size class names (`doer-rules.md` § Size class).
+   The parent runs `lane-sweep.mjs` on every completion notification. A full suite over
+   the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled,
+   never run from the parent shell (`doer-rules.md` § Repo and safety). A lane stops
+   only its own pids (`doer-rules.md` § Repo and safety).
+14. **Never relay a backlog or queue status unchecked** (ruling `lists-never-stale`,
+   2026-10-08). Before the parent tells the operator what is open, in flight or done,
+   it runs `hooks/scripts/list-drift-check.mjs --vault <root> --repo <path>...` (or
+   checks merged PRs and lock rows by hand). A row is judged against the default
+   branch of its own project's repo: a bare `#n` never resolves against another
+   project's repo, and a PR the check cannot resolve is `unknown`, never done.
+   `lane-end.mjs` flips the row in the lane's own commit and runs the check last; `wrap`
+   runs it before the report (`wrap/references/REPORT-AND-LEARN.md`).
 

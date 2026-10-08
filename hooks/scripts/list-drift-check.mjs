@@ -88,12 +88,20 @@ export function parseBacklog(text) {
 
 const git = (repo, ...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
 
+/* Merged means on the default branch: origin/HEAD, else main, else master, else HEAD. */
+function defaultRef(path) {
+  for (const ref of ["origin/HEAD", "main", "master"]) {
+    try { git(path, "rev-parse", "--verify", "-q", `${ref}^{commit}`); return ref; } catch {}
+  }
+  return "HEAD";
+}
+
 /* History the caller supplied: which PR numbers are merged, which shas exist. */
 export function mergedIndex(repos) {
   const list = [];
   for (const path of repos) {
     try {
-      const subjects = git(path, "log", "--all", "--format=%s").split("\n");
+      const subjects = git(path, "log", defaultRef(path), "--format=%s").split("\n");
       const nums = new Set();
       for (const s of subjects) {
         for (const m of s.matchAll(/\(#(\d+)\)\s*$|^Merge pull request #(\d+)/g)) nums.add(m[1] || m[2]);
@@ -103,26 +111,32 @@ export function mergedIndex(repos) {
       list.push({ path, slug, nums, name: repoName(path) });
     } catch { /* not a repo: contributes nothing, so its PRs stay unknown */ }
   }
-  // Repos a ref can mean: owner/repo by remote slug, a bare name by basename, else all.
-  const match = (m) => {
+  // Repos a ref can mean: owner/repo by remote slug, a bare name by basename. A bare
+  // `#n` means the backlog's own project repo (name, jhd-name or name minus jhd-);
+  // an unmapped project with several repos supplied means none (unknown), never the union.
+  const match = (m, project) => {
     if (m[1]) return list.filter((r) => r.slug === m[1]);
-    if (!m[2]) return list;
+    if (!m[2]) {
+      if (project === undefined) return list;
+      const own = list.filter((r) => r.name === project || r.name === `jhd-${project}` || project === `jhd-${r.name}`);
+      return own.length || list.length > 1 ? own : list;
+    }
     const want = (ALIAS[m[2].toLowerCase()] || m[2]).toLowerCase();
     return list.filter((r) => r.name === want || r.name === `jhd-${want}` || r.slug.split("/")[1]?.toLowerCase() === want);
   };
   return {
-    merged(ref) {
+    merged(ref, project) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
-      return Boolean(m) && match(m).some((r) => r.nums.has(m[3]));
+      return Boolean(m) && match(m, project).some((r) => r.nums.has(m[3]));
     },
     // False when the ref names a repo none of the supplied paths is.
-    repoKnown(ref) {
+    repoKnown(ref, project) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
-      return Boolean(m) && match(m).length > 0;
+      return Boolean(m) && match(m, project).length > 0;
     },
-    hasSha(sha, ref = "#0") {
+    hasSha(sha, ref = "#0", project) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
-      return (m ? match(m) : list).some((r) => { try { git(r.path, "cat-file", "-e", `${sha}^{commit}`); return true; } catch { return false; } });
+      return (m ? match(m, project) : list).some((r) => { try { git(r.path, "cat-file", "-e", `${sha}^{commit}`); return true; } catch { return false; } });
     },
   };
 }
@@ -141,21 +155,21 @@ export function checkBacklog(project, text, idx) {
     if (r.section === "done" && !finished) add("misplaced", r.n, `${st.kind} row under ## Done`);
     if (st.kind === "done") {
       for (const { pr, sha } of st.pairs) {
-        if (!idx.merged(pr)) add("unknown", r.n, `${pr} not found as merged in the supplied repos`);
-        else if (!idx.hasSha(sha, pr)) add("unknown", r.n, `sha ${sha} not found in the supplied repos`);
+        if (!idx.merged(pr, project)) add("unknown", r.n, `${pr} not found as merged in the supplied repos`);
+        else if (!idx.hasSha(sha, pr, project)) add("unknown", r.n, `sha ${sha} not found in the supplied repos`);
       }
       continue;
     }
     if (st.kind === "moot") continue;
     const cited = st.kind === "in-flight" ? [st.pr] : [];
     for (const pr of cited) {
-      if (idx.merged(pr)) add("drift", r.n, `in flight on ${pr}, which is merged`);
-      else if (!idx.repoKnown(pr)) add("unknown", r.n, `${pr} names a repo not among the supplied --repo paths`);
+      if (idx.merged(pr, project)) add("drift", r.n, `in flight on ${pr}, which is merged`);
+      else if (!idx.repoKnown(pr, project)) add("unknown", r.n, `${pr} names a repo not among the supplied --repo paths`);
       // in flight and not merged is the expected state: nothing to report
     }
     // An open follow-up legitimately cites the PR it follows up: surfaced, not failing.
     for (const pr of new Set(refsIn(r.cells[1] || ""))) {
-      if (!cited.includes(pr) && idx.merged(pr)) add("suspect", r.n, `${r.status} row cites ${pr}, which is merged: confirm it is still open`);
+      if (!cited.includes(pr) && idx.merged(pr, project)) add("suspect", r.n, `${r.status} row cites ${pr}, which is merged: confirm it is still open`);
     }
   }
   return out;
@@ -218,6 +232,12 @@ const sectionEnd = (lines, from) => {
   return lines.length;
 };
 
+/* Header + separator of the Open table, so a created Done table has the same columns. */
+const doneHead = (lines) => {
+  const i = lines.findIndex((l) => /^\|\s*#\s*\|/.test(l));
+  return i !== -1 && /^\|[\s|:-]+\|$/.test(lines[i + 1] || "") ? [lines[i], lines[i + 1]] : ["| # | Item | Raised | Status |", "| - | --- | --- | --- |"];
+};
+
 /* Set row n's status (validated against the fixed set); done/moot moves it to ## Done. */
 export function setRowStatus(text, n, status) {
   const st = parseStatus(status);
@@ -225,6 +245,7 @@ export function setRowStatus(text, n, status) {
   const lines = String(text).split("\n");
   const row = parseBacklog(text).find((r) => r.n === String(n));
   if (!row) return { ok: false, reason: `row ${n} not found in the backlog` };
+  if (/[|\r\n]/.test(status)) return { ok: false, reason: "status must not contain | or a newline (it would split the row)" };
   const finished = st.kind === "done" || st.kind === "moot";
   if (row.section === "done" && !finished) return { ok: false, reason: `row ${n} is archived under ## Done; open a new row instead` };
   const c = row.cells.slice();
@@ -234,10 +255,10 @@ export function setRowStatus(text, n, status) {
   lines.splice(row.lineIndex, 1);
   let d = headingIndex(lines, /^##\s+done\b/i);
   if (d === -1) {
-    lines.push("", "## Done", "", "| # | Item | Raised | Status |", "| - | --- | --- | --- |", newLine);
+    lines.push("", "## Done", "", ...doneHead(lines), newLine);
   } else {
     let at = lastTableLine(lines, d + 1, sectionEnd(lines, d));
-    if (at === -1) { lines.splice(d + 1, 0, "", "| # | Item | Raised | Status |", "| - | --- | --- | --- |"); at = d + 3; }
+    if (at === -1) { const h = doneHead(lines); lines.splice(d + 1, 0, "", ...h); at = d + 1 + h.length; }
     lines.splice(at + 1, 0, newLine);
   }
   return { ok: true, text: lines.join("\n") };

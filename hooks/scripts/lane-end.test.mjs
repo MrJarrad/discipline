@@ -334,3 +334,15 @@ test("lane-end refuses a status outside the fixed set before writing anything", 
   assert.match(r.stderr, /outside the fixed set/);
   assert.match(readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"), /1\. old row/);
 });
+
+test("N3: --backlog alone, or --backlog-row with --backlog-add, is refused before any write", () => {
+  for (const extra of [["--backlog", "projects/p/p-backlog.md"], ["--backlog", "projects/p/p-backlog.md", "--backlog-row", "1", "--backlog-add", "x", "--status", "open"]]) {
+    const vault = makeVaultWithQueue();
+    mkdirSync(join(vault, "projects", "p"), { recursive: true });
+    writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+    const r = spawnSync("node", [scriptPath, "--session-dir", tmpdir(), "--vault", vault, "--row", "1", "--section", "Discipline", "--text", "1. x", ...extra], { encoding: "utf8" });
+    assert.equal(r.status, 1, extra.join(" "));
+    assert.match(r.stderr, /--backlog/);
+    assert.match(readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"), /1\. old row/);
+  }
+});
