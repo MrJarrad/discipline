@@ -197,6 +197,9 @@ stop only their own pids** — the parent sweeps verification servers at every l
   banked export json, the design-system's generated tokens, or the ruling's constant file
   **at run time**; a value hand-copied into the assertion is a defect, whatever else the
   gate gets right (operator ruling 2026-09-19, `gates-assert-mechanism-not-values`).
+- **A re-stamp keeps the shipped file's encoder.** Re-encoding a baked file uses the encoder and settings that
+  made the shipped one, proven by round-tripping its decoded bytes back to the shipped bytes exactly (a zlib -9
+  re-gzip of a zopfli bake grew +50,401 B and failed the data ceiling, 2026-10-07).
 - **Touched-file gates on any `src/styles/**`/`*.css` change include the diff-scoped
   literal check** — `hooks/scripts/token-literal-diff.mjs --tokens <tokens.generated.css>`
   against the lane's diff; a new literal equal to a generated token's value is red. Scope is

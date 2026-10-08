@@ -58,3 +58,7 @@
 - **Bad execution prompt:** you can't write ACs without inventing requirements; two implementers diverge.
 - **Good strategy brief:** poses the decision, states givens, invites the unknown, asks for options.
 - **Bad strategy brief:** pre-decides the answer then asks the agent to "evaluate"; slices the question narrow.
+
+### An operator's new-idea question (2026-10-08)
+**Do:** "What solution shapes could Canvas take as a starting point? Options, tradeoffs, a recommendation."
+**Don't:** "Does Canvas fit our CMS plan?" — a fit-check posed as the question.

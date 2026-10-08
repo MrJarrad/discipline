@@ -97,7 +97,11 @@ and queued the chat as the doer — that hatch is deleted.
    first — a stale checkout refused a gate on lessons already encoded. Cloud pushes branches but
    not tags (git proxy 403 on `refs/tags`): release tags go via a Mac job until the proxy allows them.
    **Queuing a Mac job merges the vault branch to main in the same action** — the runner claims only
-   from main, and a Drop-recording job sat pending on the session branch for over an hour (`session10-codify-candidates-2026-10-05` 3).
+   from main, and a Drop-recording job sat pending on the session branch for over an hour (`session10-codify-candidates-2026-10-05` 3);
+   the job's first step names the vault sha it expects (`vault-write` § Banked means on vault main).
+   **A Mac job cannot open an Access-gated preview** — `*.workers.dev` previews 302 to Cloudflare Access, and only the
+   cloud proxy injects credentials. A Mac GPU measurement on a preview needs an Access service token in the Mac's
+   environment (never the vault) or a local build; until one exists, ask the operator for the one-line device check.
    **A round ends at its merge** (`merge-each-approved-round-2026-10-06`: "one open change per approved
    round or slice, merged to main as soon as it is approved and its gates are green"). Stacking a new
    round on an unmerged branch is malformed; a lane's done-when is the merge of that round.

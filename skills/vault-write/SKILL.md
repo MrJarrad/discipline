@@ -13,6 +13,15 @@ description: Procedure for writing any note, process log, or reference to ~/JHD/
 
 The vault git working tree is `~/JHD/vault/main` when that path has `.git`, else `~/JHD/vault` (Cloud/flat). All `~/JHD/vault/...` paths below mean **inside that working tree**, never the container root (`.bare`).
 
+## Banked means on vault main
+
+**A vault write is banked only when `origin/main` contains it** — `git merge-base --is-ancestor <sha> origin/main` exits 0; until then it is local, whatever the push printed.
+
+- **Cloud:** the harness requires the session branch, so push there, then merge it to main by PR before anything else reads it — a Mac job, another session, a handover (session 14: a Mac GPU job could not find its scripts on main).
+- **Local (Mac):** push `HEAD:main` explicitly; `git push origin HEAD` after a pull once landed five commits on a session branch.
+- **GitHub 500 on push is transient:** back off 2/4/8/16 s, retry later, keep the commits local and never call them banked meanwhile.
+- **A lease-guarded history rewrite needs a total push freeze** — parent saves and the Mac runner's own claim/done commits included — from preflight to DONE; run it outside the queue (operator Terminal or a `JOB=`-aware detached launch).
+
 ---
 
 ## Thing-then-aspect — the organizing principle (ruling 2026-08-02)
