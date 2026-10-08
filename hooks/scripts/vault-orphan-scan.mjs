@@ -44,7 +44,8 @@ import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXCLUDED_DIRS = new Set([".obsidian"]);
-// Root-relative mirror trees; same list as vault-lint.mjs SKIP_PREFIXES (mirrors only).
+// Root-relative mirror trees: the two mirror entries of vault-lint.mjs SKIP_PREFIXES.
+// Not mirrored here: its portfolio-evidence payload subtrees (the scan walks them).
 const MIRROR_PREFIXES = ["estate/repo-docs", "estate/auto-memory"];
 const BUNDLE_MARKER = ".vault-bundle";
 

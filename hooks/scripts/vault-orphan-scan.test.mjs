@@ -269,7 +269,7 @@ test("a .vault-bundle marker at the vault root is ignored, with a warning, rathe
   }
 });
 
-// 1.115.0: align with vault-lint.mjs SKIP_PREFIXES — the two mirror trees are not vault notes.
+// 1.115.0: skip the two mirror entries of vault-lint.mjs SKIP_PREFIXES — the mirror trees are not vault notes.
 test("estate/auto-memory and estate/repo-docs mirrors are not scanned; other estate notes still are", () => {
   const root = makeVault();
   try {

@@ -39,6 +39,8 @@ count from the transcript and reports it on every prompt past 90%, and after an 
 summary. On that line: finish in-flight merges, run `wrap`, tell the operator in one line. No
 reading in a long session → wrap at a natural break without being asked.
 
+**Follow-ups ship before wrap**: [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
+
 ## The seven sections — walk all of them, in order
 
 Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). Walk them in order;

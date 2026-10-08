@@ -37,8 +37,8 @@ Fail any and **return immediately**, naming it — a moving tree or a red build 
 A **round** is one reviewer verdict on one change. **One review round is the default; hard
 cap: 2 review rounds per change.** Name the round (`round 1 of 2`) atop every verdict.
 **Round 2 exists only for a red finding** and re-validates *that red and regressions it
-touched*, never a fresh sweep; **amber and note ride the next change on that surface** —
-into the lock's notes ledger, not another round. **A round-two reviewer is a fresh agent**
+touched*, never a fresh sweep; **amber and note are follow-ups** (fixed in-session per `routing` baton row and
+`wrap` § Follow-ups; the lock's notes ledger holds any left over) — not another round. **A round-two reviewer is a fresh agent**
 (`routing` § Resume vs fresh) reading the round-one findings **by path**, never carried
 from memory of writing them. **There is no round 3**: at the cap the loop
 **halts** — return the open findings, **next: operator** (`lean-lane-cadence`, 2026-09-16).
@@ -133,7 +133,7 @@ Each finding carries a severity and its own evidence, ranked in its axis.
 | Severity | Meaning | Effect |
 |---|---|---|
 | **red** | Correctness, spec, safety, or a standing red trigger | **Blocks merge.** Fixed or operator-deferred |
-| **amber** | Real but non-blocking | **Rides the next change on that surface**; never buys a round |
+| **amber** | Real but non-blocking | **Follow-up**, fixed in-session per `routing` baton row; never buys a round |
 | **note** | Observation, context, or a judgement call | **No action.** Never a reason for another round |
 
 **Independent re-validation is mandatory (finder → validator).** Re-validate every finding

@@ -73,13 +73,17 @@ const readdirSafe = (d) => { try { return readdirSync(d); } catch { return []; }
 const k = (n) => `${Math.round(n / 1000)}k`;
 
 // The message for one hook input, or null. Side effect: PostToolUse marker.
-export function handle(input, { window, wrapAt = 0.9, dir = tmpdir() } = {}) {
+// The PreCompact(auto) marker holds its write time; one older than MARKER_TTL_MS means
+// the compact never followed (blocked or failed), so it proves nothing.
+const MARKER_TTL_MS = 10 * 60_000;
+
+export function handle(input, { window, wrapAt = 0.9, dir = tmpdir(), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
   if (!input || input.agent_id) return null;
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
   if (event === "PreCompact") {
     if (input.trigger === "auto" && sid) {
-      try { writeFileSync(join(dir, `${PREFIX}precompact-${sid}`), "1"); } catch { /* best effort */ }
+      try { writeFileSync(join(dir, `${PREFIX}precompact-${sid}`), String(now)); } catch { /* best effort */ }
     }
     return null;
   }
@@ -92,7 +96,11 @@ export function handle(input, { window, wrapAt = 0.9, dir = tmpdir() } = {}) {
     // Without a session id the origin is unknowable: keep the safe wrap message.
     let automatic = true;
     if (sid) {
-      automatic = readdirSafe(dir).includes(`${PREFIX}precompact-${sid}`);
+      automatic = false;
+      try {
+        const at = Number(readFileSync(join(dir, `${PREFIX}precompact-${sid}`), "utf8"));
+        automatic = Number.isFinite(at) && now - at >= 0 && now - at <= markerTtlMs;
+      } catch { /* no marker: manual compact */ }
       remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     }
     return automatic

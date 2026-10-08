@@ -70,7 +70,7 @@ stash) and re-verifies it as an untrusted claim before building on it
 | Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
-| Reviewer returns **amber / note** only | Merges green; ambers ride the next change |
+| Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (`wrap` § Follow-ups) |
 | **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
 | **Doer returns "already satisfied/true" on an operator-raised row** | **Parent** reproduces at the operator's own framing before relaying — a claim, not a result (2026-09-23, `reproduce-lane-already-works-before-relay`) |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
