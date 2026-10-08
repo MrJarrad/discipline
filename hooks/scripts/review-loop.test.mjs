@@ -62,6 +62,8 @@ test("follow-ups-before-wrap is encoded in the routing baton row and the wrap sk
   assert.match(row, /in-session/i);
   assert.match(row, /before wrap/i);
   assert.match(row, /§ Follow-ups/);
+  assert.match(row, /discipline always; elsewhere `line` size, else banked/, "review-r1 A1: the scope rides the row");
+  assert.match(reviewer, /discipline always; elsewhere `line` size, else banked/, "review-r1 A1: and the reviewer table");
   assert.doesNotMatch(row, /ride the next change/i);
   assert.match(wrap, /Follow-ups ship before wrap/i);
   const ref = read("skills/wrap/references/REPORT-AND-LEARN.md");

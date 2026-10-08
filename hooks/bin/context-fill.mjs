@@ -12,7 +12,7 @@
    per percent point (marker in the OS tmpdir keyed by session_id).
    Window: DISCIPLINE_CONTEXT_WINDOW, else by model id (`[1m]` 1M, haiku 200k, default 1M).
    Manual vs automatic compact: PreCompact(auto) leaves a marker that
-   SessionStart(compact) consumes; SessionEnd and compact delete the session markers.
+   SessionStart(compact) consumes (the marker holds its write time; older than 10 minutes counts as manual); SessionEnd and compact delete the session markers.
    Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.9).
    Dry-run: node context-fill.mjs < input.json */
 import { closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";

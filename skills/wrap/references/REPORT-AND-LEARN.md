@@ -113,3 +113,12 @@ Ruling `follow-ups-before-wrap` (operator, 2026-10-08). Reviewer ambers and note
 - **Discipline plugin:** build, merge and install every follow-up found this session before wrap. They never "ride the next change".
 - **Other projects:** a follow-up the size of a `line` lane (`doer-rules.md` § Size class) ships in-session; anything bigger rides the next change on that surface.
 - **Wrap does not stall:** a follow-up that would need its own review round is banked as a backlog row and named in the wrap report.
+
+## Lists are never stale
+
+Ruling `lists-never-stale` (operator, 2026-10-08: *"the lists should never be stale"*). Before the wrap report, run
+`node <plugin>/hooks/scripts/list-drift-check.mjs --vault <vault> --repo <each product repo touched>` (offline; PRs are judged against that git history).
+
+- It reads every `projects/*/*-backlog.md` and `orchestrator/operator-queue.md`; it fails on a status outside the fixed set (`open`, `waiting on operator`, `in flight (<PR>)`, `done (<PR> <sha>)`, `moot (<reason>)`), a row citing a merged PR still open, a row under the wrong Open/Done heading, a project with a handover but no backlog, and two backlogs for one project.
+- `unknown` means a cited PR could not be resolved with the repos given: pass the repo, or check it by hand. It is never reported as done.
+- Fix every failing finding before the wrap report: flip the row (`lane-end.mjs --backlog … --status …`), add a row for a new finding, or strike the queue row. The wrap report states the check ran and its tail.
