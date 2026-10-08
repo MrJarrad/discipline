@@ -19,7 +19,8 @@ OPERATOR PROTOCOL (non-negotiable):
 
 4. EDITS: Make ALL file changes via Edit/Write tools, never via bash (sed/mv/codegen),
    so changes are checkpointable and reviewable. Before any destructive bash
-   (rm, reset, migration), run `git add -A && git commit -m "wip: pre-<action> checkpoint"`.
+   (rm, reset, migration), stage the paths you touched by name and commit:
+   `git add <named paths> && git commit -m "wip: pre-<action> checkpoint"` (never a blanket add).
 
 5. TYPECHECK GATE: `git commit` is hook-blocked unless typecheck is green.
    Run the repo typecheck in the FOREGROUND (background tasks are killed when a

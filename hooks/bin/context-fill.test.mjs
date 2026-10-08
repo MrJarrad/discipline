@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { contextTokens, handle } from "./context-fill.mjs";
@@ -56,6 +56,7 @@ test("tool-use readings nudge once per percent point, not on every call", () => 
 
 test("an automatic compaction is itself the wrap signal", () => {
   const d = fresh();
+  handle({ hook_event_name: "PreCompact", trigger: "auto", session_id: "s" }, opts(d));
   assert.match(handle({ hook_event_name: "SessionStart", source: "compact", session_id: "s" }, opts(d)), /automatic summary/);
   assert.equal(handle({ hook_event_name: "SessionStart", source: "startup", session_id: "s" }, opts(d)), null);
   rmSync(d, { recursive: true });
@@ -86,4 +87,101 @@ test("the CLI emits additionalContext for the event that fired, window from the 
   assert.equal(out.hookEventName, "UserPromptSubmit");
   assert.match(out.additionalContext, /460k of 500k \(92%\)/);
   rmSync(d, { recursive: true });
+});
+
+// --- 1.115.0: manual vs automatic compact, marker cleanup, window size ---
+import { existsSync, readdirSync } from "node:fs";
+const markers = (d) => readdirSync(d).filter((f) => f.startsWith("discipline-context-fill-"));
+const compact = (extra = {}) => ({ hook_event_name: "SessionStart", source: "compact", session_id: "s", ...extra });
+
+test("a manual compact (no PreCompact(auto) marker) says nothing", () => {
+  const d = fresh();
+  assert.equal(handle(compact(), opts(d)), null);
+  rmSync(d, { recursive: true });
+});
+
+test("PreCompact(auto) leaves a marker; the compact that follows is automatic and consumes it", () => {
+  const d = fresh();
+  assert.equal(handle({ hook_event_name: "PreCompact", trigger: "auto", session_id: "s" }, opts(d)), null);
+  assert.equal(markers(d).length, 1);
+  assert.match(handle(compact(), opts(d)), /automatic summary/);
+  assert.equal(markers(d).length, 0);
+  assert.equal(handle(compact(), opts(d)), null);
+  rmSync(d, { recursive: true });
+});
+
+test("PreCompact(manual) writes no marker", () => {
+  const d = fresh();
+  handle({ hook_event_name: "PreCompact", trigger: "manual", session_id: "s" }, opts(d));
+  assert.equal(markers(d).length, 0);
+  rmSync(d, { recursive: true });
+});
+
+test("a compact without a session id keeps the safe wrap message", () => {
+  const d = fresh();
+  assert.match(handle(compact({ session_id: undefined }), opts(d)), /automatic summary/);
+  rmSync(d, { recursive: true });
+});
+
+test("compact clears the session's percent markers so nudges can fire again", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(910_000)]);
+  const ev = { hook_event_name: "PostToolUse", session_id: "s", transcript_path: p };
+  assert.ok(handle(ev, opts(d)));
+  writeFileSync(join(d, "discipline-context-fill-other-91"), "1");
+  handle(compact(), opts(d));
+  assert.deepEqual(markers(d), ["discipline-context-fill-other-91"]);
+  rmSync(d, { recursive: true });
+});
+
+test("SessionEnd removes every marker of that session and no other", () => {
+  const d = fresh();
+  writeFileSync(join(d, "discipline-context-fill-s-91"), "1");
+  writeFileSync(join(d, "discipline-context-fill-precompact-s"), "1");
+  writeFileSync(join(d, "discipline-context-fill-s2-91"), "1");
+  handle({ hook_event_name: "SessionEnd", session_id: "s" }, opts(d));
+  assert.deepEqual(markers(d), ["discipline-context-fill-s2-91"]);
+  rmSync(d, { recursive: true });
+});
+
+const modelTurn = (model, read) => JSON.stringify({
+  type: "assistant", isSidechain: false,
+  message: { model, usage: { input_tokens: 2, cache_creation_input_tokens: 0, cache_read_input_tokens: read } },
+});
+const promptAt = (d, model, read, o = {}) => {
+  const p = transcript(d, [modelTurn(model, read)]);
+  return handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, { wrapAt: 0.9, dir: d, ...o });
+};
+
+test("a haiku model is a 200k window: 185k is past the line", () => {
+  const d = fresh();
+  assert.match(promptAt(d, "claude-haiku-4-5", 185_000), /185k of 200k \(93%\)/);
+  rmSync(d, { recursive: true });
+});
+
+test("a [1m] model id is a 1M window; other models default to 1M", () => {
+  const d = fresh();
+  assert.equal(promptAt(d, "claude-sonnet-4-5[1m]", 185_000), null);
+  assert.equal(promptAt(d, "claude-opus-5-5", 185_000), null);
+  rmSync(d, { recursive: true });
+});
+
+test("an explicit window beats the model id", () => {
+  const d = fresh();
+  assert.equal(promptAt(d, "claude-haiku-4-5", 185_000, { window: 1_000_000 }), null);
+  rmSync(d, { recursive: true });
+});
+
+test("a reading above a 200k window widens it to 1M, never past 100%", () => {
+  const d = fresh();
+  assert.match(promptAt(d, "claude-haiku-4-5", 950_000), /950k of 1000k \(95%\)/);
+  rmSync(d, { recursive: true });
+});
+
+test("hooks.json wires PreCompact(auto) and SessionEnd to the script", () => {
+  const h = JSON.parse(readFileSync(new URL("../hooks.json", import.meta.url), "utf8")).hooks;
+  const cmds = (ev) => JSON.stringify(h[ev] || []);
+  assert.match(cmds("PreCompact"), /context-fill\.mjs/);
+  assert.equal(h.PreCompact[0].matcher, "auto");
+  assert.match(cmds("SessionEnd"), /context-fill\.mjs/);
 });
