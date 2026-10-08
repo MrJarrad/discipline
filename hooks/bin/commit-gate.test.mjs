@@ -408,3 +408,14 @@ for (const [label, sessionRed, build, expectDeny] of SHAPES) {
     }
   });
 }
+
+// 1119: the hook sees the command text BEFORE the shell expands it, so `cd $S/x && git commit`
+// reaches the gate with a literal `$S`. A target dir that does not exist must not be created.
+test("a commit target that does not exist (unexpanded $S) creates no directory", () => {
+  const dir = makeRepo({ typecheckExit: 0 });
+  try {
+    runGate(dir, 'cd $S/x/$r && git commit -m "x"');
+    runGate(dir, 'git -C "$S/up" commit -m "x"');
+    assert.equal(existsSync(join(dir, "$S")), false, "no $S directory written under the session cwd");
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

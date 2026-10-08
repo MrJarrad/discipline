@@ -13,8 +13,10 @@ import { parseStatus, parseBacklog, mergedIndex, checkBacklog, checkVault } from
 const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
 const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" }).trim();
 
-function makeRepo() {
-  const repo = mkdtempSync(join(tmpdir(), "drift-repo-"));
+// The repo dir is named for its project: a bare #n maps by name, never by repo count.
+function makeRepo(name = "p") {
+  const repo = join(mkdtempSync(join(tmpdir(), "drift-repo-")), name);
+  mkdirSync(repo);
   git(repo, "init", "-q", "-b", "main");
   git(repo, "config", "user.email", "t@example.com");
   git(repo, "config", "user.name", "t");
@@ -103,7 +105,7 @@ function makeVault(files) {
 }
 
 test("checkVault discovers every project backlog by glob, never a fixed list", () => {
-  const { repo } = makeRepo();
+  const { repo } = makeRepo("alpha");
   const v = makeVault({
     "projects/alpha/alpha-backlog.md": BACKLOG("| 1 | a | d | in flight (#7) |"),
     "projects/zeta/zeta-backlog.md": BACKLOG("| 1 | a | d | DONE |"),
@@ -136,7 +138,7 @@ test("an unstruck queue row citing a merged PR is suspect; a struck row is ignor
 });
 
 test("CLI exits 1 on drift, 0 when clean or only unknown", () => {
-  const { repo } = makeRepo();
+  const { repo } = makeRepo("a");
   const bad = makeVault({ "projects/a/a-backlog.md": BACKLOG("| 1 | a | d | in flight (#7) |") });
   const r = spawnSync("node", [script, "--vault", bad, "--repo", repo], { encoding: "utf8" });
   assert.equal(r.status, 1);
@@ -316,4 +318,28 @@ test("A4: a created ## Done table copies the Open table's columns", () => {
   const r = rows(out)[0];
   assert.equal(r.section, "done");
   assert.equal(r.cells.length, 5);
+});
+
+/* --- 1119: review-r1 B1, B2 --- */
+test("B1: an unmapped project with exactly one --repo is unknown, same as with several", () => {
+  const { repo } = makeRepo("d");
+  const row = BACKLOG("| 7 | a | d | in flight (#7) |");
+  assert.deepEqual(checkBacklog("skillz", row, mergedIndex([repo])).map((x) => x.kind), ["unknown"]);
+  assert.deepEqual(checkBacklog("skillz", row, mergedIndex([repo, makeRepo("other").repo])).map((x) => x.kind), ["unknown"]);
+  assert.deepEqual(checkBacklog("d", row, mergedIndex([repo])).map((x) => x.kind), ["drift"], "a mapped project still resolves");
+});
+
+test("B2: a clone with only origin/main (no origin/HEAD, no local main) judges merged against origin/main", () => {
+  const { repo } = makeRepo("up");
+  const clone = join(mkdtempSync(join(tmpdir(), "drift-clone-")), "up");
+  execFileSync("git", ["clone", "-q", "--depth", "1", "file://" + repo, clone]);
+  git(clone, "config", "user.email", "t@example.com");
+  git(clone, "config", "user.name", "t");
+  git(clone, "remote", "set-head", "origin", "-d");
+  git(clone, "checkout", "-q", "-b", "feat");
+  git(clone, "branch", "-D", "main");
+  git(clone, "commit", "-q", "--allow-empty", "-m", "wip (#9)");
+  const idx = mergedIndex([clone]);
+  assert.equal(idx.merged("#9", "up"), false, "feature-branch commit is not merged");
+  assert.equal(idx.merged("#7", "up"), true, "origin/main history is");
 });
