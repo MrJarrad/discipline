@@ -31,8 +31,8 @@ test("parseStatus accepts exactly the five statuses", () => {
   assert.equal(parseStatus("open").kind, "open");
   assert.equal(parseStatus("waiting on operator").kind, "waiting");
   assert.deepEqual(parseStatus("in flight (#12)"), { kind: "in-flight", pr: "#12" });
-  assert.deepEqual(parseStatus("done (#7 abc1234)"), { kind: "done", pr: "#7", sha: "abc1234" });
-  assert.deepEqual(parseStatus("done (owner/repo#7 abc1234)"), { kind: "done", pr: "owner/repo#7", sha: "abc1234" });
+  assert.deepEqual(parseStatus("done (#7 abc1234)"), { kind: "done", pairs: [{ pr: "#7", sha: "abc1234" }] });
+  assert.deepEqual(parseStatus("done (owner/repo#7 abc1234)"), { kind: "done", pairs: [{ pr: "owner/repo#7", sha: "abc1234" }] });
   assert.equal(parseStatus("moot (superseded by 48)").kind, "moot");
 });
 
@@ -69,8 +69,9 @@ test("an in-flight row citing a merged PR is drift (red-then-green core)", () =>
 
 test("a cited PR that cannot be resolved is unknown, never done", () => {
   const { repo } = makeRepo();
-  const f = checkBacklog("p", BACKLOG("| 1 | a | d | in flight (#99) |", "| 2 | b | d | done (#98 abc1234) |"), mergedIndex([repo]));
+  const f = checkBacklog("p", BACKLOG("| 1 | a | d | in flight (skillz #99) |", "| 2 | b | d | done (#98 abc1234) |"), mergedIndex([repo]));
   assert.deepEqual(f.map((x) => [x.kind, x.row]), [["unknown", "1"], ["unknown", "2"]]);
+  assert.deepEqual(checkBacklog("p", BACKLOG("| 1 | a | d | in flight (#99) |"), mergedIndex([repo])), [], "in flight and unmerged is the normal state");
   assert.equal(checkBacklog("p", BACKLOG("| 1 | a | d | in flight (#99) |"), mergedIndex([])).some((x) => x.kind === "drift"), false);
 });
 
@@ -198,4 +199,53 @@ test("'Moved to other backlogs' pointer rows are not rows and never count as dri
     "\n## Moved to other backlogs\n\n- 29 → [[hoverboard-backlog]] (open)\n- 41 → [[hoverboard-backlog]] (done #7)\n";
   assert.deepEqual(checkBacklog("p", t, mergedIndex([repo])), []);
   assert.equal(parseBacklog(t).length, 2);
+});
+
+test("parseStatus widened: a repo name before the PR, and a comma list of PR sha pairs", () => {
+  assert.deepEqual(parseStatus("done (hoverboard #10 49c9ebc)").pairs, [{ pr: "hoverboard #10", sha: "49c9ebc" }]);
+  assert.deepEqual(parseStatus("done (DS #91 d4b5bca)").pairs, [{ pr: "DS #91", sha: "d4b5bca" }]);
+  assert.deepEqual(parseStatus("done (#243 eac5d79, #244 e1e0918)").pairs.map((p) => p.pr), ["#243", "#244"]);
+  assert.deepEqual(parseStatus("in flight (discipline #75)"), { kind: "in-flight", pr: "discipline #75" });
+  for (const s of ["done (#243 eac5d79, #244)", "done (#7 abc1234,#8 abc1234)", "done (release e0e5d28)", "done (two words #7 abc1234)"]) assert.equal(parseStatus(s), null, s);
+});
+
+test("a bare repo name resolves against --repo basenames; DS aliases jhd-design-system; wrong repo is unknown", () => {
+  const base = mkdtempSync(join(tmpdir(), "drift-names-"));
+  const mk = (name, subject) => {
+    const r = join(base, name);
+    mkdirSync(r);
+    git(r, "init", "-q", "-b", "main");
+    git(r, "config", "user.email", "t@example.com");
+    git(r, "config", "user.name", "t");
+    writeFileSync(join(r, "a"), "1");
+    git(r, "add", ".");
+    git(r, "commit", "-q", "-m", subject);
+    return { r, sha: git(r, "rev-parse", "--short", "HEAD") };
+  };
+  const hb = mk("jhd-hoverboard", "board (#10)");
+  const ds = mk("jhd-design-system", "tokens (#91)");
+  const idx = mergedIndex([hb.r, ds.r]);
+  const t = (status) => checkBacklog("p", BACKLOG("", `| 1 | a | d | ${status} |`), idx);
+  assert.deepEqual(t(`done (hoverboard #10 ${hb.sha})`), []);
+  assert.deepEqual(t(`done (DS #91 ${ds.sha})`), []);
+  assert.deepEqual(t(`done (hoverboard #10 ${hb.sha}, DS #91 ${ds.sha})`), []);
+  assert.equal(t(`done (hoverboard #91 ${ds.sha})`)[0].kind, "unknown", "#91 is not in hoverboard");
+  assert.equal(t(`done (skillz #10 ${hb.sha})`)[0].kind, "unknown", "no skillz repo supplied");
+  assert.equal(t(`done (hoverboard #10 ${ds.sha})`)[0].kind, "unknown", "sha checked in the named repo only");
+  assert.equal(checkBacklog("p", BACKLOG("| 1 | a | d | in flight (hoverboard #10) |"), idx)[0].kind, "drift");
+  assert.equal(checkBacklog("p", BACKLOG("| 1 | see #10 | d | open |"), idx)[0].kind, "suspect");
+});
+
+test("a <name>/main checkout is named by its parent folder", () => {
+  const base = mkdtempSync(join(tmpdir(), "drift-main-"));
+  const r = join(base, "jhd-design-system", "main");
+  mkdirSync(r, { recursive: true });
+  git(r, "init", "-q", "-b", "main");
+  git(r, "config", "user.email", "t@example.com");
+  git(r, "config", "user.name", "t");
+  writeFileSync(join(r, "a"), "1");
+  git(r, "add", ".");
+  git(r, "commit", "-q", "-m", "tokens (#91)");
+  const sha = git(r, "rev-parse", "--short", "HEAD");
+  assert.deepEqual(checkBacklog("p", BACKLOG("", `| 1 | a | d | done (DS #91 ${sha}) |`), mergedIndex([r])), []);
 });

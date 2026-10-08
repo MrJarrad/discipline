@@ -13,7 +13,9 @@
      no-backlog  a project folder has a handover but no `*-backlog.md`
      duplicate   a project has more than one `*-backlog.md`
    Fixed status set: open · waiting on operator · in flight (<PR>) ·
-   done (<PR> <sha>) · moot (<reason>). <PR> is `#n` or `owner/repo#n`.
+   done (<PR> <sha>[, <PR> <sha>]...) · moot (<reason>). <PR> is `#n`,
+   `owner/repo#n` or `<name> #n`; a bare name resolves against the --repo
+   basenames (`hoverboard` = jhd-hoverboard; alias `DS` = jhd-design-system).
 
    Backlog shape (as rebuilt in the vault, 2026-10-08): tables headed
    `| # | Item | Raised | Status | Notes |` — the Status column is found from the
@@ -27,14 +29,21 @@
    Also exports the row editors lane-end uses (setRowStatus, addRow).        */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+
+const ALIAS = { ds: "jhd-design-system" };
+// `<name>/main` worktree layout: the repo is the parent folder's name.
+const repoName = (p) => (/^(main|master)$/.test(basename(p)) ? basename(dirname(p)) : basename(p)).toLowerCase();
 
 const PR = String.raw`(?:[\w.-]+\/[\w.-]+)?#\d+`;
+// In a status cell a PR may also carry a bare repo name: `hoverboard #10`, `DS #91`.
+const PRN = String.raw`(?:[\w.-]+\/[\w.-]+#\d+|(?:[\w.-]+ )?#\d+)`;
+const PAIR = `${PRN} [0-9a-f]{7,40}`;
 const STATUS = [
   ["open", /^open$/],
   ["waiting", /^waiting on operator$/],
-  ["in-flight", new RegExp(`^in flight \\((${PR})\\)$`)],
-  ["done", new RegExp(`^done \\((${PR}) ([0-9a-f]{7,40})\\)$`)],
+  ["in-flight", new RegExp(`^in flight \\((${PRN})\\)$`)],
+  ["done", new RegExp(`^done \\(((?:${PAIR})(?:, (?:${PAIR}))*)\\)$`)],
   ["moot", /^moot \((.+)\)$/],
 ];
 
@@ -44,7 +53,10 @@ export function parseStatus(text) {
     const m = re.exec(t);
     if (!m) continue;
     if (kind === "in-flight") return { kind, pr: m[1] };
-    if (kind === "done") return { kind, pr: m[1], sha: m[2] };
+    if (kind === "done") {
+      const pairs = m[1].split(", ").map((p) => { const i = p.lastIndexOf(" "); return { pr: p.slice(0, i), sha: p.slice(i + 1) }; });
+      return { kind, pairs };
+    }
     return { kind };
   }
   return null;
@@ -88,17 +100,29 @@ export function mergedIndex(repos) {
       }
       let slug = "";
       try { slug = /[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?$/.exec(git(path, "remote", "get-url", "origin").trim())?.[1] || ""; } catch {}
-      list.push({ path, slug, nums });
+      list.push({ path, slug, nums, name: repoName(path) });
     } catch { /* not a repo: contributes nothing, so its PRs stay unknown */ }
   }
+  // Repos a ref can mean: owner/repo by remote slug, a bare name by basename, else all.
+  const match = (m) => {
+    if (m[1]) return list.filter((r) => r.slug === m[1]);
+    if (!m[2]) return list;
+    const want = (ALIAS[m[2].toLowerCase()] || m[2]).toLowerCase();
+    return list.filter((r) => r.name === want || r.name === `jhd-${want}` || r.slug.split("/")[1]?.toLowerCase() === want);
+  };
   return {
     merged(ref) {
-      const m = /^(?:([\w.-]+\/[\w.-]+))?#(\d+)$/.exec(ref);
-      if (!m) return false;
-      return list.some((r) => (!m[1] || r.slug === m[1]) && r.nums.has(m[2]));
+      const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
+      return Boolean(m) && match(m).some((r) => r.nums.has(m[3]));
     },
-    hasSha(sha) {
-      return list.some((r) => { try { git(r.path, "cat-file", "-e", `${sha}^{commit}`); return true; } catch { return false; } });
+    // False when the ref names a repo none of the supplied paths is.
+    repoKnown(ref) {
+      const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
+      return Boolean(m) && match(m).length > 0;
+    },
+    hasSha(sha, ref = "#0") {
+      const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
+      return (m ? match(m) : list).some((r) => { try { git(r.path, "cat-file", "-e", `${sha}^{commit}`); return true; } catch { return false; } });
     },
   };
 }
@@ -116,15 +140,18 @@ export function checkBacklog(project, text, idx) {
     if (r.section === "open" && finished) add("misplaced", r.n, `${st.kind} row under ## Open`);
     if (r.section === "done" && !finished) add("misplaced", r.n, `${st.kind} row under ## Done`);
     if (st.kind === "done") {
-      if (!idx.merged(st.pr)) add("unknown", r.n, `${st.pr} not found as merged in the supplied repos`);
-      else if (!idx.hasSha(st.sha)) add("unknown", r.n, `sha ${st.sha} not found in the supplied repos`);
+      for (const { pr, sha } of st.pairs) {
+        if (!idx.merged(pr)) add("unknown", r.n, `${pr} not found as merged in the supplied repos`);
+        else if (!idx.hasSha(sha, pr)) add("unknown", r.n, `sha ${sha} not found in the supplied repos`);
+      }
       continue;
     }
     if (st.kind === "moot") continue;
     const cited = st.kind === "in-flight" ? [st.pr] : [];
     for (const pr of cited) {
       if (idx.merged(pr)) add("drift", r.n, `in flight on ${pr}, which is merged`);
-      else add("unknown", r.n, `${pr} not found as merged in the supplied repos`);
+      else if (!idx.repoKnown(pr)) add("unknown", r.n, `${pr} names a repo not among the supplied --repo paths`);
+      // in flight and not merged is the expected state: nothing to report
     }
     // An open follow-up legitimately cites the PR it follows up: surfaced, not failing.
     for (const pr of new Set(refsIn(r.cells[1] || ""))) {
