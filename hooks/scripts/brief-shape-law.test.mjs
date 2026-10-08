@@ -118,9 +118,11 @@ test("the one rule is the contract pointer", () => {
 // Ceiling raised 308 -> 314 at 1.113.0 (look-lane link gate bullet, one-shot-defect-rounds-2026-10-07).
 // Ceiling raised 306 -> 308 at 1.107.0: the cloud `--frozen-lockfile` / lockfile-never-committed
 // rule (`cloud-pnpm-install-rewrites-lockfile`) sits in Repo and safety beside the pnpm `file:` bullet.
-test("doer-rules.md stays under its 314-line ceiling", () => {
+// Ceiling raised 314 -> 317 at 1.114.0: the re-stamp-keeps-the-encoder bullet (session-13b item 4)
+// sits in Repo and safety beside the gate-fixture bullet, the moment a doer re-bakes.
+test("doer-rules.md stays under its 317-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 314, `doer-rules.md is ${lines} lines; the ceiling is 314`);
+  assert.ok(lines <= 317, `doer-rules.md is ${lines} lines; the ceiling is 317`);
 });
 
 test("doer-rules carries the four standing sections", () => {

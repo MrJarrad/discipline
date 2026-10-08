@@ -66,7 +66,9 @@ const CEILINGS = [
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
-  { skill: "wrap", ceiling: 900, before: 3115, frontmatterWords: 85 },
+  // Ceiling raised 900 -> 920 at 1.114.0: § When to wrap (decision
+  // `2026-10-08-proactive-wrap-at-90`) is the acting moment for the context-fill line.
+  { skill: "wrap", ceiling: 920, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line

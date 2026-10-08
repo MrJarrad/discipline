@@ -1,6 +1,6 @@
 ---
 name: wrap
-description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's handover note, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
+description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's handover note, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, when context-fill reports the 90% line or an automatic summary ran, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
 ---
 
 # Wrap
@@ -30,6 +30,14 @@ plugin matches the repo at wrap.
 A session that ends without wrapping leaves the next one to reconstruct state from scratch.
 Wrap is the gate: nothing "should be fine," everything below is verified before the session
 is called closed.
+
+## When to wrap
+
+**Wrap at about 90% context, unprompted** (operator, 2026-10-08: *"ideally we want to wrap
+sessions at about 90% usage"*). `hooks/bin/context-fill.mjs` reads the client's context-window
+count from the transcript and reports it on every prompt past 90%, and after an automatic
+summary. On that line: finish in-flight merges, run `wrap`, tell the operator in one line. No
+reading in a long session → wrap at a natural break without being asked.
 
 ## The seven sections — walk all of them, in order
 

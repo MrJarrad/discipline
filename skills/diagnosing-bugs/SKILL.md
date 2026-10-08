@@ -105,6 +105,11 @@ falsifiable: "if X is the cause, then Y will make the bug disappear / Z will mak
 it worse." Surface the ranked list before probing — a human or the wider team may
 re-rank it instantly with context you don't have.
 
+**A falsifier controls its variable from load** — pin it in the URL or config (`?autorotate=0`)
+before the run starts; switching it part-way through tests nothing (a yaw cause was wrongly ruled
+out after a 6 s wait). **A defect seen on one host gets a cross-host byte/URL comparison** before
+any environment theory: "blurry on staging previews" was a hard-coded `sizes` that shipped on main too.
+
 Instrument to test one hypothesis at a time, changing one variable per probe.
 Prefer a debugger or REPL when the environment supports it; otherwise use
 targeted logs at the boundaries that actually distinguish hypotheses. Never "log
