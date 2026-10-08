@@ -58,6 +58,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-registry-check.mjs\" PostToolUse"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
           }
         ]
       }
@@ -68,6 +72,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-registry-check.mjs\" UserPromptSubmit"
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
           }
         ]
       }
@@ -89,6 +97,15 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/session-journal.mjs\" open"
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
           }
         ]
       }
