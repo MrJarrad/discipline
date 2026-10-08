@@ -3,8 +3,8 @@
    (`scripts-not-agents`, 2026-09-22). Per target repo: copy this plugin's
    `doer-rules.md` into `.cursor/rules/doer-rules.mdc` via `sync-doer-rules.mjs`'s
    `syncInto`, skip a repo whose copy is already byte-identical, otherwise
-   branch `chore/doer-rules-<ver>`, commit, push, open a PR, wait for CI,
-   squash-merge, fast-forward the repo's own main, and remove the worktree.
+   branch `chore/doer-rules-<ver>`, commit, push, open a PR, refuse a
+   CONFLICTING one, squash-merge, fast-forward the repo's own main, and remove the worktree.
    Prints one table row per repo. Never edits product source outside
    `.cursor/rules/doer-rules.mdc`.
 

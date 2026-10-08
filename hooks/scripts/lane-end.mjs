@@ -43,7 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { canMerge, gateRunTail } from "./merge-after-review.mjs";
+import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, setRowStatus } from "./list-drift-check.mjs";
 
 export function parseArgs(argv) {
@@ -258,7 +258,8 @@ function main() {
       const [repo, num] = String(args.pr).split("#");
       const out = run("gh", ["pr", "view", num, "--repo", repo, "--json", "statusCheckRollup,mergeable,headRefOid,comments"]);
       const st = JSON.parse(out);
-      const tail = gateRunTail(st.comments, st.headRefOid);
+      st.trusted = trustedLogins(repo, (a) => run("gh", a));
+      const tail = gateRunTail(st.comments, st.headRefOid, st.trusted);
       console.log(`mergeable=${st.mergeable} gate-run tail ${tail ? tail.verdict : "absent"}`);
       const v = canMerge(st);
       if (!v.ok) failures.push(`pr gate: ${v.reason}`);

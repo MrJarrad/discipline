@@ -367,13 +367,19 @@ const H = "c".repeat(40);
 const body = (v, sha = H) => `<!-- gate-run-tail -->\\ngate-run: ${v} sha=${sha} exit=${v === "PASS" ? 0 : 1} cmd=t`;
 
 test("--pr: an empty GitHub rollup is not red when the PR records a passing gate-run tail", () => {
-  const r = runLaneEndPr(`{"statusCheckRollup":[],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"body":"${body("PASS")}"}]}`);
+  const r = runLaneEndPr(`{"statusCheckRollup":[],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"author":{"login":"owner"},"body":"${body("PASS")}"}]}`);
   assert.doesNotMatch(r.stderr, /pr gate/);
   assert.match(r.stdout, /gate-run tail PASS/);
 });
 
+test("--pr: a PASS tail from a stranger does not count (review r1 A1)", () => {
+  const r = runLaneEndPr(`{"statusCheckRollup":[],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"author":{"login":"rando"},"body":"${body("PASS")}"}]}`);
+  assert.match(r.stderr + r.stdout, /pr gate.*gate-run/s);
+  assert.match(r.stdout, /gate-run tail absent/);
+});
+
 test("--pr: a failed GitHub check is not red when the PR records a passing gate-run tail", () => {
-  const r = runLaneEndPr(`{"statusCheckRollup":[{"conclusion":"FAILURE"}],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"body":"${body("PASS")}"}]}`);
+  const r = runLaneEndPr(`{"statusCheckRollup":[{"conclusion":"FAILURE"}],"mergeable":"MERGEABLE","headRefOid":"${H}","comments":[{"author":{"login":"owner"},"body":"${body("PASS")}"}]}`);
   assert.doesNotMatch(r.stderr, /pr gate/);
 });
 
