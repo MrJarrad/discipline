@@ -39,3 +39,7 @@
 **Good:** Failing integration test → minimized to one API call → hypothesis #2 confirmed by a tagged log → regression test added at the correct seam → fix → debug logs grepped out.
 
 **Bad:** Read the stack trace → changed a null check → user reports still broken → repeat, no closer to the cause.
+
+### A falsifier and a one-host defect (2026-10-07)
+**Do:** load with the variable pinned (`?autorotate=0`) and compare the asset bytes and URLs across hosts before naming the environment.
+**Don't:** switch the variable off after a 6 s wait and call the cause ruled out, or read "blurry on staging" as a preview-build fault unmeasured.
