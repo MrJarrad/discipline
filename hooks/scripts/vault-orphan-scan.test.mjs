@@ -268,3 +268,20 @@ test("a .vault-bundle marker at the vault root is ignored, with a warning, rathe
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// 1.115.0: align with vault-lint.mjs SKIP_PREFIXES — the two mirror trees are not vault notes.
+test("estate/auto-memory and estate/repo-docs mirrors are not scanned; other estate notes still are", () => {
+  const root = makeVault();
+  try {
+    for (const dir of ["estate/auto-memory", "estate/repo-docs/repos/skillz", "estate/other"]) {
+      mkdirSync(join(root, dir), { recursive: true });
+    }
+    writeFileSync(join(root, "estate/auto-memory/MEMORY.md"), "# m\n", "utf8");
+    writeFileSync(join(root, "estate/repo-docs/repos/skillz/skillz-repo.md"), "# s\n", "utf8");
+    writeFileSync(join(root, "estate/other/note.md"), "# n\n", "utf8");
+    const orphans = scanVaultForOrphans(root).map((o) => o.split("/").slice(-2).join("/"));
+    assert.deepEqual(orphans, ["other/note.md"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

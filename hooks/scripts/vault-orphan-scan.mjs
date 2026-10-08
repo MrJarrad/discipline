@@ -13,7 +13,9 @@
    because Obsidian never resolves by `name:`. `.obsidian/` is excluded
    (tooling, not content notes) at any depth. `estate/` is NOT excluded —
    operator ruling 2026-08-25 (wired-for-real law): estate notes are wired
-   into the graph now and must stay checked like any other note.
+   into the graph now and must stay checked like any other note — except the
+   two mirror trees `estate/repo-docs` and `estate/auto-memory` (copies of
+   external content, skipped by vault-lint.mjs's SKIP_PREFIXES too).
 
    Deliberately narrow — link presence, not full Obsidian link resolution:
    no folder-scoped disambiguation between two same-named notes, no
@@ -42,6 +44,8 @@ import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const EXCLUDED_DIRS = new Set([".obsidian"]);
+// Root-relative mirror trees; same list as vault-lint.mjs SKIP_PREFIXES (mirrors only).
+const MIRROR_PREFIXES = ["estate/repo-docs", "estate/auto-memory"];
 const BUNDLE_MARKER = ".vault-bundle";
 
 // Recursively collects every .md file under root, skipping unreadable
@@ -70,6 +74,7 @@ function walkMarkdownFiles(root, opts, dir = root, out = []) {
   for (const entry of entries) {
     if (EXCLUDED_DIRS.has(entry.name)) continue;
     const full = join(dir, entry.name);
+    if (MIRROR_PREFIXES.includes(relative(root, full).split("\\").join("/"))) continue;
     if (entry.isDirectory()) {
       walkMarkdownFiles(root, opts, full, out);
     } else if (entry.isFile() && extname(entry.name) === ".md") {
