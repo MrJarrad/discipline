@@ -110,6 +110,23 @@ test("PreCompact(auto) leaves a marker; the compact that follows is automatic an
   rmSync(d, { recursive: true });
 });
 
+test("a stale PreCompact(auto) marker (compact never followed) does not make a later manual compact automatic", () => {
+  const d = fresh();
+  handle({ hook_event_name: "PreCompact", trigger: "auto", session_id: "s" }, { ...opts(d), now: 1_000_000 });
+  assert.equal(handle(compact(), { ...opts(d), now: 1_000_000 + 11 * 60_000 }), null);
+  assert.equal(markers(d).length, 0, "stale marker is consumed");
+  rmSync(d, { recursive: true });
+});
+
+test("a marker inside the 10-minute window is automatic; a legacy '1' marker is stale", () => {
+  const d = fresh();
+  handle({ hook_event_name: "PreCompact", trigger: "auto", session_id: "s" }, { ...opts(d), now: 1_000_000 });
+  assert.match(handle(compact(), { ...opts(d), now: 1_000_000 + 9 * 60_000 }), /automatic summary/);
+  writeFileSync(join(d, "discipline-context-fill-precompact-s"), "1");
+  assert.equal(handle(compact(), opts(d)), null);
+  rmSync(d, { recursive: true });
+});
+
 test("PreCompact(manual) writes no marker", () => {
   const d = fresh();
   handle({ hook_event_name: "PreCompact", trigger: "manual", session_id: "s" }, opts(d));

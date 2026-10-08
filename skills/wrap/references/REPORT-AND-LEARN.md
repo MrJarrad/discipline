@@ -105,3 +105,11 @@ replaced** (not the cockpit), one line per item reviewed across the three lanes:
 This list is the audit trail — the next session can check that mining
 actually happened this wrap, not just that the checkbox was ticked.
 
+
+## Follow-ups ship before wrap
+
+Ruling `follow-ups-before-wrap` (operator, 2026-10-08). Reviewer ambers and notes with a fix are follow-ups; the old default that they wait for the next change cost a whole session.
+
+- **Discipline plugin:** build, merge and install every follow-up found this session before wrap. They never "ride the next change".
+- **Other projects:** a follow-up the size of a `line` lane (`doer-rules.md` § Size class) ships in-session; anything bigger rides the next change on that surface.
+- **Wrap does not stall:** a follow-up that would need its own review round is banked as a backlog row and named in the wrap report.

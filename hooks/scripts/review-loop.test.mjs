@@ -50,9 +50,26 @@ test("reviewer names the one-round default, the two-round cap and the halt", () 
   assert.match(reviewer, /halt/i);
 });
 
-test("amber and note ride the next change rather than buying a round", () => {
-  assert.match(reviewer, /amber and note ride the next change on that surface/i);
-  assert.match(reviewer, /notes ledger/i);
+test("amber and note never buy a round; follow-ups ship per the 1.116.0 ruling", () => {
+  assert.match(reviewer, /amber and note are follow-ups/i);
+  assert.doesNotMatch(reviewer, /ride the next change/i);
+  assert.match(reviewer, /never buys a round/i);
+});
+
+test("follow-ups-before-wrap is encoded in the routing baton row and the wrap skill", () => {
+  const row = routing.split("\n").find((l) => /Reviewer returns \*\*amber/.test(l));
+  assert.ok(row, "amber baton row exists");
+  assert.match(row, /in-session/i);
+  assert.match(row, /before wrap/i);
+  assert.match(row, /§ Follow-ups/);
+  assert.doesNotMatch(row, /ride the next change/i);
+  assert.match(wrap, /Follow-ups ship before wrap/i);
+  const ref = read("skills/wrap/references/REPORT-AND-LEARN.md");
+  assert.match(ref, /Follow-ups ship before wrap/i);
+  assert.match(ref, /discipline plugin/i);
+  assert.match(ref, /backlog row/i);
+  assert.match(ref, /never "ride the next change"/i);
+  assert.match(ref, /`line`/);
 });
 
 test("routing's baton table halts the loop at the cap and presents to the operator", () => {

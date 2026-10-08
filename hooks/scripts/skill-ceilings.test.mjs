@@ -68,7 +68,9 @@ const CEILINGS = [
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
   // Ceiling raised 900 -> 920 at 1.114.0: § When to wrap (decision
   // `2026-10-08-proactive-wrap-at-90`) is the acting moment for the context-fill line.
-  { skill: "wrap", ceiling: 920, before: 3115, frontmatterWords: 85 },
+  // Ceiling raised 920 -> 930 at 1.116.0: the one-line pointer to § Follow-ups ship before wrap
+  // (ruling `follow-ups-before-wrap`); the rule text lives in references/REPORT-AND-LEARN.md.
+  { skill: "wrap", ceiling: 930, before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
