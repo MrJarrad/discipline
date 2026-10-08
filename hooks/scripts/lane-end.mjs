@@ -16,6 +16,15 @@
    and pushes; (5) if `--pr <owner/repo#n>` is given, prints the PR's
    `statusCheckRollup` conclusions and `mergeable`.
 
+   Lists never stale (ruling `lists-never-stale`, 2026-10-08): `--backlog <file in
+   vault> --backlog-row <n> --status "<status>"` flips that backlog row (status
+   must be in the fixed set; done/moot moves it under ## Done) in the SAME commit
+   as the queue row; `--backlog-add "<item>"` adds a new open row for a new
+   finding. After the commit and push, `list-drift-check.mjs` runs over the whole
+   vault (`--drift-repo <path>[,<path>]` supplies git history for PR lookups) and
+   a finding fails the exit code — never before the flip and evidence are
+   committed, so drift cannot lose the lane's own record.
+
    `--dry-run` prints the replacement and the commit message it would make —
    no write, no commit, no push, no sweep, no PR call.
 
@@ -33,6 +42,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { addRow, setRowStatus } from "./list-drift-check.mjs";
 
 export function parseArgs(argv) {
   const out = {};
@@ -157,13 +167,37 @@ function main() {
     process.exit(1);
   }
 
+  // 2b. Backlog flip / add — computed before any write so a refusal writes nothing.
+  let backlog = null;
+  if (args.backlog && (args["backlog-row"] || args["backlog-add"])) {
+    const bpath = join(args.vault, String(args.backlog));
+    let btext;
+    try { btext = readFileSync(bpath, "utf8"); } catch (err) {
+      console.error(`lane-end: cannot read ${bpath}: ${err.message}`);
+      process.exit(1);
+    }
+    const edit = args["backlog-add"]
+      ? addRow(btext, String(args["backlog-add"]), String(args.raised || new Date().toISOString().slice(0, 10)))
+      : setRowStatus(btext, args["backlog-row"], String(args.status || ""));
+    if (!edit.ok) {
+      console.error(`lane-end: did not edit the backlog — ${edit.reason}`);
+      process.exit(1);
+    }
+    backlog = { path: bpath, text: edit.text };
+  } else if (args["backlog-row"] || args["backlog-add"] || args.status) {
+    console.error("lane-end: --backlog <file> is required with --backlog-row / --backlog-add / --status");
+    process.exit(1);
+  }
+
   if (dryRun) {
+    if (backlog) console.log(`[dry-run] would edit backlog ${args.backlog}`);
     console.log(`[dry-run] would replace row ${args.row} in section "${args.section}" with:\n  ${args.text}`);
     console.log(`[dry-run] would commit: queue: row ${args.row} landed`);
     process.exit(0);
   }
 
   writeFileSync(queuePath, replaced.text, "utf8");
+  if (backlog) writeFileSync(backlog.path, backlog.text, "utf8");
 
   // 3. Grep the write back.
   try {
@@ -184,12 +218,22 @@ function main() {
   // 4. Commit + push (queue file + evidence dir only, never a broad add).
   try {
     const addPaths = [queuePath];
+    if (backlog) addPaths.push(backlog.path);
     if (args.evidence) addPaths.push(args.evidence);
     run("git", ["add", ...addPaths], { cwd: args.vault });
     run("git", ["commit", "-m", `queue: row ${args.row} landed`], { cwd: args.vault });
     run("git", ["push"], { cwd: args.vault });
   } catch (err) {
     failures.push(`commit/push: ${err.message}`);
+  }
+
+  // 4b. Drift check over every backlog and the queue, after the record is committed.
+  try {
+    const driftArgs = [join(scriptDir, "list-drift-check.mjs"), "--vault", args.vault];
+    if (args["drift-repo"]) driftArgs.push("--repo", String(args["drift-repo"]));
+    console.log(run("node", driftArgs));
+  } catch (err) {
+    failures.push(`list drift:\n${err.stdout || err.message}`);
   }
 
   // 5. PR status, if named.

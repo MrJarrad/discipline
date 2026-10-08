@@ -7,8 +7,8 @@
 // Run: node --test hooks/scripts/lane-end.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -288,4 +288,49 @@ test("--then-merge without --repo fails loud, naming the missing flag", () => {
     rmSync(binDir, { recursive: true, force: true });
     rmSync(sessionDir, { recursive: true, force: true });
   }
+});
+
+// --- lists never stale (ruling lists-never-stale, 2026-10-08): the backlog row
+// flips in the same action as its event; a drift finding fails the exit code but
+// never loses the lane's own record.
+
+const BACKLOG_TEXT = "## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| 1 | thing | d | in flight (#7) |\n| 2 | other | d | in flight (#7) |\n\n## Done\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
+
+function laneEndWithBacklog(extra) {
+  const vault = makeVaultWithQueue();
+  mkdirSync(join(vault, "projects", "p"), { recursive: true });
+  writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+  execFileSync("git", ["-C", vault, "add", "."]);
+  execFileSync("git", ["-C", vault, "commit", "-q", "-m", "backlog"]);
+  execFileSync("git", ["-C", vault, "push", "-q"]);
+  const repo = makeTargetRepoWithPr();
+  execFileSync("git", ["-C", repo, "commit", "-q", "--allow-empty", "-m", "thing (#7)"]);
+  const sha = execFileSync("git", ["-C", repo, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--row", "1", "--section", "Discipline", "--text", "1. landed",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "1", "--status", `done (#7 ${sha})`, "--drift-repo", repo, ...extra], { encoding: "utf8" });
+  return { vault, r, sha };
+}
+
+test("lane-end flips the backlog row to done in the lane's own commit, then fails on remaining drift", () => {
+  const { vault, r, sha } = laneEndWithBacklog([]);
+  const text = readFileSync(join(vault, "projects", "p", "p-backlog.md"), "utf8");
+  assert.match(text, new RegExp(`\\| 1 \\| thing \\| d \\| done \\(#7 ${sha}\\) \\|`));
+  assert.ok(text.indexOf("| 1 | thing") > text.indexOf("## Done"), "row moved under Done");
+  const files = execFileSync("git", ["-C", vault, "show", "--name-only", "--format=", "HEAD"], { encoding: "utf8" });
+  assert.match(files, /operator-queue\.md/);
+  assert.match(files, /p-backlog\.md/);
+  assert.equal(r.status, 1, "row 2 still in flight on a merged PR: drift fails the exit");
+  assert.match(r.stderr + r.stdout, /drift projects\/p\/p-backlog\.md row 2/);
+});
+
+test("lane-end refuses a status outside the fixed set before writing anything", () => {
+  const vault = makeVaultWithQueue();
+  mkdirSync(join(vault, "projects", "p"), { recursive: true });
+  writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+  const r = spawnSync("node", [scriptPath, "--session-dir", tmpdir(), "--vault", vault, "--row", "1", "--section", "Discipline", "--text", "1. x",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "1", "--status", "DONE yesterday"], { encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /outside the fixed set/);
+  assert.match(readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"), /1\. old row/);
 });

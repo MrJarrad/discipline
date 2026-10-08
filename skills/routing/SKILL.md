@@ -42,23 +42,22 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 11. **Dispatch on the completion notification only** — resume prompts are noise; re-sending double-dispatches. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
 13. **CI runs the full suite/build once per PR, never inside each lane** — a lane's own gates
     are only the touched ones its size class names (`doer-rules.md` § Size class). **The
-    parent runs `lane-sweep.mjs` on every completion notification**; a lane stops only its
-    own pids. **A full suite over the Bash tool's foreground timeout is its own gate-run
-    lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` §
-    Repo and safety; hoverboard rounds 14–15, item 3).
+    parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the
+    Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never
+    run from the parent shell** (`doer-rules.md` § Repo and safety).
+14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`).
 
 ## Resume vs fresh (read before any baton row)
 
 **Resume only to fix a red on the same sha, or to continue after a doer read-back** — those
-are the only two non-fresh continuations. A doer read-back stops the same agent inline; the
-parent's answer/go continues it **in the same context**, not a new `Agent` call
-(`doer-rules.md` § You are the doer). **Everything else is a
+are the only two non-fresh continuations (a read-back continues in the same context,
+`doer-rules.md` § You are the doer). **Everything else is a
 fresh `Agent`**, artefacts named by path. **A lane found stopped or interrupted (session
 end, crash, a completion notification carrying a stopped status) is never resumed** — the
 parent reads the worktree diff and the progress file directly, then dispatches a fresh
 `Agent` whose first instructed step commits any leftover WIP (explicit paths, never a
 stash) and re-verifies it as an untrusted claim before building on it
-(`lanes-survive-interruption`, 2026-09-25). Full rule: [HARD-RULES.md](references/HARD-RULES.md).
+(`lanes-survive-interruption`, 2026-09-25).
 
 ## Baton handoff table
 
@@ -70,15 +69,15 @@ stash) and re-verifies it as an untrusted claim before building on it
 | Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
-| Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (`wrap` § Follow-ups) |
+| Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |
 | **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `orchestrator/operator-queue.md` row |
 | **Doer returns "already satisfied/true" on an operator-raised row** | **Parent** reproduces at the operator's own framing before relaying — a claim, not a result (2026-09-23, `reproduce-lane-already-works-before-relay`) |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
-| **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume; first step commits leftover WIP (explicit paths) and re-verifies it as untrusted (`lanes-survive-interruption`, 2026-09-25) |
-| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, evidence commit + push, PR CI read, one deterministic call (`spend-levers` rule 5, 2026-09-22) |
+| **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume (`lanes-survive-interruption`, Resume section above) |
+| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR CI read — one call (`spend-levers` rule 5, `lists-never-stale`) |
 | **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
 ## Rung ladder (name the rung before dispatch)
