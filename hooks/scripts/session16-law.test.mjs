@@ -109,8 +109,6 @@ test("1.124.0: CHANGED entry", () => {
   assert.match(read("CHANGED.txt"), /^1\.124\.0 — .*standdown-ambers/m);
 });
 
-test("1.125.0: version and CHANGED entry", () => {
-  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.125.0"/);
-  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.125.0"/);
+test("1.125.0: CHANGED entry", () => {
   assert.match(read("CHANGED.txt"), /^1\.125\.0 — .*wrapped-stays-quiet/m);
 });
