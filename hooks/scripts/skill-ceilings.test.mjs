@@ -138,7 +138,7 @@ const RATCHETS = [
   { skill: "model-routing", ceiling: 1690 }, // 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
   { skill: "present-for-review", ceiling: 1700 }, // 1661 words at 1.111.0; 1699 at 1.113.0 (parent-views-evidence + cloud preview alias pointers)
   { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
-  { skill: "qa-acceptance", ceiling: 1700 }, // 1699 words at 1.111.0
+  { skill: "qa-acceptance", ceiling: 1730 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line)
   { skill: "cloud-dispatch", ceiling: 1640 }, // 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
 ];
 

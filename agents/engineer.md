@@ -118,7 +118,8 @@ it. House law, whole: `skills/handoff-to-code/references/coverage-ledger.md` (op
 
 **`status: match` means you saw it paint.** Each built region carries a headed screenshot at
 the operator's viewport and at each breakpoint family with a pixel assertion on that region; a
-`getComputedStyle` read is not proof.
+`getComputedStyle` read is not proof. On a look lane that proof runs after the operator's yes; the link
+goes when the preview opens hydrated with no error (`link-first-look-rounds`).
 
 **A value drift resolves to the export, and is not a question.** Where the export and the
 code disagree on a value, rebind to the export and list the row as resolved-to-export. You

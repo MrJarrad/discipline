@@ -1,4 +1,4 @@
-# Accuracy in the brief — one contract unit per lane, pixel proof in done-when
+# Accuracy in the brief — one contract unit per lane, pixel proof after the yes
 
 Operator ruling 2026-09-20, `accuracy-before-the-link`: *"We need to fix the discipline. So we
 aren't in this situation. How do we build more accurately to begin with. You also used open on
@@ -36,11 +36,13 @@ eight row classes). Screenshots and pixel diffs prove look, not function
 
 ## Pixel proof at the operator's framing
 
-A built region's done-when is a **headed screenshot at the operator's viewport and at each
+A built region's after-yes proof is a **headed screenshot at the operator's viewport and at each
 breakpoint family, with a pixel assertion on that region**. A `getComputedStyle` read proves a
 declaration exists, not that anything painted — a footer that never painted passed
 computed-style checks three rounds running.
 
-The proof sits in the doer's return, **before** the preview link goes out; it never delays the
-link and it never reviews how the region looks. The operator remains the visual gate
+Look rounds are link-first (`link-first-look-rounds`, 2026-10-09, superseding the before-the-link half
+of `accuracy-before-the-link`): the lane's done-when is the preview opening hydrated with no error and
+the link sent; this proof, the build-vs-export audit and scenario sweeps run **after the operator's yes**,
+sized to what merge needs. The proof never delays the link and it never reviews how the region looks. The operator remains the visual gate
 (`doer-rules.md` § Fixed evidence return; `present-for-review`).

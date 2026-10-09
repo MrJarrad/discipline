@@ -147,6 +147,8 @@ driven with **real mouse and keyboard input** against the running build, asserti
 **opens, picks, applies** (the value changes and the thing it governs responds). Screenshots and pixel
 diffs prove look, never function; a control type with no driven row is a missing row, red.
 
+**On a look lane the ledger's measured rows and pixel proof run after the operator's yes** (`link-first-look-rounds`, 2026-10-09); before the link the gate is the preview opening hydrated, no error.
+
 The reviewer's spot check **samples across classes, never several rows from one** — one
 row per class at minimum, never five rows from class 1 standing in for the other seven
 (`agents/reviewer.md`).
