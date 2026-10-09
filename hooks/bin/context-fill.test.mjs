@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { contextTokens, handle } from "./context-fill.mjs";
+import { contextTokens, handle, markWrapped } from "./context-fill.mjs";
 
 // Fixture lines mirror a real transcript's assistant usage block (Claude Code jsonl).
 const assistant = (read, created = 0, input = 2, extra = {}) => JSON.stringify({
@@ -208,5 +208,39 @@ test("the default wrap line is 70%: 700k of 1M nudges, 690k does not", () => {
   const at = (n) => handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: transcript(d, [assistant(n)]) }, { window: 1_000_000, dir: d });
   assert.equal(at(690_000), null);
   assert.match(at(700_000), /700k of 1000k \(70%\), past the 70% wrap line/);
+  rmSync(d, { recursive: true });
+});
+
+test("a wrapped session stays silent past the line on every event, until the operator writes again", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(750_000)]);
+  const ev = (name) => ({ hook_event_name: name, session_id: "s", transcript_path: p });
+  markWrapped("s", { dir: d });
+  assert.equal(handle(ev("PostToolUse"), opts(d)), null);
+  assert.equal(handle({ hook_event_name: "SessionStart", source: "compact", session_id: "s" }, opts(d)), null);
+  assert.equal(handle(ev("PostToolUse"), opts(d)), null);
+  // another session is unaffected
+  assert.ok(handle({ ...ev("PostToolUse"), session_id: "other" }, opts(d)));
+  // an operator prompt reopens the session: it nudges again
+  assert.ok(handle(ev("UserPromptSubmit"), opts(d)));
+  rmSync(d, { recursive: true });
+});
+
+test("the nudge names the session id and the command that records the wrap", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(750_000)]);
+  const m = handle({ hook_event_name: "UserPromptSubmit", session_id: "abc-1", transcript_path: p }, opts(d));
+  assert.match(m, /context-fill\.mjs" --wrapped abc-1/);
+  rmSync(d, { recursive: true });
+});
+
+test("the CLI --wrapped <session> writes the marker the hook honours", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(750_000)]);
+  const script = new URL("./context-fill.mjs", import.meta.url).pathname;
+  const run = spawnSync("node", [script, "--wrapped", "s9"], { env: { ...process.env, TMPDIR: d }, encoding: "utf8" });
+  assert.equal(run.status, 0);
+  const out = spawnSync("node", [script], { input: JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s9", transcript_path: p }), env: { ...process.env, TMPDIR: d }, encoding: "utf8" });
+  assert.equal(out.stdout, "");
   rmSync(d, { recursive: true });
 });

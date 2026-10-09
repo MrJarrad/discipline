@@ -88,8 +88,25 @@ test("cloud-dispatch: one-shot shape is create disabled, model, get, run, confir
   assert.doesNotMatch(c, /with top-level `run_once_at` \(/);
 });
 
-test("1.123.0: version and CHANGED entry", () => {
-  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.123.0"/);
-  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.123.0"/);
+test("1.123.0: CHANGED entry", () => {
   assert.match(read("CHANGED.txt"), /^1\.123\.0 — .*wrap-70-quiet/m);
+});
+
+test("1.124.0: stand-down lists open PRs first, disables never deletes, records the wrap for the hook", () => {
+  const c = flat("skills/wrap/references/CLOSING-CHECKS.md");
+  assert.match(c, /List every open PR \(number, branch\) and every running lane \(run id\) in the handover\. This comes first, before any monitor is switched off/);
+  assert.match(c, /Disable, never delete, the transient and watcher routines/);
+  assert.match(c, /`enabled: false`/);
+  assert.match(c, /deleting a routine also deletes its run sessions/);
+  assert.match(c, /A routine the operator asked for as recurring stays enabled; name it in the handover/);
+  assert.doesNotMatch(c, /`delete_trigger`/);
+  assert.match(c, /context-fill\.mjs" --wrapped <session_id>/);
+  assert.match(flat("skills/wrap/SKILL.md"), /disable \(never delete\) its routines/);
+  assert.match(read("hooks/bin/context-fill.mjs"), /wrapped-\$\{/);
+});
+
+test("1.124.0: version and CHANGED entry", () => {
+  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.124.0"/);
+  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.124.0"/);
+  assert.match(read("CHANGED.txt"), /^1\.124\.0 — .*standdown-ambers/m);
 });

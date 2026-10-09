@@ -14,14 +14,20 @@
    Window: DISCIPLINE_CONTEXT_WINDOW, else by model id (`[1m]` 1M, haiku 200k, default 1M).
    Manual vs automatic compact: PreCompact(auto) leaves a marker that
    SessionStart(compact) consumes (the marker holds its write time; older than 10 minutes counts as manual); SessionEnd and compact delete the session markers.
+   Wrapped sessions go quiet (ruling `wrapped-sessions-go-quiet`): `context-fill.mjs --wrapped <session_id>`
+   (wrap's last stand-down step) writes a wrapped marker; while it exists every event stays silent. A
+   UserPromptSubmit is the operator writing again, so it clears the marker and the session is live.
    Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.7).
    Dry-run: node context-fill.mjs < input.json */
-import { closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const TAIL_BYTES = 4 * 1024 * 1024;
 const ACTION = "Finish in-flight merges, then run `wrap` unprompted and tell the operator in one line (`wrap` § When to wrap).";
+const actionFor = (sid) => sid
+  ? `${ACTION} Wrap's last step records it: node "$\{CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs" --wrapped ${sid}`
+  : ACTION;
 
 // {tokens, model} of the last main-thread assistant turn in a transcript's text, or null.
 export function contextReading(text) {
@@ -70,6 +76,15 @@ function readTail(path) {
   } finally { closeSync(fd); }
 }
 
+const wrappedPath = (dir, sid) => join(dir, `${PREFIX}wrapped-${sid}`);
+
+// Record that a session has wrapped; its hooks stay silent until the operator writes again.
+export function markWrapped(sessionId, { dir = tmpdir() } = {}) {
+  const sid = safeSid(sessionId);
+  if (!sid) return false;
+  try { writeFileSync(wrappedPath(dir, sid), String(Date.now())); return true; } catch { return false; }
+}
+
 const readdirSafe = (d) => { try { return readdirSync(d); } catch { return []; } };
 const k = (n) => `${Math.round(n / 1000)}k`;
 
@@ -82,6 +97,8 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   if (!input || input.agent_id) return null;
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
+  if (sid && event === "UserPromptSubmit") remove(dir, (f) => f === `${PREFIX}wrapped-${sid}`);
+  else if (sid && event !== "SessionEnd" && existsSync(wrappedPath(dir, sid))) return null;
   if (event === "PreCompact") {
     if (input.trigger === "auto" && sid) {
       try { writeFileSync(join(dir, `${PREFIX}precompact-${sid}`), String(now)); } catch { /* best effort */ }
@@ -89,7 +106,7 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
     return null;
   }
   if (event === "SessionEnd") {
-    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
+    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     return null;
   }
   if (event === "SessionStart") {
@@ -105,7 +122,7 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
       remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     }
     return automatic
-      ? `Context fill: an automatic summary just ran, so this session reached its context limit. ${ACTION}`
+      ? `Context fill: an automatic summary just ran, so this session reached its context limit. ${actionFor(sid)}`
       : null;
   }
   if (event !== "UserPromptSubmit" && event !== "PostToolUse") return null;
@@ -120,10 +137,12 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
     if (!sid) return null;
     try { writeFileSync(join(dir, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); } catch { return null; }
   }
-  return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%), past the ${Math.round(wrapAt * 100)}% wrap line. ${ACTION}`;
+  return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%), past the ${Math.round(wrapAt * 100)}% wrap line. ${actionFor(sid)}`;
 }
 
 function main() {
+  const i = process.argv.indexOf("--wrapped");
+  if (i > 0) { process.exitCode = markWrapped(process.argv[i + 1]) ? 0 : 1; return; }
   let input;
   try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   const window = Number(process.env.DISCIPLINE_CONTEXT_WINDOW) || undefined;
