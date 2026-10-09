@@ -211,7 +211,7 @@ test("the default wrap line is 70%: 700k of 1M nudges, 690k does not", () => {
   rmSync(d, { recursive: true });
 });
 
-test("a wrapped session stays silent past the line on every event, until the operator writes again", () => {
+test("a wrapped session stays silent past the line on every event, even when the operator writes again", () => {
   const d = fresh();
   const p = transcript(d, [assistant(750_000)]);
   const ev = (name) => ({ hook_event_name: name, session_id: "s", transcript_path: p });
@@ -221,8 +221,33 @@ test("a wrapped session stays silent past the line on every event, until the ope
   assert.equal(handle(ev("PostToolUse"), opts(d)), null);
   // another session is unaffected
   assert.ok(handle({ ...ev("PostToolUse"), session_id: "other" }, opts(d)));
-  // an operator prompt reopens the session: it nudges again
-  assert.ok(handle(ev("UserPromptSubmit"), opts(d)));
+  // a reopened session (operator prompt) is not re-nudged to wrap at 75%, now or later
+  assert.equal(handle(ev("UserPromptSubmit"), opts(d)), null);
+  assert.equal(handle(ev("UserPromptSubmit"), opts(d)), null);
+  assert.equal(handle(ev("PostToolUse"), opts(d)), null);
+  rmSync(d, { recursive: true });
+});
+
+test("a wrapped session gets exactly one nudge at 90% fill, then silence", () => {
+  const d = fresh();
+  const ev = (name, p) => ({ hook_event_name: name, session_id: "s", transcript_path: p });
+  markWrapped("s", { dir: d });
+  const at89 = transcript(d, [assistant(899_000)]);
+  assert.equal(handle(ev("UserPromptSubmit", at89), opts(d)), null);
+  const at90 = transcript(d, [assistant(905_000)]);
+  const m = handle(ev("UserPromptSubmit", at90), opts(d));
+  assert.match(m, /905k of 1000k \(91%\)/);
+  assert.match(m, /compact/i);
+  assert.doesNotMatch(m, /--wrapped/);
+  assert.equal(handle(ev("UserPromptSubmit", at90), opts(d)), null);
+  assert.equal(handle(ev("PostToolUse", at90), opts(d)), null);
+  // another wrapped session still gets its own
+  markWrapped("t", { dir: d });
+  assert.ok(handle({ ...ev("PostToolUse", at90), session_id: "t" }, opts(d)));
+  // SessionEnd clears the one-shot marker
+  handle({ hook_event_name: "SessionEnd", session_id: "s" }, opts(d));
+  markWrapped("s", { dir: d });
+  assert.ok(handle(ev("UserPromptSubmit", at90), opts(d)));
   rmSync(d, { recursive: true });
 });
 

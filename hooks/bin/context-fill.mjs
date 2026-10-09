@@ -15,8 +15,10 @@
    Manual vs automatic compact: PreCompact(auto) leaves a marker that
    SessionStart(compact) consumes (the marker holds its write time; older than 10 minutes counts as manual); SessionEnd and compact delete the session markers.
    Wrapped sessions go quiet (ruling `wrapped-sessions-go-quiet`): `context-fill.mjs --wrapped <session_id>`
-   (wrap's last stand-down step) writes a wrapped marker; while it exists every event stays silent. A
-   UserPromptSubmit is the operator writing again, so it clears the marker and the session is live.
+   (wrap's last stand-down step) writes a wrapped marker; for the rest of that session the wrap nudge
+   stays silent, even when the operator reopens it with a prompt (ruling `wrapped-sessions-go-quiet`,
+   1.125.0). One exception: a single warning at 90% fill (once per session, marker
+   `wrapped-warned-<sid>`), so a reopened session hears of the compaction. SessionEnd deletes both.
    Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.7).
    Dry-run: node context-fill.mjs < input.json */
 import { closeSync, existsSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
@@ -78,7 +80,7 @@ function readTail(path) {
 
 const wrappedPath = (dir, sid) => join(dir, `${PREFIX}wrapped-${sid}`);
 
-// Record that a session has wrapped; its hooks stay silent until the operator writes again.
+// Record that a session has wrapped; its wrap nudge stays silent for the rest of the session (one 90% warning aside).
 export function markWrapped(sessionId, { dir = tmpdir() } = {}) {
   const sid = safeSid(sessionId);
   if (!sid) return false;
@@ -92,13 +94,14 @@ const k = (n) => `${Math.round(n / 1000)}k`;
 // The PreCompact(auto) marker holds its write time; one older than MARKER_TTL_MS means
 // the compact never followed (blocked or failed), so it proves nothing.
 const MARKER_TTL_MS = 10 * 60_000;
+const WRAPPED_WARN_AT = 0.9;
 
 export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
   if (!input || input.agent_id) return null;
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
-  if (sid && event === "UserPromptSubmit") remove(dir, (f) => f === `${PREFIX}wrapped-${sid}`);
-  else if (sid && event !== "SessionEnd" && existsSync(wrappedPath(dir, sid))) return null;
+  const wrapped = Boolean(sid) && existsSync(wrappedPath(dir, sid));
+  if (wrapped && event !== "SessionEnd" && event !== "UserPromptSubmit" && event !== "PostToolUse") return null;
   if (event === "PreCompact") {
     if (input.trigger === "auto" && sid) {
       try { writeFileSync(join(dir, `${PREFIX}precompact-${sid}`), String(now)); } catch { /* best effort */ }
@@ -106,7 +109,7 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
     return null;
   }
   if (event === "SessionEnd") {
-    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
+    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || f === `${PREFIX}wrapped-warned-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     return null;
   }
   if (event === "SessionStart") {
@@ -131,8 +134,14 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   if (!reading) return null;
   const { tokens } = reading;
   window = window || windowFor(reading.model, tokens);
-  if (tokens / window < wrapAt) return null;
   const pct = Math.round((tokens / window) * 100);
+  if (wrapped) {
+    // Already wrapped: silent, except one warning at 90% so a reopened session hears of the compaction.
+    if (tokens / window < WRAPPED_WARN_AT) return null;
+    try { writeFileSync(join(dir, `${PREFIX}wrapped-warned-${sid}`), "1", { flag: "wx" }); } catch { return null; }
+    return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%). This session is already wrapped; automatic compaction is close. Tell the operator in one line to start a fresh session or compact.`;
+  }
+  if (tokens / window < wrapAt) return null;
   if (event === "PostToolUse") {
     if (!sid) return null;
     try { writeFileSync(join(dir, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); } catch { return null; }

@@ -100,6 +100,6 @@ Run after the report and the final push, because it silences the session. Never 
 2. Stop every background watcher and scheduled wakeup this session armed (`TaskStop`, `unwatch_url`, pending `send_later`).
 3. Disable, never delete, the transient and watcher routines and crons this session created (`update_trigger` with `enabled: false`, `CronDelete` for session crons); deleting a routine also deletes its run sessions, which are evidence. A routine the operator asked for as recurring stays enabled; name it in the handover. A fired-once trigger needs nothing.
 4. `unsubscribe_pr_activity` for every PR it subscribed, and switch off any CI monitor it bound.
-5. Record the wrap for the hook: `node "${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs" --wrapped <session_id>` (the id is in the context-fill nudge). The 70% nudge stays silent while the marker exists; the operator's next message clears it.
+5. Record the wrap for the hook: `node "${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs" --wrapped <session_id>` (the id is in the context-fill nudge). The 70% nudge stays silent for the rest of that session, even if the operator reopens it; one warning at 90% fill still fires, once.
 6. Write "wrapped — inactive" in the handover, with where work continues.
 7. From here, an automated event gets no action. At most one line: "Wrapped — this session is inactive; work continues in <next session / handover>." No queue reprint, no announcement on shared PRs. Only a genuine operator message reopens the session.
