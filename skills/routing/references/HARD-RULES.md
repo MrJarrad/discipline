@@ -155,7 +155,7 @@ and queued the chat as the doer — that hatch is deleted.
    `wrap` — wrap remains the full session close.
 13. **The full suite/build runs once per PR in a cloud gate-run lane (no GitHub Actions on private repos), its tail posted on the PR — never inside each lane.** A lane's own
    gates are only the touched ones its size class names (`doer-rules.md` § Size class).
-   The parent runs `lane-sweep.mjs` on every completion notification. A full suite over
+   The parent runs `lane-sweep.mjs` on every completion notification, and for a landed or stopped lane also `lane-sweep.mjs --clean-artifacts <worktree>...`, which removes that worktree's `node_modules` and `.next` and refuses a root clone, so source and the shared DS clone are never touched. Before a dispatch the parent reads free disk (`cloud-dispatch` § Disk before dispatch). A full suite over
    the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled,
    never run from the parent shell (`doer-rules.md` § Repo and safety), and it posts its tail on the PR (`doer-rules.md` § Gate-run tail). A lane stops
    only its own pids (`doer-rules.md` § Repo and safety).

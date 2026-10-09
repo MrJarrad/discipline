@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -163,4 +163,47 @@ test("CLI: --dry-run reports the purge but leaves the registry untouched", () =>
   });
   assert.match(result.stdout, /action=would purge/);
   assert.deepEqual(loadRegistry(registryPath), entries);
+});
+
+// --- --clean-artifacts (backlog 157) ---------------------------------------
+
+function fakeLane(root, name, gitAsFile) {
+  const d = join(root, name);
+  mkdirSync(join(d, "node_modules", "x"), { recursive: true });
+  mkdirSync(join(d, ".next"), { recursive: true });
+  mkdirSync(join(d, "src"), { recursive: true });
+  writeFileSync(join(d, "src", "a.ts"), "keep");
+  if (gitAsFile) writeFileSync(join(d, ".git"), "gitdir: /elsewhere");
+  else mkdirSync(join(d, ".git"));
+  return d;
+}
+
+test("--clean-artifacts removes node_modules and .next from a linked worktree, keeps source", () => {
+  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const wt = fakeLane(root, "lane", true);
+  const r = spawnSync("node", [sweep, "--clean-artifacts", wt], { encoding: "utf8" });
+  assert.equal(r.status, 0);
+  assert.equal(existsSync(join(wt, "node_modules")), false);
+  assert.equal(existsSync(join(wt, ".next")), false);
+  assert.equal(existsSync(join(wt, "src", "a.ts")), true);
+});
+
+test("--clean-artifacts refuses a root clone (.git is a directory) and a non-git path", () => {
+  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const clone = fakeLane(root, "root-clone", false);
+  const plain = join(root, "plain");
+  mkdirSync(join(plain, "node_modules"), { recursive: true });
+  const r = spawnSync("node", [sweep, "--clean-artifacts", clone, plain], { encoding: "utf8" });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /action=refused/);
+  assert.equal(existsSync(join(clone, "node_modules")), true);
+  assert.equal(existsSync(join(plain, "node_modules")), true);
+});
+
+test("--clean-artifacts --dry-run removes nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const wt = fakeLane(root, "lane", true);
+  const r = spawnSync("node", [sweep, "--clean-artifacts", wt, "--dry-run"], { encoding: "utf8" });
+  assert.match(r.stdout, /would remove/);
+  assert.equal(existsSync(join(wt, "node_modules")), true);
 });

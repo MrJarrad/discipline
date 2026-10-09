@@ -145,6 +145,18 @@ and leave it disabled (it already is — `enabled` never changes). If the routin
 grows long, the operator can delete entries via the claude.ai UI; that surface is not
 API-reachable from a session.
 
+## Disk before dispatch
+
+Worktree `node_modules` hardlink into the pnpm store on the same disk, and `.next` adds
+up to 1 GB a lane. Before each dispatch the parent reads `df -h /home/user` and `du -sh`
+of the live worktrees and decides from the numbers. Default (adjustable, reason in the
+handover): dispatch here only if free disk minus the largest live worktree leaves at
+least 5 GB, enough for one more lane of the biggest size. Below it, run the lane-end
+sweep (`routing` HARD-RULES 13), re-read, and if still short send the heavy lane to a
+child cloud session (`create_session`) carrying the brief. The operator is never asked to
+move sessions for disk. The shared DS root clone is never switched or regenerated in
+(`dispatch-brief` HOUSE-RULES).
+
 ## Concurrency law
 
 A session only creates, mutates, or deletes routines **it created this session**,

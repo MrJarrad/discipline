@@ -25,6 +25,14 @@
    Usage:
      node lane-sweep.mjs --session-dir <path> [--dry-run]
      node lane-sweep.mjs --worktrees <repo> [--dry-run]
+     node lane-sweep.mjs --clean-artifacts <worktree>... [--dry-run]
+
+   `--clean-artifacts` mode (backlog 157, lesson `cloud-shared-clone-and-disk`,
+   2026-10-09): for a landed or stopped lane, removes `node_modules` and `.next`
+   from each named worktree and nothing else. A target must be a linked worktree
+   (its `.git` is a FILE); a root clone (`.git` is a directory), a path with no
+   `.git`, or a symlink is refused, so source and the shared design-system root
+   clone are never touched.
 
    `--worktrees <repo>` mode (ruling `eight-class-ledger` / lesson
    `never-remove-a-worktree-by-pattern`, 2026-09-21): lists worktrees under
@@ -41,8 +49,8 @@
    would otherwise sit in the registry forever, nagging on every check.
 */
 import { execFileSync } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { existsSync, lstatSync, rmSync, statSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import { withRegistryLock } from "../bin/progress-registry.mjs";
 
 // --- pure matcher: testable with a fake process/port table -----------------
@@ -351,6 +359,49 @@ function runWorktreeSweep(repo, dryRun) {
   process.exit(0);
 }
 
+// --- artifact mode (backlog 157): drop rebuildable node_modules/.next ----------
+
+export const REBUILDABLE_DIRS = ["node_modules", ".next"];
+
+/** Why a path may not be cleaned, or null when it is a linked worktree. */
+export function artifactRefusal(path) {
+  let git;
+  try {
+    git = lstatSync(join(path, ".git"));
+  } catch {
+    return "no .git: not a git worktree";
+  }
+  if (git.isDirectory()) return "root clone (.git is a directory): never a target";
+  return git.isFile() ? null : "unexpected .git entry";
+}
+
+function runArtifactSweep(paths, dryRun) {
+  for (const raw of paths) {
+    const path = resolve(raw);
+    const refusal = artifactRefusal(path);
+    if (refusal) {
+      console.log(`worktree=${path} action=refused reason="${refusal}"`);
+      continue;
+    }
+    for (const name of REBUILDABLE_DIRS) {
+      const dir = join(path, name);
+      let st;
+      try {
+        st = lstatSync(dir);
+      } catch {
+        continue;
+      }
+      if (st.isSymbolicLink()) {
+        console.log(`worktree=${path} dir=${name} action=refused reason="symlink"`);
+        continue;
+      }
+      console.log(`worktree=${path} dir=${name} action=${dryRun ? "would remove" : "removed"}`);
+      if (!dryRun) rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  process.exit(0);
+}
+
 // --- registry backstop (progress-hooks fix round, 2026-09-27) ---------------
 
 export const REGISTRY_STALE_MS = 24 * 60 * 60 * 1000;
@@ -403,17 +454,25 @@ function sweepStaleRegistryEntries(dryRun) {
 // --- main --------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const args = { sessionDir: null, dryRun: false, worktreesRepo: null };
+  const args = { sessionDir: null, dryRun: false, worktreesRepo: null, artifactPaths: null };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--session-dir") args.sessionDir = argv[++i];
     else if (argv[i] === "--dry-run") args.dryRun = true;
     else if (argv[i] === "--worktrees") args.worktreesRepo = argv[++i];
+    else if (argv[i] === "--clean-artifacts") {
+      args.artifactPaths = [];
+      while (i + 1 < argv.length && !argv[i + 1].startsWith("--")) args.artifactPaths.push(argv[++i]);
+    }
   }
   return args;
 }
 
 function main() {
-  const { sessionDir, dryRun, worktreesRepo } = parseArgs(process.argv.slice(2));
+  const { sessionDir, dryRun, worktreesRepo, artifactPaths } = parseArgs(process.argv.slice(2));
+  if (artifactPaths) {
+    runArtifactSweep(artifactPaths, dryRun);
+    return;
+  }
   if (worktreesRepo) {
     runWorktreeSweep(resolve(worktreesRepo), dryRun);
     return;

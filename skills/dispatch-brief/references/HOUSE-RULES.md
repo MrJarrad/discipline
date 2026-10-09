@@ -28,6 +28,12 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   operator says remove.
 - **Contract order** — export (whole) → banked rulings → the operator's words this round, in
   that priority; a parent-authored "recommended" answer is never promoted to a rule.
+- **Shared clones** — the design-system root clone is shared by every lane: never switch it,
+  never run token generation in it; work in a private dir whose `../../jhd-design-system/main`
+  is your own DS worktree.
+- **Token values** — quote a token's resolved value from `tokens.generated.css`, never its
+  name or a guessed percentage (`--opacity-50` is 0.05).
+- **Browser repros** — one at a time with a hard timeout; never parallel Chromium.
 - **Pointers** — `fleet/rulings/token-rulings.md` (vault) for design-system rulings with
   lineage; the lane's own lock file for this round's rows.
 ```
