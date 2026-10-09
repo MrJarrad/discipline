@@ -93,9 +93,9 @@ Required fields on the create body:
 resend `environment_id` + `events` + `session_context.sources` together, or the repo
 binding silently drops.
 
-**Preferred one-shot shape:** create with top-level `run_once_at` (≈ now + 60s; no cron needed), then
-`update` the top-level `model` (on create it is silently dropped), `get`, and let it fire — the
-platform marks it `run_once_fired` and disables it, with no agent cleanup.
+**Preferred one-shot shape:** create disabled, `update` the top-level `model` (on create it is
+silently dropped), `get`, then `run`, and confirm `list_runs` shows a session before ending the turn.
+A disabled routine's `run_once_at` never fires (session 16: four lanes idle ~35 min); leave it off.
 
 After create, `get` the routine and confirm `derived_state.model` echoes the chosen
 model before `run` — don't assume the top-level field landed.

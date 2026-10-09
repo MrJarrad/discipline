@@ -54,12 +54,12 @@ test("s14 item 5: a Mac job cannot open an Access-gated preview", () => {
   assert.match(h, /ask the operator for the one-line device check/);
 });
 
-test("s14 item 6: wrap at about 90% context, unprompted, on the context-fill signal", () => {
+test("s14 item 6: wrap at 70% context (1.123.0; was 90%), unprompted, on the context-fill signal", () => {
   const w = read("skills/wrap/SKILL.md");
   assert.match(w, /## When to wrap/);
-  assert.match(w, /ideally we want to wrap\s+sessions at about 90% usage/);
+  assert.match(w, /bring it\s+down from 90% to 70%/);
   assert.match(w, /`hooks\/bin\/context-fill\.mjs`/);
-  assert.match(style, /unprompted at the 90% context line \(`wrap` § When to wrap\)/);
+  assert.match(style, /unprompted at the 70% context line \(`wrap` § When to wrap\)/);
   const hooks = JSON.parse(read("hooks/hooks.json")).hooks;
   for (const event of ["UserPromptSubmit", "PostToolUse", "SessionStart"]) {
     assert.ok(JSON.stringify(hooks[event]).includes("context-fill.mjs"), `${event} runs context-fill`);

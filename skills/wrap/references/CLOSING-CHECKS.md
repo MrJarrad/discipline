@@ -91,3 +91,13 @@ other drift.
 **Thin overlays, not scattered copies.** Product repos carry a thin tripwire `CLAUDE.md`
 block (floor + plugin-presence self-check), never a full rules copy — overlay scatter is
 the named anti-pattern.
+
+## Stand down at wrap (last step; ruling `wrapped-sessions-go-quiet`, 2026-10-09)
+
+Run after the report and the final push, because it silences the session. Never archive it.
+
+1. Stop every background watcher and scheduled wakeup this session armed (`TaskStop`, `unwatch_url`, pending `send_later`).
+2. Cancel the routines and crons it created (`delete_trigger`, `CronDelete`); a fired-once trigger needs nothing.
+3. `unsubscribe_pr_activity` for every PR it subscribed, and switch off any CI monitor it bound.
+4. Write "wrapped — inactive" in the handover, with where work continues.
+5. From here, an automated event gets no action. At most one line: "Wrapped — this session is inactive; work continues in <next session / handover>." No queue reprint, no announcement on shared PRs. Only a genuine operator message reopens the session.

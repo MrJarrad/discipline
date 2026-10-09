@@ -108,14 +108,15 @@ condition in code that produces it. An example frame with no cell is an unread f
 A node is `match` only when it was **seen**: a headed screenshot at the operator's viewport and
 at each breakpoint family, with a pixel assertion on the built region. A `getComputedStyle`
 read proves a declaration exists, not that anything painted — the footer that never painted
-passed computed-style checks every round. See `present-for-review` § Before the link goes out.
+passed computed-style checks every round. See `present-for-review` § Before the link goes out (the proof itself follows the yes).
 
-## 5. Frame-first proof, before any link (Change 2, 2026-09-22)
+## 5. Frame-first proof, after the yes (Change 2, 2026-09-22; moved 2026-10-09)
 
-**Before any link goes out, the return carries a side-by-side** — the export frame exported as
+**After the operator's yes, the return carries a side-by-side** — the export frame exported as
 PNG via the REST API, and the build rendered at the frame's own width, both at the same
-viewport — sitting next to the per-node ledger, not after it. Two links shipped against Figma
-frames the operator had to paste himself is the failure this closes.
+viewport — sitting next to the per-node ledger, not after it. The link itself goes first, once the
+preview opens (`link-first-look-rounds`); the side-by-side is never a prerequisite for it. Two
+links shipped against Figma frames the operator had to paste himself is the failure this closes.
 
 **The reviewer checks the ledger against the export JSON's node list before approving** — every
 node id the JSON states for the frame in scope has a ledger row; a ledger row with no matching
