@@ -112,7 +112,9 @@ upload per batch of lanes, not per lane" scopes the batch case; a lane dispatche
 uploads its own screenshots when it lands.
 
 **Full test suite, production build and deploy checks run once per PR in a cloud gate-run lane**
-(`no-paid-github`), never inside each lane. **Verification inside a lane is one deterministic repro plus three reps**; a
+(`no-paid-github`), never inside each lane. **Gates are sized to the diff** (`link-first-look-rounds`): a docs, workflow
+or config-only change skips the suite; a lane runs the tests it touches. **One heavy job at a time per cloud container**
+(a suite, an image encode); light lanes run alongside. **Verification inside a lane is one deterministic repro plus three reps**; a
 heavier sweep is its own lane after the fix. **No background runs inside a lane.** **Lanes
 stop only their own pids** — the parent sweeps verification servers at every lane end.
 
@@ -164,12 +166,11 @@ stop only their own pids** — the parent sweeps verification servers at every l
   once at bake, after the operator's pick.
 - **A look-judged lane runs trailing, not gating** — touched gates per iteration; the full suite
   and the reviewer run **once, at merge**, never before the operator's yes (`review-trails-the-operator`).
-- **A look lane's link goes out only after the doer's own repro of three checks** (`one-shot-defect-rounds-2026-10-07`):
-  a **production build** or the deployed preview, never only the dev server (the minifier once folded
-  `transform:none; translate:0 105%` and an element never painted); **pixel proof at rest** at the operator's framing;
-  the **input profile he will use** (phone touch + momentum, trackpad momentum; real GPU via a Mac job only for visual
-  3D, while he looks at other links). *"The checks … live INSIDE the build lane as the doer's own repro"* — one repro +
-  3 reps, never a new review round, review still trails the yes.
+- **A look lane's done-when is the preview built, published and opening** (`link-first-look-rounds`, 2026-10-09):
+  a production build or the deployed preview, never only the dev server, loads hydrated with no error — then the
+  link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**
+  and his input profile (real GPU via a Mac job only for visual 3D) run **after his yes**, sized to what merge needs;
+  never a new review round, review still trails the yes. Supersedes the before-the-link checks of `one-shot-defect-rounds-2026-10-07`.
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
   disown` both die with the tool shell that spawned them. A long suite (25–60 min) is its own
@@ -245,12 +246,11 @@ severity-ranked findings with their re-validation; the researcher's `file:line` 
 cited URL; ux-designer's is the viewport-evidence path. A surfaced failure beats a false
 "done" — a fail row with evidence is a complete return.
 
-**Pixel proof before the link.** Where the change has a look, the return's proof of a built
-node is a **headed screenshot at the operator's viewport and each breakpoint family, with a
-pixel assertion on the region built** — a `getComputedStyle` read is not proof that anything
-painted (operator ruling 2026-09-20, `accuracy-before-the-link`). This proves the node
-*rendered*; **it is not a review round** — the link waits on these two proofs being in the
-return, never on a reviewer. The operator still judges look, below.
+**Pixel proof follows the yes.** Where the change has a look, the link goes out once the preview opens hydrated with no
+error (`link-first-look-rounds`, superseding `accuracy-before-the-link` for look rounds). After the operator's yes, the
+proof of a built node is a **headed screenshot at the operator's viewport and each breakpoint family, with a pixel
+assertion on the region built** — a `getComputedStyle` read is not proof that anything painted. This proves the node
+*rendered*; **it is not a review round** and never gates the link. The operator still judges look, below.
 
 **The operator is the cheapest visual gate.** When acceptance is how a change looks or feels
 — UI, plugin UI, motion, type, a prototype — the return's evidence is **the link to the

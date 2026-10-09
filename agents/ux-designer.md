@@ -69,7 +69,7 @@ Return the **Fixed evidence return**; see `doer-rules.md` § Fixed evidence retu
 **Rendered evidence is headed and pixel-asserted** — a screenshot at the operator's viewport
 and at each breakpoint family, with a pixel assertion on the region in question; a
 `getComputedStyle` read is never the evidence (`doer-rules.md` § Fixed evidence return,
-Pixel proof before the link).
+Pixel proof follows the yes).
 
 ## Baton (when visual evidence exists)
 

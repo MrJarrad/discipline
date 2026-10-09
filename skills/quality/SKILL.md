@@ -85,7 +85,7 @@ hand-rolled reinvention of it.
 ## Gate tiering — this file owns "gates"
 
 **Per commit, run typecheck plus the tests the change touches** — not the full suite.
-**Run the full suite once** before `next: reviewer`, and once in the cloud gate-run lane (tail on the PR). **Never re-run an
+**Gates are sized to the diff**: a docs, workflow or config-only change skips the suite. **Run the full suite once** before `next: reviewer`, and once in the cloud gate-run lane (tail on the PR); one heavy job at a time per cloud container (`link-first-look-rounds`). **Never re-run an
 identical gate while diagnosing** — cite `lean-verification-loops`'s 3-pass cap by name
 and change the input on the next pass, not the rerun count.
 

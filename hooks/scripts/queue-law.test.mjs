@@ -415,7 +415,7 @@ test("routing's Baton table sends a look-judged engineer landing to the operator
   const routing = flat(read("skills/routing/SKILL.md"));
   assert.match(
     routing,
-    /Engineer landed, \*\*look-judged\*\* \| \*\*Operator\*\* → merge on yes → \*\*Reviewer trailing\*\* on the merged sha/i,
+    /Engineer landed, \*\*look-judged\*\* \| \*\*Operator\*\*: link when preview opens \(`link-first-look-rounds`\); proof, merge on yes → \*\*Reviewer trailing\*\*/i,
   );
   assert.doesNotMatch(routing, /preview link first; review is concurrent/i);
 });
@@ -619,25 +619,26 @@ test("model-routing sends a wide brief to a slice, never to a bigger model", () 
 
 // --- (d) pixel proof at the operator's framing --------------------------------
 
-test("present-for-review holds the link for both proofs, and calls neither a review round", () => {
+test("present-for-review: look rounds are link-first, the proofs follow the yes and are no review round (link-first-look-rounds, 1.122.0)", () => {
   const present = flat(read("skills/present-for-review/SKILL.md"));
   assert.match(present, /## Before the link goes out/);
+  assert.match(present, /preview is built, published and opening — hydrated, no error/);
+  assert.match(present, /run \*\*after the operator's yes\*\*/);
   assert.match(
     present,
-    /headed screenshot at the operator's viewport and at each breakpoint family, with a pixel assertion on the region built/,
+    /headed screenshot at the operator's viewport and each breakpoint family, with a pixel\s+assertion on the region built/,
   );
-  assert.match(present, /A `getComputedStyle` read is not proof that anything painted/);
-  assert.match(present, /\*\*Neither is a review round\*\*/);
-  assert.match(present, /The link waits on these two proofs being in the doer's return — never on a reviewer verdict/);
+  assert.match(present, /a `getComputedStyle` read is not proof that anything painted/);
+  assert.match(present, /none of that is a review round\*\*/);
   const doer = flat(read("doer-rules.md"));
-  assert.match(doer, /\*\*it is not a review round\*\* — the link waits on these two proofs being in the return, never on a reviewer/);
+  assert.match(doer, /\*\*it is not a review round\*\* and never gates the link/);
 });
 
 test("doer-rules, dispatch-brief done-when and both charters require pixel proof over computed style", () => {
-  carries("doer-rules.md", "**Pixel proof before the link.**");
+  carries("doer-rules.md", "**Pixel proof follows the yes.**");
   assert.match(
     flat(read("skills/dispatch-brief/SKILL.md")),
-    /done-when names \*\*pixel proof at the operator's framing\*\* — computed-style reads are not proof/,
+    /after-yes proof is \*\*pixel proof at the operator's framing\*\* — computed-style reads are not proof/,
   );
   carries("agents/engineer.md", "**`status: match` means you saw it paint.**");
   carries("agents/ux-designer.md", "**Rendered evidence is headed and pixel-asserted**");

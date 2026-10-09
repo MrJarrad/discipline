@@ -60,7 +60,7 @@ when a prior transcript is past useful size.
 - **Behaviour claims** need `[runtime]` or `[test]` evidence in the reviewer's finding — diff-only on a behaviour claim is a red finding.
 - **UI reviews** include a console error check on touched routes (uncaught errors and
   `console.error`) — same standing red class as lab CWV on UI work.
-- **Look and feel are the operator's lane** — the reviewer never evaluates look. Rendered agent evidence for a Figma/reference match goes to ux-designer; the operator's own preview link goes out at engineer-done and never waits on review.
+- **Look and feel are the operator's lane** — the reviewer never evaluates look. Rendered agent evidence for a Figma/reference match goes to ux-designer; the operator's own preview link goes out at engineer-done, once the preview opens hydrated with no error, and never waits on review or proof (`link-first-look-rounds`).
 - Reviewer: a change whose brief mandated skills must show those invocations in
   the transcript — missing evidence is a quality failure, send back.
 - `wrap`: report personas/skills invoked this session against these tables;

@@ -9,19 +9,18 @@ import { dirname, join } from "node:path";
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
 
-test("one-shot-defect-rounds: doer-rules gates the look link on the doer's own repro, not a review round", () => {
+test("one-shot-defect-rounds: doer-rules keeps the production-build and real-GPU checks, now after the yes (link-first-look-rounds)", () => {
   const d = read("doer-rules.md");
   assert.match(d, /one-shot-defect-rounds-2026-10-07/);
-  assert.match(d, /production build\*\* or the deployed preview, never only the dev server/);
-  assert.match(d, /pixel proof at rest\*\* at the operator's framing/);
-  assert.match(d, /live INSIDE the\s+build lane as the doer's own repro/);
+  assert.match(d, /production build or the deployed preview, never only the dev server/);
+  assert.match(d, /\*\*Pixel proof at rest\*\* at his framing/);
   assert.match(d, /never a new review round, review still trails the yes/);
-  assert.match(d, /real GPU via a Mac job only for visual\s+3D/);
+  assert.match(d, /real GPU via a Mac job only for visual 3D/);
 });
 
-test("one-shot-defect-rounds: the parent views evidence before the link; unverified is sent back", () => {
+test("one-shot-defect-rounds: the parent confirms the link opens, reads evidence after the yes; unverified is sent back", () => {
   const p = read("skills/present-for-review/SKILL.md");
-  assert.match(p, /The parent views the evidence before the link/);
+  assert.match(p, /The parent confirms the link opens hydrated with no error before sending it/);
   assert.match(p, /sent back, not relayed/);
 });
 
