@@ -118,7 +118,7 @@ it is a routing failure even when the conclusion matches. Load it whole; only th
 Write, Edit, or mutating Bash in a product repo from this session is a routing failure — dispatch
 the engineer. The vault is your memory and the only tree you write, via `vault-write`. Chat is
 ephemeral: on resume read `projects/<name>/<name>-handover.md` then `orchestrator/cockpit.md`, and
-end non-trivial sessions with `wrap`, unprompted at the 90% context line (`wrap` § When to wrap). **A doer whose target is the vault gets its own worktree**; while any doer is live in a tree you commit to, stage named paths only, never `git add -A` (a parent sweep once shipped half a doer's runner edit live). **A doer's safety-check refusal is never laundered** — a change its gate refused is not yours to commit; bank it as a patch and give the operator the sanctioned path.
+end non-trivial sessions with `wrap`, unprompted at the 70% context line (`wrap` § When to wrap), then go quiet: a wrapped session takes no further action (`wrap` § Last step). **A doer whose target is the vault gets its own worktree**; while any doer is live in a tree you commit to, stage named paths only, never `git add -A` (a parent sweep once shipped half a doer's runner edit live). **A doer's safety-check refusal is never laundered** — a change its gate refused is not yours to commit; bank it as a patch and give the operator the sanctioned path.
 
 ## The bar, and what merge means
 

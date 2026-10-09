@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* UserPromptSubmit · PostToolUse · PreCompact(auto) · SessionStart(compact) · SessionEnd — decision
-   `2026-10-08-proactive-wrap-at-90`: wrap at about 90% context usage. The
+   `2026-10-08-proactive-wrap-at-90`, line moved to 70% (operator, 2026-10-09: wrapped or
+   wrapping by 90%): nudge at 70% context usage. The
    orchestrator cannot read context fill in-turn, so this hook reads it: the
    last main-thread assistant turn's input + cache-creation + cache-read tokens
    in the session transcript are the same count the client's usage popover
@@ -13,7 +14,7 @@
    Window: DISCIPLINE_CONTEXT_WINDOW, else by model id (`[1m]` 1M, haiku 200k, default 1M).
    Manual vs automatic compact: PreCompact(auto) leaves a marker that
    SessionStart(compact) consumes (the marker holds its write time; older than 10 minutes counts as manual); SessionEnd and compact delete the session markers.
-   Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.9).
+   Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.7).
    Dry-run: node context-fill.mjs < input.json */
 import { closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -77,7 +78,7 @@ const k = (n) => `${Math.round(n / 1000)}k`;
 // the compact never followed (blocked or failed), so it proves nothing.
 const MARKER_TTL_MS = 10 * 60_000;
 
-export function handle(input, { window, wrapAt = 0.9, dir = tmpdir(), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
+export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
   if (!input || input.agent_id) return null;
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
@@ -126,7 +127,7 @@ function main() {
   let input;
   try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   const window = Number(process.env.DISCIPLINE_CONTEXT_WINDOW) || undefined;
-  const wrapAt = Number(process.env.DISCIPLINE_WRAP_AT) || 0.9;
+  const wrapAt = Number(process.env.DISCIPLINE_WRAP_AT) || 0.7;
   const message = handle(input, { window, wrapAt });
   if (message) {
     process.stdout.write(JSON.stringify({

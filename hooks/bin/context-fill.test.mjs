@@ -20,7 +20,7 @@ const transcript = (dir, lines) => {
   writeFileSync(p, lines.join("\n") + "\n");
   return p;
 };
-const opts = (dir) => ({ window: 1_000_000, wrapAt: 0.9, dir });
+const opts = (dir) => ({ window: 1_000_000, wrapAt: 0.7, dir });
 
 test("context tokens are the last main-thread assistant turn's input + cache tokens", () => {
   const text = [assistant(100_000), user, assistant(738_901, 1_264), user, assistant(5, 0, 1, { isSidechain: true })].join("\n");
@@ -29,27 +29,27 @@ test("context tokens are the last main-thread assistant turn's input + cache tok
 
 test("below the wrap line the prompt hook says nothing", () => {
   const d = fresh();
-  const p = transcript(d, [assistant(734_900)]);
+  const p = transcript(d, [assistant(684_900)]);
   assert.equal(handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, opts(d)), null);
   rmSync(d, { recursive: true });
 });
 
-test("at or past 90% the prompt hook tells the orchestrator to wrap, with the reading", () => {
+test("at or past 70% the prompt hook tells the orchestrator to wrap, with the reading", () => {
   const d = fresh();
-  const p = transcript(d, [user, assistant(905_000)]);
+  const p = transcript(d, [user, assistant(705_000)]);
   const m = handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, opts(d));
-  assert.match(m, /905k of 1000k \(91%\)/);
+  assert.match(m, /705k of 1000k \(71%\), past the 70% wrap line/);
   assert.match(m, /run `wrap` unprompted/);
   rmSync(d, { recursive: true });
 });
 
 test("tool-use readings nudge once per percent point, not on every call", () => {
   const d = fresh();
-  const p = transcript(d, [assistant(910_000)]);
+  const p = transcript(d, [assistant(710_000)]);
   const ev = { hook_event_name: "PostToolUse", session_id: "s", transcript_path: p };
   assert.ok(handle(ev, opts(d)));
   assert.equal(handle(ev, opts(d)), null);
-  writeFileSync(p, assistant(921_000) + "\n");
+  writeFileSync(p, assistant(721_000) + "\n");
   assert.ok(handle(ev, opts(d)));
   rmSync(d, { recursive: true });
 });
@@ -167,7 +167,7 @@ const modelTurn = (model, read) => JSON.stringify({
 });
 const promptAt = (d, model, read, o = {}) => {
   const p = transcript(d, [modelTurn(model, read)]);
-  return handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, { wrapAt: 0.9, dir: d, ...o });
+  return handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, { wrapAt: 0.7, dir: d, ...o });
 };
 
 test("a haiku model is a 200k window: 185k is past the line", () => {
@@ -201,4 +201,12 @@ test("hooks.json wires PreCompact(auto) and SessionEnd to the script", () => {
   assert.match(cmds("PreCompact"), /context-fill\.mjs/);
   assert.equal(h.PreCompact[0].matcher, "auto");
   assert.match(cmds("SessionEnd"), /context-fill\.mjs/);
+});
+
+test("the default wrap line is 70%: 700k of 1M nudges, 690k does not", () => {
+  const d = fresh();
+  const at = (n) => handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: transcript(d, [assistant(n)]) }, { window: 1_000_000, dir: d });
+  assert.equal(at(690_000), null);
+  assert.match(at(700_000), /700k of 1000k \(70%\), past the 70% wrap line/);
+  rmSync(d, { recursive: true });
 });

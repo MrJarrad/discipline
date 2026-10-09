@@ -1916,9 +1916,9 @@ test("the House rules block names the real paths and every named area", () => {
 
 // --- Change 2: frame-first proof --------------------------------------------
 
-test("handoff-to-code's coverage-ledger.md carries frame-first proof before any link", () => {
+test("handoff-to-code's coverage-ledger.md carries frame-first proof after the yes (1.123.0; was before any link)", () => {
   const doc = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
-  assert.match(doc, /Before any link goes out, the return carries a side-by-side/);
+  assert.match(doc, /After the operator's yes, the return carries a side-by-side/);
   assert.match(doc, /reviewer checks the ledger against the export JSON's node list/);
 });
 

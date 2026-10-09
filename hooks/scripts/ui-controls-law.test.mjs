@@ -22,8 +22,8 @@ test("dispatch-brief done-when names the driven rows for a UI lane", () => {
   assert.match(read("skills/dispatch-brief/references/ACCURACY.md"), /one driven row per control type it ships\*\* — real mouse\s+and keyboard input/);
 });
 
-test("present-for-review: the parent never presents UI whose controls were not operated", () => {
-  assert.match(read("skills/present-for-review/SKILL.md"), /The parent never presents UI whose controls were not operated/);
+test("present-for-review: the driven-row check follows the yes", () => {
+  assert.match(read("skills/present-for-review/SKILL.md"), /The driven-row check follows the yes/);
 });
 
 test("reviewer: look-only evidence on interactive UI is red", () => {

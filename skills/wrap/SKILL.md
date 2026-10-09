@@ -1,6 +1,6 @@
 ---
 name: wrap
-description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's handover note, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, when context-fill reports the 90% line or an automatic summary ran, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
+description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's handover note, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, when context-fill reports the 70% line or an automatic summary ran, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
 ---
 
 # Wrap
@@ -33,11 +33,10 @@ is called closed.
 
 ## When to wrap
 
-**Wrap at about 90% context, unprompted** (operator, 2026-10-08: *"ideally we want to wrap
-sessions at about 90% usage"*). `hooks/bin/context-fill.mjs` reads the client's context-window
-count from the transcript and reports it on every prompt past 90%, and after an automatic
-summary. On that line: finish in-flight merges, run `wrap`, tell the operator in one line. No
-reading in a long session → wrap at a natural break without being asked.
+**Wrap at 70% context, unprompted — wrapped or wrapping by 90%** (operator, 2026-10-09: *"bring it
+down from 90% to 70%"*). `hooks/bin/context-fill.mjs` reads the context-window count from the
+transcript and reports it on every prompt past 70%, and after an automatic summary. On that line:
+finish in-flight merges, run `wrap`, tell the operator in one line. No reading → wrap at a natural break.
 
 **Follow-ups ship before wrap**; **lists are never stale** (`list-drift-check.mjs`): [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
 
@@ -57,6 +56,12 @@ a skipped section is a wrap failure, not a judgement call.
 **Evidence and probes never live in a product repo.** Before closing, each touched product's
 round evidence is archived to `~/JHD/vault/main/estate/captures/<product>-evidence/` with a
 manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is drift to name.
+
+## Last step: stand down, never archive
+
+Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. Stop watchers, wakeups,
+routines and crons; unsubscribe its PRs; write "wrapped — inactive" in the handover. Afterwards automated
+events get no action and at most one line; only the operator reopens it. Steps: [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
 
 ## Report, handover prose, and the learn step
 

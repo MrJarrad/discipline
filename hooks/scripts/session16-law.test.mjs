@@ -1,4 +1,4 @@
-// The 1.122.0 items (link-first-look-rounds, 2026-10-09). Run: node --test hooks/scripts/session16-law.test.mjs
+// The 1.122.0 and 1.123.0 items (link-first-look-rounds, 2026-10-09). Run: node --test hooks/scripts/session16-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -41,8 +41,55 @@ test("link-first: reviewer-after-yes is unchanged", () => {
   assert.match(flat("doer-rules.md"), /review still trails the yes/);
 });
 
-test("link-first: version 1.122.0 with a CHANGED entry", () => {
-  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.122.0"/);
-  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.122.0"/);
+test("link-first: 1.122.0 has a CHANGED entry", () => {
   assert.match(read("CHANGED.txt"), /^1\.122\.0 — .*link-first/m);
+});
+
+// The 1.123.0 items (wrap at 70%, wrapped sessions go quiet, 1.122 ambers, cloud-dispatch run).
+test("wrap-70: every place that states the wrap line says 70%", () => {
+  const hook = read("hooks/bin/context-fill.mjs");
+  assert.match(hook, /wrapAt = 0\.7/);
+  assert.match(hook, /DISCIPLINE_WRAP_AT \(0\.7\)/);
+  assert.doesNotMatch(hook, /wrapAt = 0\.9|\|\| 0\.9/);
+  const w = flat("skills/wrap/SKILL.md");
+  assert.match(w, /Wrap at 70% context, unprompted — wrapped or wrapping by 90%/);
+  assert.match(w, /reports the 70% line/);
+  assert.match(flat("output-styles/discipline.md"), /unprompted at the 70% context line/);
+  assert.doesNotMatch(flat("output-styles/discipline.md"), /unprompted at the 90% context line/);
+});
+
+test("quiet: wrap's last step stands the session down and never archives", () => {
+  const w = flat("skills/wrap/SKILL.md");
+  assert.match(w, /## Last step: stand down, never archive/);
+  assert.match(w, /wrapped — inactive/);
+  assert.match(w, /only the operator reopens it/);
+  const c = flat("skills/wrap/references/CLOSING-CHECKS.md");
+  assert.match(c, /## Stand down at wrap/);
+  assert.match(c, /`unsubscribe_pr_activity`/);
+  assert.match(c, /Never archive it\./);
+  assert.match(c, /Wrapped — this session is inactive; work continues in/);
+  assert.match(flat("output-styles/discipline.md"), /a wrapped session takes no further action/);
+});
+
+test("ambers: frame-first proof follows the yes; the driven-row check is an after-yes proof", () => {
+  const l = flat("skills/handoff-to-code/references/coverage-ledger.md");
+  assert.match(l, /## 5\. Frame-first proof, after the yes/);
+  assert.doesNotMatch(l, /before any link/i);
+  assert.match(l, /present-for-review` § Before the link goes out \(the proof itself follows the yes\)/);
+  const p = flat("skills/present-for-review/SKILL.md");
+  assert.match(p, /\*\*The driven-row check follows the yes\*\*/);
+  assert.doesNotMatch(p, /never presents UI whose controls were not operated/);
+});
+
+test("cloud-dispatch: one-shot shape is create disabled, model, get, run, confirm list_runs; no run_once_at", () => {
+  const c = flat("skills/cloud-dispatch/SKILL.md");
+  assert.match(c, /create disabled, `update` the top-level `model`.*`get`, then `run`, and confirm `list_runs` shows a session/);
+  assert.match(c, /A disabled routine's `run_once_at` never fires/);
+  assert.doesNotMatch(c, /with top-level `run_once_at` \(/);
+});
+
+test("1.123.0: version and CHANGED entry", () => {
+  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.123.0"/);
+  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.123.0"/);
+  assert.match(read("CHANGED.txt"), /^1\.123\.0 — .*wrap-70-quiet/m);
 });
