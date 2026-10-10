@@ -29,8 +29,10 @@ down", "stop for now", "let's stop here".
    let the current commit land, then halt; do not kill mid-edit.
 3. **Bank a one-screen snapshot** into `projects/<name>/<name>-handover.md`
    for each touched project: in-flight lanes + their shas, dirty worktrees,
-   merged state, resume order, and **the operator queue verbatim** — every open
-   `orchestrator/operator-queue.md` row's full text, not a count or a pointer.
+   merged state, resume order, and a `## Next` block (one `- lane:` line per lane, format in
+   `hooks/scripts/session-resume.mjs`). The open queue is written once, **verbatim** — every open
+   `orchestrator/operator-queue.md` row's full text — in the cockpit; a handover carries a link
+   and the open-row count only.
 4. **Confirm in one line.** Name what's paused and that nothing runs until
    resume — no verdict wall.
 
@@ -45,7 +47,7 @@ snapshot".
    from `origin/main`, never from the local or branch copy: a session that kept working after
    its wrap leaves newer state on main, and a stale branch cockpit restarts lanes that already
    merged (`resume-reads-vault-main-first-2026-10-10`).
-1. Read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`.
+1. Run `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>` once: it prints, per lane, branch head, PR/CI, last progress line vs branch reality, contract, next owner, and whether this session's plugin is older than the installed one (reload before dispatching). Then read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`.
    **Re-check every "running" lane** against live PR and branch state (`gh pr view`, branch
    head, merged or closed, draft or ready, whose decision it is) before any re-dispatch; a
    lane whose PR merged, moved on, or is held by the operator is not restarted.

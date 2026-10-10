@@ -54,7 +54,15 @@ On wrap:
   it (operator, 2026-10-02: "stuff is just disapearing from the queue").
 - In-flight list: add/remove **this chat's** line only.
 - Merged/unpushed commits for a repo belong on that project's handover.
-- Open operator items for a project belong on that project's handover.
+- **Open operator items are written once** (2026-10-10, backlog 161): `orchestrator/operator-queue.md`
+  is the source; the cockpit wrap block carries every open row verbatim; a handover carries a
+  link and the open-row count, never the rows. Chat still reprints every row (output style).
+- **End each handover with a `## Next` block** (newest wrap first; the resume digest reads only
+  the first one): one `- lane:` line per lane, ` | `-separated, one physical line each:
+  `- lane: <id> | repo: <name> | branch: <b> | pr: #<n> | head: <sha> | progress: <vault path> |
+  contract: <vault path> | owner: <next persona> | go: <one-line dispatch>`. Write the facts as
+  the branch stands now (check `git ls-remote` first), not as the progress file last said.
+  `session-resume.mjs` is the reader and the format's home.
 
 If `projects/<name>/` does not exist for a live product (jhd-discipline), create the
 new-project trio in the same wrap (`vault-write`).
