@@ -60,7 +60,7 @@ test("a shallow clone still shows the lane branch (explicit refspec), flags stal
   const { text, lanes } = buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: noGh, env: {}, pluginRoot: "/nonexistent", installedPath: "/nonexistent", home: w.root });
   assert.equal(lanes.length, 2);
   assert.match(text, /head    [0-9a-f]{7} on lane-x — .*lane work/);
-  assert.match(text, /PR      state\/CI not readable \(gh: could not reach api\.github\.com\)/);
+  assert.match(text, /PR      state\/CI not readable \(gh api: could not reach api\.github\.com\)/);
   assert.match(text, /!!      progress file is older than the branch head/);
   assert.match(text, /!!      branch moved since wrap \(handover abcdef0/);
   assert.match(text, /branch no-such is not on origin/);
@@ -68,6 +68,18 @@ test("a shallow clone still shows the lane branch (explicit refspec), flags stal
   assert.match(text, /queue: 2 open rows in orchestrator\/operator-queue\.md \(path and count only/);
   assert.doesNotMatch(text, /\| 1 \| open/, "the queue rows are never reprinted by the digest");
   assert.doesNotMatch(text, /ancient/, "only the newest Next block counts");
+});
+
+test("gh REST answers become PR state and checks", () => {
+  const w = world();
+  const gh = (cmd, args, o) => {
+    if (cmd !== "gh") return noGh(cmd, args, o);
+    if (/check-runs/.test(args[1])) return { ok: true, stdout: JSON.stringify({ check_runs: [{ status: "completed", conclusion: "success" }, { status: "completed", conclusion: "failure" }, { status: "queued" }] }), stderr: "" };
+    return { ok: true, stdout: JSON.stringify({ number: 7, state: "open", draft: true, mergeable_state: "clean", head: { sha: "abcdef0123" } }), stderr: "" };
+  };
+  const wrapped = (c, a, o) => (a.includes("get-url") ? noGh(c, a, o) : gh(c, a, o));
+  const { text } = buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: wrapped, env: {}, pluginRoot: "/x", installedPath: "/x", home: w.root });
+  assert.match(text, /PR      #7 open \(draft\), mergeable_state clean, head abcdef0, checks 1 ok \/ 1 failing \/ 1 pending/);
 });
 
 test("a lane with only a PR number falls back to the pull ref when gh is unreachable", () => {

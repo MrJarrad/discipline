@@ -176,16 +176,27 @@ function laneState(lane, ctx) {
   const prArg = prNum || lane.branch;
   let prLine = null;
   if (slug && prArg) {
-    const g = exec("gh", ["pr", "view", prArg, "--repo", slug, "--json", "number,state,isDraft,mergeable,statusCheckRollup,headRefOid"], { timeout: 20000 });
-    if (g.ok) {
-      try {
-        const j = JSON.parse(g.stdout);
-        const checks = j.statusCheckRollup ?? [];
-        const bad = checks.filter((c) => /FAIL|ERROR|TIMED|CANCEL/.test(c.conclusion || c.state || "")).length;
-        const pend = checks.filter((c) => !(c.conclusion || c.state) || /PEND|PROGRESS|QUEUED|EXPECTED/.test(c.status || c.state || "")).length;
-        prLine = `PR      #${j.number} ${j.state.toLowerCase()}${j.isDraft ? " (draft)" : ""}, mergeable ${String(j.mergeable).toLowerCase()}, checks ${checks.length ? `${checks.length - bad - pend} ok / ${bad} failing / ${pend} pending` : "none reported (gate-run tail is on the PR as a comment)"}`;
-      } catch { prLine = "PR      gh answered but the reply was not JSON"; }
-    } else prLine = `PR      state/CI not readable (gh: ${g.stderr || "no detail"})`;
+    // REST only: GraphQL is blocked in cloud sessions.
+    const owner = slug.split("/")[0];
+    const find = prNum ? `repos/${slug}/pulls/${prNum}` : `repos/${slug}/pulls?state=all&head=${owner}:${lane.branch}`;
+    const g = exec("gh", ["api", find], { timeout: 20000 });
+    let j = null;
+    if (g.ok) { try { j = JSON.parse(g.stdout); if (Array.isArray(j)) j = j[0] ?? null; } catch { j = null; } }
+    if (g.ok && j) {
+      const state = j.merged_at || j.merged ? "merged" : j.state;
+      let checks = "checks not read";
+      const c = exec("gh", ["api", `repos/${slug}/commits/${j.head.sha}/check-runs`], { timeout: 20000 });
+      if (c.ok) {
+        try {
+          const runs = JSON.parse(c.stdout).check_runs ?? [];
+          const bad = runs.filter((r) => /failure|timed_out|cancelled|action_required/.test(r.conclusion || "")).length;
+          const pend = runs.filter((r) => r.status !== "completed").length;
+          checks = runs.length ? `checks ${runs.length - bad - pend} ok / ${bad} failing / ${pend} pending` : "no check runs (the gate-run tail is a PR comment)";
+        } catch { /* keep default */ }
+      }
+      prLine = `PR      #${j.number} ${state}${j.draft ? " (draft)" : ""}, mergeable_state ${j.mergeable_state ?? "unknown"}, head ${String(j.head.sha).slice(0, 7)}, ${checks}`;
+    } else if (g.ok) prLine = `PR      none found for ${prNum ? "#" + prNum : lane.branch} via the GitHub API`;
+    else prLine = `PR      state/CI not readable (gh api: ${clip(g.stderr || "no detail", 90)})`;
   }
   if (!prLine && prNum && remote) {
     const r = exec("git", dir ? gitArgs("ls-remote", "origin", `refs/pull/${prNum}/head`) : ["ls-remote", remote, `refs/pull/${prNum}/head`]);
