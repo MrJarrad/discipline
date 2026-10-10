@@ -10,6 +10,9 @@
        whitespace-normalised so trailing-space/line-ending drift never
        produces a false negative.
 
+     isStruckRow(line) -> boolean — the row's first cell after its number
+       starts with `~~`; lane-end's replaceRow refuses to overwrite one.
+
      duplicateRowNumbers(fileText) -> [{section, number}] — row numbers used
        twice inside one `## ` table, minus the named GRANDFATHERED historic
        double-numbered struck rows (renumbering them would break references).
@@ -28,6 +31,13 @@ const normalise = (text) => String(text).replace(/\s+/g, " ").trim();
    matches — this checks the row landed, not that it is byte-identical. */
 export function rowWritten(fileText, rowText) {
   return normalise(fileText).includes(normalise(rowText));
+}
+
+/* True when a queue row line is already struck: the first cell after the row
+   number starts with `~~` (table, bullet or "Row N" form). A struck row is
+   history; a write must never replace it (session-19 lesson, backlog 162). */
+export function isStruckRow(line) {
+  return /^\s*(?:\|\s*|-\s*\[?\s*(?:Row\s*)?)\d+[a-z]?\s*(?:\|\s*|[.)\]]\s*)~~/i.test(String(line));
 }
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
