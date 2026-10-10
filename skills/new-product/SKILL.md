@@ -67,7 +67,7 @@ Pick a name that will not collide with parked fleet remotes (`config/jhd-repos.j
 ### 3. Container clone
 
 ```bash
-bash ~/JHD/ai/discipline/main/scripts/jhd-container-clone.sh \
+bash ~/JHD/ai/discipline/main/hooks/scripts/jhd-container-clone.sh \
   MrJarrad/<name> ~/JHD/<name>
 ```
 
