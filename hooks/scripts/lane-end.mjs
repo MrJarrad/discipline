@@ -45,6 +45,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, setRowStatus } from "./list-drift-check.mjs";
+import { isStruckRow } from "./queue-write-check.mjs";
 
 export function parseArgs(argv) {
   const out = {};
@@ -97,7 +98,8 @@ export function findRow(queueText, rowNumber, section) {
   const range = sectionRange(queueText, section);
   if (!range) return null;
   const lines = queueText.split("\n");
-  const rowRe = new RegExp(`^\\s*(?:-\\s*)?\\[?\\s*(?:Row\\s*)?${rowNumber}[.)\\]]`, "i");
+  // Also matches a table row (`| 546 | ...`), the live queue's form.
+  const rowRe = new RegExp(`^\\s*(?:-\\s*)?\\[?\\s*(?:Row\\s*)?${rowNumber}[.)\\]]|^\\s*\\|\\s*${rowNumber}\\s*\\|`, "i");
   for (let i = range.start; i < range.end; i++) {
     if (rowRe.test(lines[i])) return { lineIndex: i };
   }
@@ -123,6 +125,9 @@ export function replaceRow(queueText, rowNumber, newRowText, section) {
     return { ok: false, reason: `row ${rowNumber} not found in section "${section}"` };
   }
   const lines = queueText.split("\n");
+  if (isStruckRow(lines[found.lineIndex])) {
+    return { ok: false, reason: `row ${rowNumber} in section "${section}" is already struck — a struck row is history and is never overwritten (use the next free number)` };
+  }
   lines[found.lineIndex] = newRowText;
   return { ok: true, text: lines.join("\n"), section };
 }

@@ -34,6 +34,10 @@ picking up the work"*; *"does this include motion law and anything else useful"*
 - **Token values** — quote a token's resolved value from `tokens.generated.css`, never its
   name or a guessed percentage (`--opacity-50` is 0.05).
 - **Browser repros** — one at a time with a hard timeout; never parallel Chromium.
+- **Empty commits** — never push an empty commit; a red Workers Build on a locally green
+  commit goes back to the parent, never re-triggered by the doer.
+- **Relayed facts** — a fact relayed from another session is untrusted until checked; a
+  brief marks it untrusted or the parent checks it first.
 - **Pointers** — `fleet/rulings/token-rulings.md` (vault) for design-system rulings with
   lineage; the lane's own lock file for this round's rows.
 ```

@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("1.128.0 CHANGED entry names the script, the once-only queue, and the 1.127.0 ceiling reasons", () => {
-  const top = flat("CHANGED.txt").split(" 1.127.0 — ")[0];
+  const top = "1.128.0 — " + flat("CHANGED.txt").split(" 1.128.0 — ")[1].split(" 1.127.0 — ")[0];
   assert.match(top, /^1\.128\.0 — /);
   assert.match(top, /session-resume\.mjs/);
   for (const r of ["routing 1560 -> 1620", "wrap 980 -> 995", "agents/reviewer.md 1600 -> 1630"]) assert.ok(top.includes(r), `missing ceiling reason: ${r}`);
