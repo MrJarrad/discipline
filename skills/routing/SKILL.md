@@ -58,7 +58,8 @@ stash) and re-verifies it as an untrusted claim before building on it
 **A resuming session pulls main before any dispatch:** `git fetch origin main`, read the
 cockpit and handover from `origin/main`, and re-check every "running" lane against live PR and
 branch state (merged, moved on, operator-held) before restarting it
-(`resume-reads-vault-main-first-2026-10-10`; `pause-resume` step 0).
+(`resume-reads-vault-main-first-2026-10-10`; `pause-resume` step 0). One command does the
+re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 
 ## Baton handoff table
 

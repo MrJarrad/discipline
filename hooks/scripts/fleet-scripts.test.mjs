@@ -33,7 +33,7 @@ function commandPaths(text) {
 test("new-product names the clone and doer-rules commands", () => {
   const paths = commandPaths(newProduct);
   assert.ok(paths.length >= 2, `found ${paths.length} command paths: ${paths.join(", ")}`);
-  for (const tail of ["scripts/jhd-container-clone.sh", "hooks/scripts/sync-doer-rules.mjs"]) {
+  for (const tail of ["hooks/scripts/jhd-container-clone.sh", "hooks/scripts/sync-doer-rules.mjs"]) {
     assert.ok(paths.some((p) => p.endsWith(tail)), `new-product no longer names ${tail}`);
   }
 });
@@ -50,7 +50,7 @@ test("no placeholder path survived the rehoming", () => {
 });
 
 test("the rehomed script is executable", () => {
-  const rel = "scripts/jhd-container-clone.sh";
+  const rel = "hooks/scripts/jhd-container-clone.sh";
   assert.ok(statSync(join(repo, rel)).mode & 0o111, `${rel} is not executable`);
 });
 
@@ -58,7 +58,7 @@ test("the rehomed script is executable", () => {
 // it is pure git/rsync with no repo-relative data, so a change to its logic here
 // is a change nobody asked for.
 test("the rehomed clone script carries no editor or payload dependency", () => {
-  const script = read("scripts/jhd-container-clone.sh");
+  const script = read("hooks/scripts/jhd-container-clone.sh");
   assert.doesNotMatch(script, /ai\/discipline-cursor/, "still points at the archived repo");
   assert.doesNotMatch(script, /\$ROOT\/(rules|templates|config)/, "grew a repo-relative payload dependency");
   assert.match(script, /Rehomed here in 1\.79\.0/, "provenance header missing");
