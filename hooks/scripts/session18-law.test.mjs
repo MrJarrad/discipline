@@ -27,7 +27,7 @@ test("the output style still reprints every open row in full in chat", () => {
 
 test("wrap writes a Next block and runs the digest; resume paths run it too; no SessionStart hook for it", () => {
   assert.match(flat("skills/wrap/SKILL.md"), /`## Next` block/);
-  assert.match(flat("skills/wrap/SKILL.md"), /session-resume\.mjs <vault-root>` prints every lane/);
+  assert.match(flat("skills/wrap/SKILL.md"), /`session-resume\.mjs` prints every lane/);
   assert.match(flat("skills/pause-resume/SKILL.md"), /Run `node <plugin>\/hooks\/scripts\/session-resume\.mjs <vault-root>`/);
   assert.match(flat("skills/routing/SKILL.md"), /session-resume\.mjs <vault-root>/);
   assert.ok(!readFileSync(join(root, "hooks", "hooks.json"), "utf8").includes("session-resume"));
@@ -37,6 +37,6 @@ test("the garbled review-rounds sentence is gone from wrap and REPORT-AND-LEARN"
   for (const f of ["skills/wrap/SKILL.md", "skills/wrap/references/REPORT-AND-LEARN.md"]) {
     const t = flat(f);
     assert.doesNotMatch(t, /Round cap, \(every|Round cap — \(every/);
-    assert.match(t, /Every change has at least one round; a `0` is a missed reviewer, logged as a defect/);
+    assert.match(t, /Every change has at least one round; a `0` is a missed reviewer, /);
   }
 });

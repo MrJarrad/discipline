@@ -45,13 +45,13 @@ finish in-flight merges, run `wrap`, tell the operator in one line. No reading �
 Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). Walk them in order;
 a skipped section is a wrap failure, not a judgement call.
 
-1. **HANDOVER** — cockpit patch + one file per touched project, replaced not appended. Never one rewrite standing in for several projects. **The open queue is written once:** the cockpit wrap block carries every open `orchestrator/operator-queue.md` row verbatim; a handover carries a link and the open-row count, never the rows (chat reprints every row). Each handover ends with a dispatch-ready `## Next` block ([SECTIONS.md](references/SECTIONS.md) § 1).
+1. **HANDOVER** — cockpit patch + one file per touched project, replaced not appended. Never one rewrite standing in for several projects. **The open queue is written once:** the cockpit wrap block carries every open `orchestrator/operator-queue.md` row verbatim; a handover carries a link and the open-row count, never the rows, plus a `## Next` block ([SECTIONS.md](references/SECTIONS.md) § 1).
 2. **Rulings** — landed with lineage, same-action verified, placed thing-then-aspect.
 3. **Memory** — fleet lessons and the auto-memory index current. **Lessons ship or say why not.** Every file in `fleet/lessons/` and `fleet/rulings/` carries `encoded: <semver> | pre-1.73.0 | queued | skipped(<reason>)`. A lesson written this session is either encoded into the plugin in the same session or marked `queued` with the release it waits on — a lesson with no `encoded:` field is a wrap failure. Run `node <plugin>/hooks/scripts/lesson-ledger.mjs <vault-root>` and fix what it names.
 4. **Toolkit** — the plugin repo committed and versioned, installed copy matching. **Release checklist:** the commit gate refuses a `plugin.json` bump while any lesson or ruling is still `queued`, and `CHANGED.txt` names the lessons this version encoded.
 5. **Vault/Obsidian hygiene** — structure conformance, thing-then-aspect placement, lint exit 0.
 6. **Leftover** — handover Open/Next plus git (`leftover-not-a-board`).
-7. **Verify** — `session-resume.mjs <vault-root>` prints every lane. No durable reference to a dying path. Nothing committed, remembered, or written into a handover may point at `/private/tmp/...` or any session-scratch path.
+7. **Verify** — `session-resume.mjs` prints every lane. No durable reference to a dying path. Nothing committed, remembered, or written into a handover may point at `/private/tmp/...` or any session-scratch path.
 
 **Evidence and probes never live in a product repo.** Before closing, each touched product's
 round evidence is archived to `~/JHD/vault/main/estate/captures/<product>-evidence/` with a
@@ -70,7 +70,7 @@ Full text: [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
 - **Operator-facing by default** — compact outcomes, the four handover-prose moves (compact, redact, reference, name the next step). Never dump seven-section tables or plugin names unasked.
 - **Learn before the lint/commit gate** (operator ruling 2026-08-03) — mine the session for lessons *first*, so a lesson lands in the same commit as the wrap rather than the next one. **Queued lessons ship in-session**: encode them into the plugin the same session, or name the release that will; logging alone is not the close. The mid-session checkpoint exists so wrap is not the only catch.
 - **Log the dispatch tally** — `cloud N / local M`, each local dispatch's one-clause machine-bound justification spot-listed (`routing` rule 9). An unjustified local count, or a cloud share trending down session over session, is drift to name.
-- **Log review rounds per change** as `<change>: N of <cap>`, the cap being `agents/reviewer.md` § Round cap. Every change has at least one round; a `0` is a missed reviewer, logged as a defect. Also log any change that **halted at the cap** with findings still open. A session trending toward the cap on every change means the briefs or the gates are failing upstream.
+- **Log review rounds per change** as `<change>: N of <cap>` (`agents/reviewer.md` § Round cap). Every change has at least one round; a `0` is a missed reviewer, a defect. Name any change that **halted at the cap** with findings open. Trending toward the cap means failing upstream briefs or gates.
 - **Report personas and skills invoked** against `routing`'s tables; a mandated-skill zero on relevant work is a defect to log.
 
 ## Closing checks
