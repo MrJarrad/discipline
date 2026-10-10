@@ -4,6 +4,7 @@
 
 | Do | Why |
 |----|-----|
+| When the operator names a **reference** ("other sites don't"), read that site's root CSS first | The named reference is the cheapest diff; headless readings and "it's the browser" explain away the real difference |
 | Build a **red-capable loop** before reading code for theories | This is the whole skill — everything else is mechanical once the loop exists |
 | **Minimize** the repro one cut at a time | Shrinks the hypothesis space before you guess |
 | Show **3–5 ranked hypotheses** before probing | Avoids anchoring on the first plausible story |

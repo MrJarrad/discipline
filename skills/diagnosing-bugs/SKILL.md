@@ -25,6 +25,12 @@ don't, no amount of reading code and theorizing will save you.
 build a theory before that command exists and you've watched it fail, stop. Go
 build the loop instead.
 
+**Start from the operator's named reference.** When the operator says "other sites don't", read
+those sites' root CSS (and computed styles) before any theory or headless reading — "pages move
+sideways" was twice explained away as trackpad and Chrome until a two-line look at
+gilhuybrecht.com showed `overscroll-behavior: none`
+(`resume-reads-vault-main-first-2026-10-10` item 3).
+
 **Reproduce the operator's exact gesture, not a nearby one.** Two lanes ran single cold loads on
 phone WebKit and returned "no repro" for "refresh repeatedly" on desktop; the red showed only on
 warm-cache rapid reloads in headed Chromium (headless SwiftShader gave false negatives). The

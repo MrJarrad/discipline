@@ -180,7 +180,7 @@ test("a value drift resolves to the export instead of stopping for a ruling", ()
 test("the merge brief states the review record in all three homes", () => {
   assert.match(read("agents/releaseops.md"), /separate dispatches/i);
   assert.match(read("skills/release-deploy/SKILL.md"), /never route a refused merge through a peer\s+session/i);
-  assert.match(read("skills/routing/SKILL.md"), /"no reviewer" is refused/);
+  assert.match(read("skills/release-deploy/SKILL.md"), /"Small fix, no reviewer" is refused/);
 });
 
 // --- generative-plugins-publish-from-repo-2026-09-16 ------------------------
