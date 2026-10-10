@@ -8,9 +8,9 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
 
-test("1.126.0: version and CHANGED entry", () => {
-  assert.match(read(".claude-plugin/plugin.json"), /"version": "1.126.0"/);
-  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1.126.0"/);
+test("1.126.0: version shape and CHANGED entry (version pin moves each release)", () => {
+  assert.match(read(".claude-plugin/plugin.json"), /"version": "1\.\d+\.\d+"/);
+  assert.match(read(".claude-plugin/marketplace.json"), /"version": "1\.\d+\.\d+"/);
   assert.match(read("CHANGED.txt"), /^1\.126\.0 — .*disk-and-parallel-lanes/m);
 });
 

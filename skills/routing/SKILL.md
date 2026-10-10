@@ -55,6 +55,11 @@ parent reads the worktree diff and the progress file directly, then dispatches a
 stash) and re-verifies it as an untrusted claim before building on it
 (`lanes-survive-interruption`, 2026-09-25).
 
+**A resuming session pulls main before any dispatch:** `git fetch origin main`, read the
+cockpit and handover from `origin/main`, and re-check every "running" lane against live PR and
+branch state (merged, moved on, operator-held) before restarting it
+(`resume-reads-vault-main-first-2026-10-10`; `pause-resume` step 0).
+
 ## Baton handoff table
 
 | Just finished | Next owner (on the completion notification) |
@@ -62,7 +67,7 @@ stash) and re-verifies it as an untrusted claim before building on it
 | **Doer read-back returned** | **Parent** answers or says go — same agent, same context, continues |
 | Engineer landed, **look-judged** | **Operator**: link when preview opens (`link-first-look-rounds`); proof, merge on yes → **Reviewer trailing** |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
-| Engineer landed, **small fix** (single file, gates green) | **No reviewer** — engineer + parent check, merge; brief **states the review record**; "no reviewer" is refused |
+| Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`); brief **states the review record** |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |

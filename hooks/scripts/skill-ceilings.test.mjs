@@ -62,7 +62,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1560, before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1620, /* 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
@@ -72,7 +72,7 @@ const CEILINGS = [
   // (ruling `follow-ups-before-wrap`); the rule text lives in references/REPORT-AND-LEARN.md.
   // Ceiling raised 930 -> 980 at 1.123.0: § Last step (wrapped sessions go quiet, ruling
   // `2026-10-09-wrapped-sessions-go-quiet`); the procedure lives in references/CLOSING-CHECKS.md.
-  { skill: "wrap", ceiling: 980, before: 3115, frontmatterWords: 85 },
+  { skill: "wrap", ceiling: 995, /* 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
@@ -87,7 +87,7 @@ const CEILINGS = [
   // the media-load-probe re-run evidence line (`media-loading`).
   // Ceiling raised 1500 -> 1600 at 1.105.0: the props-by-default review line
   // (rule text lives once in HOUSE-RULES; this line only carries severities).
-  { skill: "agents/reviewer.md", ceiling: 1600, before: 2017, frontmatterWords: 72 },
+  { skill: "agents/reviewer.md", ceiling: 1630, /* 1.127.0 +30: no small-fix exemption */ before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

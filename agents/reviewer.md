@@ -77,6 +77,8 @@ The engineer's evidence is **input to verify, not a verdict to relay**.
 
 ## Look is the operator's; parity is yours
 
+**No small-fix exemption.** Every merge has a reviewer verdict first — a one-line or test-only PR gets a LIGHT pass (`2026-10-09-every-merge-reviewed`).
+
 **You never evaluate look.** Visual taste is the operator's (`lean-review-operator-visual`);
 a design recommendation in a merge brief is wrong lane, not a finding.
 

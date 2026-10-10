@@ -41,7 +41,14 @@ Nothing runs after step 4 until "resume."
 Trigger words: "resume", "pick up where we left off", "carry on from the
 snapshot".
 
-1. Read the snapshot (`projects/<name>/<name>-handover.md`).
+0. **Pull main first.** `git fetch origin main` in the vault and read the cockpit and handover
+   from `origin/main`, never from the local or branch copy: a session that kept working after
+   its wrap leaves newer state on main, and a stale branch cockpit restarts lanes that already
+   merged (`resume-reads-vault-main-first-2026-10-10`).
+1. Read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`.
+   **Re-check every "running" lane** against live PR and branch state (`gh pr view`, branch
+   head, merged or closed, draft or ready, whose decision it is) before any re-dispatch; a
+   lane whose PR merged, moved on, or is held by the operator is not restarted.
 2. Re-dispatch each interrupted lane as a **fresh continuation** — branch
    counts as an untrusted draft, per standing law, not a trusted resume-in-
    place. This is the same rule as `fresh-context-per-task`: resume-in-place

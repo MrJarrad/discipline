@@ -196,10 +196,11 @@ test("the reviewer never evaluates look", () => {
   assert.match(reviewer, /never evaluates? look/i);
 });
 
-test("routing's baton table carries the small-fix no-reviewer path", () => {
+test("routing's baton table routes a small fix to the reviewer (no exemption, 1.127.0)", () => {
   const baton = routing.slice(routing.indexOf("## Baton handoff table"));
-  assert.match(baton, /small fix/i);
-  assert.match(baton, /no reviewer/i);
+  const row = baton.split("\n").find((l) => /small fix/i.test(l));
+  assert.match(row, /Reviewer/);
+  assert.doesNotMatch(row, /\*\*No reviewer\*\*/);
 });
 
 // --- Locked row 6: out of scope, must not appear -------------------------
