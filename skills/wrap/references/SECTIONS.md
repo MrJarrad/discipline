@@ -56,7 +56,7 @@ On wrap:
 - Merged/unpushed commits for a repo belong on that project's handover.
 - **Open operator items are written once** (2026-10-10, backlog 161): `orchestrator/operator-queue.md`
   is the source; the cockpit wrap block carries every open row verbatim; a handover carries a
-  link and the open-row count, never the rows. Chat still reprints every row (output style).
+  link and the open-row count, never the rows. Chat reprints the session's projects' rows only (output style).
 - **End each handover with a `## Next` block** (newest wrap first; the resume digest reads only
   the first one): one `- lane:` line per lane, ` | `-separated, one physical line each:
   `- lane: <id> | repo: <name> | branch: <b> | pr: #<n> | head: <sha> | progress: <vault path> |

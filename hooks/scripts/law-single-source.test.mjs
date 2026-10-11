@@ -80,7 +80,7 @@ const LAWS = [
   {
     law: "the operator queue printed in full on every status",
     home: "output-styles/discipline.md",
-    definition: '**Every status reply ends with "Needed from you" — the operator queue, in full.**',
+    definition: '**Every status reply ends with "Needed from you" — the operator queue, in full, for this session\'s projects.**',
     elsewhere: /every status reply ends with "Needed from you"/i,
     pointer: "`orchestrator/operator-queue.md`",
     pointedFrom: ["skills/wrap/SKILL.md", "skills/pause-resume/SKILL.md", "skills/present-for-review/SKILL.md", "skills/routing/SKILL.md"],

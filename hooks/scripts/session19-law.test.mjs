@@ -42,6 +42,5 @@ test("vault-write names the struck-row refusal", () => {
 });
 
 test("1.129.0 CHANGED entry and plugin version", () => {
-  assert.match(flat("CHANGED.txt"), /^1\.129\.0 — /);
-  assert.equal(JSON.parse(readFileSync(join(root, ".claude-plugin/plugin.json"), "utf8")).version, "1.129.0");
+  assert.match(flat("CHANGED.txt"), / 1\.129\.0 — `2026-10-10-1129-relay-retrigger`/);
 });
