@@ -21,8 +21,8 @@ test("the queue is written once: cockpit verbatim, handovers link and count (wra
   assert.match(flat("skills/wrap/references/SECTIONS.md"), /a handover carries a link and the open-row count, never the rows/);
 });
 
-test("the output style still reprints every open row in full in chat", () => {
-  assert.match(flat("output-styles/discipline.md"), /Every status reply ends with "Needed from you" — the operator queue, in full\./);
+test("the output style still reprints the session projects' open rows in full in chat", () => {
+  assert.match(flat("output-styles/discipline.md"), /Every status reply ends with "Needed from you" — the operator queue, in full, for this session's projects\./);
 });
 
 test("wrap writes a Next block and runs the digest; resume paths run it too; no SessionStart hook for it", () => {
