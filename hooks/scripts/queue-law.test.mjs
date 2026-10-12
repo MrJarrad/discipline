@@ -104,7 +104,7 @@ test("wrap, pause-resume and present-for-review all carry the queue verbatim", (
     "skills/pause-resume/SKILL.md",
     "skills/present-for-review/SKILL.md",
   ]) {
-    assert.match(read(file), /operator-queue\.md/, `${file} does not name the queue file`);
+    assert.match(read(file), /needed-from-you\.mjs --projects/, `${file} does not name the queue script`);
     assert.match(read(file), /verbatim|in full/i, `${file} does not demand the full row text`);
   }
 });

@@ -72,7 +72,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |
-| **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); row in the project's queue (`node <plugin>/hooks/scripts/needed-from-you.mjs --vault <vault> --projects <prefixes>` lists them) |
+| **Round 2 red still open** | **Operator** — halt at the cap (`agents/reviewer.md` § Round cap); `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>` row |
 | **Doer returns "already satisfied/true" on an operator-raised row** | **Parent** reproduces at the operator's own framing before relaying — a claim, not a result (2026-09-23, `reproduce-lane-already-works-before-relay`) |
 | Look/feel / Figma or reference match | **UX Designer** (reviewer never evaluates look) |
 | Merge condition met | Live product → **`present-for-review`**, parent remits |
