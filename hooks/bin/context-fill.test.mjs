@@ -296,3 +296,15 @@ test("row 156 A1: an unwritable marker dir (ENOENT) still emits the PostToolUse 
   assert.equal(handle(e, opts(d)), null); // EEXIST still suppresses the repeat
   rmSync(d, { recursive: true });
 });
+
+test("row 158 review r1: wrap, reopen, wrap again re-arms the banner with no SessionEnd between", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(100_000)]);
+  const ev = (prompt) => ({ hook_event_name: "UserPromptSubmit", session_id: "r", transcript_path: p, prompt });
+  markWrapped("r", { dir: d });
+  assert.match(handle(ev("reopen"), opts(d)), /reopened/);
+  assert.equal(handle(ev("status"), opts(d)), null);
+  markWrapped("r", { dir: d });
+  assert.match(handle(ev("status"), opts(d)), /^This session is wrapped/);
+  rmSync(d, { recursive: true });
+});

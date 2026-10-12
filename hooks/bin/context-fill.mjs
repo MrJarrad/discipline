@@ -90,6 +90,7 @@ const WRAPPED_BANNER = "This session is wrapped. Open this reply with \"This ses
 export function markWrapped(sessionId, { dir = tmpdir() } = {}) {
   const sid = safeSid(sessionId);
   if (!sid) return false;
+  try { unlinkSync(reopenedPath(dir, sid)); } catch { /* none to clear */ }
   try { writeFileSync(wrappedPath(dir, sid), String(Date.now())); return true; } catch { return false; }
 }
 
