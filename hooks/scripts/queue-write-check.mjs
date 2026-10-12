@@ -37,7 +37,7 @@ export function rowWritten(fileText, rowText) {
    number starts with `~~` (table, bullet or "Row N" form). A struck row is
    history; a write must never replace it (session-19 lesson, backlog 162). */
 export function isStruckRow(line) {
-  return /^\s*(?:\|\s*|-\s*\[?\s*(?:Row\s*)?)\d+[a-z]?\s*(?:\|\s*|[.)\]]\s*)~~/i.test(String(line));
+  return /^\s*(?:\|\s*|-\s*\[?\s*(?:Row\s*)?)(?:[A-Z]{2,4}-)?\d+[a-z]?\s*(?:\|\s*|[.)\]]\s*)~~/i.test(String(line)) || /^\s*\|\s*~~(?:[A-Z]{2,4}-)?\d+[a-z]?~~\s*\|/.test(String(line));
 }
 
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => String(a + i));
@@ -57,7 +57,7 @@ export function duplicateRowNumbers(fileText) {
   for (const line of String(fileText).split(/\r?\n/)) {
     const h = /^##\s+(.+?)\s*$/.exec(line);
     if (h) { section = h[1]; continue; }
-    const m = /^\|\s*(\d+[a-z]?)\s*\|/.exec(line);
+    const m = /^\|\s*((?:[A-Z]{2,4}-)?\d+[a-z]?)\s*\|/.exec(line);
     if (!m) continue;
     const key = `${section}\u0000${m[1]}`;
     if (seen.has(key)) {

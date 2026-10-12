@@ -12,7 +12,7 @@ import { matchProcess, parseEtimeSeconds, parseWorktreePorcelain, shellExecutabl
 import { spawnSync } from "node:child_process";
 import { checkAgentDispatch, checkComponentSystemProgress, checkLineNoReadBack, checkSkillsNamed, checkSourceContractLockRows } from "../bin/agent-dispatch-gate.mjs";
 import { GRANDFATHERED, duplicateRowNumbers, rowWritten } from "./queue-write-check.mjs";
-import { findRow, replaceRow } from "./lane-end.mjs";
+import { replaceRowById } from "./lane-end.mjs";
 
 // ======== queue-1810-law ========
 {
@@ -2149,25 +2149,19 @@ test("dispatch-brief: repeats the one-line read-back reply rule", () => {
 // --- Rule 5: lane-end.mjs is one deterministic parent call ------------------
 
 
-test("lane-end: findRow locates a row scoped to its own section", () => {
-  const queue = "## Discipline\n9. a row\n";
-  assert.ok(findRow(queue, "9", "Discipline"));
+test("lane-end: replaceRowById refuses a row absent from the project's queue", () => {
+  assert.equal(replaceRowById("| PF-1 | x |\n", "PF-9", "| PF-9 | y |").ok, false);
 });
 
-test("lane-end: replaceRow refuses a row absent from the named section", () => {
-  assert.equal(replaceRow("## Discipline\n1. x\n", "9", "9. y", "Discipline").ok, false);
+test("lane-end: replaceRowById refuses a bare number — no unkeyed fallback", () => {
+  assert.equal(replaceRowById("| PF-9 | x |\n", "9", "| 9 | z |").ok, false);
 });
 
-test("lane-end: replaceRow requires --section — no whole-file fallback", () => {
-  assert.equal(replaceRow("## Discipline\n9. x\n", "9", "9. z").ok, false);
-});
-
-test("lane-end: row 9 in two sections — the named section's row 9 is neither falsely refused nor cross-written (round 2 fix)", () => {
-  const queue = "## Portfolio\n9. portfolio row\n## Discipline\n9. discipline row\n";
-  const result = replaceRow(queue, "9", "9. discipline row, replaced", "Discipline");
+test("lane-end: row 9 in two projects — PF-9's write is neither falsely refused nor cross-written (backlog 166)", () => {
+  const pf = "| PF-9 | portfolio row |\n";
+  const result = replaceRowById(pf, "PF-9", "| PF-9 | portfolio row, replaced |");
   assert.equal(result.ok, true, result.reason);
-  assert.match(result.text, /portfolio row/); // untouched
-  assert.match(result.text, /discipline row, replaced/);
+  assert.equal(replaceRowById(pf, "PF-9", "| HB-9 | hoverboard row |").ok, false);
 });
 
 test("routing: the baton table names lane-end.mjs as the lane-landed parent call", () => {

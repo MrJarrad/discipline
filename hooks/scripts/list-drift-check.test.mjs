@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseStatus, parseBacklog, mergedIndex, checkBacklog, checkVault } from "./list-drift-check.mjs";
+import { parseStatus, parseBacklog, mergedIndex, checkBacklog, checkVault, FAILING } from "./list-drift-check.mjs";
 
 const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
 const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" }).trim();
@@ -104,46 +104,75 @@ function makeVault(files) {
   return v;
 }
 
+// A project's files as the vault now keeps them: backlog + queue, each declaring the project's prefix.
+const FM = (px, kind) => `---\nname: x-${kind}\nkind: ${kind}\nprefix: ${px}\n---\n`;
+const PBACKLOG = (px, open, done = "") => FM(px, "backlog") + BACKLOG(open, done);
+const PQUEUE = (px, rows = "") => FM(px, "queue") + `| # | Needed |\n| - | - |\n${rows}\n`;
+
 test("checkVault discovers every project backlog by glob, never a fixed list", () => {
   const { repo } = makeRepo("alpha");
   const v = makeVault({
-    "projects/alpha/alpha-backlog.md": BACKLOG("| 1 | a | d | in flight (#7) |"),
-    "projects/zeta/zeta-backlog.md": BACKLOG("| 1 | a | d | DONE |"),
-    "orchestrator/operator-queue.md": "## X\n\n| # | Needed |\n| - | - |\n",
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | a | d | in flight (#7) |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL"),
+    "projects/zeta/zeta-backlog.md": PBACKLOG("ZE", "| ZE-1 | a | d | DONE |"),
+    "projects/zeta/zeta-queue.md": PQUEUE("ZE"),
+    "orchestrator/operator-queue.md": "# index\n",
   });
   const f = checkVault(v, [repo]);
   assert.deepEqual(f.map((x) => [x.kind, x.project]).sort(), [["bad-status", "zeta"], ["drift", "alpha"]]);
 });
 
-test("a project with a handover but no backlog is a no-backlog finding; two backlogs is duplicate", () => {
+test("a project with a handover but no backlog is a no-backlog finding; two backlogs is duplicate; a backlog without a queue is no-queue", () => {
   const v = makeVault({
     "projects/parked/parked-handover.md": "x",
     "projects/noop/noop.md": "x",
     "projects/dup/dup-handover.md": "x",
-    "projects/dup/dup-backlog.md": BACKLOG(""),
-    "projects/dup/dup-extra-backlog.md": BACKLOG(""),
+    "projects/dup/dup-backlog.md": PBACKLOG("DU", ""),
+    "projects/dup/dup-extra-backlog.md": PBACKLOG("DU", ""),
+    "projects/dup/dup-queue.md": PQUEUE("DU"),
     "projects/ok/ok-handover.md": "x",
-    "projects/ok/ok-backlog.md": BACKLOG(""),
+    "projects/ok/ok-backlog.md": PBACKLOG("OK", ""),
+    "projects/ok/ok-queue.md": PQUEUE("OK"),
+    "projects/nq/nq-backlog.md": PBACKLOG("NQ", ""),
   });
   const f = checkVault(v, []);
-  assert.deepEqual(f.map((x) => [x.kind, x.project]).sort(), [["duplicate", "dup"], ["no-backlog", "parked"]]);
+  assert.deepEqual(f.map((x) => [x.kind, x.project]).sort(), [["duplicate", "dup"], ["no-backlog", "parked"], ["no-queue", "nq"]]);
 });
 
 test("an unstruck queue row citing a merged PR is suspect; a struck row is ignored", () => {
   const { repo } = makeRepo();
-  const q = "## Portfolio\n\n| # | Needed |\n| - | - |\n| 5 | land #7 |\n| ~~6~~ | ~~land #7~~ |\n";
-  const v = makeVault({ "orchestrator/operator-queue.md": q });
+  const v = makeVault({ "projects/p/p-queue.md": PQUEUE("PP", "| PP-5 | land #7 |\n| ~~PP-6~~ | ~~land #7~~ |"), "projects/p/p-backlog.md": PBACKLOG("PP", "") });
   const f = checkVault(v, [repo]);
-  assert.deepEqual(f.map((x) => [x.kind, x.row]), [["suspect", "5"]]);
+  assert.deepEqual(f.map((x) => [x.kind, x.row]), [["suspect", "PP-5"]]);
+});
+
+// Backlog 166: the row-ID law, as lint findings.
+test("bare ids, another project's prefix, duplicate ids, a missing prefix and a shared prefix are all failing findings", () => {
+  const v = makeVault({
+    "projects/a/a-backlog.md": PBACKLOG("AA", "| 3 | bare | d | open |\n| BB-4 | foreign | d | open |\n| AA-5 | x | d | open |\n| AA-5 | dup | d | open |"),
+    "projects/a/a-queue.md": PQUEUE("AA"),
+    "projects/b/b-backlog.md": PBACKLOG("AA", ""),
+    "projects/b/b-queue.md": PQUEUE("AA"),
+    "projects/c/c-backlog.md": BACKLOG(""),
+    "projects/c/c-queue.md": PQUEUE("CC"),
+  });
+  const kinds = checkVault(v, []).map((x) => x.kind);
+  for (const k of ["bare-id", "foreign-id", "dup-id", "prefix-collision", "no-prefix"]) assert.ok(kinds.includes(k), k);
+  for (const k of kinds) assert.ok(FAILING.has(k), `${k} fails the exit`);
+});
+
+test("rows left in orchestrator/operator-queue.md are a rows-in-index finding (the index holds no rows)", () => {
+  const v = makeVault({ "orchestrator/operator-queue.md": "| # | Needed |\n| - | - |\n| 5 | stray |\n" });
+  assert.deepEqual(checkVault(v, []).map((x) => x.kind), ["rows-in-index"]);
 });
 
 test("CLI exits 1 on drift, 0 when clean or only unknown", () => {
   const { repo } = makeRepo("a");
-  const bad = makeVault({ "projects/a/a-backlog.md": BACKLOG("| 1 | a | d | in flight (#7) |") });
+  const bad = makeVault({ "projects/a/a-backlog.md": PBACKLOG("AA", "| AA-1 | a | d | in flight (#7) |"), "projects/a/a-queue.md": PQUEUE("AA") });
   const r = spawnSync("node", [script, "--vault", bad, "--repo", repo], { encoding: "utf8" });
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /drift .*a-backlog\.md.*row 1/);
-  const unk = makeVault({ "projects/a/a-backlog.md": BACKLOG("| 1 | a | d | in flight (#7) |") });
+  assert.match(r.stdout, /drift .*a-backlog\.md.*row AA-1/);
+  const unk = makeVault({ "projects/a/a-backlog.md": PBACKLOG("AA", "| AA-1 | a | d | in flight (#7) |"), "projects/a/a-queue.md": PQUEUE("AA") });
   assert.equal(spawnSync("node", [script, "--vault", unk], { encoding: "utf8" }).status, 0);
 });
 
@@ -342,4 +371,18 @@ test("B2: a clone with only origin/main (no origin/HEAD, no local main) judges m
   const idx = mergedIndex([clone]);
   assert.equal(idx.merged("#9", "up"), false, "feature-branch commit is not merged");
   assert.equal(idx.merged("#7", "up"), true, "origin/main history is");
+});
+
+test("setRowStatus on a prefixed backlog needs the full ID: a bare number or another prefix is refused, a duplicate ID refuses", () => {
+  const t = PBACKLOG("PP", "| PP-1 | a | d | open |\n| PP-2 | b | d | open |");
+  assert.ok(setRowStatus(t, "PP-1", "in flight (#9)").ok);
+  assert.equal(setRowStatus(t, "1", "open").ok, false);
+  assert.equal(setRowStatus(t, "HB-1", "open").ok, false);
+  assert.match(setRowStatus(PBACKLOG("PP", "| PP-1 | a | d | open |\n| PP-1 | b | d | open |"), "PP-1", "open").reason, /appears 2 times/);
+});
+
+test("addRow in a prefixed backlog writes a prefixed ID and returns it", () => {
+  const r = addRow(PBACKLOG("PP", "| PP-1 | a | d | open |"), "new finding", "2026-10-12");
+  assert.equal(r.id, "PP-2");
+  assert.ok(parseBacklog(r.text).some((x) => x.id === "PP-2" && x.section === "open"));
 });

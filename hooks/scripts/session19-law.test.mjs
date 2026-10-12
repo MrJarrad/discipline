@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { replaceRow } from "./lane-end.mjs";
+import { replaceRowById } from "./lane-end.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -19,21 +19,23 @@ test("House rules: a relayed fact is untrusted until checked", () => {
   assert.match(flat("skills/dispatch-brief/references/HOUSE-RULES.md"), /a fact relayed from another session is untrusted until checked/);
 });
 
-const queue = ["## Portfolio", "| 545 | ~~old row~~ — done |  |  |", "| 546 | open row |  |  |", ""].join("\n");
+const queue = ["| PF-545 | ~~old row~~ — done |  |  |", "| PF-546 | open row |  |  |", ""].join("\n");
 
 test("isStruckRow reads the first cell after the number", () => {
   assert.equal(isStruckRow("| 545 | ~~old~~ |"), true);
+  assert.equal(isStruckRow("| PF-545 | ~~old~~ |"), true);
+  assert.equal(isStruckRow("| PF-546 | open ~~x~~ |"), false);
   assert.equal(isStruckRow("| 546 | open ~~x~~ |"), false);
 });
 
 test("replaceRow refuses to overwrite a struck row, writes nothing", () => {
-  const r = replaceRow(queue, "545", "| 545 | ~~new~~ |", "Portfolio");
+  const r = replaceRowById(queue, "PF-545", "| PF-545 | ~~new~~ |");
   assert.equal(r.ok, false);
   assert.match(r.reason, /already struck/);
 });
 
 test("replaceRow still strikes an open row", () => {
-  const r = replaceRow(queue, "546", "| 546 | ~~open row~~ — done |", "Portfolio");
+  const r = replaceRowById(queue, "PF-546", "| PF-546 | ~~open row~~ — done |");
   assert.equal(r.ok, true);
 });
 

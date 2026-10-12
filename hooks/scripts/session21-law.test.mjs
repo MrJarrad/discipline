@@ -30,9 +30,9 @@ test("output style: closing other-projects line and the wrapped-session rule", (
   assert.match(flat("skills/wrap/references/CLOSING-CHECKS.md"), /message beginning "reopen" reopens it/);
 });
 
-test("vault-write and wrap carry the section-scoped queue edit rule", () => {
-  assert.match(flat("skills/vault-write/SKILL.md"), /finds the section header first.*matches the row's text, not `\| N \|` alone/);
-  assert.match(flat("skills/wrap/references/SECTIONS.md"), /git diff <session's first commit> -- orchestrator\/operator-queue\.md/);
+test("vault-write and wrap carry the ID-keyed queue edit rule", () => {
+  assert.match(flat("skills/vault-write/SKILL.md"), /finds the file from the prefix.*never `\| N \|` alone/);
+  assert.match(flat("skills/wrap/references/SECTIONS.md"), /git diff <session's first commit> -- projects\/\*\/\*-queue\.md/);
 });
 
 test("lane-sweep refuses symlinked and non-worktree .git pointers", () => {
@@ -41,9 +41,13 @@ test("lane-sweep refuses symlinked and non-worktree .git pointers", () => {
   assert.match(s, /\.git\[\\\\\/\]worktrees/);
 });
 
-test("1.131.0 versions and CHANGED entry", () => {
+test("1.131.0 CHANGED entry stays; 1.132.0 is the current version", () => {
   for (const f of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
-    assert.match(readFileSync(join(root, f), "utf8"), /"version": "1\.131\.0"/);
+    assert.match(readFileSync(join(root, f), "utf8"), /"version": "1\.132\.0"/);
   }
-  assert.match(flat("CHANGED.txt"), /^1\.131\.0 — `2026-10-12-1131-backlog-sweep`: backlog 163, 158, 156, 159.*encoded: 1\.131\.0/);
+  assert.match(flat("CHANGED.txt"), /1\.131\.0 — `2026-10-12-1131-backlog-sweep`: backlog 163, 158, 156, 159.*encoded: 1\.131\.0/);
+});
+
+test("1.132.0 CHANGED entry (per-project queues, backlog 166)", () => {
+  assert.match(flat("CHANGED.txt"), /^1\.132\.0 — `2026-10-12-1132-per-project-queues`: backlog 166.*encoded: 1\.132\.0/);
 });
