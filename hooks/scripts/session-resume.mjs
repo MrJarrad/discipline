@@ -25,6 +25,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -67,9 +68,9 @@ export function lastProgressLine(text) {
   return lines.length ? lines[lines.length - 1] : "";
 }
 
-/* Open queue rows: table rows whose first cell is a number and not struck. */
+/* Open queue rows: table rows whose first cell is a row ID and not struck. */
 export function countOpenQueueRows(text) {
-  return String(text).split(/\r?\n/).filter((l) => /^\|\s*\d+[a-z]?\s*\|/.test(l) && !/^\|\s*~~/.test(l) && !/^\|\s*\d+[a-z]?\s*\|\s*~~/.test(l)).length;
+  return tableRows(text).filter((r) => !r.struck).length;
 }
 
 const ago = (secs) => {
@@ -239,10 +240,12 @@ export function buildDigest(opts = {}) {
     text.push(`vault: HEAD ${v.stdout.trim()}, origin/main ${main.slice(0, 7)} — run \`git fetch origin main\` and read the cockpit and handover from origin/main (routing § Resume vs fresh)`);
   } else text.push("vault: origin/main not readable from here (git ls-remote failed); read cockpit and handovers from origin/main once it is");
 
-  const queue = join(vault, "orchestrator", "operator-queue.md");
-  text.push(existsSync(queue)
-    ? `queue: ${countOpenQueueRows(readFileSync(queue, "utf8"))} open rows in orchestrator/operator-queue.md (path and count only; the cockpit wrap block holds the rows)`
-    : "queue: orchestrator/operator-queue.md not found");
+  // One queue per project: counts only, by prefix. The rows are printed by needed-from-you.mjs, never here.
+  const reg = discoverFiles(vault);
+  const qs = [...reg.byPrefix].filter(([, e]) => e.queue).sort(([a], [b]) => a.localeCompare(b));
+  text.push(qs.length
+    ? `queues: ${qs.map(([prefix, e]) => `${prefix} ${countOpenQueueRows(readFileSync(join(vault, e.queue), "utf8"))} open`).join(" · ")} (counts only, one file per project: projects/<p>/<p>-queue.md; print a session's rows with needed-from-you.mjs --projects <prefixes>)`
+    : "queues: no projects/<p>/<p>-queue.md found");
   text.push("");
 
   const lanes = [];

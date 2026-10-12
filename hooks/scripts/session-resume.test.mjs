@@ -25,8 +25,7 @@ function world() {
   const shallow = join(root, "shallow");
   git(root, "clone", "-q", "--depth", "1", "--single-branch", "--branch", "main", `file://${origin}`, shallow);
   mkdirSync(join(vault, "projects", "p", "evidence", "lane"), { recursive: true });
-  mkdirSync(join(vault, "orchestrator"), { recursive: true });
-  writeFileSync(join(vault, "orchestrator", "operator-queue.md"), "| # | a |\n|---|---|\n| 1 | open |\n| 2 | ~~struck~~ |\n| ~~3~~ | x |\n| 4 | open |\n");
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | a |\n|---|---|\n| TP-1 | open |\n| TP-2 | ~~struck~~ |\n| ~~TP-3~~ | x |\n| TP-4 | open |\n");
   const prog = join(vault, "projects", "p", "evidence", "lane", "progress.md");
   writeFileSync(prog, "step 2 of 6 — build — in progress: waiting for go\n");
   const old = Date.now() / 1000 - 7200; utimesSync(prog, old, old);
@@ -52,7 +51,7 @@ function readFileSyncShim(vault) { return readFileSync(join(vault, "projects", "
 
 test("lastProgressLine and countOpenQueueRows", () => {
   assert.equal(lastProgressLine("a\n\nb  \n\n"), "b");
-  assert.equal(countOpenQueueRows(readFileSync(join(world().vault, "orchestrator", "operator-queue.md"), "utf8")), 2);
+  assert.equal(countOpenQueueRows(readFileSync(join(world().vault, "projects", "p", "p-queue.md"), "utf8")), 2);
 });
 
 test("a shallow clone still shows the lane branch (explicit refspec), flags stale progress, degrades without gh", () => {
@@ -65,8 +64,8 @@ test("a shallow clone still shows the lane branch (explicit refspec), flags stal
   assert.match(text, /!!      branch moved since wrap \(handover abcdef0/);
   assert.match(text, /branch no-such is not on origin/);
   assert.match(text, /contract projects\/p\/decisions\/d\.md {3}next owner reviewer/);
-  assert.match(text, /queue: 2 open rows in orchestrator\/operator-queue\.md \(path and count only/);
-  assert.doesNotMatch(text, /\| 1 \| open/, "the queue rows are never reprinted by the digest");
+  assert.match(text, /queues: TP 2 open \(counts only, one file per project/);
+  assert.doesNotMatch(text, /TP-1 \| open/, "the queue rows are never reprinted by the digest");
   assert.doesNotMatch(text, /ancient/, "only the newest Next block counts");
 });
 

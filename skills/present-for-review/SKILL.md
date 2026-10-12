@@ -163,7 +163,7 @@ Example (feature, web): *Ready to look. The pricing table now sorts by plan tier
 [jarrad.design](https://jarrad.design)*
 
 The message **ends with the `## Needed from you` queue in full** — the session's projects' open rows
-from `orchestrator/operator-queue.md`, each row's complete text, or *"Nothing needed from you."*
+printed verbatim by `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, or *"Nothing needed from you."*
 (`output-styles/discipline.md`).
 
 ## Deploy commands stand alone (Change 6, 2026-09-22)

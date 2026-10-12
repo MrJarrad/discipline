@@ -31,7 +31,7 @@ down", "stop for now", "let's stop here".
    for each touched project: in-flight lanes + their shas, dirty worktrees,
    merged state, resume order, and a `## Next` block (one `- lane:` line per lane, format in
    `hooks/scripts/session-resume.mjs`). The open queue is written once, **verbatim** — every open
-   `orchestrator/operator-queue.md` row's full text — in the cockpit; a handover carries a link
+   row's full text as printed by `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>` — in the cockpit; a handover carries a link
    and the open-row count only.
 4. **Confirm in one line.** Name what's paused and that nothing runs until
    resume — no verdict wall.

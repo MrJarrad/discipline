@@ -4,13 +4,13 @@
    2026-09-22 addendum: the orchestrator "avoids mechanical grunt work").
 
    It: (1) runs `lane-sweep.mjs --session-dir <dir>`; (2) replaces queue row
-   `--row <n>` INSIDE `--section <name>` (required — no whole-file fallback)
-   of `--vault <root>`'s `orchestrator/operator-queue.md` with
-   `--text <full replacement row text>`, refusing if the section is missing
-   or the row is absent from that section's own line range; a same-numbered
-   row in another section is never touched, in either direction (round 2
-   fix, 2026-09-22: an unscoped whole-file search either falsely refused a
-   real row or silently overwrote another project's same-numbered row);
+   `--id <PREFIX-n>` (e.g. PF-279; a bare number is refused) in that project's own
+   `projects/<p>/<p>-queue.md`, found from the prefix declared in its frontmatter,
+   with `--text <full replacement row text>`, which must itself start with the same
+   ID. A same-numbered row in another project is in another file and is never
+   reachable (backlog 166, 2026-10-12: bare numbers repeated across projects and a
+   write keyed to one landed on another's row); the backlog flip must be that same
+   project's backlog and `--backlog-row` the same prefix;
    (3) greps the write back with `queue-write-check.mjs`; (4) `git add`s only
    the queue file plus `--evidence <dir>` (if given), commits naming the row,
    and pushes; (5) if `--pr <owner/repo#n>` is given, prints the PR's
@@ -18,7 +18,7 @@
    `mergeable` (a missing or failed GitHub check is not red under a passing tail).
 
    Lists never stale (ruling `lists-never-stale`, 2026-10-08): `--backlog <file in
-   vault> --backlog-row <n> --status "<status>"` flips that backlog row (status
+   vault> --backlog-row <PREFIX-n> --status "<status>"` flips that backlog row (status
    must be in the fixed set; done/moot moves it under ## Done) in the SAME commit
    as the queue row; `--backlog-add "<item>"` adds a new open row for a new
    finding. After the commit and push, `list-drift-check.mjs` runs over the whole
@@ -35,8 +35,8 @@
    `main()` wires it to the real filesystem/process calls.
 
    Usage:
-     node lane-end.mjs --session-dir <path> --vault <root> --row <n>
-       --section <name> --text "<full replacement row text>"
+     node lane-end.mjs --session-dir <path> --vault <root> --id <PREFIX-n>
+       --text "<full replacement row text>"
        [--evidence <dir>] [--pr <owner/repo#n>] [--dry-run]
        [--then-merge <owner/repo#n> --repo <path> [--then-build]]
 */
@@ -46,6 +46,7 @@ import { join, resolve } from "node:path";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, setRowStatus } from "./list-drift-check.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
+import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
 
 export function parseArgs(argv) {
   const out = {};
@@ -65,71 +66,33 @@ export function parseArgs(argv) {
   return out;
 }
 
-/* A queue file is sectioned by `## <project>` headings, each operator's own
-   section owning its numbered rows (`## Row N` or a leading `N.`/`N)` line).
-   Returns { start, end } line indices (end exclusive) spanning `section`'s
-   own body — from its heading's next line to the next `## ` heading or EOF —
-   or null when the section does not exist. Two sections can carry the same
-   row number (e.g. both a "Portfolio" and a "Discipline" row 9); a caller
-   that searches the whole file first-match can silently pick the wrong one,
-   so every lookup is scoped to one section's line range, never the file
-   (round 2 fix, 2026-09-22: row 9 in two sections). */
-export function sectionRange(queueText, section) {
-  const lines = queueText.split("\n");
-  let start = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const headingMatch = /^##\s+(.+)$/.exec(lines[i]);
-    if (headingMatch && headingMatch[1].trim() === section) {
-      start = i + 1;
-      continue;
-    }
-    if (start !== -1 && headingMatch) {
-      return { start, end: i };
-    }
+/* The queue row `id` (`PF-279`) in ONE project's queue text. A row is found by
+   its full prefixed ID only: a bare number is refused, the replacement text
+   must itself carry that same ID in its first cell (so a write keyed to one
+   project's row can never put another project's row in its place), exactly one
+   line may match, and a struck row is never overwritten. The caller resolves
+   the file from the ID's prefix (see lib/queue-ids.mjs), so a row in another
+   project's file is not even reachable from here. */
+export function replaceRowById(queueText, id, newRowText) {
+  if (!parseId(id)) {
+    return { ok: false, reason: `"${id}" is not a project-prefixed row ID (like PF-279); bare numbers collide across projects and are refused` };
   }
-  return start === -1 ? null : { start, end: lines.length };
-}
-
-/* Returns { lineIndex } for `rowNumber`'s line INSIDE `section` only, or
-   null if the section does not exist or the row is not found within it —
-   never a whole-file search, so a same-numbered row in another section is
-   invisible to this lookup. */
-export function findRow(queueText, rowNumber, section) {
-  const range = sectionRange(queueText, section);
-  if (!range) return null;
-  const lines = queueText.split("\n");
-  // Also matches a table row (`| 546 | ...`), the live queue's form.
-  const rowRe = new RegExp(`^\\s*(?:-\\s*)?\\[?\\s*(?:Row\\s*)?${rowNumber}[.)\\]]|^\\s*\\|\\s*${rowNumber}\\s*\\|`, "i");
-  for (let i = range.start; i < range.end; i++) {
-    if (rowRe.test(lines[i])) return { lineIndex: i };
+  if (/[\r\n]/.test(String(newRowText))) {
+    return { ok: false, reason: "the replacement text contains a newline; a row is one line, and a second line would write an unchecked row into the queue" };
   }
-  return null;
-}
-
-/* Returns { ok: true, text } with row `rowNumber`'s line, found and
-   replaced ONLY within `section`'s own line range, replaced by
-   `newRowText`; or { ok: false, reason } — refuses when `section` is
-   missing, when the row is absent from that section, and never writes a
-   line outside the section's range. `section` is required — there is no
-   whole-file fallback. */
-export function replaceRow(queueText, rowNumber, newRowText, section) {
-  if (!section) {
-    return { ok: false, reason: "a --section is required — no whole-file fallback" };
-  }
-  const range = sectionRange(queueText, section);
-  if (!range) {
-    return { ok: false, reason: `section "${section}" not found in the queue file` };
-  }
-  const found = findRow(queueText, rowNumber, section);
-  if (!found) {
-    return { ok: false, reason: `row ${rowNumber} not found in section "${section}"` };
+  const newId = tableRows(String(newRowText))[0]?.id;
+  if (newId !== id) {
+    return { ok: false, reason: `the replacement text starts with "${newId ?? "no row ID"}", not ${id}; a row is only ever replaced by a row with the same ID` };
   }
   const lines = queueText.split("\n");
-  if (isStruckRow(lines[found.lineIndex])) {
-    return { ok: false, reason: `row ${rowNumber} in section "${section}" is already struck — a struck row is history and is never overwritten (use the next free number)` };
+  const hits = tableRows(queueText).filter((r) => r.id === id);
+  if (!hits.length) return { ok: false, reason: `row ${id} not found in this project's queue` };
+  if (hits.length > 1) return { ok: false, reason: `row ${id} appears ${hits.length} times in this queue; refusing to guess which` };
+  if (isStruckRow(lines[hits[0].lineIndex])) {
+    return { ok: false, reason: `row ${id} is already struck — a struck row is history and is never overwritten (use the next free number)` };
   }
-  lines[found.lineIndex] = newRowText;
-  return { ok: true, text: lines.join("\n"), section };
+  lines[hits[0].lineIndex] = newRowText;
+  return { ok: true, text: lines.join("\n"), id };
 }
 
 function run(cmd, args, opts = {}) {
@@ -138,12 +101,28 @@ function run(cmd, args, opts = {}) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const missing = ["session-dir", "vault", "row", "text", "section"].filter((k) => !args[k]);
+  if (args.row || args.section) {
+    console.error("lane-end: --row/--section are gone (bare numbers collide across projects); pass --id <PREFIX-n>, e.g. --id PF-279");
+    process.exit(1);
+  }
+  const missing = ["session-dir", "vault", "id", "text"].filter((k) => !args[k]);
   if (missing.length) {
     console.error(`lane-end: missing required args: ${missing.join(", ")}`);
     process.exit(1);
   }
   const dryRun = args["dry-run"] === true;
+
+  // The ID's prefix picks the project; its queue and backlog are the only files this call may touch.
+  const idParts = parseId(args.id);
+  if (!idParts) {
+    console.error(`lane-end: --id "${args.id}" is not a project-prefixed row ID (like PF-279); bare numbers are refused`);
+    process.exit(1);
+  }
+  const owner = discoverFiles(args.vault).byPrefix.get(idParts.prefix);
+  if (!owner || !owner.queue) {
+    console.error(`lane-end: no project queue declares prefix ${idParts.prefix} (frontmatter \`prefix:\` in projects/<p>/<p>-queue.md)`);
+    process.exit(1);
+  }
 
   const scriptDir = new URL(".", import.meta.url).pathname;
   const failures = [];
@@ -159,8 +138,8 @@ function main() {
     }
   }
 
-  // 2. Replace queue row (scoped to --section — see replaceRow).
-  const queuePath = join(args.vault, "orchestrator", "operator-queue.md");
+  // 2. Replace queue row (found by its prefixed ID in that project's own queue — see replaceRowById).
+  const queuePath = join(args.vault, owner.queue);
   let queueText;
   try {
     queueText = readFileSync(queuePath, "utf8");
@@ -168,7 +147,7 @@ function main() {
     console.error(`lane-end: cannot read ${queuePath}: ${err.message}`);
     process.exit(1);
   }
-  const replaced = replaceRow(queueText, args.row, args.text, args.section);
+  const replaced = replaceRowById(queueText, args.id, args.text);
   if (!replaced.ok) {
     console.error(`lane-end: did not replace the queue row — ${replaced.reason}`);
     process.exit(1);
@@ -185,6 +164,17 @@ function main() {
     process.exit(1);
   }
   if (args.backlog && (args["backlog-row"] || args["backlog-add"])) {
+    if (!owner.backlog || String(args.backlog).replace(/^\.\//, "") !== owner.backlog) {
+      console.error(`lane-end: --backlog ${args.backlog} is not ${idParts.prefix}'s backlog (${owner.backlog || "none"}); a lane writes one project's queue and backlog only`);
+      process.exit(1);
+    }
+    if (args["backlog-row"]) {
+      const bp = parseId(args["backlog-row"]);
+      if (!bp || bp.prefix !== idParts.prefix) {
+        console.error(`lane-end: --backlog-row ${args["backlog-row"]} must be a ${idParts.prefix}-<n> ID; bare numbers and other projects' IDs are refused`);
+        process.exit(1);
+      }
+    }
     const bpath = join(args.vault, String(args.backlog));
     let btext;
     try { btext = readFileSync(bpath, "utf8"); } catch (err) {
@@ -198,7 +188,7 @@ function main() {
       console.error(`lane-end: did not edit the backlog — ${edit.reason}`);
       process.exit(1);
     }
-    backlog = { path: bpath, text: edit.text };
+    backlog = { path: bpath, text: edit.text, before: btext };
   } else if (args["backlog-row"] || args["backlog-add"] || args.status) {
     console.error("lane-end: --backlog <file> is required with --backlog-row / --backlog-add / --status");
     process.exit(1);
@@ -206,8 +196,8 @@ function main() {
 
   if (dryRun) {
     if (backlog) console.log(`[dry-run] would edit backlog ${args.backlog}`);
-    console.log(`[dry-run] would replace row ${args.row} in section "${args.section}" with:\n  ${args.text}`);
-    console.log(`[dry-run] would commit: queue: row ${args.row} landed`);
+    console.log(`[dry-run] would replace row ${args.id} in ${owner.queue} with:\n  ${args.text}`);
+    console.log(`[dry-run] would commit: queue: row ${args.id} landed`);
     process.exit(0);
   }
 
@@ -220,11 +210,18 @@ function main() {
     }
   }
 
+  // A failed check after the write puts every written file back to its pre-write bytes.
+  const restore = () => {
+    writeFileSync(queuePath, queueText, "utf8");
+    if (backlog) writeFileSync(backlog.path, backlog.before, "utf8");
+  };
+
   // 3. Grep the write back.
   try {
     run("node", [join(scriptDir, "queue-write-check.mjs"), queuePath, args.text]);
   } catch (err) {
-    console.error(`lane-end: queue-write-check failed after write — ${err.message}`);
+    restore();
+    console.error(`lane-end: queue-write-check failed after write; files restored — ${err.message}`);
     process.exit(1);
   }
 
@@ -232,7 +229,8 @@ function main() {
   try {
     run("node", [join(scriptDir, "queue-write-check.mjs"), "--lint", queuePath]);
   } catch (err) {
-    console.error(`lane-end: queue lint failed after write — ${err.message}`);
+    restore();
+    console.error(`lane-end: queue lint failed after write; files restored — ${err.stderr || err.message}`);
     process.exit(1);
   }
 
@@ -242,7 +240,7 @@ function main() {
     if (backlog) addPaths.push(backlog.path);
     if (args.evidence) addPaths.push(args.evidence);
     run("git", ["add", ...addPaths], { cwd: args.vault });
-    run("git", ["commit", "-m", `queue: row ${args.row} landed`], { cwd: args.vault });
+    run("git", ["commit", "-m", `queue: row ${args.id} landed`], { cwd: args.vault });
     run("git", ["push"], { cwd: args.vault });
   } catch (err) {
     failures.push(`commit/push: ${err.message}`);

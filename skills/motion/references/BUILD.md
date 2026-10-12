@@ -170,7 +170,7 @@ tuned in place. Render the current value live on screen and expose it as a URL q
 knob so the operator turns their own dial against their own real gesture (wheel, trackpad,
 touch) — never a scripted/synthetic input. The shipped duration/easing/speed is read off
 that pick, not invented then adjusted from feedback (row 119 history,
-`orchestrator/operator-queue.md`).
+in the project queues: `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`).
 
 ## When reviewing UI motion
 

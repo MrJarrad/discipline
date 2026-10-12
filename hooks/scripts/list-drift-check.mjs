@@ -30,6 +30,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { discoverFiles, frontmatterPrefix, tableRows } from "./lib/queue-ids.mjs";
 
 const ALIAS = { ds: "jhd-design-system" };
 // `<name>/main` worktree layout: the repo is the parent folder's name.
@@ -62,7 +63,9 @@ export function parseStatus(text) {
   return null;
 }
 
-const ROW = /^\|\s*(~~)?(\d+[a-z]?)(~~)?\s*\|/;
+const ROW = /^\|\s*(~~)?((?:[A-Z]{2,4}-)?\d+[a-z]?)(~~)?\s*\|/;
+const numOf = (id) => String(id).replace(/^[A-Z]{2,4}-/, "");
+const prefixOf = (id) => (/^([A-Z]{2,4})-/.exec(String(id)) || [])[1] || null;
 /* Cells of a table line; a `|` inside a [[wikilink|alias]] is not a column break. */
 const cells = (line) =>
   line.replace(/\[\[[^\]]*\]\]/g, (m) => m.replace(/\|/g, "\u0001")).replace(/^\||\|\s*$/g, "")
@@ -81,7 +84,7 @@ export function parseBacklog(text) {
     if (!m) return;
     const c = cells(line);
     const at = statusAt >= 0 && statusAt < c.length ? statusAt : c.length - 1;
-    rows.push({ n: m[2], section, status: c[at], statusAt: at, cells: c, struck: Boolean(m[1]), lineIndex: line_i });
+    rows.push({ id: m[2], n: numOf(m[2]), prefix: prefixOf(m[2]), section, status: c[at], statusAt: at, cells: c, struck: Boolean(m[1]), lineIndex: line_i });
   });
   return rows;
 }
@@ -149,44 +152,56 @@ export function checkBacklog(project, text, idx) {
   const add = (kind, row, msg) => out.push({ kind, project, row, msg });
   for (const r of parseBacklog(text)) {
     const st = parseStatus(r.status);
-    if (!st) { add("bad-status", r.n, `status "${r.status}" is outside the fixed set`); continue; }
+    if (!st) { add("bad-status", r.id, `status "${r.status}" is outside the fixed set`); continue; }
     const finished = st.kind === "done" || st.kind === "moot";
-    if (r.section === "open" && finished) add("misplaced", r.n, `${st.kind} row under ## Open`);
-    if (r.section === "done" && !finished) add("misplaced", r.n, `${st.kind} row under ## Done`);
+    if (r.section === "open" && finished) add("misplaced", r.id, `${st.kind} row under ## Open`);
+    if (r.section === "done" && !finished) add("misplaced", r.id, `${st.kind} row under ## Done`);
     if (st.kind === "done") {
       for (const { pr, sha } of st.pairs) {
-        if (!idx.merged(pr, project)) add("unknown", r.n, `${pr} not found as merged in the supplied repos`);
-        else if (!idx.hasSha(sha, pr, project)) add("unknown", r.n, `sha ${sha} not found in the supplied repos`);
+        if (!idx.merged(pr, project)) add("unknown", r.id, `${pr} not found as merged in the supplied repos`);
+        else if (!idx.hasSha(sha, pr, project)) add("unknown", r.id, `sha ${sha} not found in the supplied repos`);
       }
       continue;
     }
     if (st.kind === "moot") continue;
     const cited = st.kind === "in-flight" ? [st.pr] : [];
     for (const pr of cited) {
-      if (idx.merged(pr, project)) add("drift", r.n, `in flight on ${pr}, which is merged`);
-      else if (!idx.repoKnown(pr, project)) add("unknown", r.n, `${pr} names a repo not among the supplied --repo paths`);
+      if (idx.merged(pr, project)) add("drift", r.id, `in flight on ${pr}, which is merged`);
+      else if (!idx.repoKnown(pr, project)) add("unknown", r.id, `${pr} names a repo not among the supplied --repo paths`);
       // in flight and not merged is the expected state: nothing to report
     }
     // An open follow-up legitimately cites the PR it follows up: surfaced, not failing.
     for (const pr of new Set(refsIn(r.cells[1] || ""))) {
-      if (!cited.includes(pr) && idx.merged(pr, project)) add("suspect", r.n, `${r.status} row cites ${pr}, which is merged: confirm it is still open`);
+      if (!cited.includes(pr) && idx.merged(pr, project)) add("suspect", r.id, `${r.status} row cites ${pr}, which is merged: confirm it is still open`);
     }
   }
   return out;
 }
 
-/* Unstruck queue rows citing a merged PR. */
-export function checkQueue(text, idx) {
+/* Unstruck queue rows citing a merged PR (per-project queue; `label` names the project). */
+export function checkQueue(text, idx, label = "") {
   const out = [];
-  let section = "";
   for (const line of String(text).split("\n")) {
-    const h = /^##\s+(.+?)\s*$/.exec(line);
-    if (h) { section = h[1]; continue; }
     const m = ROW.exec(line);
     if (!m || m[1]) continue;
     for (const pr of new Set(refsIn(line))) {
-      if (idx.merged(pr)) out.push({ kind: "suspect", project: section, row: m[2], msg: `open queue row cites ${pr}, which is merged: confirm it is still open` });
+      if (idx.merged(pr)) out.push({ kind: "suspect", project: label, row: m[2], msg: `open queue row cites ${pr}, which is merged: confirm it is still open` });
     }
+  }
+  return out;
+}
+
+/* Row-ID law over one prefixed file: every row carries this file's own prefix
+   (`bare-id`, `foreign-id`) and no ID appears twice (`dup-id`). */
+export function checkIds(text, prefix, file) {
+  const out = [];
+  const seen = new Map();
+  for (const r of tableRows(text)) {
+    const add = (kind, msg) => out.push({ kind, project: file, row: r.id, msg, file });
+    if (r.bare) add("bare-id", `row ${r.id} has no project prefix; every row is ${prefix}-<n>`);
+    else if (r.prefix !== prefix) add("foreign-id", `row ${r.id} belongs to ${r.prefix}, not to this ${prefix} file`);
+    if (seen.has(r.id)) add("dup-id", `row ${r.id} appears twice`);
+    seen.set(r.id, true);
   }
   return out;
 }
@@ -199,25 +214,51 @@ export function checkVault(vault, repos) {
   for (const p of dirs) {
     const files = readdirSync(join(projects, p));
     const backlogs = files.filter((f) => f.endsWith("-backlog.md"));
+    const queues = files.filter((f) => f.endsWith("-queue.md"));
     if (files.some((f) => f.endsWith("handover.md")) && !backlogs.length) {
       out.push({ kind: "no-backlog", project: p, file: `projects/${p}`, msg: "has a handover but no *-backlog.md" });
     }
     if (backlogs.length > 1) {
       out.push({ kind: "duplicate", project: p, file: `projects/${p}`, msg: `${backlogs.length} backlog files: ${backlogs.join(", ")}` });
     }
+    if (queues.length > 1) {
+      out.push({ kind: "duplicate", project: p, file: `projects/${p}`, msg: `${queues.length} queue files: ${queues.join(", ")}` });
+    }
+    if (backlogs.length && !queues.length) {
+      out.push({ kind: "no-queue", project: p, file: `projects/${p}`, msg: "has a backlog but no *-queue.md (each project has its own operator queue)" });
+    }
     for (const b of backlogs) {
       const file = `projects/${p}/${b}`;
-      out.push(...checkBacklog(p, readFileSync(join(vault, file), "utf8"), idx).map((f) => ({ ...f, file })));
+      const text = readFileSync(join(vault, file), "utf8");
+      out.push(...checkBacklog(p, text, idx).map((f) => ({ ...f, file })));
+      const prefix = frontmatterPrefix(text);
+      if (prefix) out.push(...checkIds(text, prefix, file));
+    }
+    for (const q of queues) {
+      const file = `projects/${p}/${q}`;
+      const text = readFileSync(join(vault, file), "utf8");
+      out.push(...checkQueue(text, idx, p).map((f) => ({ ...f, file })));
+      const prefix = frontmatterPrefix(text);
+      if (prefix) out.push(...checkIds(text, prefix, file));
     }
   }
+  const reg = discoverFiles(vault);
+  for (const f of reg.missing) out.push({ kind: "no-prefix", project: f, file: f, msg: "frontmatter has no valid `prefix: <2-4 capitals>`" });
+  for (const c of reg.collisions) out.push({ kind: "prefix-collision", project: c.prefix, file: `projects/${c.projects[0]}`, msg: `prefix ${c.prefix} is claimed by ${c.projects.join(" and ")}` });
+  for (const [prefix, e] of reg.byPrefix) {
+    if (e.queue && e.backlog && e.queue.split("/")[1] !== e.backlog.split("/")[1]) {
+      out.push({ kind: "prefix-collision", project: prefix, file: e.queue, msg: `queue and backlog of ${prefix} are in different projects` });
+    }
+  }
+  // The old shared queue is only an index now: any row in it is a row in the wrong place.
   const qf = "orchestrator/operator-queue.md";
-  if (existsSync(join(vault, qf))) {
-    out.push(...checkQueue(readFileSync(join(vault, qf), "utf8"), idx).map((f) => ({ ...f, file: qf })));
+  if (existsSync(join(vault, qf)) && tableRows(readFileSync(join(vault, qf), "utf8")).length) {
+    out.push({ kind: "rows-in-index", project: "orchestrator", file: qf, msg: "queue rows live in projects/<p>/<p>-queue.md; the orchestrator file is an index only" });
   }
   return out;
 }
 
-export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate"]);
+export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index"]);
 export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? ` row ${f.row}` : ""}: ${f.msg}`;
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
@@ -243,8 +284,11 @@ export function setRowStatus(text, n, status) {
   const st = parseStatus(status);
   if (!st) return { ok: false, reason: `status "${status}" is outside the fixed set` };
   const lines = String(text).split("\n");
-  const row = parseBacklog(text).find((r) => r.n === String(n));
-  if (!row) return { ok: false, reason: `row ${n} not found in the backlog` };
+  // A prefixed row is addressed by its full ID only; a bare number never matches it.
+  const hits = parseBacklog(text).filter((r) => r.id === String(n));
+  if (hits.length > 1) return { ok: false, reason: `row ${n} appears ${hits.length} times in the backlog; refusing to guess which` };
+  const row = hits[0];
+  if (!row) return { ok: false, reason: `row ${n} not found in the backlog (rows are addressed by their full ID, e.g. PF-12)` };
   if (/[|\r\n]/.test(status)) return { ok: false, reason: "status must not contain | or a newline (it would split the row)" };
   const finished = st.kind === "done" || st.kind === "moot";
   if (row.section === "done" && !finished) return { ok: false, reason: `row ${n} is archived under ## Done; open a new row instead` };
@@ -270,6 +314,7 @@ export function addRow(text, item, raised) {
   const o = headingIndex(lines, /^##\s+open\b/i);
   const at = o === -1 ? -1 : lastTableLine(lines, o + 1, sectionEnd(lines, o));
   if (at === -1) return { ok: false, reason: "no ## Open table to add the row to" };
+  const prefix = frontmatterPrefix(text);
   let next = Math.max(0, ...parseBacklog(text).map((r) => parseInt(r.n, 10))) + 1;
   const nf = lines.findIndex((l) => /^\*\*Next free number: \d+/.test(l));
   if (nf !== -1) {
@@ -278,9 +323,9 @@ export function addRow(text, item, raised) {
   }
   const cols = (lines.slice(0, at).reverse().find((l) => /^\|\s*#\s*\|/.test(l)) || "| # | Item | Raised | Status |");
   const head = cells(cols);
-  const row = head.map((h) => ({ "#": String(next), item: item, raised: raised, status: "open" })[h.toLowerCase()] ?? "");
+  const row = head.map((h) => ({ "#": prefix ? `${prefix}-${next}` : String(next), item: item, raised: raised, status: "open" })[h.toLowerCase()] ?? "");
   lines.splice(at + 1, 0, `| ${row.join(" | ")} |`);
-  return { ok: true, text: lines.join("\n"), n: next };
+  return { ok: true, text: lines.join("\n"), n: next, id: prefix ? `${prefix}-${next}` : String(next) };
 }
 
 function main() {
