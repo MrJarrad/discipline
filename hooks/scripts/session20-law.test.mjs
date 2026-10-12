@@ -26,9 +26,6 @@ test("present-for-review and wrap SECTIONS agree with the output style", () => {
   assert.ok(!/Chat still reprints every row/.test(flat("skills/wrap/references/SECTIONS.md")));
 });
 
-test("1.130.0 versions and CHANGED entry", () => {
-  for (const f of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
-    assert.match(readFileSync(join(root, f), "utf8"), /"version": "1\.130\.0"/);
-  }
-  assert.match(flat("CHANGED.txt"), /^1\.130\.0 — `2026-10-11-1130-queue-scope`: backlog 154.*encoded:/);
+test("1.130.0 CHANGED entry", () => {
+  assert.match(flat("CHANGED.txt"), /1\.130\.0 — `2026-10-11-1130-queue-scope`: backlog 154.*encoded:/);
 });

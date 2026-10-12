@@ -19,6 +19,10 @@
    stays silent, even when the operator reopens it with a prompt (ruling `wrapped-sessions-go-quiet`,
    1.125.0). One exception: a single warning at 90% fill (once per session, marker
    `wrapped-warned-<sid>`), so a reopened session hears of the compaction. SessionEnd deletes both.
+   Row 158 (1.131.0): while wrapped, each operator prompt (UserPromptSubmit) injects the banner rule
+   (open with "This session is wrapped — continue in a fresh session", no queue); a prompt beginning
+   "reopen" writes `reopened-<sid>` and ends the banner. A2 decision: SessionStart(compact) stays
+   silent for a wrapped session; the one-shot 90% warning is enough.
    Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.7).
    Dry-run: node context-fill.mjs < input.json */
 import { closeSync, existsSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
@@ -79,11 +83,14 @@ function readTail(path) {
 }
 
 const wrappedPath = (dir, sid) => join(dir, `${PREFIX}wrapped-${sid}`);
+const reopenedPath = (dir, sid) => join(dir, `${PREFIX}reopened-${sid}`);
+const WRAPPED_BANNER = "This session is wrapped. Open this reply with \"This session is wrapped — continue in a fresh session\"; print no status and no Needed from you queue; answer in one line unless the operator's message begins with \"reopen\".";
 
 // Record that a session has wrapped; its wrap nudge stays silent for the rest of the session (one 90% warning aside).
 export function markWrapped(sessionId, { dir = tmpdir() } = {}) {
   const sid = safeSid(sessionId);
   if (!sid) return false;
+  try { unlinkSync(reopenedPath(dir, sid)); } catch { /* none to clear */ }
   try { writeFileSync(wrappedPath(dir, sid), String(Date.now())); return true; } catch { return false; }
 }
 
@@ -101,6 +108,14 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
   const wrapped = Boolean(sid) && existsSync(wrappedPath(dir, sid));
+  if (wrapped && event === "UserPromptSubmit" && !existsSync(reopenedPath(dir, sid))) {
+    // Row 158: an operator turn in a wrapped session gets the banner rule, unless he said "reopen".
+    if (/^\s*reopen\b/i.test(String(input.prompt || ""))) {
+      try { writeFileSync(reopenedPath(dir, sid), "1"); } catch { /* best effort */ }
+      return "The operator reopened this wrapped session. Reply normally; the wrap nudge stays silent.";
+    }
+    return WRAPPED_BANNER;
+  }
   if (wrapped && event !== "SessionEnd" && event !== "UserPromptSubmit" && event !== "PostToolUse") return null;
   if (event === "PreCompact") {
     if (input.trigger === "auto" && sid) {
@@ -109,7 +124,7 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
     return null;
   }
   if (event === "SessionEnd") {
-    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || f === `${PREFIX}wrapped-warned-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
+    if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || f === `${PREFIX}wrapped-warned-${sid}` || f === `${PREFIX}reopened-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     return null;
   }
   if (event === "SessionStart") {
@@ -138,13 +153,13 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   if (wrapped) {
     // Already wrapped: silent, except one warning at 90% so a reopened session hears of the compaction.
     if (tokens / window < WRAPPED_WARN_AT) return null;
-    try { writeFileSync(join(dir, `${PREFIX}wrapped-warned-${sid}`), "1", { flag: "wx" }); } catch { return null; }
+    try { writeFileSync(join(dir, `${PREFIX}wrapped-warned-${sid}`), "1", { flag: "wx" }); } catch (e) { if (e?.code === "EEXIST") return null; /* any other failure: warn anyway, a repeat beats silence */ }
     return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%). This session is already wrapped; automatic compaction is close. Tell the operator in one line to start a fresh session or compact.`;
   }
   if (tokens / window < wrapAt) return null;
   if (event === "PostToolUse") {
     if (!sid) return null;
-    try { writeFileSync(join(dir, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); } catch { return null; }
+    try { writeFileSync(join(dir, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); } catch (e) { if (e?.code === "EEXIST") return null; }
   }
   return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%), past the ${Math.round(wrapAt * 100)}% wrap line. ${actionFor(sid)}`;
 }

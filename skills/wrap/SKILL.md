@@ -61,7 +61,7 @@ manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is
 
 Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. List open PRs and lanes;
 stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; write
-"wrapped — inactive". Afterwards events get one line at most; only the operator reopens it. Steps: [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
+"wrapped — inactive". Afterwards events get one line at most; only the operator reopens it ("reopen"). Steps: [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
 
 ## Report, handover prose, and the learn step
 
