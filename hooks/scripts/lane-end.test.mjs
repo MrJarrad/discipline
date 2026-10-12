@@ -385,3 +385,23 @@ test("CLI: text carrying another project's ID, or another project's backlog, is 
   const after = [["p", "p-queue.md"], ["q", "q-queue.md"], ["p", "p-backlog.md"], ["q", "q-backlog.md"]].map(([d, f]) => readFileSync(join(vault, "projects", d, f), "utf8"));
   assert.deepEqual(after, before);
 });
+
+// --- review ambers A1: a multi-line --text is refused; a post-write lint failure restores the bytes ---
+
+test("replaceRowById refuses replacement text containing a newline", () => {
+  const r = replaceRowById(PF_QUEUE, "PF-8", "| PF-8 | new |\n| PF-9 | smuggled |");
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /newline/);
+});
+
+test("lane-end restores the queue's pre-write bytes when the post-write lint fails", () => {
+  const vault = makeVaultWithQueue();
+  const qpath = join(vault, "projects", "p", "p-queue.md");
+  const bad = "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-1 | old row |\n| TP-2 | dup |\n| TP-2 | dup again |\n";
+  writeFileSync(qpath, bad);
+  const r = spawnSync("node", [scriptPath, "--session-dir", tmpdir(), "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | new |"], { encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /lint failed after write; files restored/);
+  assert.equal(readFileSync(qpath, "utf8"), bad);
+  rmSync(vault, { recursive: true, force: true });
+});

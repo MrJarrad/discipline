@@ -40,7 +40,7 @@ Getting the branch wrong wastes the whole prototype. If ambiguous and the reques
    synthetic number.** Render the current value live on screen and expose it as a query-param
    knob (`?scrollSpeed=`, etc.) so the operator turns their own dial against their own gesture
    (real wheel/trackpad, not a scripted one) and the shipped number is set from that read, not
-   invented (row 119 history, `orchestrator/operator-queue.md`).
+   invented (row 119 history, in the project queues: `node <plugin>/hooks/scripts/needed-from-you.mjs --vault <vault> --projects <prefixes>`).
 
 ---
 

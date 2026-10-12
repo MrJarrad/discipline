@@ -77,6 +77,9 @@ export function replaceRowById(queueText, id, newRowText) {
   if (!parseId(id)) {
     return { ok: false, reason: `"${id}" is not a project-prefixed row ID (like PF-279); bare numbers collide across projects and are refused` };
   }
+  if (/[\r\n]/.test(String(newRowText))) {
+    return { ok: false, reason: "the replacement text contains a newline; a row is one line, and a second line would write an unchecked row into the queue" };
+  }
   const newId = tableRows(String(newRowText))[0]?.id;
   if (newId !== id) {
     return { ok: false, reason: `the replacement text starts with "${newId ?? "no row ID"}", not ${id}; a row is only ever replaced by a row with the same ID` };
@@ -135,7 +138,7 @@ function main() {
     }
   }
 
-  // 2. Replace queue row (scoped to --section — see replaceRow).
+  // 2. Replace queue row (found by its prefixed ID in that project's own queue — see replaceRowById).
   const queuePath = join(args.vault, owner.queue);
   let queueText;
   try {
@@ -185,7 +188,7 @@ function main() {
       console.error(`lane-end: did not edit the backlog — ${edit.reason}`);
       process.exit(1);
     }
-    backlog = { path: bpath, text: edit.text };
+    backlog = { path: bpath, text: edit.text, before: btext };
   } else if (args["backlog-row"] || args["backlog-add"] || args.status) {
     console.error("lane-end: --backlog <file> is required with --backlog-row / --backlog-add / --status");
     process.exit(1);
@@ -207,11 +210,18 @@ function main() {
     }
   }
 
+  // A failed check after the write puts every written file back to its pre-write bytes.
+  const restore = () => {
+    writeFileSync(queuePath, queueText, "utf8");
+    if (backlog) writeFileSync(backlog.path, backlog.before, "utf8");
+  };
+
   // 3. Grep the write back.
   try {
     run("node", [join(scriptDir, "queue-write-check.mjs"), queuePath, args.text]);
   } catch (err) {
-    console.error(`lane-end: queue-write-check failed after write — ${err.message}`);
+    restore();
+    console.error(`lane-end: queue-write-check failed after write; files restored — ${err.message}`);
     process.exit(1);
   }
 
@@ -219,7 +229,8 @@ function main() {
   try {
     run("node", [join(scriptDir, "queue-write-check.mjs"), "--lint", queuePath]);
   } catch (err) {
-    console.error(`lane-end: queue lint failed after write — ${err.message}`);
+    restore();
+    console.error(`lane-end: queue lint failed after write; files restored — ${err.stderr || err.message}`);
     process.exit(1);
   }
 
