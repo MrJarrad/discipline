@@ -49,7 +49,7 @@
    would otherwise sit in the registry forever, nagging on every check.
 */
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { withRegistryLock } from "../bin/progress-registry.mjs";
 
@@ -367,15 +367,31 @@ export const REBUILDABLE_DIRS = ["node_modules", ".next"];
 export function artifactRefusal(path) {
   let git;
   try {
+    if (lstatSync(path).isSymbolicLink()) return "symlinked worktree path: never followed";
+  } catch {
+    return "no such path";
+  }
+  try {
     git = lstatSync(join(path, ".git"));
   } catch {
     return "no .git: not a git worktree";
   }
   if (git.isDirectory()) return "root clone (.git is a directory): never a target";
-  return git.isFile() ? null : "unexpected .git entry";
+  if (!git.isFile()) return "unexpected .git entry";
+  let pointer = "";
+  try {
+    pointer = readFileSync(join(path, ".git"), "utf8");
+  } catch {
+    return "unreadable .git file";
+  }
+  // A linked worktree's pointer is `gitdir: <repo>/.git/worktrees/<name>`; any other target is not one.
+  return /^gitdir:\s*\S*[\\/]\.git[\\/]worktrees[\\/][^\\/\s]+\s*$/m.test(pointer)
+    ? null
+    : "the .git pointer is not under .git/worktrees: not a linked worktree";
 }
 
 function runArtifactSweep(paths, dryRun) {
+  if (paths.length === 0) console.log("lane-sweep --clean-artifacts: no worktree paths given");
   for (const raw of paths) {
     const path = resolve(raw);
     const refusal = artifactRefusal(path);

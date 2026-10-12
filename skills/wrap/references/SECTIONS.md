@@ -152,6 +152,8 @@ On wrap:
 
 ### 7. Verify — no durable reference to a dying path
 
+Queue first: `git diff <session's first commit> -- orchestrator/operator-queue.md` shows only the rows this session meant to change (section-scoped edits; `vault-write` § Queue writes).
+
 Grep the session's changes for `TODO`, `tmp`, or scratch-path references that point at
 this session's ephemeral scratchpad or any other path that dies with the session.
 Nothing durable — a committed file, a memory, a handover note itself — may reference

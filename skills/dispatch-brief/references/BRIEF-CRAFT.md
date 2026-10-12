@@ -46,3 +46,7 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
 14. **A brief's done-when ends at the merge of its round** (`merge-each-approved-round-2026-10-06`).
     A brief that stacks a new round onto an unmerged branch is malformed: merge the approved round
     first, then brief the next from main.
+15. **A block lane starts from the banked per-block options ruling** (`preview-served-probe-and-block-ruling-first-2026-10-11`:
+    a panel lane was briefed from a fresh Figma sweep after the operator had already set each block's
+    options). The brief names the ruling, says to merge current main into the tool branch, and lists
+    the open PRs touching the block; the Figma sweep is for values only.

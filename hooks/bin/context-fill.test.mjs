@@ -221,18 +221,19 @@ test("a wrapped session stays silent past the line on every event, even when the
   assert.equal(handle(ev("PostToolUse"), opts(d)), null);
   // another session is unaffected
   assert.ok(handle({ ...ev("PostToolUse"), session_id: "other" }, opts(d)));
-  // a reopened session (operator prompt) is not re-nudged to wrap at 75%, now or later
-  assert.equal(handle(ev("UserPromptSubmit"), opts(d)), null);
-  assert.equal(handle(ev("UserPromptSubmit"), opts(d)), null);
+  // an operator prompt gets the wrapped banner, never the wrap nudge
+  assert.match(handle(ev("UserPromptSubmit"), opts(d)), /^This session is wrapped/);
+  assert.doesNotMatch(handle(ev("UserPromptSubmit"), opts(d)), /past the 70% wrap line/);
   assert.equal(handle(ev("PostToolUse"), opts(d)), null);
   rmSync(d, { recursive: true });
 });
 
 test("a wrapped session gets exactly one nudge at 90% fill, then silence", () => {
   const d = fresh();
-  const ev = (name, p) => ({ hook_event_name: name, session_id: "s", transcript_path: p });
+  const ev = (name, p) => ({ hook_event_name: name, session_id: "s", transcript_path: p, prompt: "reopen" });
   markWrapped("s", { dir: d });
   const at89 = transcript(d, [assistant(899_000)]);
+  handle(ev("UserPromptSubmit", at89), opts(d)); // "reopen" ends the banner
   assert.equal(handle(ev("UserPromptSubmit", at89), opts(d)), null);
   const at90 = transcript(d, [assistant(905_000)]);
   const m = handle(ev("UserPromptSubmit", at90), opts(d));
@@ -267,5 +268,31 @@ test("the CLI --wrapped <session> writes the marker the hook honours", () => {
   assert.equal(run.status, 0);
   const out = spawnSync("node", [script], { input: JSON.stringify({ hook_event_name: "PostToolUse", session_id: "s9", transcript_path: p }), env: { ...process.env, TMPDIR: d }, encoding: "utf8" });
   assert.equal(out.stdout, "");
+  rmSync(d, { recursive: true });
+});
+
+test("row 158: a wrapped session's operator prompt gets the banner until he says reopen", () => {
+  const d = fresh();
+  const p = transcript(d, [assistant(100_000)]);
+  const ev = (prompt) => ({ hook_event_name: "UserPromptSubmit", session_id: "w", transcript_path: p, prompt });
+  assert.equal(handle(ev("hello"), opts(d)), null); // not wrapped: silent
+  markWrapped("w", { dir: d });
+  assert.match(handle(ev("what's the status?"), opts(d)), /This session is wrapped — continue in a fresh session.*no Needed from you/);
+  assert.match(handle(ev("what about now"), opts(d)), /^This session is wrapped/);
+  assert.match(handle(ev("Reopen please"), opts(d)), /reopened this wrapped session/);
+  assert.equal(handle(ev("status"), opts(d)), null);
+  handle({ hook_event_name: "SessionEnd", session_id: "w" }, opts(d));
+  markWrapped("w", { dir: d });
+  assert.match(handle(ev("status"), opts(d)), /^This session is wrapped/);
+  rmSync(d, { recursive: true });
+});
+
+test("row 156 A1: an unwritable marker dir (ENOENT) still emits the PostToolUse nudge", () => {
+  const d = fresh();
+  const q = transcript(d, [assistant(750_000)]);
+  const e = { hook_event_name: "PostToolUse", session_id: "y", transcript_path: q };
+  assert.ok(handle(e, { ...opts(d), dir: join(d, "no-such-dir") }), "a failed marker write must not drop the nudge");
+  assert.equal(handle(e, opts(d)) !== null, true);
+  assert.equal(handle(e, opts(d)), null); // EEXIST still suppresses the repeat
   rmSync(d, { recursive: true });
 });
