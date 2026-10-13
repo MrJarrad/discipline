@@ -45,9 +45,6 @@ test("house rules: a malformed-response Workers Build is read from the log first
   assert.match(flat("skills/dispatch-brief/references/HOUSE-RULES.md"), /Received a malformed response from the API.*transient.*build log.*before bisecting code/);
 });
 
-test("1.133.0 is the current version and the top CHANGED entry", () => {
-  for (const f of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
-    assert.match(readFileSync(join(root, f), "utf8"), /"version": "1\.133\.0"/);
-  }
-  assert.match(flat("CHANGED.txt"), /^1\.133\.0 — `2026-10-13-1133-real-input`.*encoded: 1\.133\.0/);
+test("1.133.0 is in CHANGED.txt with its encoded line", () => {
+  assert.match(flat("CHANGED.txt"), /1\.133\.0 — `2026-10-13-1133-real-input`.*encoded: 1\.133\.0/);
 });

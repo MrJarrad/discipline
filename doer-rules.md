@@ -206,6 +206,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   against the lane's diff; a new literal equal to a generated token's value is red. Scope is
   the diff only — existing literal findings elsewhere in the file stay parked (2026-09-24,
   row 130 item 5; `skills/design-system/SKILL.md` § Conformance & review).
+- **A new queue or backlog row gets its number from `hooks/scripts/row-add.mjs`, never typed** (`--vault <vault> --prefix <PFX> --to backlog|queue --text "…"` prints the ID): one sequence per prefix across queue and backlog, local and origin/main; a duplicate is refused (DISC-167).
 
 ## Fixed evidence return
 

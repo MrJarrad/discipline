@@ -7,13 +7,14 @@
 // Run: node --test hooks/scripts/lane-end.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { replaceRowById, parseArgs } from "./lane-end.mjs";
 import { discoverFiles } from "./lib/queue-ids.mjs";
+import { lockPath } from "./lib/row-alloc.mjs";
 
 const scriptPath = fileURLToPath(new URL("./lane-end.mjs", import.meta.url));
 
@@ -258,7 +259,7 @@ test("--then-merge without --repo fails loud, naming the missing flag", () => {
 // flips in the same action as its event; a drift finding fails the exit code but
 // never loses the lane's own record.
 
-const BACKLOG_TEXT = "---\nname: p-backlog\nkind: backlog\nprefix: TP\n---\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| TP-1 | thing | d | in flight (#7) |\n| TP-2 | other | d | in flight (#7) |\n\n## Done\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
+const BACKLOG_TEXT = "---\nname: p-backlog\nkind: backlog\nprefix: TP\n---\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| TP-101 | thing | d | in flight (#7) |\n| TP-102 | other | d | in flight (#7) |\n\n## Done\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
 
 function laneEndWithBacklog(extra) {
   const vault = makeVaultWithQueue();
@@ -272,20 +273,20 @@ function laneEndWithBacklog(extra) {
   const sha = execFileSync("git", ["-C", repo, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
   const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
   const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |",
-    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-1", "--status", `done (#7 ${sha})`, "--drift-repo", repo, ...extra], { encoding: "utf8" });
+    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-101", "--status", `done (#7 ${sha})`, "--drift-repo", repo, ...extra], { encoding: "utf8" });
   return { vault, r, sha };
 }
 
 test("lane-end flips the backlog row to done in the lane's own commit, then fails on remaining drift", () => {
   const { vault, r, sha } = laneEndWithBacklog([]);
   const text = readFileSync(join(vault, "projects", "p", "p-backlog.md"), "utf8");
-  assert.match(text, new RegExp(`\\| TP-1 \\| thing \\| d \\| done \\(#7 ${sha}\\) \\|`));
-  assert.ok(text.indexOf("| TP-1 | thing") > text.indexOf("## Done"), "row moved under Done");
+  assert.match(text, new RegExp(`\\| TP-101 \\| thing \\| d \\| done \\(#7 ${sha}\\) \\|`));
+  assert.ok(text.indexOf("| TP-101 | thing") > text.indexOf("## Done"), "row moved under Done");
   const files = execFileSync("git", ["-C", vault, "show", "--name-only", "--format=", "HEAD"], { encoding: "utf8" });
   assert.match(files, /p-queue\.md/);
   assert.match(files, /p-backlog\.md/);
   assert.equal(r.status, 1, "row 2 still in flight on a merged PR: drift fails the exit");
-  assert.match(r.stderr + r.stdout, /drift projects\/p\/p-backlog\.md row TP-2/);
+  assert.match(r.stderr + r.stdout, /drift projects\/p\/p-backlog\.md row TP-102/);
 });
 
 test("lane-end refuses a status outside the fixed set before writing anything", () => {
@@ -293,14 +294,14 @@ test("lane-end refuses a status outside the fixed set before writing anything", 
   mkdirSync(join(vault, "projects", "p"), { recursive: true });
   writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
   const r = spawnSync("node", [scriptPath, "--session-dir", tmpdir(), "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | x |",
-    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-1", "--status", "DONE yesterday"], { encoding: "utf8" });
+    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-101", "--status", "DONE yesterday"], { encoding: "utf8" });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /outside the fixed set/);
   assert.match(readFileSync(join(vault, "projects", "p", "p-queue.md"), "utf8"), /TP-1 \| old row/);
 });
 
 test("N3: --backlog alone, or --backlog-row with --backlog-add, is refused before any write", () => {
-  for (const extra of [["--backlog", "projects/p/p-backlog.md"], ["--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-1", "--backlog-add", "x", "--status", "open"]]) {
+  for (const extra of [["--backlog", "projects/p/p-backlog.md"], ["--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-101", "--backlog-add", "x", "--status", "open"]]) {
     const vault = makeVaultWithQueue();
     mkdirSync(join(vault, "projects", "p"), { recursive: true });
     writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
@@ -404,4 +405,64 @@ test("lane-end restores the queue's pre-write bytes when the post-write lint fai
   assert.match(r.stderr, /lint failed after write; files restored/);
   assert.equal(readFileSync(qpath, "utf8"), bad);
   rmSync(vault, { recursive: true, force: true });
+});
+
+test("DISC-167: --backlog-add numbers above the queue's range too, and a cross-file duplicate restores the files", () => {
+  const vault = makeVaultWithQueue();
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"], { encoding: "utf8" });
+  assert.match(readFileSync(join(vault, "projects", "p", "p-backlog.md"), "utf8"), /\| TP-501 \| a new finding \|/, r.stderr);
+  // a backlog that already holds the queue's number is refused after the write and restored
+  const v2 = makeVaultWithQueue();
+  writeFileSync(join(v2, "projects", "p", "p-backlog.md"), BACKLOG_TEXT.replace("TP-102 |", "TP-1 |"));
+  const r2 = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", v2, "--id", "TP-1", "--text", "| TP-1 | landed |",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-row", "TP-101", "--status", "open", "--offline"], { encoding: "utf8" });
+  assert.equal(r2.status, 1);
+  assert.match(r2.stderr, /duplicate row number|appears twice|dup/i);
+  assert.match(readFileSync(join(v2, "projects", "p", "p-queue.md"), "utf8"), /TP-1 \| old row/);
+});
+
+const rowAllocUrl = new URL("./lib/row-alloc.mjs", import.meta.url).href;
+
+test("DISC-167 A1: --backlog-add re-reads the backlog after taking the lock (a writer that finished while it waited is kept)", async () => {
+  const vault = makeVaultWithQueue();
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  const bpath = join(vault, "projects", "p", "p-backlog.md");
+  writeFileSync(bpath, BACKLOG_TEXT);
+  // A holder owns the lock, appends TP-900 to the backlog, then lets go; lane-end is already waiting.
+  const holder = `import { acquireVaultLock } from ${JSON.stringify(rowAllocUrl)}; import { readFileSync, writeFileSync } from "node:fs";
+    const rel = acquireVaultLock(${JSON.stringify(vault)}); console.log("held");
+    setTimeout(() => { const t = readFileSync(${JSON.stringify(bpath)}, "utf8"); writeFileSync(${JSON.stringify(bpath)}, t.replace("\\n\\n## Done", "\\n| TP-900 | racer | d | open |\\n\\n## Done")); rel(); }, 600);`;
+  const h = spawn("node", ["--input-type=module", "-e", holder]);
+  await new Promise((res) => h.stdout.once("data", res));
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const code = await new Promise((res) => {
+    const c = spawn("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+      "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"]);
+    let err = ""; c.stderr.on("data", (d) => (err += d)); c.on("close", (k) => { if (k) console.error(err); res(k); });
+  });
+  const after = readFileSync(bpath, "utf8");
+  assert.equal(code, 0);
+  assert.match(after, /\| TP-900 \| racer/);
+  assert.match(after, /\| TP-901 \| a new finding/);
+});
+
+test("DISC-167 A2: lane-end drops the lock before it commits and pushes", () => {
+  const vault = makeVaultWithQueue();
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+  execFileSync("git", ["-C", vault, "add", "."]);
+  execFileSync("git", ["-C", vault, "commit", "-qm", "seed"]);
+  const seen = join(vault, "..", `lock-seen-${process.pid}`);
+  const hook = join(vault, ".git", "hooks", "pre-commit");
+  writeFileSync(hook, `#!/bin/sh\nif [ -e "${lockPath(vault)}" ]; then echo held > "${seen}"; fi\nexit 0\n`);
+  chmodSync(hook, 0o755);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"], { encoding: "utf8" });
+  assert.match(execFileSync("git", ["-C", vault, "log", "-1", "--format=%s"], { encoding: "utf8" }), /queue: row TP-500 landed/, r.stderr);
+  assert.equal(existsSync(seen), false, "lock was still held while git ran");
 });

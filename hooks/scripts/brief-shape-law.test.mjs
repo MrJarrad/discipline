@@ -120,9 +120,10 @@ test("the one rule is the contract pointer", () => {
 // rule (`cloud-pnpm-install-rewrites-lockfile`) sits in Repo and safety beside the pnpm `file:` bullet.
 // Ceiling raised 314 -> 317 at 1.114.0: the re-stamp-keeps-the-encoder bullet (session-13b item 4)
 // sits in Repo and safety beside the gate-fixture bullet, the moment a doer re-bakes.
-test("doer-rules.md stays under its 317-line ceiling", () => {
+// Ceiling raised 317 -> 318 at 1.134.0: the row-add bullet (DISC-167) sits in Repo and safety.
+test("doer-rules.md stays under its 318-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 317, `doer-rules.md is ${lines} lines; the ceiling is 317`);
+  assert.ok(lines <= 318, `doer-rules.md is ${lines} lines; the ceiling is 318`);
 });
 
 test("doer-rules carries the four standing sections", () => {

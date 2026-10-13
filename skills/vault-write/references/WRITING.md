@@ -230,3 +230,7 @@ Three capture sources, one schema:
 - **Code** — when actual code is the reference (a snippet, a component, a technique from another repo), save the code file(s) under `references/assets/<name>/` and write a `<name>.md` entry (`type: code`, `good_for: [code, ...]`) noting origin, license if external, and what to imitate — the entry explains, the file is the ground truth.
 
 Regenerate `references/reference-database.md` after any reference write.
+
+## Row numbers
+
+**A new queue or backlog row gets its number from the tool, never from your head** (backlog DISC-167): `node <plugin>/hooks/scripts/row-add.mjs --vault <vault> --prefix <PFX> --to backlog|queue --text "…"` prints the new ID (`PF-682`). It numbers above every ID in that project's queue and backlog, local and origin/main, under a lock, and refuses a duplicate. Do not type a new `<PREFIX>-<n>`, and do not edit a `Next free number` line by hand; `lane-end.mjs --backlog-add` allocates the same way. `list-drift-check` fails any ID found twice across the two files.

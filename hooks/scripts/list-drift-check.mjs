@@ -242,6 +242,7 @@ export function checkVault(vault, repos) {
       if (prefix) out.push(...checkIds(text, prefix, file));
     }
   }
+  out.push(...crossFileDupIds(vault));
   const reg = discoverFiles(vault);
   for (const f of reg.missing) out.push({ kind: "no-prefix", project: f, file: f, msg: "frontmatter has no valid `prefix: <2-4 capitals>`" });
   for (const c of reg.collisions) out.push({ kind: "prefix-collision", project: c.prefix, file: `projects/${c.projects[0]}`, msg: `prefix ${c.prefix} is claimed by ${c.projects.join(" and ")}` });
@@ -254,6 +255,20 @@ export function checkVault(vault, repos) {
   const qf = "orchestrator/operator-queue.md";
   if (existsSync(join(vault, qf)) && tableRows(readFileSync(join(vault, qf), "utf8")).length) {
     out.push({ kind: "rows-in-index", project: "orchestrator", file: qf, msg: "queue rows live in projects/<p>/<p>-queue.md; the orchestrator file is an index only" });
+  }
+  return out;
+}
+
+/* One ID, one row, across a project's queue AND backlog (backlog DISC-167). */
+export function crossFileDupIds(vault) {
+  const out = [];
+  for (const [prefix, e] of discoverFiles(vault).byPrefix) {
+    if (!e.queue || !e.backlog) continue;
+    const inQueue = new Map();
+    tableRows(readFileSync(join(vault, e.queue), "utf8")).forEach((r) => inQueue.set(r.id, r.lineIndex + 1));
+    for (const r of tableRows(readFileSync(join(vault, e.backlog), "utf8"))) {
+      if (inQueue.has(r.id)) out.push({ kind: "dup-id", project: prefix, file: e.backlog, row: r.id, msg: `row ${r.id} is in both ${e.queue}:${inQueue.get(r.id)} and ${e.backlog}:${r.lineIndex + 1}; a number is used once per project` });
+    }
   }
   return out;
 }
@@ -308,14 +323,15 @@ export function setRowStatus(text, n, status) {
   return { ok: true, text: lines.join("\n") };
 }
 
-/* A new finding adds a row: next number, status open, appended to the ## Open table. */
-export function addRow(text, item, raised) {
+/* A new finding adds a row: next number (above `floor`, the highest number used
+   anywhere in the project's queue and backlog — see lib/row-alloc.mjs), status open, appended to the ## Open table. */
+export function addRow(text, item, raised, { floor = 0 } = {}) {
   const lines = String(text).split("\n");
   const o = headingIndex(lines, /^##\s+open\b/i);
   const at = o === -1 ? -1 : lastTableLine(lines, o + 1, sectionEnd(lines, o));
   if (at === -1) return { ok: false, reason: "no ## Open table to add the row to" };
   const prefix = frontmatterPrefix(text);
-  let next = Math.max(0, ...parseBacklog(text).map((r) => parseInt(r.n, 10))) + 1;
+  let next = Math.max(floor, ...parseBacklog(text).map((r) => parseInt(r.n, 10))) + 1;
   const nf = lines.findIndex((l) => /^\*\*Next free number: \d+/.test(l));
   if (nf !== -1) {
     next = Math.max(next, parseInt(/(\d+)/.exec(lines[nf])[1], 10));

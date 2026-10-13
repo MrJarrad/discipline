@@ -1,6 +1,6 @@
 // queue-migrate — the one-time vault migration (backlog 166). Fixture vault with the
 // shapes that hurt: the same number in two sections, a struck row, a duplicate number
-// inside one backlog, a merged-project section, a placeholder row.
+// inside one backlog (backlog numbers stay clear of the queue's: one ID, one row per project, DISC-167), a merged-project section, a placeholder row.
 // Run: node --test hooks/scripts/queue-migrate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -28,9 +28,9 @@ function fixture() {
   const v = mkdtempSync(join(tmpdir(), "qmig-"));
   const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
   put("orchestrator/operator-queue.md", QUEUE);
-  put("projects/portfolio/portfolio-backlog.md", BL("| 5 | pf backlog five | d | waiting on operator |\n| 6 | six | d | open |", "| 6 | dup six | d | moot (x) |"));
-  put("projects/hoverboard/hoverboard-backlog.md", BL("| 5 | hb backlog five | d | open |"));
-  put("projects/jhd-design-system/jhd-design-system-backlog.md", BL("| 5 | ds backlog five | d | open |"));
+  put("projects/portfolio/portfolio-backlog.md", BL("| 1 | pf backlog one | d | waiting on operator |\n| 2 | two | d | open |", "| 2 | dup two | d | moot (x) |"));
+  put("projects/hoverboard/hoverboard-backlog.md", BL("| 1 | hb backlog one | d | open |"));
+  put("projects/jhd-design-system/jhd-design-system-backlog.md", BL("| 1 | ds backlog one | d | open |"));
   return v;
 }
 
@@ -54,8 +54,8 @@ test("migrate: backlog rows are prefixed, the ID-less duplicate gets the next fr
   const r = migrate(fixture());
   const pf = r.files["projects/portfolio/portfolio-backlog.md"];
   assert.match(pf, /^prefix: PF$/m);
-  assert.match(pf, /\| PF-5 \| pf backlog five/);
-  assert.match(pf, /\| PF-10 \| dup six \| d \| moot \(x\) \(was PF-6, a duplicate number/);
+  assert.match(pf, /\| PF-1 \| pf backlog one/);
+  assert.match(pf, /\| PF-10 \| dup two \| d \| moot \(x\) \(was PF-2, a duplicate number/);
   assert.equal(r.projects.portfolio.backlogBefore, r.projects.portfolio.backlogAfter);
   assert.equal(r.renumbered.length, 1);
 });

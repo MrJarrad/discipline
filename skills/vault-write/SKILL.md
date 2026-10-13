@@ -118,12 +118,14 @@ Read [DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
 ## Queue writes verify the row landed (Change 6, 2026-09-22)
 
+**A new queue or backlog row gets its number from `row-add.mjs`, never typed** (DISC-167; detail in `references/WRITING.md` § Row numbers).
+
 **A queue row named in chat is written to the file in the same tool call as the message that
 names it** — never spoken now, filed later (hoverboard rounds 14–15, item 6: rows 43 and 57
 existed only in chat and the strike that assumed them then failed). **After any queue-row
 edit, re-read the file and grep the written row back** before reporting it banked — `node
 <plugin>/hooks/scripts/queue-write-check.mjs <file> "<row text>"` fails loud (non-zero exit,
-the row it could not find) rather than a silent pass. **An already-struck row is refused** — `lane-end`'s `replaceRowById` will not overwrite a row whose first cell starts `~~` (matching by number once struck row 545; use the next free number). **Row numbers are unique per table** — `node <plugin>/hooks/scripts/queue-write-check.mjs --lint <file>` names any repeat (only the listed historic struck rows are grandfathered); `lane-end` runs it. **Row IDs are project-prefixed** (`PF-279`; backlog 166): `lane-end.mjs --id PF-279` finds the file from the prefix, so one project's write cannot reach another's; a bare number, another project's ID or backlog is refused. A hand edit uses the full ID too, never `| N |` alone (`queue-row-numbers-collide-across-sections-2026-10-12`). At wrap, diff the queue against the session's first commit and confirm only the intended rows changed. **Before editing a shared queue file,
+the row it could not find) rather than a silent pass. **An already-struck row is refused** — `lane-end`'s `replaceRowById` will not overwrite a row whose first cell starts `~~` (matching by number once struck row 545). **Row numbers are unique per table** — `node <plugin>/hooks/scripts/queue-write-check.mjs --lint <file>` names any repeat (only the listed historic struck rows are grandfathered); `lane-end` runs it. **Row IDs are project-prefixed** (`PF-279`; backlog 166): `lane-end.mjs --id PF-279` finds the file from the prefix, so one project's write cannot reach another's; a bare number, another project's ID or backlog is refused. A hand edit uses the full ID too, never `| N |` alone (`queue-row-numbers-collide-across-sections-2026-10-12`). At wrap, diff the queue against the session's first commit and confirm only the intended rows changed. **Before editing a shared queue file,
 re-read it first** if another session may have committed to it since your last read — a stale
 in-memory copy overwrites a concurrent write. Rows 81–86 were once reported banked after a
 concurrent session had already rewritten the file out from under them; the gate exists so
