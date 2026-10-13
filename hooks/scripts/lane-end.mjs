@@ -44,7 +44,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
-import { addRow, setRowStatus } from "./list-drift-check.mjs";
+import { addRow, crossFileDupIds, setRowStatus } from "./list-drift-check.mjs";
+import { acquireVaultLock, highestUsed, remoteTexts } from "./lib/row-alloc.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
 import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
 
@@ -181,8 +182,19 @@ function main() {
       console.error(`lane-end: cannot read ${bpath}: ${err.message}`);
       process.exit(1);
     }
+    let floor = 0;
+    if (args["backlog-add"] && !dryRun) {
+      // The number comes from the allocator: above every number in this project's queue AND
+      // backlog, local and origin/main, under the vault lock held until exit (lib/row-alloc.mjs).
+      const release = acquireVaultLock(args.vault);
+      process.on("exit", release);
+      const rels = [owner.queue, owner.backlog].filter(Boolean);
+      const remote = args.offline ? { texts: [], warnings: [] } : remoteTexts(args.vault, rels);
+      for (const w of remote.warnings) console.error(`lane-end: warning — ${w}`);
+      floor = highestUsed([...rels.map((r) => readFileSync(join(args.vault, r), "utf8")), ...remote.texts]);
+    }
     const edit = args["backlog-add"]
-      ? addRow(btext, String(args["backlog-add"]), String(args.raised || new Date().toISOString().slice(0, 10)))
+      ? addRow(btext, String(args["backlog-add"]), String(args.raised || new Date().toISOString().slice(0, 10)), { floor })
       : setRowStatus(btext, args["backlog-row"], String(args.status || ""));
     if (!edit.ok) {
       console.error(`lane-end: did not edit the backlog — ${edit.reason}`);
@@ -231,6 +243,14 @@ function main() {
   } catch (err) {
     restore();
     console.error(`lane-end: queue lint failed after write; files restored — ${err.stderr || err.message}`);
+    process.exit(1);
+  }
+
+  // 3c. One ID, one row across the project's queue AND backlog; a duplicate puts the files back.
+  const dups = crossFileDupIds(args.vault);
+  if (dups.length) {
+    restore();
+    console.error(`lane-end: duplicate row number after write; files restored — ${dups.map((d) => d.msg).join("; ")}`);
     process.exit(1);
   }
 

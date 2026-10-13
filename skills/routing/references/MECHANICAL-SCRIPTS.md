@@ -7,6 +7,7 @@ never inside a brief.
 
 | Trigger | Script | Replaces |
 |---|---|---|
+| A new queue or backlog row | `row-add.mjs --vault <root> --prefix PF --to backlog\|queue --text "…"` — prints the new ID; numbers above every ID in the project's queue AND backlog (local + origin/main) under a lock; refuses a duplicate | any lane or parent adding a row |
 | "Build main to a preview version" | `release-build.mjs --repo <path> [--sha <sha>] [--dry-run]` | the haiku "build main to a preview version" lane |
 | A repo's `doer-rules.md` copy is due a resync | `rulebook-sync.mjs --source <discipline main> --repos <list> [--dry-run]` | the five-repo sync lane |
 | A design-handoff export needs vending into a DS repo | `ds-regen.mjs --export <zip\|dir> --repo <DS path> [--dry-run] [--vocab-portfolio <product repo>] [--no-vocab-index]` — prints the export's `changes` block + VALUE-DRIFT count; the parent still reads and rules on it. Default-on: after a successful regen it also rebuilds `vocabulary-index.mjs`'s index (tokens/components/motion-props/Figma<->code check) from the just-regenerated worktree, best-effort, writing to `--vocab-out` or `defaultVocabIndexPath()` (next to the script) when omitted — `--no-vocab-index` turns the step off | the DS regen lane |
