@@ -50,7 +50,7 @@ first step is the operator's recording or screen frames (ask for one if missing)
 failing moment and write down what is painted on top, in order, before any theory. Check the cheap
 visual causes before timing or state logic: stacking/z-index, clipping, an ancestor's opacity, a
 layer painted over. Verify the fix from pixels, never DOM state alone. Two rounds of one theory
-that do not move the operator's result: re-derive from the picture, not from the last theory.
+that do not move the operator's result: re-derive from the picture, not from the last theory. When a second round of any kind fails, ask for or use the operator's recording before theorising (header-rise round 4 found the exit-ghost cause only from his 120 fps recording).
 (Footer, 2026-10-05: ~10 rounds of timing and state theory; one frame-step showed the arriving
 image painting over it; fix was one z-index rule.) Pixel proof: `webapp-testing` § Pixel proof.
 

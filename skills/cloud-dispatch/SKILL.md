@@ -179,6 +179,7 @@ never edited.
   private github-source marketplace repo is outside proxy scope and the plugin fetch is
   unauthenticated and fails by design. Committed repo-`CLAUDE.md` overlays are the
   standing net until the marketplace repo is public or another fix lands.
+- **Cloudflare auth comes from the egress proxy.** In a cloud session `CLOUDFLARE_API_TOKEN` is a placeholder; the proxy injects the real credential only when a request carries no `Authorization` header, and Node `fetch` ignores the proxy unless `NODE_USE_ENV_PROXY=1`. A header-stripping fetch wrapper is refused by the session safety check; the sanctioned path is a script that omits the header when the token is unset (hoverboard `publish-companion.mjs`, #23), run as `env -u CLOUDFLARE_API_TOKEN NODE_USE_ENV_PROXY=1 node …`.
 - **Webhook batons self-gate.** A webhook `filter` is accepted and silently dropped, every push fires
   the target, and a disabled target is skipped with no run row. The target routine's prompt (and the
   repo overlay, for promptless re-inits) opens by checking `$CCR_TRIGGER_REF` against the expected

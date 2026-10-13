@@ -72,7 +72,7 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 
 - The **test file(s)** and any **committed baseline snapshots**, plus the one-line run command.
 - For each test: **what it asserts** and **the red you saw** — "failed with `expected visible, got hidden` before the fix; green after." A green with no observed red is unverified.
-- For motion, **painted frames** across the whole transition (screencast or recording) — computed style is never proof (`motion` BUILD.md § Motion proof).
+- For motion, **painted frames** across the full transition duration, never a sample (screencast or recording) — computed style is never proof (`motion` BUILD.md § Motion proof).
 - Viewport(s) actually tested — never claim cross-viewport coverage you didn't run.
 - Any masks/mocks and *why* (what non-determinism they neutralize).
 
@@ -81,6 +81,8 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 A visual "is it on screen" claim is verified from pixels (recording or screenshot at the operator's framing), never from DOM state alone. Opacity, node identity and `elementFromPoint` read "visible" under a layer that paints over; DOM probes explain a pixel failure, they never pass one (footer, 2026-10-04: ~250 headless runs and two probe generations held while the phone showed it covered for 1-3 s).
 
 **Headless is not the device.** Linux headless WebKit is not iOS Safari; a timeline (WAAPI `startTime`) proves intent, not what the phone paints. After one device-vs-headless disagreement, the next round's first step is the operator's own path from a recording (ask for it in that same reply), and its done-when names a device-faithful check. A third headless-only round is a routing failure.
+
+**Drive the operator's real gesture.** A DOM `a.click()` is not the operator's click: it never hovers, so it skips the hover state his path sets (Time Circuits rounds 1-3 and header-rise rounds 1-2 passed on scripted clicks while the real hover-then-click set `html[data-gallery-project-hover]`, whose blur and recede caused every bug he saw). Any lane touching navigation, hover or page transitions drives a real mouse in headed Chrome: move, dwell, press. The brief names his device.
 
 **Cloud device check:** `MrJarrad/jhd-device-tests` runs a tap path on a preview in real Mobile Safari (iOS Simulator, free runner), records the screen and returns a pixel verdict (`held` / `covered`); its README holds the trigger and request format. It reproduced the footer bug 6/6 and passed the fix 6/6.
 
