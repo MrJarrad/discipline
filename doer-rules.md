@@ -225,9 +225,9 @@ inventing a shape per dispatch.
 
 **"Already satisfied / already true" on an operator-raised row is a claim, not a result.**
 The parent reproduces it at the operator's own framing (route, gesture, device/viewport)
-before relaying; a brief for navigation, hover or transition work names the operator's device and input ("tap" was desktop Chrome, 2026-10-13); a row that still fails there reopens the lane instead of being told to the
+before relaying; a row that still fails there reopens the lane instead of being told to the
 operator as fixed (2026-09-23, `reproduce-lane-already-works-before-relay`; baton row:
-`skills/routing/SKILL.md` § Baton handoff table).
+`skills/routing/SKILL.md` § Baton handoff table). Separately, a brief for navigation, hover or transition work names the operator's device and input ("tap" was desktop Chrome, 2026-10-13).
 
 **The parent reads the table, not the summary, before relaying a number.** A doer's own prose
 summary can contradict its own table — one round's summary said "worst hold ~2.9s" while its

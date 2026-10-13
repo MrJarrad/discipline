@@ -21,6 +21,10 @@ test("doer-rules: a brief names the operator's device and input", () => {
   assert.match(flat("doer-rules.md"), /names the operator's device and input.*"tap" was desktop Chrome/);
 });
 
+test("dispatch-brief: the brief author is told to name the operator's device and input", () => {
+  assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /16\. \*\*A navigation, hover or transition brief names the operator's device and input/);
+});
+
 test("motion: frames cover the full transition duration, not a sample", () => {
   assert.match(flat("skills/motion/references/BUILD.md"), /every frame of the full transition duration.*11-frame sample passed a 2\.2 s hidden window/);
   assert.match(flat("skills/webapp-testing/SKILL.md"), /full transition duration, never a sample/);

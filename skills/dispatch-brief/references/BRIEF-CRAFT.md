@@ -50,3 +50,5 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
     a panel lane was briefed from a fresh Figma sweep after the operator had already set each block's
     options). The brief names the ruling, says to merge current main into the tool branch, and lists
     the open PRs touching the block; the Figma sweep is for values only.
+16. **A navigation, hover or transition brief names the operator's device and input** (`tap` on a
+    phone, hover on desktop Chrome): "tap" was desktop Chrome on 2026-10-13, so the doer drove a click.
