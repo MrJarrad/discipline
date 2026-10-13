@@ -10,7 +10,9 @@
 
    Concurrency: a lock in os.tmpdir() keyed by the vault's absolute path (so
    nothing needs gitignoring) is held across read -> pick -> write. A lock older
-   than STALE_MS is broken. Two clones of the vault on different machines can
+   than STALE_MS is broken (atomically: renamed to a unique name, then checked
+   stale; a fresh lock taken by mistake is linked back). The lock file holds an
+   owner token; release() only removes a lock that still carries its own. Two clones of the vault on different machines can
    still collide at git merge; `list-drift-check` (dup-id, across queue AND
    backlog) catches that on the next run.
 
@@ -21,14 +23,14 @@
      withVaultLock(vault, fn) -> fn()'s result (throws if the lock cannot be taken)
      lockPath(vault) -> string                                                  */
 import { execFileSync } from "node:child_process";
-import { closeSync, openSync, statSync, unlinkSync, writeSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { closeSync, linkSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { tableRows } from "./queue-ids.mjs";
 
 export const STALE_MS = 30_000;
-const WAIT_MS = 15_000;
+export const WAIT_MS = 45_000; // above STALE_MS: a waiter outlasts a dead holder instead of failing first
 
 export function highestUsed(texts) {
   let max = 0;
@@ -66,21 +68,40 @@ export const lockPath = (vault) => join(tmpdir(), `discipline-rowid-${createHash
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
+/* Break a stale lock so that two waiters cannot both win: rename is atomic, so
+   only one waiter moves the stale file; the other's rename finds nothing (or a
+   fresh lock, which the staleness check on the moved file catches and links back). */
+function breakStale(path) {
+  const moved = `${path}.${process.pid}.${randomBytes(4).toString("hex")}.stale`;
+  try { renameSync(path, moved); } catch { return; }
+  try {
+    if (Date.now() - statSync(moved).mtimeMs > STALE_MS) return;
+    try { linkSync(moved, path); } catch { /* someone else holds it now; nothing more to undo */ }
+  } catch { /* moved file vanished */ } finally { try { unlinkSync(moved); } catch {} }
+}
+
 /* Take the lock; returns release(). Prefer withVaultLock; lane-end holds it
-   across a multi-step write and releases it on exit. */
+   across the file writes only and releases before git. */
 export function acquireVaultLock(vault) {
   const path = lockPath(vault);
+  const token = `${process.pid}:${randomBytes(8).toString("hex")}`;
   const start = Date.now();
   let fd;
   for (;;) {
-    try { fd = openSync(path, "wx"); writeSync(fd, String(process.pid)); break; } catch (err) {
+    try { fd = openSync(path, "wx"); writeSync(fd, token); break; } catch (err) {
       if (err.code !== "EEXIST") throw err;
-      try { if (Date.now() - statSync(path).mtimeMs > STALE_MS) { unlinkSync(path); continue; } } catch { continue; }
+      try { if (Date.now() - statSync(path).mtimeMs > STALE_MS) { breakStale(path); continue; } } catch { continue; }
       if (Date.now() - start > WAIT_MS) throw new Error(`row-alloc: could not take ${path} within ${WAIT_MS / 1000}s`);
       sleep(20 + Math.floor(Math.random() * 30));
     }
   }
-  return () => { try { closeSync(fd); } catch {} try { unlinkSync(path); } catch {} };
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    try { closeSync(fd); } catch {}
+    try { if (readFileSync(path, "utf8") === token) unlinkSync(path); } catch {}
+  };
 }
 
 export function withVaultLock(vault, fn) {

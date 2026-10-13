@@ -148,7 +148,7 @@ function main() {
     console.error(`lane-end: cannot read ${queuePath}: ${err.message}`);
     process.exit(1);
   }
-  const replaced = replaceRowById(queueText, args.id, args.text);
+  let replaced = replaceRowById(queueText, args.id, args.text);
   if (!replaced.ok) {
     console.error(`lane-end: did not replace the queue row — ${replaced.reason}`);
     process.exit(1);
@@ -156,6 +156,7 @@ function main() {
 
   // 2b. Backlog flip / add — computed before any write so a refusal writes nothing.
   let backlog = null;
+  let releaseLock = () => {};
   if (args["backlog-row"] && args["backlog-add"]) {
     console.error("lane-end: --backlog-row and --backlog-add are exclusive; pass one");
     process.exit(1);
@@ -186,11 +187,20 @@ function main() {
     if (args["backlog-add"] && !dryRun) {
       // The number comes from the allocator: above every number in this project's queue AND
       // backlog, local and origin/main, under the vault lock held until exit (lib/row-alloc.mjs).
-      const release = acquireVaultLock(args.vault);
-      process.on("exit", release);
+      // Released right after the file writes (before git); the exit hook covers early exits.
+      releaseLock = acquireVaultLock(args.vault);
+      process.on("exit", releaseLock);
       const rels = [owner.queue, owner.backlog].filter(Boolean);
       const remote = args.offline ? { texts: [], warnings: [] } : remoteTexts(args.vault, rels);
       for (const w of remote.warnings) console.error(`lane-end: warning — ${w}`);
+      // Re-read both files under the lock: a writer that finished while we waited is seen.
+      btext = readFileSync(bpath, "utf8");
+      queueText = readFileSync(queuePath, "utf8");
+      replaced = replaceRowById(queueText, args.id, args.text);
+      if (!replaced.ok) {
+        console.error(`lane-end: did not replace the queue row — ${replaced.reason}`);
+        process.exit(1);
+      }
       floor = highestUsed([...rels.map((r) => readFileSync(join(args.vault, r), "utf8")), ...remote.texts]);
     }
     const edit = args["backlog-add"]
@@ -253,6 +263,9 @@ function main() {
     console.error(`lane-end: duplicate row number after write; files restored — ${dups.map((d) => d.msg).join("; ")}`);
     process.exit(1);
   }
+
+  // The files are written and checked; the lock guards only that window, not git.
+  releaseLock();
 
   // 4. Commit + push (queue file + evidence dir only, never a broad add).
   try {

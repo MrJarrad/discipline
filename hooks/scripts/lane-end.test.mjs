@@ -7,13 +7,14 @@
 // Run: node --test hooks/scripts/lane-end.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { replaceRowById, parseArgs } from "./lane-end.mjs";
 import { discoverFiles } from "./lib/queue-ids.mjs";
+import { lockPath } from "./lib/row-alloc.mjs";
 
 const scriptPath = fileURLToPath(new URL("./lane-end.mjs", import.meta.url));
 
@@ -422,4 +423,46 @@ test("DISC-167: --backlog-add numbers above the queue's range too, and a cross-f
   assert.equal(r2.status, 1);
   assert.match(r2.stderr, /duplicate row number|appears twice|dup/i);
   assert.match(readFileSync(join(v2, "projects", "p", "p-queue.md"), "utf8"), /TP-1 \| old row/);
+});
+
+const rowAllocUrl = new URL("./lib/row-alloc.mjs", import.meta.url).href;
+
+test("DISC-167 A1: --backlog-add re-reads the backlog after taking the lock (a writer that finished while it waited is kept)", async () => {
+  const vault = makeVaultWithQueue();
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  const bpath = join(vault, "projects", "p", "p-backlog.md");
+  writeFileSync(bpath, BACKLOG_TEXT);
+  // A holder owns the lock, appends TP-900 to the backlog, then lets go; lane-end is already waiting.
+  const holder = `import { acquireVaultLock } from ${JSON.stringify(rowAllocUrl)}; import { readFileSync, writeFileSync } from "node:fs";
+    const rel = acquireVaultLock(${JSON.stringify(vault)}); console.log("held");
+    setTimeout(() => { const t = readFileSync(${JSON.stringify(bpath)}, "utf8"); writeFileSync(${JSON.stringify(bpath)}, t.replace("\\n\\n## Done", "\\n| TP-900 | racer | d | open |\\n\\n## Done")); rel(); }, 600);`;
+  const h = spawn("node", ["--input-type=module", "-e", holder]);
+  await new Promise((res) => h.stdout.once("data", res));
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const code = await new Promise((res) => {
+    const c = spawn("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+      "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"]);
+    let err = ""; c.stderr.on("data", (d) => (err += d)); c.on("close", (k) => { if (k) console.error(err); res(k); });
+  });
+  const after = readFileSync(bpath, "utf8");
+  assert.equal(code, 0);
+  assert.match(after, /\| TP-900 \| racer/);
+  assert.match(after, /\| TP-901 \| a new finding/);
+});
+
+test("DISC-167 A2: lane-end drops the lock before it commits and pushes", () => {
+  const vault = makeVaultWithQueue();
+  writeFileSync(join(vault, "projects", "p", "p-queue.md"), "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
+  execFileSync("git", ["-C", vault, "add", "."]);
+  execFileSync("git", ["-C", vault, "commit", "-qm", "seed"]);
+  const seen = join(vault, "..", `lock-seen-${process.pid}`);
+  const hook = join(vault, ".git", "hooks", "pre-commit");
+  writeFileSync(hook, `#!/bin/sh\nif [ -e "${lockPath(vault)}" ]; then echo held > "${seen}"; fi\nexit 0\n`);
+  chmodSync(hook, 0o755);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"], { encoding: "utf8" });
+  assert.match(execFileSync("git", ["-C", vault, "log", "-1", "--format=%s"], { encoding: "utf8" }), /queue: row TP-500 landed/, r.stderr);
+  assert.equal(existsSync(seen), false, "lock was still held while git ran");
 });
