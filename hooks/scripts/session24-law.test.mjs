@@ -15,7 +15,7 @@ test("ACCURACY: whole window, header included, parent opens one; position AND vi
   assert.match(t, /names position AND visibility \(opacity, display, clip\)/);
 });
 test("diagnosing-bugs: third failed round re-reads the ask", () => {
-  assert.match(flat("skills/diagnosing-bugs/SKILL.md"), /third failed round on one effect stops tuning: re-read the ask.*operator's confirmed|his confirmation/);
+  assert.match(flat("skills/diagnosing-bugs/SKILL.md"), /third failed round on one effect stops tuning: re-read the ask.*(?:operator's confirmed|his confirmation)/);
 });
 test("grilling: ask for his term when try-outs stop converging", () => {
   assert.match(flat("skills/grilling/SKILL.md"), /try-outs stop converging, ask for the operator's own term or a reference/);
