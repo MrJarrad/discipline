@@ -62,7 +62,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1655, /* 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1705, /* 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
@@ -141,7 +141,7 @@ const RATCHETS = [
   { skill: "present-for-review", ceiling: 1700 }, // 1661 words at 1.111.0; 1699 at 1.113.0 (parent-views-evidence + cloud preview alias pointers)
   { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
   { skill: "qa-acceptance", ceiling: 1730 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line)
-  { skill: "cloud-dispatch", ceiling: 1850 }, // 1.133.0 raised to 1850 for the Cloudflare-auth-from-the-proxy failure-mode bullet (lesson real-input-and-proxy-auth-2026-10-13). 1.126.0 raised to 1770 for the Disk before dispatch section (backlog 157; routing HARD-RULES 13 holds the sweep rule). Earlier: 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
+  { skill: "cloud-dispatch", ceiling: 1855 }, // 1.138.0 raised to 1855 (+5, 2026-10-15) for Capacity before dispatch (disk + load + heavy count). 1.133.0 raised to 1850 for the Cloudflare-auth-from-the-proxy failure-mode bullet (lesson real-input-and-proxy-auth-2026-10-13). 1.126.0 raised to 1770 for the Disk before dispatch section (backlog 157; routing HARD-RULES 13 holds the sweep rule). Earlier: 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
 ];
 
 for (const { skill, ceiling } of RATCHETS) {

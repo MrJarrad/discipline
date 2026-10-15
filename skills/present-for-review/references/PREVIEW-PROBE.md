@@ -11,3 +11,8 @@ build, and the operator reported a "still broken" bug that was already fixed.
    that string in the served chunks or CSS. Poll about a minute; the link goes out only once found.
 3. A push with no diff in the built repo does not rebuild: merge main in. Never push an empty commit.
 4. A design-system change merges to DS main first; the preview builds from it.
+5. A version list (`/workers/scripts/<script>/versions`) shows whether an upload happened at all.
+6. One `preview/*` push per repo is in flight at a time (`routing` rule 16). A push stops being in flight when
+   the served build shows it, OR the build reports failed, OR 15 minutes pass unmoved: an unmoved preview is a
+   failed build until shown otherwise (it can fail silently, and the Builds log may be unreadable to the
+   session token). Then the next real commit rebuilds it: never an empty commit.

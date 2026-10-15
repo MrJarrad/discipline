@@ -753,6 +753,7 @@ test("loadWarning: silent at or below one task per core; above it names the figu
   assert.match(w, /42\.3/);
   assert.match(w, /4 cores/);
   assert.match(w, /rule 15/);
+  assert.match(w, /create_session/);
   assert.match(w, /not a block/);
 });
 
