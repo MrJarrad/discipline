@@ -43,8 +43,10 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
 15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
-16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6).
+16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6); `builds-check.mjs` shows running builds.
 17. **Finish before opening:** max 3 look-lanes open per session (overflow: backlog row unless he says "now"); a try-out finishes before its slot takes a new look topic; asks on a building lane queue for its next round unless tiny.
+18. **A fix round changes only what the operator named**; brief and read-back list what stays the same (HARD-RULES 18).
+19. **Archive a helper session** at lane end, result banked; never author the operator's words (HARD-RULES 19).
 
 ## Resume vs fresh (read before any baton row)
 
@@ -72,7 +74,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | Engineer landed, **look-judged** | **Operator**: link when preview opens (`link-first-look-rounds`); proof, merge on yes → **Reviewer trailing** |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
 | Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`); brief **states the review record** |
-| **Operator says yes to a try-out** | **Reviewer** → gate → merge, or park aloud, before that slot reopens (rule 17) |
+| **Operator says yes to a try-out** | His yes first (`reviewer.md` precondition 3), then **Reviewer** gates the merge, or park aloud, before that slot reopens (rule 17) |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |
@@ -83,7 +85,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 | **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume (`lanes-survive-interruption`, Resume section above) |
-| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR gate-run tail read — one call (`spend-levers` rule 5, `lists-never-stale`) |
+| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR gate-run tail read — one call (`spend-levers` rule 5, `lists-never-stale`); then archives its helper session (rule 19) |
 | **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
 ## Rung ladder (name the rung before dispatch)

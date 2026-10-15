@@ -55,3 +55,6 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
 17. **A rule the lane's doer already broke once is named in the Constraints line**, not only in the
     House rules block (`look-proof-at-operator-framing-2026-10-15` 5: an empty retrigger commit after a
     red Workers Build, against the House rules the brief already carried).
+18. **A fix-round brief lists what stays the same** (DISC-169, `routing` HARD-RULES 18): the one thing the operator
+    named is the whole change; everything else is a `Stays the same` list, and the doer's read-back repeats it. A
+    mechanism change on a look lane is not a fix round: it needs the operator's yes first.

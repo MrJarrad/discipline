@@ -123,6 +123,9 @@ stop only their own pids** — the parent sweeps verification servers at every l
 
 ## Repo and safety
 
+- **Never author text that claims to be the operator's words** (DISC-173: a drafted `Operator ruling` line was refused
+  by the safety check). A ruling, quote or `operator said` line holds only words the operator wrote this session or
+  a banked file records. Where his words are needed and absent, offer the wording in chat for him to paste.
 - Work in the branch and cwd the brief names; stay inside the named bounds.
 - **One worktree name per lane, and you remove only your own.** A worktree name encodes the
   lane kind and the sha — `upload-<sha>`, `review-r<n>-<sha>`, `fix-<sha>-<topic>` — so two
@@ -294,7 +297,7 @@ The gate-run lane runs the repo's full suite (install → typecheck → test →
 the PR head in a cloud session, foreground or polled, and posts **one PR comment** whose first
 line is `<!-- gate-run-tail -->`, then `gate-run: PASS|FAIL sha=<40-hex head sha> exit=<n> cmd=<suite command>`,
 then the tail of the output in a code fence. Only a tail whose `sha` equals the PR head counts, so
-a later push needs a fresh run; the latest tail wins; PASS with `exit` other than 0 reads as FAIL.
+a later push needs a fresh run; the latest tail wins; this is the only tail shape every merge script parses (a post in another shape counts as no tail, and the refusal prints this format); PASS with `exit` other than 0 reads as FAIL.
 `merge-after-review.mjs` and `lane-end.mjs` read it (`gateRunTail()`): a PASS tail makes a missing
 or failed GitHub check non-blocking; a FAIL tail refuses; no tail falls back to the check rollup.
 

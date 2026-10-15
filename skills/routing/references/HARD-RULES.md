@@ -205,3 +205,15 @@ and queued the chat as the doer — that hatch is deleted.
    Checked: (a) `session-resume.mjs` counts Next-block lanes marked `look: yes` that are still open and warns at 3 or
    more (`wrap/references/SECTIONS.md` writes the key); inside a live session the count is the parent's, since no
    hook sees which lanes are look-judged. (b) and (c) are judgment: they turn on the operator's words.
+
+18. **A fix round changes only what the operator named** (DISC-169, session 25: round 2 of the glow and of the text
+   wrap each rebuilt the whole effect; operator: *"we went way to far in the wrong direction"*). The round-2 brief and
+   the doer's read-back each carry a `Stays the same` list (every behaviour, value and look the operator did not
+   name); the round changes the named thing and nothing on that list. On a look lane, swapping the mechanism
+   (how the effect is made, not a value inside it) is a new try-out: it waits for the operator's yes first.
+   Checked: judgment, from the operator's words; `BRIEF-CRAFT` item 18 and `agents/engineer.md` carry the clauses.
+19. **Helper sessions are archived once their lane lands** (DISC-175, operator 2026-10-15: *"can we also archive
+   helper sessions once they're complete as part of the dicsipline update"*). A helper is a `create_session` child
+   (`cloud-dispatch` § Capacity before dispatch). At lane end, after its result is banked (the PR comment or evidence
+   file is read), the parent calls `archive_session` on it. When the next round of a lane starts, the superseded
+   round's helper is archived then. A helper whose result is not yet banked is never archived.
