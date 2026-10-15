@@ -36,8 +36,10 @@ eight row classes). Screenshots and pixel diffs prove look, not function
 
 ## Pixel proof at the operator's framing
 
+**Measure what he sees, not one property:** a done-when for pinned, hidden or shown names position AND visibility (opacity, display, clip); a header at y = 0 had faded to opacity 0 and passed as pinned.
+
 A built region's after-yes proof is a **headed screenshot at the operator's viewport and at each
-breakpoint family, with a pixel assertion on that region**. A `getComputedStyle` read proves a
+breakpoint family, with a pixel assertion on that region**. The screenshot is the operator's whole window, header included, never a crop of the edge or detail in question; the parent opens one before relaying "checked" (a pinned-grid round passed on 200px edge crops while the full window showed a 40%-of-screen white block). A `getComputedStyle` read proves a
 declaration exists, not that anything painted — a footer that never painted passed
 computed-style checks three rounds running.
 
