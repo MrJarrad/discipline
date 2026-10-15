@@ -122,9 +122,10 @@ test("the one rule is the contract pointer", () => {
 // sits in Repo and safety beside the gate-fixture bullet, the moment a doer re-bakes.
 // Ceiling raised 317 -> 318 at 1.134.0: the row-add bullet (DISC-167) sits in Repo and safety.
 // Ceiling raised 318 -> 319 at 1.135.0: the idea-is-a-row bullet (DISC-168) sits beside the row-add bullet.
-test("doer-rules.md stays under its 319-line ceiling", () => {
+// Raised 319 -> 322 at 1.137.0: the bounded-wait example (sleep refused, Monitor absent) sits in the no-polling bullet.
+test("doer-rules.md stays under its 322-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 319, `doer-rules.md is ${lines} lines; the ceiling is 319`);
+  assert.ok(lines <= 322, `doer-rules.md is ${lines} lines; the ceiling is 322`);
 });
 
 test("doer-rules carries the four standing sections", () => {

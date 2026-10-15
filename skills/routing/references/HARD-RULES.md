@@ -168,3 +168,12 @@ and queued the chat as the doer — that hatch is deleted.
    `lane-end.mjs` flips the row in the lane's own commit and runs the check last; `wrap`
    runs it before the report (`wrap/references/REPORT-AND-LEARN.md`).
 
+15. **Heavy lanes are capped per container** (step-failures audit, 2026-10-15). On one 4-core
+   container about ten lanes ran suites, builds and headless browsers together: load averaged
+   38-44, and the failures were `timeout`/exit-143 kills and suites that pass alone. A heavy step
+   (full suite, build, headless browser) counts one; `nproc / 2` is a **ceiling on all heavy lanes
+   together**, not a quota — a container may run fewer, never more. Inside it the per-kind rules still
+   hold: never two full suites at once (`doer-rules.md:166`) and one browser repro at a time, no parallel
+   Chromium (`skills/dispatch-brief/references/HOUSE-RULES.md:36`). The parent reads `uptime` before dispatching a lane whose brief names a heavy step;
+   load above `nproc` queues that lane until one finishes. Lighter lanes (read, write, review) are uncapped.
+   A doer under load runs touched-file tests and leaves the full suite to the gate-run lane (`doer-rules.md` § Repo and safety).

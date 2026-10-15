@@ -325,27 +325,34 @@ if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
 
 const markerPath = join(cwd, ".claude", ".typecheck-status.json");
 
-// Absent-marker fallback: rather than hard-failing the commit because no
-// Write/Edit has fired the async typecheck yet (marker fragility — SECOND
-// strike, see the handover defect record), run the SAME command-picking +
-// marker-writing logic synchronously right here, then gate on the fresh
-// result below exactly as if the marker had existed all along.
+// Marker fallback: an absent marker (no Write/Edit has fired the async typecheck yet — marker
+// fragility, SECOND strike, see the handover defect record) and a red or timed-out marker are both
+// only a record of the past. The fix may have gone in through Bash (no Write|Edit event), or the
+// async re-check may still be running, so the gate never refuses on the record alone: it runs the
+// SAME command-picking + marker-writing logic synchronously right here and gates on the fresh
+// result. A green marker is trusted as before.
 let marker;
+let reran = false;
 if (!existsSync(markerPath)) {
   marker = runTypecheckSync(cwd);
 } else {
   try { marker = JSON.parse(readFileSync(markerPath, "utf8")); }
   catch { deny("Typecheck gate: marker file is unreadable/corrupt — re-run typecheck."); }
+  if (marker.status === "red" || marker.status === "timeout") {
+    marker = runTypecheckSync(cwd);
+    reran = true;
+  }
 }
 
 if (marker.status === "green" || marker.status === "skipped") allow();
 
 if (marker.status === "timeout") {
-  deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) TIMED OUT ` +
-    `at ${marker.ts} — the check never finished, so there's no result to gate on.\n` +
+  deny(`Typecheck gate: typecheck (${marker.command || "unknown command"}) TIMED OUT ` +
+    `at ${marker.ts}${reran ? " (the gate re-ran it just now)" : ""} — the check never finished, so there's no result to gate on.\n` +
     `${marker.tail || ""}`);
 }
 
-deny(`Typecheck gate: last typecheck (${marker.command || "unknown command"}) was RED ` +
-  `at ${marker.ts}. Fix the errors and let a Write/Edit re-trigger the check before committing.\n` +
+deny(`Typecheck gate: typecheck (${marker.command || "unknown command"}) is RED at ${marker.ts}` +
+  `${reran ? " — the gate re-ran it just now, so this is current, not a stale record" : ""}. ` +
+  `Fix the errors and commit again; the gate re-runs the check itself, no edit is needed to trigger it.\n` +
   `Tail:\n${marker.tail || ""}`);

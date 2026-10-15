@@ -30,12 +30,16 @@ import {
   activeSiblingWorktrees,
   buildActiveWorkWarning,
   activeWorkWarning,
+  loadWarning,
   checkBashAgentLabel,
   checkBashKillByName,
   killsByName,
   launchesAgent,
 } from "../bin/agent-dispatch-gate.mjs";
 import { loadRegistry, saveRegistry, withRegistryLock } from "../bin/progress-registry.mjs";
+
+// The host load must never change what a test sees: pin a calm source for every spawned gate.
+process.env.DISCIPLINE_LOADAVG = "0,4";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const gate = join(repo, "hooks", "bin", "agent-dispatch-gate.mjs");
@@ -740,6 +744,28 @@ test("the hook process's PreToolUse allow carries the active-work warning as add
   } finally {
     rmSync(repoDir, { recursive: true, force: true });
   }
+});
+
+test("loadWarning: silent at or below one task per core; above it names the figure and rule 15", () => {
+  assert.equal(loadWarning(4, 4), null);
+  assert.equal(loadWarning(0.5, 4), null);
+  const w = loadWarning(42.3, 4);
+  assert.match(w, /42\.3/);
+  assert.match(w, /4 cores/);
+  assert.match(w, /rule 15/);
+  assert.match(w, /not a block/);
+});
+
+test("the hook warns on load through additionalContext and still allows", () => {
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", tool_input: COMPONENT_WITH_PROGRESS, session_id: "load-session" }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_LOADAVG: "42.3,4", DISCIPLINE_PROGRESS_REGISTRY: join(tempDir("dispatch-gate-registry-"), "registry.json") },
+  });
+  assert.equal(result.status, 0);
+  const out = JSON.parse(result.stdout);
+  assert.equal(out.hookSpecificOutput.permissionDecision, "allow");
+  assert.match(out.hookSpecificOutput.additionalContext, /Load warning.*42\.3.*rule 15/s);
 });
 
 // --- Local agents launched from Bash carry the dispatch label (1.102.0) -----

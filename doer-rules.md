@@ -72,6 +72,9 @@ it never restates what is here.
 - **No `until`/`while … sleep` polling loops and no detached shells inside a lane** — wait
   with a foreground command and a timeout (operator ruling 2026-09-21, `lane-end-sweep`:
   orphaned wait-loops up to two days old and six leftover servers found at wrap).
+  The Bash tool refuses a leading `sleep N`, and `Monitor` is not in a doer's toolset (eight failed
+  steps in one session, 2026-10-15) — the bounded wait is one foreground command that ends when the
+  thing does, e.g. `timeout 110 tail --pid=<pid> -f /dev/null; tail -3 <log>`.
 - **Mid-run messages queue; they never land mid-stream.** A `SendMessage` inside a tool result
   reads as possible injection to a careful doer, and an edit sent into a tree a reviewer is
   reading fails the review's precondition. Scope additions go in after the agent stops
@@ -185,7 +188,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   probing** (lanes measured another worktree's server — false greens and reds).
   Under parallel load run the touched-file tests and leave the full suite to the gate-run lane; after adding
   a test also run the repo's law/scaffolding tests (`*-teardown`, `repo-scaffolding-law`),
-  which a new red-first test can trip though every touched test passes.
+  which a new red-first test can trip though every touched test passes. Playwright browsers live at `$PLAYWRIGHT_BROWSERS_PATH` (`/opt/pw-browsers` in cloud): never `playwright install`, never look in `~/.cache/ms-playwright`.
 - A consumer of a `file:` sibling dependency
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm
