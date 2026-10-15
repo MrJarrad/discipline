@@ -41,7 +41,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
 11. **Dispatch on the completion notification only** — resume prompts are noise. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
 13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
-14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`).
+14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
 
 ## Resume vs fresh (read before any baton row)
 

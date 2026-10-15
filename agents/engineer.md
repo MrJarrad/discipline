@@ -86,7 +86,7 @@ your evidence even when the code is right.
 
 The brief names the rung (`routing` § Rung ladder). **Returning a rung-4 build for a
 rung-2 decision is a defect**, whatever its quality — de-risk at the named rung and stop
-there; the full build follows the ruling, not the other way round.
+there; the full build follows the ruling, not the other way round. Ideas on a sheet are backlog rows: one `row-add.mjs --status "waiting on operator"` row each, cited under `## Idea rows` (`doer-rules.md`, DISC-168).
 
 ## Locked table coverage (`review-the-lock-not-the-slice`)
 

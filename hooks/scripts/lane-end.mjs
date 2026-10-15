@@ -257,7 +257,7 @@ function main() {
   }
 
   // 3c. One ID, one row across the project's queue AND backlog; a duplicate puts the files back.
-  const dups = crossFileDupIds(args.vault);
+  const dups = crossFileDupIds(args.vault).filter((d) => d.kind === "dup-id");
   if (dups.length) {
     restore();
     console.error(`lane-end: duplicate row number after write; files restored — ${dups.map((d) => d.msg).join("; ")}`);
