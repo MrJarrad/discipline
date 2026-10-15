@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import {
   checkAgentDispatch,
   checkSkillsNamed,
+  checkUnfilledPlaceholders,
   checkSourceContractLockRows,
   checkComponentSystemProgress,
   registerLaneFromPrompt,
@@ -884,4 +885,34 @@ test("kill-by-name: pkill/killall as the command is blocked; the word as text is
   for (const c of ["grep pkill doer-rules.md", 'echo "pkill x"', "git commit -m 'gate pkill and killall'", "kill 4242", "cat <<'EOF'\npkill x\nEOF"])
     assert.equal(killsByName(c), false, c);
   assert.match(checkBashKillByName({ command: "pkill x" }).reason, /kill <pid>/);
+});
+
+// --- Unfilled template placeholders (DISC-170) -----------------------------
+
+test("a brief carrying an unfilled {HOUSE} slot is blocked, naming the slot", () => {
+  const input = { ...WELL_FORMED, prompt: WELL_FORMED.prompt + "\n\n{HOUSE}\n" };
+  const v = checkAgentDispatch(input);
+  assert.equal(v.ok, false);
+  assert.equal(v.item, "placeholder");
+  assert.match(v.reason, /\{HOUSE\}/);
+});
+
+test("code, mustache, path templates, regex quantifiers and other brace text are not unfilled slots", () => {
+  const pass = [
+    "quote:\n```\n{HOUSE}\n```\nend",
+    "quote:\n~~~\n{HOUSE}\n~~~\nend",
+    "quote:\n\n    {HOUSE}\n\nend",
+    "quote:\n\n\t{HOUSE}\n\nend",
+    "inline `{HOUSE}` and ${HOUSE} and {{HOUSE}}",
+    "evidence/{DATE}/progress.md and {SLUG} and {CLAUDE_SKILL_DIR}",
+    "regex a{N} and \\d{3} and {1} and {} and {house}",
+  ];
+  for (const p of pass) assert.equal(checkUnfilledPlaceholders(p), null, p);
+  assert.deepEqual(checkAgentDispatch(WELL_FORMED), { ok: true });
+});
+
+test("an unfilled {HOUSE} is still caught beside fenced or indented quotes of it", () => {
+  const v = checkUnfilledPlaceholders("```\n{HOUSE}\n```\n\n{HOUSE}\n");
+  assert.equal(v.item, "placeholder");
+  assert.match(v.reason, /\{HOUSE\}/);
 });

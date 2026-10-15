@@ -113,6 +113,10 @@ in a cloud gate-run lane, install→typecheck→test→lint→build once, with i
 the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on
 Cloudflare Workers Builds.
 
+## Release path
+
+Only `main` releases, via `pnpm release:promote`; helper PRs open as drafts. Detail: [references/RELEASE-PATH.md](references/RELEASE-PATH.md).
+
 ## Deploy commands stand alone (Change 6, 2026-09-22)
 
 **A promote/deploy verb (`wrangler versions deploy`, `wrangler rollback`, `npm publish`, and

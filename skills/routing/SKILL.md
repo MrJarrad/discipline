@@ -45,6 +45,9 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
 16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6).
 17. **Finish before opening:** max 3 look-lanes open per session (overflow: backlog row unless he says "now"); a try-out finishes before its slot takes a new look topic; asks on a building lane queue for its next round unless tiny.
+18. **Fix rounds change only what the operator named** (HARD-RULES 18).
+19. **Archive helper sessions** (HARD-RULES 19).
+20. **Never author the operator's words** (`doer-rules.md` § Repo and safety).
 
 ## Resume vs fresh (read before any baton row)
 
@@ -72,7 +75,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | Engineer landed, **look-judged** | **Operator**: link when preview opens (`link-first-look-rounds`); proof, merge on yes → **Reviewer trailing** |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
 | Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`); brief **states the review record** |
-| **Operator says yes to a try-out** | **Reviewer** → gate → merge, or park aloud, before that slot reopens (rule 17) |
+| **Operator says yes to a try-out** | Yes first (`reviewer.md` precondition 3), then **Reviewer** gates merge, or park aloud, before that slot reopens (rule 17) |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |
@@ -83,7 +86,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 | **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume (`lanes-survive-interruption`, Resume section above) |
-| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR gate-run tail read — one call (`spend-levers` rule 5, `lists-never-stale`) |
+| **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR gate-run tail read — one call (`spend-levers` rule 5, `lists-never-stale`); archive its helper (rule 19) |
 | **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
 ## Rung ladder (name the rung before dispatch)

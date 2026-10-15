@@ -46,6 +46,7 @@ test("canMerge refuses an empty rollup — nothing to prove green against", () =
   const verdict = canMerge(status);
   assert.equal(verdict.ok, false);
   assert.match(verdict.reason, /nothing to prove green/);
+  assert.match(verdict.reason, /gate-run: PASS\|FAIL sha=<40-hex head sha> exit=<n>/); // names the one tail format
 });
 
 // --- gate-run tail (ruling no-paid-github, 2026-10-08) -----------------------

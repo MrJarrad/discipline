@@ -62,7 +62,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1765, /* 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1802, /* 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },

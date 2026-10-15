@@ -16,3 +16,5 @@ build, and the operator reported a "still broken" bug that was already fixed.
    the served build shows it, OR the build reports failed, OR 15 minutes pass unmoved: an unmoved preview is a
    failed build until shown otherwise (it can fail silently, and the Builds log may be unreadable to the
    session token). Then the next real commit rebuilds it: never an empty commit.
+7. Before a push, ask Cloudflare instead of listing PRs by hand: `builds-check.mjs <repo>` (`routing`
+   `references/MECHANICAL-SCRIPTS.md`) exits 1 while any Workers Build is running or queued for the repo.
