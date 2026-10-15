@@ -143,6 +143,8 @@ catches) took two read-back rounds, then held through five builds (`session10-co
 - **DO:** play back "so the rim should sit flush with the outer edge, no gap" and quote the operator's confirmation in the brief.
 - **DON'T:** dispatch a brief built from your own reading of "make it sit right" with no read-back.
 
+**When try-outs stop converging, ask for the operator's own term or a reference before building more** — nine frame/fade try-outs ended only when he named it ("scroll jacked ... each grid row to have an active state").
+
 ## Composition
 
 - **`define-terms`** — when a repo is open, sharpen vocabulary and update

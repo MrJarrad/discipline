@@ -52,3 +52,6 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
     the open PRs touching the block; the Figma sweep is for values only.
 16. **A navigation, hover or transition brief names the operator's device and input** (`tap` on a
     phone, hover on desktop Chrome): "tap" was desktop Chrome on 2026-10-13, so the doer drove a click.
+17. **A rule the lane's doer already broke once is named in the Constraints line**, not only in the
+    House rules block (`look-proof-at-operator-framing-2026-10-15` 5: an empty retrigger commit after a
+    red Workers Build, against the House rules the brief already carried).
