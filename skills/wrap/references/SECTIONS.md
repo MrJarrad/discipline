@@ -62,6 +62,7 @@ On wrap:
   `- lane: <id> | repo: <name> | branch: <b> | pr: #<n> | head: <sha> | progress: <vault path> |
   contract: <vault path> | owner: <next persona> | go: <one-line dispatch>`. Write the facts as
   the branch stands now (check `git ls-remote` first), not as the progress file last said.
+  Add `look: yes` to a try-out waiting on or heading to the operator's eyes (`routing` rule 17 counts them).
   `session-resume.mjs` is the reader and the format's home.
 
 If `projects/<name>/` does not exist for a live product (jhd-discipline), create the

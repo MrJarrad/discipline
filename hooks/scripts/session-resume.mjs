@@ -16,8 +16,9 @@
    Next-block format (one lane per `- lane:` item, ` | `-separated key: value):
      - lane: profile | repo: jhd-portfolio | branch: claude/profile | pr: #299 |
        head: 1a2b3c4 | progress: projects/portfolio/evidence/x/progress.md |
-       contract: projects/portfolio/decisions/y.md | owner: reviewer | go: <one line>
-   (one physical line each; `repo` and `branch` are the only keys the digest needs.)
+       contract: projects/portfolio/decisions/y.md | owner: reviewer | go: <one line> | look: yes
+   (one physical line each; `repo` and `branch` are the only keys the digest needs; `look: yes`
+   marks a try-out for the operator's eyes, counted against the 3 look-lane cap, `routing` rule 17.)
 
    Interface: buildDigest(opts) -> { text, lanes, pluginStale } ; parseNextBlock,
    lastProgressLine, countOpenQueueRows are exported for the tests.            */
@@ -61,6 +62,13 @@ export function parseNextBlock(text) {
     }
     return lane;
   });
+}
+
+export const LOOK_LANE_CAP = 3;
+
+/* Open look-lanes: marked `look: yes` and not closed (PR merged, or branch gone from origin). */
+export function countOpenLookLanes(lanes) {
+  return lanes.filter((l) => /^(yes|true)$/i.test(l.look ?? "") && !l.closed).length;
 }
 
 export function lastProgressLine(text) {
@@ -155,6 +163,7 @@ function laneState(lane, ctx) {
     else if (!ls.stdout.trim()) {
       out.push(`head    branch ${lane.branch} is not on origin (merged and deleted, or never pushed)`);
       flags.push("branch absent on origin");
+      lane.closed = true;
     } else {
       const sha = ls.stdout.split(/\s+/)[0];
       let detail = "";
@@ -185,6 +194,7 @@ function laneState(lane, ctx) {
     if (g.ok) { try { j = JSON.parse(g.stdout); if (Array.isArray(j)) j = j[0] ?? null; } catch { j = null; } }
     if (g.ok && j) {
       const state = j.merged_at || j.merged ? "merged" : j.state;
+      if (state !== "open") lane.closed = true;
       let checks = "checks not read";
       const c = exec("gh", ["api", `repos/${slug}/commits/${j.head.sha}/check-runs`], { timeout: 20000 });
       if (c.ok) {
@@ -261,12 +271,22 @@ export function buildDigest(opts = {}) {
     }
   }
   if (!lanes.length) text.push("No `## Next` blocks in any handover (wrap writes them from 1.128.0). Falling back to recent progress files only.");
+  const laneBlocks = [];
   for (const lane of lanes) {
+    const start = text.length;
     text.push(`LANE ${lane.lane ?? "(unnamed)"}  [${lane.repo ?? "no repo"} @ ${lane.branch ?? "no branch"}]  from ${lane.handover}`);
     for (const l of laneState(lane, ctx)) text.push(`  ${l}`);
     text.push(`  contract ${lane.contract ?? "none recorded"}   next owner ${lane.owner ?? "none recorded"}`);
     if (lane.go) text.push(`  go      ${clip(lane.go, 200)}`);
     text.push("");
+    laneBlocks.push(start);
+  }
+  const looks = countOpenLookLanes(lanes);
+  if (lanes.some((l) => l.look)) {
+    const msg = looks >= LOOK_LANE_CAP
+      ? `!! look-lanes: ${looks} open (cap ${LOOK_LANE_CAP}, routing rule 17): finish one (review, gate, merge, or park) before opening a new look topic; overflow is a backlog row unless the operator says "now"`
+      : `look-lanes: ${looks} open of ${LOOK_LANE_CAP}`;
+    text.splice(laneBlocks.length ? laneBlocks[0] : text.length, 0, msg, "");
   }
 
   const loose = walk(join(vault, "projects"), "progress.md")

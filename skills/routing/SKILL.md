@@ -44,6 +44,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
 15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
 16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6).
+17. **Finish before opening:** max 3 look-lanes open per session (overflow: backlog row unless he says "now"); a try-out finishes before its slot takes a new look topic; asks on a building lane queue for its next round unless tiny.
 
 ## Resume vs fresh (read before any baton row)
 
@@ -71,6 +72,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | Engineer landed, **look-judged** | **Operator**: link when preview opens (`link-first-look-rounds`); proof, merge on yes → **Reviewer trailing** |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
 | Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`); brief **states the review record** |
+| **Operator says yes to a try-out** | **Reviewer** → gate → merge, or park aloud, before that slot reopens (rule 17) |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |
 | Reviewer returns **red** | **Engineer** (`resume`) — round 2, red only |
 | Reviewer returns **amber / note** only | Merges green; follow-ups ship **in-session, before wrap** (discipline always; elsewhere `line` size, else banked — `wrap` § Follow-ups ship before wrap) |
