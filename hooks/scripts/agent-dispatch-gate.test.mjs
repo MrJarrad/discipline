@@ -897,8 +897,22 @@ test("a brief carrying an unfilled {HOUSE} slot is blocked, naming the slot", ()
   assert.match(v.reason, /\{HOUSE\}/);
 });
 
-test("a placeholder inside a code fence, inline code, or a ${VAR} is not an unfilled slot", () => {
-  assert.equal(checkUnfilledPlaceholders("quote:\n```\n{HOUSE}\n```\nand `{SKILLS}` and ${CLAUDE_SKILL_DIR}"), null);
-  assert.equal(checkUnfilledPlaceholders("lowercase {house} and {1} and {} are not slots"), null);
+test("code, mustache, path templates, regex quantifiers and other brace text are not unfilled slots", () => {
+  const pass = [
+    "quote:\n```\n{HOUSE}\n```\nend",
+    "quote:\n~~~\n{HOUSE}\n~~~\nend",
+    "quote:\n\n    {HOUSE}\n\nend",
+    "quote:\n\n\t{HOUSE}\n\nend",
+    "inline `{HOUSE}` and ${HOUSE} and {{HOUSE}}",
+    "evidence/{DATE}/progress.md and {SLUG} and {CLAUDE_SKILL_DIR}",
+    "regex a{N} and \\d{3} and {1} and {} and {house}",
+  ];
+  for (const p of pass) assert.equal(checkUnfilledPlaceholders(p), null, p);
   assert.deepEqual(checkAgentDispatch(WELL_FORMED), { ok: true });
+});
+
+test("an unfilled {HOUSE} is still caught beside fenced or indented quotes of it", () => {
+  const v = checkUnfilledPlaceholders("```\n{HOUSE}\n```\n\n{HOUSE}\n");
+  assert.equal(v.item, "placeholder");
+  assert.match(v.reason, /\{HOUSE\}/);
 });
