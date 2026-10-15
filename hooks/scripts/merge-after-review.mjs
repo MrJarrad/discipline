@@ -45,6 +45,8 @@ export function parseArgs(argv) {
    `# fail [1-9]` line in the fence reads as FAIL. Returns `{ verdict, sha }`
    or null. */
 export const GATE_RUN_MARKER = "<!-- gate-run-tail -->";
+/* The one tail shape every merge script parses (`doer-rules.md` § Gate-run tail); named in each no-tail refusal. */
+export const GATE_RUN_FORMAT = `post one PR comment: first line ${GATE_RUN_MARKER}, then \`gate-run: PASS|FAIL sha=<40-hex head sha> exit=<n> cmd=<suite command>\`, then the output tail in a code fence`;
 export function gateRunTail(comments, headSha, trusted = []) {
   let found = null;
   for (const c of comments || []) {
@@ -84,13 +86,13 @@ export function canMerge(status) {
   if (!tail) {
     const rollup = status.statusCheckRollup || [];
     if (rollup.length === 0) {
-      return { ok: false, reason: "no gate-run tail on the head sha and no status checks — nothing to prove green against; run the gate-run lane and post its tail on the PR" };
+      return { ok: false, reason: `no gate-run tail on the head sha and no status checks — nothing to prove green against; run the gate-run lane and ${GATE_RUN_FORMAT}` };
     }
     const notSuccess = rollup.filter((c) => c.conclusion !== "SUCCESS");
     if (notSuccess.length > 0) {
       return {
         ok: false,
-        reason: `no gate-run tail on the head sha and ${notSuccess.length} check(s) not SUCCESS: ${notSuccess.map((c) => c.conclusion).join(", ")}`,
+        reason: `no gate-run tail on the head sha and ${notSuccess.length} check(s) not SUCCESS: ${notSuccess.map((c) => c.conclusion).join(", ")}; to prove the suite instead, ${GATE_RUN_FORMAT}`,
       };
     }
   }

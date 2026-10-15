@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import {
   checkAgentDispatch,
   checkSkillsNamed,
+  checkUnfilledPlaceholders,
   checkSourceContractLockRows,
   checkComponentSystemProgress,
   registerLaneFromPrompt,
@@ -884,4 +885,20 @@ test("kill-by-name: pkill/killall as the command is blocked; the word as text is
   for (const c of ["grep pkill doer-rules.md", 'echo "pkill x"', "git commit -m 'gate pkill and killall'", "kill 4242", "cat <<'EOF'\npkill x\nEOF"])
     assert.equal(killsByName(c), false, c);
   assert.match(checkBashKillByName({ command: "pkill x" }).reason, /kill <pid>/);
+});
+
+// --- Unfilled template placeholders (DISC-170) -----------------------------
+
+test("a brief carrying an unfilled {HOUSE} slot is blocked, naming the slot", () => {
+  const input = { ...WELL_FORMED, prompt: WELL_FORMED.prompt + "\n\n{HOUSE}\n" };
+  const v = checkAgentDispatch(input);
+  assert.equal(v.ok, false);
+  assert.equal(v.item, "placeholder");
+  assert.match(v.reason, /\{HOUSE\}/);
+});
+
+test("a placeholder inside a code fence, inline code, or a ${VAR} is not an unfilled slot", () => {
+  assert.equal(checkUnfilledPlaceholders("quote:\n```\n{HOUSE}\n```\nand `{SKILLS}` and ${CLAUDE_SKILL_DIR}"), null);
+  assert.equal(checkUnfilledPlaceholders("lowercase {house} and {1} and {} are not slots"), null);
+  assert.deepEqual(checkAgentDispatch(WELL_FORMED), { ok: true });
 });

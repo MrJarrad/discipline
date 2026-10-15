@@ -16,7 +16,7 @@
    operator reads it to see that a local agent is running (operator,
    2026-10-01). Only agent launches are gated — never a dev server or watcher.
 
-   Seven checks, in order, first failure reported:
+   Eight checks, in order, first failure reported (the eighth, 1.140.0, is listed after the seventh):
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -67,6 +67,12 @@
       with no progress file when its session ended — the brief omitted
       `## Progress` and nothing refused it (`lanes-survive-interruption`,
       2026-09-25).
+
+   8. NO UNFILLED TEMPLATE PLACEHOLDER — a `{UPPER_CASE}` token (`{HOUSE}`,
+      `{SKILLS}`) outside a code fence or inline code means the brief went out
+      with a template slot unfilled; one 2026-10-15 brief carried no house rules
+      that way (DISC-170, session 25 lesson). Fenced and inline-code text is
+      ignored so a brief may quote the template.
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
@@ -366,6 +372,22 @@ export function checkComponentSystemProgress(prompt) {
   };
 }
 
+/* Returns null when no `{UPPER_CASE}` template slot is left unfilled outside code, else
+   { item, reason } — DISC-170. A slot is `{` + an upper-case word (underscores/digits allowed) + `}`. */
+const PLACEHOLDER = /(?<!\$)\{[A-Z][A-Z0-9_]*\}/g;
+export function checkUnfilledPlaceholders(prompt) {
+  const prose = String(prompt || "").replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+  const found = [...new Set(prose.match(PLACEHOLDER) || [])];
+  if (!found.length) return null;
+  return {
+    item: "placeholder",
+    reason:
+      `Dispatch blocked — placeholder: the brief still carries unfilled template slot(s) ${found.join(", ")}. ` +
+      `Fill each from its source (the house rules block is copied whole from dispatch-brief/references/HOUSE-RULES.md) ` +
+      `before dispatching (backlog DISC-170).`,
+  };
+}
+
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
    law so the caller can name it without re-deriving it from the prose. */
 export function checkAgentDispatch(toolInput = {}) {
@@ -410,6 +432,9 @@ export function checkAgentDispatch(toolInput = {}) {
         `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
     };
   }
+
+  const placeholderVerdict = checkUnfilledPlaceholders(prompt);
+  if (placeholderVerdict) return { ok: false, ...placeholderVerdict };
 
   const skillsVerdict = checkSkillsNamed(prompt);
   if (skillsVerdict) return { ok: false, ...skillsVerdict };
