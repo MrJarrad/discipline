@@ -23,7 +23,7 @@ routing failure **even if the output is correct**.
 3. `dispatch-brief` — structure the brief.  4. `prompt-craft` — write its words.
 5. **Interrogate the brief** (`dispatch-brief` § Interrogate the brief), then `Agent`.
 
-A dispatch made without all five loaded is malformed. Loaded via real Skill invocations
+In a cloud session a heavy-step dispatch also loads `cloud-dispatch` (rule 15). A dispatch made without all five loaded is malformed. Loaded via real Skill invocations
 **every time**, never replayed from session memory.
 
 ## Hard rules (non-negotiable)
@@ -42,7 +42,8 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 11. **Dispatch on the completion notification only** — resume prompts are noise. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
 13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
-15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; read `uptime` before dispatching one.
+15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
+16. **Lanes sharing a branch:** every go states the live head; at most one `preview/*` push per repo in flight.
 
 ## Resume vs fresh (read before any baton row)
 

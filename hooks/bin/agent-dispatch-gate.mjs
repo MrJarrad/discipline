@@ -626,7 +626,7 @@ export function activeWorkWarning(prompt, sessionId) {
 export function loadWarning(load1, cores) {
   if (!(load1 > cores) || !(cores > 0)) return null;
   return `Load warning — 1-minute load average ${load1.toFixed(1)} on ${cores} cores: the container is already over capacity. ` +
-    "Routing rule 15 caps heavy lanes (suite, build, browser) at nproc/2; a lane that names one should queue until another finishes. " +
+    "Routing rule 15 caps heavy lanes (suite, build, browser) at nproc/2: send a heavy lane to a child cloud session (create_session) with its brief, after the sweep in cloud-dispatch § Capacity before dispatch; do not start it here. " +
     "This is a warning, not a block.";
 }
 

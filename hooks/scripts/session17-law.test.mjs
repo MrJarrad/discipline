@@ -17,10 +17,12 @@ test("1.126.0 CHANGED entry exists; manifests and the top CHANGED entry carry on
 
 test("cloud-dispatch: disk read before dispatch, relative 5 GB rule, child session, never the operator", () => {
   const d = read("skills/cloud-dispatch/SKILL.md");
-  assert.match(d, /## Disk before dispatch/);
+  assert.match(d, /## Capacity before dispatch/);
   assert.match(d, /largest live worktree/);
   assert.match(d, /at\s+least 5 GB/);
   assert.match(d, /create_session/);
+  assert.match(d, /`nproc \/ 2`/);
+  assert.match(d, /1-minute\s+load/);
   assert.match(d, /never asked to\s+move sessions for disk/);
 });
 

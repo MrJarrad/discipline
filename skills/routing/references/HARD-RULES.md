@@ -155,7 +155,7 @@ and queued the chat as the doer — that hatch is deleted.
    `wrap` — wrap remains the full session close.
 13. **The full suite/build runs once per PR in a cloud gate-run lane (no GitHub Actions on private repos), its tail posted on the PR — never inside each lane.** A lane's own
    gates are only the touched ones its size class names (`doer-rules.md` § Size class).
-   The parent runs `lane-sweep.mjs` on every completion notification, and for a landed or stopped lane also `lane-sweep.mjs --clean-artifacts <worktree>...`, which removes that worktree's `node_modules` and `.next` and refuses a root clone, so source and the shared DS clone are never touched. Before a dispatch the parent reads free disk (`cloud-dispatch` § Disk before dispatch). A full suite over
+   The parent runs `lane-sweep.mjs` on every completion notification, and for a landed or stopped lane also `lane-sweep.mjs --clean-artifacts <worktree>...`, which removes that worktree's `node_modules` and `.next` and refuses a root clone, so source and the shared DS clone are never touched. Before a heavy dispatch the parent runs `cloud-dispatch` § Capacity before dispatch. A full suite over
    the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled,
    never run from the parent shell (`doer-rules.md` § Repo and safety), and it posts its tail on the PR (`doer-rules.md` § Gate-run tail). A lane stops
    only its own pids (`doer-rules.md` § Repo and safety).
@@ -174,6 +174,15 @@ and queued the chat as the doer — that hatch is deleted.
    (full suite, build, headless browser) counts one; `nproc / 2` is a **ceiling on all heavy lanes
    together**, not a quota — a container may run fewer, never more. Inside it the per-kind rules still
    hold: never two full suites at once (`doer-rules.md:166`) and one browser repro at a time, no parallel
-   Chromium (`skills/dispatch-brief/references/HOUSE-RULES.md:36`). The parent reads `uptime` before dispatching a lane whose brief names a heavy step;
-   load above `nproc` queues that lane until one finishes. Lighter lanes (read, write, review) are uncapped.
+   Chromium (`skills/dispatch-brief/references/HOUSE-RULES.md:36`). Before dispatching a lane whose brief names a heavy step the parent runs `cloud-dispatch` § Capacity before dispatch
+   (disk, load, heavy count); over it, the lane goes to a child cloud session. Lighter lanes (read, write, review) are uncapped.
    A doer under load runs touched-file tests and leaves the full suite to the gate-run lane (`doer-rules.md` § Repo and safety).
+
+16. **Lanes sharing a branch** (preview-builds-and-stale-heads, 2026-10-14). Up to three lanes pushed one
+   `own-tool/slice-2` and `preview/own-tool-2`: four read stale local refs and reported the wrong head, and two
+   Workers builds failed about two minutes in while another was running (same code built clean locally; the
+   Builds log was unreadable). The parent states the live head (`git ls-remote origin <branch>`) in every go
+   message when lanes share a branch; each lane `git fetch`es and rebases before each push, never force. Added
+   2026-10-15: at most one `preview/*` push per repo in flight; the next waits until the served build shows
+   the previous one (`present-for-review` § PREVIEW-PROBE). Five portfolio preview builds failed while several
+   lanes pushed at once.

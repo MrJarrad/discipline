@@ -145,17 +145,17 @@ and leave it disabled (it already is — `enabled` never changes). If the routin
 grows long, the operator can delete entries via the claude.ai UI; that surface is not
 API-reachable from a session.
 
-## Disk before dispatch
+## Capacity before dispatch
 
-Worktree `node_modules` hardlink into the pnpm store on the same disk, and `.next` adds
-up to 1 GB a lane. Before each dispatch the parent reads `df -h /home/user` and `du -sh`
-of the live worktrees and decides from the numbers. Default (adjustable, reason in the
-handover): dispatch here only if free disk minus the largest live worktree leaves at
-least 5 GB, enough for one more lane of the biggest size. Below it, run the lane-end
-sweep (`routing` HARD-RULES 13), re-read, and if still short send the heavy lane to a
-child cloud session (`create_session`) carrying the brief. The operator is never asked to
-move sessions for disk. The shared DS root clone is never switched or regenerated in
-(`dispatch-brief` HOUSE-RULES).
+Before each heavy-lane dispatch (suite, build, browser; `routing` rule 15) the parent runs
+one check: `df -h /home/user`, `du -sh` of the live worktrees, `uptime`, and the count of
+live heavy lanes. Over capacity means any of: free disk minus the largest live worktree
+under 5 GB, so that at
+least 5 GB stays free (`.next` adds up to 1 GB a lane), 1-minute load above `nproc`, or heavy lanes already at `nproc / 2`. Over: run the
+lane-end sweep (`routing` HARD-RULES 13), re-read, and if still over send the heavy lane to
+a child cloud session (`create_session`) carrying the brief. Do not queue it here; the
+operator is never asked to move sessions for disk or load. The shared DS root clone is never switched or
+regenerated in (`dispatch-brief` HOUSE-RULES). Thresholds adjustable, reason in the handover.
 
 ## Concurrency law
 
