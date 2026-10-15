@@ -466,3 +466,14 @@ test("DISC-167 A2: lane-end drops the lock before it commits and pushes", () => 
   assert.match(execFileSync("git", ["-C", vault, "log", "-1", "--format=%s"], { encoding: "utf8" }), /queue: row TP-500 landed/, r.stderr);
   assert.equal(existsSync(seen), false, "lock was still held while git ran");
 });
+
+test("DISC-168: an unrowed idea sheet in the vault does not stop lane-end writing the row; the drift report names it", () => {
+  const vault = makeVaultWithQueue();
+  mkdirSync(join(vault, "projects", "p", "evidence", "x"), { recursive: true });
+  writeFileSync(join(vault, "projects", "p", "evidence", "x", "ideas.md"), "---\nname: x\ndescription: \"Idea sheet (rung 2)\"\n---\n\n## 1. A\n\ntext\n");
+  const r = spawnSync("node", [scriptPath, "--session-dir", tmpdir(), "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |"], { encoding: "utf8" });
+  assert.match(readFileSync(join(vault, "projects", "p", "p-queue.md"), "utf8"), /\| TP-1 \| landed \|/, "the queue row was written");
+  assert.doesNotMatch(r.stderr, /duplicate row number after write/);
+  assert.match(r.stderr + r.stdout, /idea-unrowed/);
+  rmSync(vault, { recursive: true, force: true });
+});

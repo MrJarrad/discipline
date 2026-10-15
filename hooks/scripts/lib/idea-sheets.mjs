@@ -48,15 +48,17 @@ export function checkIdeaSheets(vault) {
     const ev = join(projects, p, "evidence");
     if (!existsSync(ev)) continue;
     for (const path of walk(ev)) {
-      const text = readFileSync(path, "utf8");
-      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] || "";
+      let text;
+      try { text = readFileSync(path, "utf8"); } catch { continue; }
+      const fmm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
+      const fm = fmm?.[1] || "";
       const named = /(^|\/)ideas[^/]*\.md$/i.test(path);
       const described = /^description:\s*["']?Idea sheet/im.test(fm);
       if (!named && !described) continue;
       if (/^status:\s*(archived|moot)\s*$/im.test(fm)) continue;
       const file = path.slice(vault.length + 1);
       const flag = (msg) => out.push({ kind: "idea-unrowed", project: p, file, msg });
-      const body = text.slice(text.indexOf("\n---", 3) + 4).split(/\r?\n/);
+      const body = text.slice(fmm ? fmm[0].length : 0).split(/\r?\n/);
       const at = body.findIndex((l) => /^(#{1,6}\s*)?Idea rows\s*:?\s*$/i.test(l.trim()));
       let cited = [];
       let rest = body;

@@ -75,3 +75,13 @@ test("idea-unrowed fails list-drift-check (exit 1) and is in FAILING", () => {
   assert.equal(r.status, 1);
   assert.match(r.stdout + r.stderr, /idea-unrowed/);
 });
+
+test("a sheet with no frontmatter keeps its first lines; an unreadable path does not throw", () => {
+  const v = vault({ sheet: IDEAS, backlogRows: ROWS });
+  const d = join(v, "projects", "hb", "evidence", "y");
+  mkdirSync(d);
+  writeFileSync(join(d, "ideas.md"), "Idea rows:\n- HB-1\n\n---\n\n## 1. A\n");
+  mkdirSync(join(d, "ideas-dir.md"));
+  const f = checkIdeaSheets(v);
+  assert.equal(f.filter((x) => /evidence\/y\//.test(x.file)).length, 0);
+});

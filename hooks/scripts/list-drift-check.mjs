@@ -258,6 +258,7 @@ export function checkVault(vault, repos) {
   if (existsSync(join(vault, qf)) && tableRows(readFileSync(join(vault, qf), "utf8")).length) {
     out.push({ kind: "rows-in-index", project: "orchestrator", file: qf, msg: "queue rows live in projects/<p>/<p>-queue.md; the orchestrator file is an index only" });
   }
+  out.push(...checkIdeaSheets(vault));
   return out;
 }
 
@@ -272,7 +273,6 @@ export function crossFileDupIds(vault) {
       if (inQueue.has(r.id)) out.push({ kind: "dup-id", project: prefix, file: e.backlog, row: r.id, msg: `row ${r.id} is in both ${e.queue}:${inQueue.get(r.id)} and ${e.backlog}:${r.lineIndex + 1}; a number is used once per project` });
     }
   }
-  out.push(...checkIdeaSheets(vault));
   return out;
 }
 
