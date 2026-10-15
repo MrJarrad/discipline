@@ -188,3 +188,20 @@ and queued the chat as the doer — that hatch is deleted.
    last push plus the versions list; when it stops being in flight is defined once, in
    `present-for-review/references/PREVIEW-PROBE.md` item 6. Five portfolio preview builds failed while several
    lanes pushed at once.
+
+17. **Finish before opening** (ruling `2026-10-15-finish-before-opening`, operator 2026-10-15: *"do we often leave
+   tasks open or switch to other tasks with finishing things. I've noticed in the canvas session when i start talking
+   about something else we sort of end up half doing a job and not finishing and switching focus."* Accepted: *"this
+   sounds good, wouldn't we just despatch more workers to accomodate though?"*; the limit is not workers but the
+   operator's looks, one-at-a-time preview builds that rate-limit, and branches drifting from main). One session
+   counted 3 shipped, 7 try-outs open and unmerged, 3 mid-build pile-ups, one ask missed.
+   (a) **Cap:** at most 3 look-lanes (try-outs waiting on or heading to the operator's eyes) open per session. A new
+   look topic beyond that is a backlog row (`row-add.mjs`, his words verbatim) unless he says "now". Work that needs
+   no look (gate runs, reviews, fixes, releases, research) is not counted; the capacity rule (15) still bounds it.
+   (b) **Finish line:** after his yes a try-out goes review, gate, merge, or is explicitly parked or dropped, before
+   its slot takes a new look topic.
+   (c) **No mid-build piling:** a new ask about a lane that is already building queues for that lane's next round
+   unless tiny (one value or word), and the queued asks print under `## Build in Progress` (output style).
+   Checked: (a) `session-resume.mjs` counts Next-block lanes marked `look: yes` that are still open and warns at 3 or
+   more (`wrap/references/SECTIONS.md` writes the key); inside a live session the count is the parent's, since no
+   hook sees which lanes are look-judged. (b) and (c) are judgment: they turn on the operator's words.

@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildDigest, countOpenQueueRows, lastProgressLine, parseNextBlock, runCmd } from "./session-resume.mjs";
+import { buildDigest, countOpenLookLanes, countOpenQueueRows, lastProgressLine, parseNextBlock, runCmd } from "./session-resume.mjs";
 
 const git = (cwd, ...a) => { const r = spawnSync("git", a, { cwd, encoding: "utf8" }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
 const ID = ["-c", "user.email=t@t", "-c", "user.name=t"];
@@ -109,4 +109,20 @@ test("untracked recent progress is listed; done lines are not; nothing throws on
   assert.doesNotMatch(text, /evidence\/y\/progress\.md/);
   const empty = mkdtempSync(join(tmpdir(), "sess-empty-"));
   assert.match(buildDigest({ vault: empty, exec: noGh, env: {}, pluginRoot: "/x", installedPath: "/x", home: empty }).text, /No `## Next` blocks/);
+});
+
+test("look-lane cap (routing rule 17): counts open `look: yes` lanes, warns at 3, a closed lane is not counted", () => {
+  assert.equal(countOpenLookLanes([{ look: "yes" }, { look: "YES" }, { look: "true", closed: true }, {}, { look: "no" }]), 2);
+  const w = world();
+  const lane = (n, extra = "") => `- lane: l${n} | repo: shallow | branch: lane-x | look: yes${extra}`;
+  const write = (lines) => writeFileSync(join(w.vault, "projects", "p", "p-handover.md"), ["## Wrapped", "### Next", ...lines, ""].join("\n"));
+  const run = () => buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: noGh, env: {}, pluginRoot: "/nonexistent", installedPath: "/nonexistent", home: w.root }).text;
+  write([lane(1), lane(2)]);
+  assert.match(run(), /^look-lanes: 2 open of 3$/m);
+  write([lane(1), lane(2), lane(3)]);
+  assert.match(run(), /^!! look-lanes: 3 open \(cap 3, routing rule 17\).*backlog row unless the operator says "now"/m);
+  write([lane(1), lane(2), "- lane: l3 | repo: shallow | branch: no-such | look: yes"]);
+  assert.match(run(), /^look-lanes: 2 open of 3$/m, "a branch gone from origin is closed");
+  write(["- lane: plain | repo: shallow | branch: lane-x"]);
+  assert.doesNotMatch(run(), /look-lanes/, "no look marker, no line");
 });
