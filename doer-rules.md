@@ -188,7 +188,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   probing** (lanes measured another worktree's server — false greens and reds).
   Under parallel load run the touched-file tests and leave the full suite to the gate-run lane; after adding
   a test also run the repo's law/scaffolding tests (`*-teardown`, `repo-scaffolding-law`),
-  which a new red-first test can trip though every touched test passes.
+  which a new red-first test can trip though every touched test passes. Playwright browsers live at `$PLAYWRIGHT_BROWSERS_PATH` (`/opt/pw-browsers` in cloud): never `playwright install`, never look in `~/.cache/ms-playwright`.
 - A consumer of a `file:` sibling dependency
   runs `pnpm install --force` first and asserts the installed copy's identity (a header
   stamp or one token grep under `node_modules/<pkg>/`) before any gate or deploy — pnpm

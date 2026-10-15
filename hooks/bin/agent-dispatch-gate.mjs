@@ -77,6 +77,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
+import { loadavg, cpus } from "node:os";
 import { upsertLane, expandHome, withRegistryLock, loadRegistry } from "./progress-registry.mjs";
 
 export const PROMPT_WORD_CAP = 600;
@@ -620,6 +621,29 @@ export function activeWorkWarning(prompt, sessionId) {
   }
 }
 
+/* Pure: the load warning for a dispatch — null at or below one runnable task per core, else the
+   figure plus the rule (`skills/routing/SKILL.md` rule 15, heavy lanes capped per container). */
+export function loadWarning(load1, cores) {
+  if (!(load1 > cores) || !(cores > 0)) return null;
+  return `Load warning — 1-minute load average ${load1.toFixed(1)} on ${cores} cores: the container is already over capacity. ` +
+    "Routing rule 15 caps heavy lanes (suite, build, browser) at nproc/2; a lane that names one should queue until another finishes. " +
+    "This is a warning, not a block.";
+}
+
+// Impure, fail-open. DISCIPLINE_LOADAVG ("<load1>[,<cores>]") injects the source for tests.
+export function currentLoadWarning() {
+  try {
+    const inj = process.env.DISCIPLINE_LOADAVG;
+    if (inj) {
+      const [l, c] = inj.split(",").map(Number);
+      return loadWarning(l, c || 4);
+    }
+    return loadWarning(loadavg()[0], cpus().length);
+  } catch {
+    return null;
+  }
+}
+
 /* The registry-write half of `progress-hooks` fix round (2026-09-27,
    coordinator: "make it need no memory" — `progress-watch.mjs` only ran if
    the parent remembered to start it). A dispatch this gate is about to
@@ -668,7 +692,8 @@ function main() {
     let warning = null;
     if (!verdict.exempt) {
       registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
-      warning = activeWorkWarning(input.tool_input.prompt, input.session_id);
+      warning = [activeWorkWarning(input.tool_input.prompt, input.session_id), currentLoadWarning()]
+        .filter(Boolean).join("\n\n") || null;
     }
     allow(warning);
   }
