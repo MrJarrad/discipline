@@ -72,6 +72,9 @@ it never restates what is here.
 - **No `until`/`while … sleep` polling loops and no detached shells inside a lane** — wait
   with a foreground command and a timeout (operator ruling 2026-09-21, `lane-end-sweep`:
   orphaned wait-loops up to two days old and six leftover servers found at wrap).
+  The Bash tool refuses a leading `sleep N`, and `Monitor` is not in a doer's toolset (eight failed
+  steps in one session, 2026-10-15) — the bounded wait is one foreground command that ends when the
+  thing does, e.g. `timeout 110 tail --pid=<pid> -f /dev/null; tail -3 <log>`.
 - **Mid-run messages queue; they never land mid-stream.** A `SendMessage` inside a tool result
   reads as possible injection to a careful doer, and an edit sent into a tree a reviewer is
   reading fails the review's precondition. Scope additions go in after the agent stops

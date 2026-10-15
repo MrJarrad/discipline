@@ -83,17 +83,51 @@ test("existing green marker: freshness/allow behavior untouched (no inline re-ru
   }
 });
 
-test("existing red marker: still denies, unchanged", () => {
-  const dir = makeRepo({ typecheckExit: 0 }); // would pass if re-run — proves the stale red marker is honored, not re-run
+function writeStale(dir, status, tail = "boom") {
   mkdirSync(join(dir, ".claude"), { recursive: true });
   writeFileSync(
     join(dir, ".claude", ".typecheck-status.json"),
-    JSON.stringify({ status: "red", ts: new Date().toISOString(), command: "npm run typecheck --silent", tail: "boom" }),
+    JSON.stringify({ status, ts: "2020-01-01T00:00:00.000Z", command: "npm run typecheck --silent", tail }),
   );
+}
+
+// A red marker is a record of the past: the fix may have gone in through Bash (no Write|Edit
+// event), or the async re-check may still be running. The gate re-runs the check itself rather
+// than refusing on the stale record (step-failures audit 2026-10-15: two false blocks in one lane).
+test("stale red marker on a repo that now passes: gate re-runs typecheck and allows", () => {
+  const dir = makeRepo({ typecheckExit: 0 });
+  writeStale(dir, "red");
+  try {
+    const result = runGate(dir);
+    assert.equal(result.stdout, "", "a fixed repo is not blocked by the old red record");
+    const marker = JSON.parse(readFileSync(join(dir, ".claude", ".typecheck-status.json"), "utf8"));
+    assert.equal(marker.status, "green", "the re-run overwrites the stale marker");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("red marker on a repo that is still red: gate re-runs, denies, and says no edit is needed to re-check", () => {
+  const dir = makeRepo({ typecheckExit: 1 });
+  writeStale(dir, "red");
   try {
     const result = runGate(dir);
     assert.match(result.stdout, /permissionDecision":"deny"/);
     assert.match(result.stdout, /RED/);
+    assert.doesNotMatch(result.stdout, /let a Write\/Edit re-trigger/, "the old instruction invited a no-op edit");
+    assert.match(result.stdout, /re-ran it just now|re-ran/i);
+    const marker = JSON.parse(readFileSync(join(dir, ".claude", ".typecheck-status.json"), "utf8"));
+    assert.notEqual(marker.ts, "2020-01-01T00:00:00.000Z", "the marker is fresh");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("stale timeout marker on a repo that now passes: gate re-runs and allows", () => {
+  const dir = makeRepo({ typecheckExit: 0 });
+  writeStale(dir, "timeout");
+  try {
+    assert.equal(runGate(dir).stdout, "");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
