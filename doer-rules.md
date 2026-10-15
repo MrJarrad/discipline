@@ -207,6 +207,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   the diff only — existing literal findings elsewhere in the file stay parked (2026-09-24,
   row 130 item 5; `skills/design-system/SKILL.md` § Conformance & review).
 - **A new queue or backlog row gets its number from `hooks/scripts/row-add.mjs`, never typed** (`--vault <vault> --prefix <PFX> --to backlog|queue --text "…"` prints the ID): one sequence per prefix across queue and backlog, local and origin/main; a duplicate is refused (DISC-167).
+- **An idea is a backlog row the moment it exists** (DISC-168; operator 2026-10-15: *"ideas are part of the backlog / queue list like everything else, so they don't get lost, probably as items that are needed from me"*): the operator's own idea (his words verbatim in the Item) or one an agent proposes on an idea sheet gets its own row, one per idea, by `row-add.mjs --to backlog --status "waiting on operator"`, so Needed from you prints it until he picks, parks or drops it. An idea sheet ends with an `## Idea rows` section citing each ID; `list-drift-check.mjs` fails `idea-unrowed` on a sheet without one.
 
 ## Fixed evidence return
 

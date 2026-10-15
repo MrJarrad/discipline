@@ -4,6 +4,7 @@
 
    Usage: node row-add.mjs --vault <root> --prefix PF --to backlog|queue \
             --text "<item or need>" [--raised YYYY-MM-DD]          (backlog)
+            [--status "waiting on operator"]  (backlog; an idea is added so)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
             [--offline]      skip the origin/main check (tests, no network)
    Prints the new ID (e.g. PF-682) on stdout. Exit 0 added · 1 refused (the
@@ -40,12 +41,13 @@ export function addQueueRow(text, prefix, n, cells) {
   return { ok: true, text: lines.join("\n") };
 }
 
-export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline }) {
+export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status }) {
   const warnings = [];
   const fail = (reason) => ({ ok: false, reason, warnings });
   if (!/^[A-Z]{2,4}$/.test(String(prefix || ""))) return fail(`--prefix must be a project prefix like PF, got "${prefix ?? ""}"`);
   if (to !== "queue" && to !== "backlog") return fail("--to must be queue or backlog");
   if (!clean(text)) return fail("--text is required");
+  if (status !== undefined && (to !== "backlog" || !["open", "waiting on operator"].includes(status))) return fail("--status applies to a backlog row and is `open` or `waiting on operator` (an idea is `waiting on operator`)");
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");
   return withVaultLock(vault, () => {
     // Resolved inside the lock: a concurrent writer's file is never read half-written.
@@ -62,7 +64,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
     const before = readFileSync(path, "utf8");
     let edit;
     if (to === "backlog") {
-      edit = addRow(before, clean(text), clean(raised) || new Date().toISOString().slice(0, 10), { floor });
+      edit = addRow(before, clean(text), clean(raised) || new Date().toISOString().slice(0, 10), { floor, status: status || "open" });
     } else {
       edit = addQueueRow(before, prefix, floor + 1, [clean(text), clean(where), clean(why), clean(recommended)]);
       if (edit.ok) edit.id = `${prefix}-${floor + 1}`;
@@ -88,10 +90,10 @@ function main() {
     a[k] = k === "offline" ? true : argv[++i];
   }
   if (!a.vault || !a.prefix || !a.to || !a.text) {
-    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--where w --why y --recommended r] [--offline]");
+    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--offline]");
     process.exit(2);
   }
-  const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, offline: Boolean(a.offline) });
+  const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline) });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
   console.log(res.id);

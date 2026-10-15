@@ -118,7 +118,7 @@ Read [DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
 ## Queue writes verify the row landed (Change 6, 2026-09-22)
 
-**A new queue or backlog row gets its number from `row-add.mjs`, never typed** (DISC-167; detail in `references/WRITING.md` § Row numbers).
+**A new queue or backlog row gets its number from `row-add.mjs`, never typed** (DISC-167; detail, and ideas as rows, in `references/WRITING.md` § Row numbers).
 
 **A queue row named in chat is written to the file in the same tool call as the message that
 names it** — never spoken now, filed later (hoverboard rounds 14–15, item 6: rows 43 and 57

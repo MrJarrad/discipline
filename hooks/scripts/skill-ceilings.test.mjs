@@ -62,7 +62,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1620, /* 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160) */ before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1640, /* 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +20: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
@@ -89,7 +89,7 @@ const CEILINGS = [
   // (rule text lives once in HOUSE-RULES; this line only carries severities).
   { skill: "agents/reviewer.md", ceiling: 1630, /* 1.127.0 +30: no small-fix exemption */ before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
-  { skill: "vault-write", ceiling: 1200, before: 2394, frontmatterWords: 38 },
+  { skill: "vault-write", ceiling: 1210, /* 1.135.0 +10: ideas-as-rows pointer (DISC-168) */  before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
   { skill: "nextjs", ceiling: 1200, before: 2082, frontmatterWords: 75 },
   { skill: "prompt-craft", ceiling: 1200, before: 1811, frontmatterWords: 56 },

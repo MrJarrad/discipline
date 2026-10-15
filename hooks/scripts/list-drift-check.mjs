@@ -12,6 +12,7 @@
      misplaced   an open-ish row under ## Done, or a done/moot row under ## Open
      no-backlog  a project folder has a handover but no `*-backlog.md`
      duplicate   a project has more than one `*-backlog.md`
+     idea-unrowed an idea sheet in evidence whose ideas lack backlog rows (lib/idea-sheets.mjs; DISC-168)
    Fixed status set: open · waiting on operator · in flight (<PR>) ·
    done (<PR> <sha>[, <PR> <sha>]...) · moot (<reason>). <PR> is `#n`,
    `owner/repo#n` or `<name> #n`; a bare name resolves against the --repo
@@ -31,6 +32,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { discoverFiles, frontmatterPrefix, tableRows } from "./lib/queue-ids.mjs";
+import { checkIdeaSheets } from "./lib/idea-sheets.mjs";
 
 const ALIAS = { ds: "jhd-design-system" };
 // `<name>/main` worktree layout: the repo is the parent folder's name.
@@ -270,10 +272,11 @@ export function crossFileDupIds(vault) {
       if (inQueue.has(r.id)) out.push({ kind: "dup-id", project: prefix, file: e.backlog, row: r.id, msg: `row ${r.id} is in both ${e.queue}:${inQueue.get(r.id)} and ${e.backlog}:${r.lineIndex + 1}; a number is used once per project` });
     }
   }
+  out.push(...checkIdeaSheets(vault));
   return out;
 }
 
-export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index"]);
+export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index", "idea-unrowed"]);
 export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? ` row ${f.row}` : ""}: ${f.msg}`;
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
@@ -324,8 +327,8 @@ export function setRowStatus(text, n, status) {
 }
 
 /* A new finding adds a row: next number (above `floor`, the highest number used
-   anywhere in the project's queue and backlog — see lib/row-alloc.mjs), status open, appended to the ## Open table. */
-export function addRow(text, item, raised, { floor = 0 } = {}) {
+   anywhere in the project's queue and backlog — see lib/row-alloc.mjs), status `open` (or the given `open` / `waiting on operator`), appended to the ## Open table. */
+export function addRow(text, item, raised, { floor = 0, status = "open" } = {}) {
   const lines = String(text).split("\n");
   const o = headingIndex(lines, /^##\s+open\b/i);
   const at = o === -1 ? -1 : lastTableLine(lines, o + 1, sectionEnd(lines, o));
@@ -339,7 +342,7 @@ export function addRow(text, item, raised, { floor = 0 } = {}) {
   }
   const cols = (lines.slice(0, at).reverse().find((l) => /^\|\s*#\s*\|/.test(l)) || "| # | Item | Raised | Status |");
   const head = cells(cols);
-  const row = head.map((h) => ({ "#": prefix ? `${prefix}-${next}` : String(next), item: item, raised: raised, status: "open" })[h.toLowerCase()] ?? "");
+  const row = head.map((h) => ({ "#": prefix ? `${prefix}-${next}` : String(next), item: item, raised: raised, status })[h.toLowerCase()] ?? "");
   lines.splice(at + 1, 0, `| ${row.join(" | ")} |`);
   return { ok: true, text: lines.join("\n"), n: next, id: prefix ? `${prefix}-${next}` : String(next) };
 }

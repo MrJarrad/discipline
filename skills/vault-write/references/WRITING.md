@@ -234,3 +234,5 @@ Regenerate `references/reference-database.md` after any reference write.
 ## Row numbers
 
 **A new queue or backlog row gets its number from the tool, never from your head** (backlog DISC-167): `node <plugin>/hooks/scripts/row-add.mjs --vault <vault> --prefix <PFX> --to backlog|queue --text "…"` prints the new ID (`PF-682`). It numbers above every ID in that project's queue and backlog, local and origin/main, under a lock, and refuses a duplicate. Do not type a new `<PREFIX>-<n>`, and do not edit a `Next free number` line by hand; `lane-end.mjs --backlog-add` allocates the same way. `list-drift-check` fails any ID found twice across the two files.
+
+**An idea is a backlog row in the same action** (DISC-168): the operator's idea (his words verbatim) or one on an evidence idea sheet gets its own row, `row-add.mjs --to backlog --status "waiting on operator" --text "…"`, so it prints under Needed from you until he picks, parks or drops it. The sheet cites each ID under `## Idea rows`; `list-drift-check.mjs` fails `idea-unrowed` otherwise.

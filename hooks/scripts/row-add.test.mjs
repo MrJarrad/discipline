@@ -165,3 +165,18 @@ test("row-add rolls the write back when the new ID would appear twice (seen !== 
   assert.equal(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), BACKLOG);
   assert.equal(existsSync(lockPath(v)), false);
 });
+
+test("an idea row is added as `waiting on operator` and prints under Needed from you (DISC-168)", async () => {
+  const v = mkVault();
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "idea: a lightning strike", status: "waiting on operator", offline: true });
+  assert.equal(r.ok, true);
+  assert.match(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), new RegExp(`\\| ${r.id} \\| idea: a lightning strike \\| [^|]+\\| waiting on operator \\|`));
+  const { neededFromYou, render } = await import("./needed-from-you.mjs");
+  assert.match(render(neededFromYou(v, ["ZZ"])), /idea: a lightning strike/);
+});
+
+test("row-add refuses a status outside open / waiting on operator, and --status on a queue row", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "x", status: "done (#1 abc1234)", offline: true }).ok, false);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "x", status: "waiting on operator", offline: true }).ok, false);
+});

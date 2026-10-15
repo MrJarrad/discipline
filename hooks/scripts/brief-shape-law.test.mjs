@@ -121,9 +121,10 @@ test("the one rule is the contract pointer", () => {
 // Ceiling raised 314 -> 317 at 1.114.0: the re-stamp-keeps-the-encoder bullet (session-13b item 4)
 // sits in Repo and safety beside the gate-fixture bullet, the moment a doer re-bakes.
 // Ceiling raised 317 -> 318 at 1.134.0: the row-add bullet (DISC-167) sits in Repo and safety.
-test("doer-rules.md stays under its 318-line ceiling", () => {
+// Ceiling raised 318 -> 319 at 1.135.0: the idea-is-a-row bullet (DISC-168) sits beside the row-add bullet.
+test("doer-rules.md stays under its 319-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 318, `doer-rules.md is ${lines} lines; the ceiling is 318`);
+  assert.ok(lines <= 319, `doer-rules.md is ${lines} lines; the ceiling is 319`);
 });
 
 test("doer-rules carries the four standing sections", () => {

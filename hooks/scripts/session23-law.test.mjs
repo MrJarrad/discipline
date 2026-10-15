@@ -1,29 +1,35 @@
-// 1.134.0 (backlog DISC-167): row numbers come from row-add, and the plugin says so everywhere a row is added.
+// 1.135.0 (DISC-168): ideas are backlog rows, needed from the operator until picked.
 // Run: node --test hooks/scripts/session23-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
-test("the allocator and CLI exist", () => {
-  assert.ok(existsSync(join(root, "hooks/scripts/row-add.mjs")));
-  assert.ok(existsSync(join(root, "hooks/scripts/lib/row-alloc.mjs")));
+test("doer-rules owns the rule: one row per idea, waiting on operator, cited under Idea rows", () => {
+  assert.match(flat("doer-rules.md"), /An idea is a backlog row the moment it exists.*one per idea.*--status "waiting on operator".*`## Idea rows`.*`idea-unrowed`/);
 });
 
-test("every place that tells an agent to add a row points at row-add", () => {
-  for (const p of ["skills/vault-write/references/WRITING.md", "skills/wrap/references/REPORT-AND-LEARN.md", "skills/wrap/references/SECTIONS.md", "skills/routing/references/MECHANICAL-SCRIPTS.md", "output-styles/discipline.md", "doer-rules.md"]) {
-    assert.match(flat(p), /row-add\.mjs/, p);
-  }
-  assert.match(flat("skills/vault-write/SKILL.md"), /row-add\.mjs/);
-  assert.doesNotMatch(flat("skills/vault-write/SKILL.md"), /use the next free number/);
+for (const f of ["agents/engineer.md", "agents/ux-designer.md", "skills/prototype/SKILL.md"]) {
+  test(`${f} points idea sheets at the rule`, () => {
+    assert.match(flat(f), /Ideas on a sheet are backlog rows.*--status "waiting on operator".*## Idea rows.*DISC-168/);
+  });
+}
+
+for (const f of ["output-styles/discipline.md", "skills/routing/SKILL.md"]) {
+  test(`${f}: an idea given in chat is a backlog row`, () => {
+    assert.match(flat(f), /idea.*waiting on operator.*DISC-168/i);
+  });
+}
+
+test("wrap: an idea raised or sheet written with no row is added before the report", () => {
+  assert.match(flat("skills/wrap/references/REPORT-AND-LEARN.md"), /idea the session raised or an idea sheet it wrote, one `waiting on operator` row each/);
 });
 
-test("release files agree on 1.134.0 and CHANGED.txt encodes the backlog row", () => {
-  assert.match(flat(".claude-plugin/plugin.json"), /"version": "1\.134\.0"/);
-  assert.match(flat(".claude-plugin/marketplace.json"), /"version": "1\.134\.0"/);
-  assert.match(flat("CHANGED.txt"), /^1\.134\.0 .*\bencoded: 1\.134\.0 — backlog DISC-167/);
+test("vault-write: ideas as rows live in WRITING.md § Row numbers, pointed at from SKILL.md", () => {
+  assert.match(flat("skills/vault-write/SKILL.md"), /ideas as rows, in `references\/WRITING\.md` § Row numbers/);
+  assert.match(flat("skills/vault-write/references/WRITING.md"), /An idea is a backlog row in the same action\*\* \(DISC-168\).*--status "waiting on operator".*`## Idea rows`.*`idea-unrowed`/);
 });
