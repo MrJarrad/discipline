@@ -178,11 +178,13 @@ and queued the chat as the doer — that hatch is deleted.
    (disk, load, heavy count); over it, the lane goes to a child cloud session. Lighter lanes (read, write, review) are uncapped.
    A doer under load runs touched-file tests and leaves the full suite to the gate-run lane (`doer-rules.md` § Repo and safety).
 
-16. **Lanes sharing a branch** (preview-builds-and-stale-heads, 2026-10-14). Up to three lanes pushed one
+16. **Lanes sharing a repo** (preview-builds-and-stale-heads, 2026-10-14). Up to three lanes pushed one
    `own-tool/slice-2` and `preview/own-tool-2`: four read stale local refs and reported the wrong head, and two
    Workers builds failed about two minutes in while another was running (same code built clean locally; the
    Builds log was unreadable). The parent states the live head (`git ls-remote origin <branch>`) in every go
    message when lanes share a branch; each lane `git fetch`es and rebases before each push, never force. Added
-   2026-10-15: at most one `preview/*` push per repo in flight; the next waits until the served build shows
-   the previous one (`present-for-review` § PREVIEW-PROBE). Five portfolio preview builds failed while several
+   2026-10-15: the parent serialises `preview/*` pushes per repo: a lane's brief says when it may push, and a lane that is
+   ready asks the parent rather than pushing. The parent knows a push is in flight from its own record of the
+   last push plus the versions list; when it stops being in flight is defined once, in
+   `present-for-review/references/PREVIEW-PROBE.md` item 6. Five portfolio preview builds failed while several
    lanes pushed at once.
