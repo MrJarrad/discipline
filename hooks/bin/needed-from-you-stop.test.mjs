@@ -75,3 +75,24 @@ test("hooks.json wires the Stop event to this script", () => {
   const h = JSON.parse(readFileSync(new URL("../hooks.json", import.meta.url), "utf8")).hooks;
   assert.ok(h.Stop.flatMap((g) => g.hooks).some((x) => x.command.includes("needed-from-you-stop.mjs")));
 });
+
+test("a row ID matches on a word boundary: PF-14 does not satisfy PF-145", () => {
+  const v = vault();
+  const q = join(v, "projects/portfolio/portfolio-queue.md");
+  writeFileSync(q, readFileSync(q, "utf8") + "| PF-145 | later ask | | | |\n");
+  const text = "## Needed from you\n\n### PF — portfolio\n\nPF-5 PF-6 PF-8 PF-14\n";
+  assert.match(check({ text, userTs: T, vault: v }), /omits open row\(s\) PF-145/);
+});
+test("a heading inside a fenced code block does not make a status reply", () => {
+  const v = vault();
+  assert.equal(check({ text: "Example:\n\n```\n## Needed from you\n```\n\nDone.", userTs: T, vault: v }), null);
+});
+test("a marker from another session does not force a block; the same session's does", () => {
+  const v = vault();
+  process.env.DISCIPLINE_MARKER_DIR = mkdtempSync(join(tmpdir(), "mk-"));
+  try {
+    writeMarker(v, { prefix: "PF", id: "PF-9", to: "queue", ts: "2026-10-16T10:05:00.000Z", session: "other" });
+    assert.equal(check({ text: "I added a row.", userTs: T, vault: v, sessionId: "mine" }), null);
+    assert.match(check({ text: "I added a row.", userTs: T, vault: v, sessionId: "other" }), /no `## Needed from you` block/);
+  } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
+});

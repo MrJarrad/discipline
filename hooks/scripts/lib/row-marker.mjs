@@ -11,8 +11,9 @@ export function markerPath(vault) {
   const dir = process.env.DISCIPLINE_MARKER_DIR || tmpdir();
   return join(dir, `discipline-row-add-${createHash("sha1").update(resolve(vault)).digest("hex").slice(0, 12)}.jsonl`);
 }
-export function writeMarker(vault, { prefix, id, to, ts = new Date().toISOString() }) {
-  appendFileSync(markerPath(vault), JSON.stringify({ ts, prefix, id, to }) + "\n");
+export function writeMarker(vault, { prefix, id, to, ts = new Date().toISOString(), session = process.env.CLAUDE_CODE_SESSION_ID }) {
+  // session: the Stop hook only counts markers from its own session; absent id -> counted by any session (fallback).
+  appendFileSync(markerPath(vault), JSON.stringify({ ts, prefix, id, to, session }) + "\n");
 }
 export function readMarkers(vault) {
   const p = markerPath(vault);

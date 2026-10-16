@@ -38,9 +38,11 @@ export function lastTurn(transcriptText) {
   return { userTs, text };
 }
 
-export function check({ text, userTs, vault }) {
+export function check({ text: raw, userTs, vault, sessionId }) {
+  // a heading inside a fenced code block is not a heading
+  const text = raw && raw.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
   if (!text || /^\s*This session is wrapped/i.test(text)) return null;
-  const markers = readMarkers(vault).filter((m) => m.ts > userTs);
+  const markers = readMarkers(vault).filter((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId));
   const hasHead = HEAD.test(text);
   const status = hasHead || markers.length > 0 || /^## Build in Progress\s*$/m.test(text);
   if (!status) return null;
@@ -57,7 +59,7 @@ export function check({ text, userTs, vault }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) return `Stop check (DISC-179): ${r.reason}. ${how}`;
   const want = r.projects.flatMap((p) => [...p.queue.rows, ...p.backlog.rows].map((x) => x.id));
-  const missing = want.filter((id) => !block.includes(id));
+  const missing = want.filter((id) => !new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(block));
   if (missing.length) return `Stop check (DISC-179): the Needed-from-you block omits open row(s) ${missing.join(", ")}. Print the script's full block, not only the newest asks. ${how}`;
   return null;
 }
@@ -69,7 +71,7 @@ function main() {
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
   const { userTs, text } = lastTurn(t);
-  let reason; try { reason = check({ text, userTs, vault: resolve(vaultEnv) }); } catch { return; }
+  let reason; try { reason = check({ text, userTs, vault: resolve(vaultEnv), sessionId: input.session_id }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 
