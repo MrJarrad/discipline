@@ -180,3 +180,28 @@ test("row-add refuses a status outside open / waiting on operator, and --status 
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "x", status: "done (#1 abc1234)", offline: true }).ok, false);
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "x", status: "waiting on operator", offline: true }).ok, false);
 });
+
+test("DISC-178: a release-only ask is refused as a queue row and as a waiting-on-operator backlog row; a release plus an operator-owned call passes", () => {
+  const v = mkVault();
+  for (const to of ["queue", "backlog"]) {
+    const r = rowAdd({ vault: v, prefix: "ZZ", to, text: "Release again for the underline and design system?", status: to === "backlog" ? "waiting on operator" : undefined, offline: true });
+    assert.equal(r.ok, false, to);
+    assert.match(r.reason, /release-follows-merge/);
+  }
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Release?", offline: true }).ok, true, "a plain open backlog row is not an operator ask");
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Release with SITE_MODE holding -> live?", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Look at the footer and say yes", offline: true }).ok, true);
+});
+
+test("DISC-179(1): the CLI leaves a marker naming the prefix, for the Stop hook", async () => {
+  const v = mkVault();
+  const dir = mkdtempSync(join(tmpdir(), "marker-"));
+  execFileSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--offline"], { env: { ...process.env, DISCIPLINE_MARKER_DIR: dir } });
+  process.env.DISCIPLINE_MARKER_DIR = dir;
+  const { readMarkers } = await import("./lib/row-marker.mjs");
+  const m = readMarkers(v);
+  delete process.env.DISCIPLINE_MARKER_DIR;
+  assert.equal(m.length, 1);
+  assert.equal(m[0].prefix, "ZZ");
+  assert.match(m[0].id, /^ZZ-\d+$/);
+});

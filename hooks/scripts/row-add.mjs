@@ -20,6 +20,8 @@ import { join, resolve } from "node:path";
 import { addRow } from "./list-drift-check.mjs";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
+import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
+import { writeMarker } from "./lib/row-marker.mjs";
 
 /* Write via a sibling temp file + rename so a reader never sees a truncated file. */
 const writeAtomic = (path, text) => { const tmp = `${path}.${process.pid}.tmp`; writeFileSync(tmp, text); renameSync(tmp, path); };
@@ -48,6 +50,8 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   if (to !== "queue" && to !== "backlog") return fail("--to must be queue or backlog");
   if (!clean(text)) return fail("--text is required");
   if (status !== undefined && (to !== "backlog" || !["open", "waiting on operator"].includes(status))) return fail("--status applies to a backlog row and is `open` or `waiting on operator` (an idea is `waiting on operator`)");
+  // DISC-178: an ask the operator can act on is a row; "release?" is not (ruling 2026-10-15-release-follows-merge).
+  if ((to === "queue" || status === "waiting on operator") && isReleaseOnlyAsk(clean(text), [where, why, recommended].map(clean).join(" "))) return fail(`release-only ask refused — ${RELEASE_REFUSAL}`);
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");
   return withVaultLock(vault, () => {
     // Resolved inside the lock: a concurrent writer's file is never read half-written.
@@ -96,6 +100,8 @@ function main() {
   const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline) });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
+  // DISC-179(1): tell the Stop hook a new ask was raised this turn.
+  try { writeMarker(resolve(a.vault), { prefix: a.prefix, id: res.id, to: a.to }); } catch { /* the marker is a nudge, never a failure */ }
   console.log(res.id);
 }
 

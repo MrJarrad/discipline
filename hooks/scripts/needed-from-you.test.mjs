@@ -77,3 +77,14 @@ test("CLI prints the block for the named projects and exits 1 on a refusal", () 
   assert.equal(bad.status, 1);
   assert.match(bad.stderr, /name at least one project prefix/);
 });
+
+test("DISC-178: a hand-typed release-only row is not printed; a release row with an operator-owned call is", () => {
+  const v = mkdtempSync(join(tmpdir(), "nfy-rel-"));
+  const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
+  put("projects/portfolio/portfolio-queue.md", QUEUE("PF", "| PF-5 | Release again for the underline? | | | |\n| PF-6 | Release with SITE_MODE holding -> live? | | | |\n| PF-7 | look at the footer | | | |"));
+  put("projects/portfolio/portfolio-backlog.md", BACKLOG("PF", "| PF-8 | Release? | d | waiting on operator |"));
+  const out = render(neededFromYou(v, ["PF"]));
+  assert.doesNotMatch(out, /PF-5|PF-8/);
+  assert.match(out, /PF-6/);
+  assert.match(out, /PF-7/);
+});

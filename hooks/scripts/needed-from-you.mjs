@@ -19,7 +19,12 @@
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
+import { isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { parseBacklog, parseStatus } from "./list-drift-check.mjs";
+
+/* DISC-178: a hand-typed "release?" row is never printed as an operator ask
+   (ruling 2026-10-15-release-follows-merge). what = the row's first text cell. */
+const releaseOnly = (line) => { const c = line.split("|").slice(1, -1).map((x) => x.trim()); return isReleaseOnlyAsk(c[1] || "", c.slice(2).join(" ")); };
 
 export function neededFromYou(vault, prefixes) {
   const want = [...new Set(prefixes.map((p) => String(p).trim()).filter(Boolean))];
@@ -38,7 +43,7 @@ export function neededFromYou(vault, prefixes) {
       queue.head = head(qt);
       for (const r of tableRows(qt)) {
         if (r.prefix !== prefix) return { ok: false, reason: `${e.queue} holds ${r.id}, which is not a ${prefix} row; run list-drift-check` };
-        if (!r.struck) queue.rows.push({ id: r.id, line: r.line });
+        if (!r.struck && !releaseOnly(r.line)) queue.rows.push({ id: r.id, line: r.line });
       }
     }
     if (e.backlog) {
@@ -47,7 +52,7 @@ export function neededFromYou(vault, prefixes) {
       backlog.head = head(text);
       for (const r of parseBacklog(text)) {
         if (r.prefix !== prefix) return { ok: false, reason: `${e.backlog} holds ${r.id}, which is not a ${prefix} row; run list-drift-check` };
-        if (!r.struck && r.section !== "done" && parseStatus(r.status)?.kind === "waiting") backlog.rows.push({ id: r.id, line: lines[r.lineIndex] });
+        if (!r.struck && r.section !== "done" && parseStatus(r.status)?.kind === "waiting" && !releaseOnly(lines[r.lineIndex])) backlog.rows.push({ id: r.id, line: lines[r.lineIndex] });
       }
     }
     out.push({ prefix, project: e.project, queue, backlog });
