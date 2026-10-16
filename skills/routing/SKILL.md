@@ -86,6 +86,7 @@ re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
 | **Progress file silent 15 minutes** | **Parent reads the worktree diff directly** — no stop yet; an ETA reply quotes the dispatch time against the last milestone (`doer-rules.md` § You are the doer) |
 | **Progress file silent 30 minutes** | **Parent stops the lane** — fresh `Agent`, re-briefed from the last recorded milestone (`doer-rules.md` § You are the doer) |
 | **Lane stopped/interrupted** (session end, crash, notification status stopped) | **Parent reads the worktree diff + progress file** — **fresh** `Agent` only, never a resume (`lanes-survive-interruption`, Resume section above) |
+| **Merged main changes unreleased** | **Parent** releases (`RELEASE-PATH.md` § Release follows merge); no operator row, one line after |
 | **Lane landed** | **Parent runs** `node <plugin>/hooks/scripts/lane-end.mjs` on the completion notification — sweep, queue-row replace + verify, backlog-row flip (`--backlog`), evidence commit + push, drift check, PR gate-run tail read — one call (`spend-levers` rule 5, `lists-never-stale`); archive its helper (rule 19) |
 | **Preview build / rulebook sync / DS regen / merge-after-review** | **Parent runs the script** — [MECHANICAL-SCRIPTS.md](references/MECHANICAL-SCRIPTS.md) |
 
