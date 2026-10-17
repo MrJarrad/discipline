@@ -13,6 +13,7 @@
 | Match test names to the project's own domain vocabulary | Aligns with project language |
 | **Run tests** after each refactor step | Refactor only when green |
 | Mock only at **system boundaries** (external APIs, DB, time, filesystem) | Keeps tests behavior-focused |
+| **Guard generated output** — a test asserts its critical declarations are present | A silent regen drop shows up as a red test, not on a preview |
 | **Page-shaped fixtures** — token values in the unit the page resolves (`0.375s`), layout fixtures valid at rest | Default-valued jsdom passed while the deployed effects were off |
 
 ---
@@ -29,6 +30,7 @@
 | Force a **wide refactor** into one tracer bullet | Use expand–contract instead |
 | Add **speculative** features beyond the current failing test | One behavior per cycle |
 | Force red-green ceremony on **trivial**, non-behavioral edits | Wrong tool for typo/format fixes |
+| Let a test write a **tracked file** (generated CSS, tokens) | A suite run rewrote generated CSS with an older generator and dropped declarations |
 | `parseFloat` a CSS duration token | Reads `0.375s` as 0.375 ms — parse `ms` and `s` |
 
 ---

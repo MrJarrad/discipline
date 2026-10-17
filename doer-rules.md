@@ -30,7 +30,7 @@ it never restates what is here.
   `red test written` · `cause found` · `green` · `gates green` · `uploaded/pushed` each
   becomes its own step's line. The parent reads this file on any operator status ask,
   quoting the dispatch time against the last milestone rather than guessing an ETA; it never
-  replaces the fixed evidence return below. **Both clock checks are mechanical, needing no
+  replaces the fixed evidence return below. **The read-back and the final return are written into it in full**: the file is the record, the hand-back a copy (`served-preview-is-the-proof-2026-10-17`). **Both clock checks are mechanical, needing no
   memory** (operator ruling 2026-09-27, `progress-hooks`: *"yes, steps plus the 10-minute
   floor"*; sharpened after a memory-dependent first cut: *"make it need no memory"*): a
   PostToolUse hook (`hooks/bin/progress-floor.mjs`) checks the file's mtime on every tool

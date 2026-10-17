@@ -124,6 +124,11 @@ and the code parses both units; a layout fixture passes its own check at frame 0
 measures anything in motion. A jsdom run on default values passed while every effect was off
 on the deployed build.
 
+**Tests never write tracked files** (`served-preview-is-the-proof-2026-10-17`: a dry-run test
+rewrote `src/styles.generated.css` with an older generator and silently dropped `text-indent` and
+`mask-image`): every generator output a test triggers goes to a temp dir, and `git status --porcelain`
+is clean after the suite. Generated output carries a guard test that its critical declarations are present.
+
 **A new red-first test can trip a repo-law test** (`react-root-teardown`: `hydrateRoot` without
 `unmount()`). After adding a test, run the repo's law/scaffolding tests (`*-teardown`,
 `repo-scaffolding-law`) with the touched files, not only CI-side.
