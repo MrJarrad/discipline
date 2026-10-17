@@ -30,7 +30,7 @@ it never restates what is here.
   `red test written` · `cause found` · `green` · `gates green` · `uploaded/pushed` each
   becomes its own step's line. The parent reads this file on any operator status ask,
   quoting the dispatch time against the last milestone rather than guessing an ETA; it never
-  replaces the fixed evidence return below. **Both clock checks are mechanical, needing no
+  replaces the fixed evidence return below. **The read-back and the final return are written into it in full**: the file is the record, the hand-back a copy (`served-preview-is-the-proof-2026-10-17`). **Both clock checks are mechanical, needing no
   memory** (operator ruling 2026-09-27, `progress-hooks`: *"yes, steps plus the 10-minute
   floor"*; sharpened after a memory-dependent first cut: *"make it need no memory"*): a
   PostToolUse hook (`hooks/bin/progress-floor.mjs`) checks the file's mtime on every tool
@@ -179,7 +179,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   and the reviewer run **once, at merge**, never before the operator's yes (`review-trails-the-operator`).
 - **A look lane's done-when is the preview built, published and opening** (`link-first-look-rounds`, 2026-10-09):
   a production build or the deployed preview, never only the dev server, loads hydrated with no error — then the
-  link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**
+  link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**, **headless deployed probes**
   and his input profile (real GPU via a Mac job only for visual 3D) run **after his yes**, sized to what merge needs;
   never a new review round, review still trails the yes. Supersedes the before-the-link checks of `one-shot-defect-rounds-2026-10-07`.
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent

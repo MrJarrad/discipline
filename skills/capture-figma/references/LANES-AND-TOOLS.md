@@ -12,7 +12,8 @@ Which lane and which rung answers a question, the `figma-node.mjs` command surfa
 - **Cloud** fleet install symlinks the captures ground → `vault/estate/captures` (`~/JHD/captures`
   no longer exists as a standalone path since the 2026-08-25 estate split). Pull vault
   before reading if a mid-session publish just landed. Taxonomy: vault `estate/capture-tools.md`.
-- Live Figma without local JSON needs Environment secret **`FIGMA_TOKEN`** (REST lane).
+- Live Figma without local JSON needs Environment secret **`FIGMA_TOKEN`** (REST lane) on the Mac.
+  In a cloud session `api.figma.com` is proxy-authenticated and needs none (§ No-export lanes, Cloud route).
 
 ## Lane choice — three lanes, one hierarchy
 
@@ -153,3 +154,26 @@ no active-tab constraint, so it can't accidentally read the wrong tab, and it do
 require the desktop app to be open at all. Reach for the desktop MCP lane instead only
 for **live selection** — a human-in-loop walk where nothing is yet pinned to a node id,
 or the operator is actively clicking around the canvas to find the right node.
+
+## No-export lanes (DISC-184, ruling `2026-10-17-keep-design-handoff`)
+
+When no export pair exists for the target, three reads an export would have carried are taken
+live. Each output names what its lane lost.
+
+| Read | Call | Lost — name it in the output |
+| --- | --- | --- |
+| Annotations | REST node `annotations[].label`; MCP `get_design_context` `data-annotations` (one node per call) | `category` (Interaction / Development) and `labelMarkdown`: REST returns the label only |
+| Prototype interactions | REST node `interactions` (trigger, action, transition, easing incl. cubic-bezier); MCP `get_motion_context` for keyframes | — |
+| Component props | REST `componentPropertyDefinitions` on the set, `componentProperties` on each instance — never `get_context_for_code_connect` (Code Connect is OUT) | — |
+| Bindings | REST `boundVariables` | ids only: names come from the sync bank, `variables/local` is Enterprise (403) |
+
+Export-only, not readable live: `codeSyntax` per mode, `cssClass`, pair hashes, changelog. A
+lane that needs them asks for an export.
+
+**Export exists — annotation spot check.** Fetch the export's annotated node ids over REST and
+compare each live `annotations[].label` with the export layer's `annotations[].label`. A label that
+differs, or is present on one side only, is reported before the build as an export-drift finding.
+
+**Cloud route.** `curl -s "https://api.figma.com/v1/files/<key>/nodes?ids=<id>"` with no auth
+header — also `/versions`, `/dev_resources`, `/images/<key>`. Brief a Figma-reading subagent
+with this route; the parent alone holds the MCP and `use_figma` writes.

@@ -17,7 +17,9 @@ description: >-
 **The handoff pair is the contract: every node, token, copy string and annotation in it is
 built — never Figma pixels, never inferred values.** A value the pair does not state is not
 yours to supply. The pair is read, not re-described; the brief that dispatched you points at
-it rather than paraphrasing it.
+it rather than paraphrasing it. The Figma MCP does not replace the pair: it cannot return
+per-mode code-named tokens, generated CSS, the changelog or the pair hashes
+(`2026-10-17-keep-design-handoff`).
 
 ## When it fires
 
@@ -28,7 +30,7 @@ it rather than paraphrasing it.
 | A page is already built and needs measuring back against the design | `audit-build` |
 
 `capture-figma` still supplies what a pair cannot carry: renders, interaction/prototype
-detail, and spot-verified binding proofs via REST `--raw`. Reach for it *inside* step 4
+detail, spot-verified binding proofs via REST `--raw`, and the live-annotation spot check. Reach for it *inside* step 4
 when the pair is silent — not instead of it.
 
 ## Inputs — four required, one optional

@@ -44,7 +44,10 @@ const CEILINGS = [
   // Ceiling raised 1200 -> 1250 at 1.85.0: the coverage-ledger pointer
   // (`accuracy-before-the-link`) added one rule paragraph; the rule itself lives
   // in qa-acceptance, only the pointer is here.
-  { skill: "capture-figma", ceiling: 1250, before: 9578, frontmatterWords: 123 },
+  // Ceiling raised 1250 -> 1324 at 1.143.0 (body 1244 -> 1324, measured 2026-10-17): DISC-184 no-export
+  // section (annotations, interactions, props live; export annotation spot check) and the
+  // cloud REST route in the "who runs this" line. The call table lives in LANES-AND-TOOLS.md.
+  { skill: "capture-figma", ceiling: 1324, before: 9578, frontmatterWords: 123 },
   // Ceiling raised 1150 -> 1200 at 1.86.0: load-order step 5 (`brief-is-the-lever`)
   // added one line naming the interrogation step; the rule itself lives in
   // dispatch-brief, only the load-order pointer is here.
@@ -134,13 +137,13 @@ for (const { skill, ceiling, before } of CEILINGS) {
 // check: these skills never offloaded, and the offload tests above belong to skills
 // that did.
 const RATCHETS = [
-  { skill: "handoff-to-code", ceiling: 1745 }, // 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer)
+  { skill: "handoff-to-code", ceiling: 1768 }, // 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer); 1745 -> 1768 at 1.143.0 (body 1741 -> 1768: keep-design-handoff ruling sentence, live-annotation spot-check pointer)
   { skill: "capture-website", ceiling: 1720 }, // 1711 words at 1.111.0
   { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
   { skill: "model-routing", ceiling: 1708 }, // 1.142.0 raised to 1708 (+18, measured) for the first-slice-of-a-new-product row (2026-10-09-first-slice-of-a-new-product-is-opus). 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
   { skill: "present-for-review", ceiling: 1700 }, // 1661 words at 1.111.0; 1699 at 1.113.0 (parent-views-evidence + cloud preview alias pointers)
   { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
-  { skill: "qa-acceptance", ceiling: 1730 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line)
+  { skill: "qa-acceptance", ceiling: 1764 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line); 1730 -> 1764 at 1.143.0 (body 1729 -> 1764: sound judged by ear first)
   { skill: "cloud-dispatch", ceiling: 1855 }, // 1.138.0 raised to 1855 (+5, 2026-10-15) for Capacity before dispatch (disk + load + heavy count). 1.133.0 raised to 1850 for the Cloudflare-auth-from-the-proxy failure-mode bullet (lesson real-input-and-proxy-auth-2026-10-13). 1.126.0 raised to 1770 for the Disk before dispatch section (backlog 157; routing HARD-RULES 13 holds the sweep rule). Earlier: 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
 ];
 

@@ -21,3 +21,6 @@ build, and the operator reported a "still broken" bug that was already fixed.
 8. The Workers Builds check run is a push-time placeholder (`cloud-preview-and-shared-ds-root-2026-10-12`): `started_at == completed_at`
    with only a Build ID in its summary is not "skipped" or "unconfirmable". Poll the summary until it lists `Version ID:`, then check
    the alias. Lazily loaded CSS (the panel kit) is referenced from the page's JS chunks, not the HTML.
+9. Builds for one `preview/*` branch can finish out of order, an older sha overwriting a newer deploy, and a green build can keep
+   the old bundle served for 3–5 minutes (`served-preview-is-the-proof-2026-10-17`). Probe the served page only once the build for
+   **your sha is the latest successful build for that branch**, then for a string only your sha has (item 1).
