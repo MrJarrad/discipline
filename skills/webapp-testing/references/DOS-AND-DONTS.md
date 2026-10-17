@@ -19,6 +19,7 @@ Read before authoring or reviewing a Playwright webapp test.
 - **Treat a baseline update as a review.** Look at the new snapshot, confirm the change is intended, *then* regenerate. Mask timestamps/animations/random data.
 - **Verify an on-screen claim from pixels** (recording or screenshot at the operator's framing); after one device-vs-headless disagreement, start the next round from the operator's recording and name a device-faithful check (`jhd-device-tests` in cloud).
 - **Drive the real gesture.** Navigation, hover and page-transition work is driven with a real mouse (move, dwell, press) in headed Chrome, on the device the brief names.
+- **Measure motion with the clock installed before `goto`**, pause from `page.evaluate(() => Date.now())`, report the subject's x/y travel per run, and read the known answer off a known-good build before trusting a number.
 - **Extract a Page Object** once a second test touches the same flow — one file owns the locators.
 
 ## Don't
@@ -31,4 +32,5 @@ Read before authoring or reviewing a Playwright webapp test.
 - **Don't mock your own components** — mock only the external network boundary.
 - **Don't pass a visual claim on DOM state** (opacity, node identity, `elementFromPoint`) or run a third headless-only round against a device disagreement.
 - **Don't pass navigation, hover or transition work on a scripted `a.click()`** — it never hovers, so it skips the state the operator's path sets.
+- **Don't install a fake clock mid-session** (it sends `performance.now()` backwards and freezes every move already started) or count an overlap the page's own rule says is invisible.
 - **Don't leave a flaky test green.** One pass and one fail on the same code means the wait/mask is wrong; fix it or the test gets muted and stops guarding.

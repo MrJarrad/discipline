@@ -7,7 +7,8 @@ description: Read a Figma file into buildable truth before anything gets built o
 
 **Who runs this:** the dispatched Engineer or UX Designer, never the parent reading instance
 props on their behalf. Parent names file key + node id; the doer reads via REST
-(`scripts/figma-node.mjs`) — desktop Figma MCP binds to the parent session only.
+(`scripts/figma-node.mjs`) — desktop Figma MCP binds to the parent session only; cloud
+subagents get no Figma MCP, so **REST is the cloud route** (`curl api.figma.com`, proxy-authenticated, no token).
 
 | Reference | Holds |
 | --- | --- |
@@ -47,7 +48,7 @@ Any PNG the operator hands you as a design contract (not read live through `get_
 Pick by what's available, not by habit. Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md).
 
 1. **Portability floor — MCP.** Any file, nothing installed beyond the desktop bridge; also the quick live check against whatever is on screen.
-2. **REST, when `FIGMA_TOKEN` exists** — no active-tab constraint, no lazy-page gaps, real `?version=` pinning. Prefer it **whenever the node id is already known**.
+2. **REST, when `FIGMA_TOKEN` exists or in a cloud session** — no active-tab constraint, no lazy-page gaps, real `?version=` pinning. Prefer it **whenever the node id is already known**.
 3. **Capture Figma sync plugin** — variables, styles and layer bindings at full mode coverage, plus the banked `copy` array and `changes.jsonl`.
 
 ## The tool ladder — pick by what you're reading, not by habit
@@ -60,6 +61,13 @@ Read down; stop at the first rung that answers the question.
 3. **The sync bank JSON** — offline, every mode at once, diffing via `changes.jsonl`.
 
 **Code Connect is explicitly OUT** (operator ruling, 2026-08-25). Each consuming repo keeps a Figma-name → code-name mapping table instead.
+
+## No export — read annotations, interactions and props live
+
+The export pair stays the contract (`handoff-to-code`). **No export:** read annotations,
+prototype interactions and component props live (MCP + REST) and name what the lane cannot
+return. **Export exists:** spot-check live annotations against its `annotations[]`; a mismatch
+is a finding before the build. Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) § No-export lanes.
 
 ## Export shape — read it in `handoff-to-code`
 

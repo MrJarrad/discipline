@@ -179,7 +179,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   and the reviewer run **once, at merge**, never before the operator's yes (`review-trails-the-operator`).
 - **A look lane's done-when is the preview built, published and opening** (`link-first-look-rounds`, 2026-10-09):
   a production build or the deployed preview, never only the dev server, loads hydrated with no error — then the
-  link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**
+  link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**, **headless deployed probes**
   and his input profile (real GPU via a Mac job only for visual 3D) run **after his yes**, sized to what merge needs;
   never a new review round, review still trails the yes. Supersedes the before-the-link checks of `one-shot-defect-rounds-2026-10-07`.
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent

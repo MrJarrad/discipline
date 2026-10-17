@@ -69,6 +69,8 @@ or hash carried into the assertion by hand (operator ruling, 2026-09-19).
   environment, interleaved, n ≥ 8. Before-on-CDN vs after-on-preview is confounded.
 - **Eye and number disagree → compare framings**, not the number: a side-by-side of what is on
   screen at the trigger frame, then the operator picks one rule.
+- **Sound is judged by ear first**: a synth within 2.2 dB per band of its reference was heard
+  as "nothing like" it. The operator's listen is the first gate; offer the original asset early.
 - **A served-build check follows the entry's imports** (lazy chunks, `viewer-*.js` →
   `style-*.css`) or reads the hydrated DOM; grepping the entry bundle alone proves staleness
   falsely.

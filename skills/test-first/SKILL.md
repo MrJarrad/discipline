@@ -118,6 +118,12 @@ DO:
   expect(nav.width).toBe(expected); // placed by grid-column from the export
 ```
 
+**Fixtures are page-shaped and valid at rest** (`2026-10-17-measure-motion-on-the-deployed-page-honestly`):
+a token fixture carries the value the page resolves (`--duration-375` as `0.375s`, not only `375ms`)
+and the code parses both units; a layout fixture passes its own check at frame 0 before it
+measures anything in motion. A jsdom run on default values passed while every effect was off
+on the deployed build.
+
 **A new red-first test can trip a repo-law test** (`react-root-teardown`: `hydrateRoot` without
 `unmount()`). After adding a test, run the repo's law/scaffolding tests (`*-teardown`,
 `repo-scaffolding-law`) with the touched files, not only CI-side.
