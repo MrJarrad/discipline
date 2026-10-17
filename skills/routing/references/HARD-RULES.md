@@ -217,3 +217,15 @@ and queued the chat as the doer — that hatch is deleted.
    (`cloud-dispatch` § Capacity before dispatch). At lane end, after its result is banked (the PR comment or evidence
    file is read), the parent calls `archive_session` on it. When the next round of a lane starts, the superseded
    round's helper is archived then. A helper whose result is not yet banked is never archived.
+20. **Redirect a running lane on one channel** (`2026-10-08-redirect-a-running-lane-on-one-channel`): a `SendMessage` redirect resumes
+   that agent even after it has returned; until its next hand-back arrives the work is in flight there, so never dispatch a second lane
+   for it meanwhile. To move the redirect to a fresh agent, `TaskStop` the old one first and say so in the new brief. One worktree, one
+   agent applies to redirects too.
+21. **A merge's gates include every test that renders the touched component** (`look-yes-merge-needs-suite-of-touched-area-2026-10-12`):
+   before any merge, including a trailing-review merge on the operator's yes, run `git grep -l <ComponentName> -- '*.test.*'` and those
+   files, not a hand-picked directory (a footer fix merged on "perfect" turned main red via `nav-optical-edge.test.tsx`). An unexplained
+   failure in a lane's run is red until named.
+22. **Agents may mark a reviewed draft PR ready** (ruling `2026-10-15-agents-may-undraft-reviewed-prs`): in MrJarrad repositories, once it
+   has a passing gate run and a reviewer verdict with no red finding. The operator saved the allow entry in the Default environment's setup
+   script on 2026-10-15, effective from the next session; where a session's safety check still refuses, un-drafting stays the operator's
+   click. This supersedes "never the helper" in `release-deploy/references/RELEASE-PATH.md` for that case only.

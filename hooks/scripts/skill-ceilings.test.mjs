@@ -62,7 +62,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1822, /* 1.141.0 +20 (measured, 2026-10-16): baton row, merged main changes unreleased -> parent releases (DISC-178); 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1839, /* 1.142.0 +17 (measured, 2026-10-17): Resume-vs-fresh pointer, a SendMessage redirect resumes that agent (HARD-RULES 20); 1.141.0 +20 (measured, 2026-10-16): baton row, merged main changes unreleased -> parent releases (DISC-178); 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
@@ -137,7 +137,7 @@ const RATCHETS = [
   { skill: "handoff-to-code", ceiling: 1745 }, // 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer)
   { skill: "capture-website", ceiling: 1720 }, // 1711 words at 1.111.0
   { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
-  { skill: "model-routing", ceiling: 1690 }, // 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
+  { skill: "model-routing", ceiling: 1708 }, // 1.142.0 raised to 1708 (+18, measured) for the first-slice-of-a-new-product row (2026-10-09-first-slice-of-a-new-product-is-opus). 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
   { skill: "present-for-review", ceiling: 1700 }, // 1661 words at 1.111.0; 1699 at 1.113.0 (parent-views-evidence + cloud preview alias pointers)
   { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
   { skill: "qa-acceptance", ceiling: 1730 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line)

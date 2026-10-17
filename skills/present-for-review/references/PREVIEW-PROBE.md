@@ -18,3 +18,6 @@ build, and the operator reported a "still broken" bug that was already fixed.
    session token). Then the next real commit rebuilds it: never an empty commit.
 7. Before a push, ask Cloudflare instead of listing PRs by hand: `builds-check.mjs <repo>` (`routing`
    `references/MECHANICAL-SCRIPTS.md`) exits 1 while any Workers Build is running or queued for the repo.
+8. The Workers Builds check run is a push-time placeholder (`cloud-preview-and-shared-ds-root-2026-10-12`): `started_at == completed_at`
+   with only a Build ID in its summary is not "skipped" or "unconfirmable". Poll the summary until it lists `Version ID:`, then check
+   the alias. Lazily loaded CSS (the panel kit) is referenced from the page's JS chunks, not the HTML.
