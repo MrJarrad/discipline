@@ -58,3 +58,12 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
 18. **A fix-round brief lists what stays the same** (DISC-169, `routing` HARD-RULES 18): the one thing the operator
     named is the whole change; everything else is a `Stays the same` list, and the doer's read-back repeats it. A
     mechanism change on a look lane is not a fix round: it needs the operator's yes first.
+19. **A target named by reference is measured first** (`measure-the-operators-reference-before-matching-it-2026-10-15`): "match the
+    less tall items" or "what I recorded" is measured on the operator's own artefact (screenshot at a known scale, the build he looked
+    at, his recording) and the number goes in the brief, never a parent guess. A bug fix's red repro is the operator's recorded steps on
+    the build he used; the doer's own path is an extra rep. When a look misses twice, stop building and show 2-3 static sketches on one
+    page for a pick.
+20. **Relayed operator feedback is banked as its final state with the whole sequence verbatim before acting** (send, withdraw,
+    reinstate: `canvas-chrome-takes-board-viewport-tier-2026-10-13`). A brief says "red build: stop and report".
+21. **Size from the tokens, not CLAUDE.md prose** (same lesson): tiered DS sizes (Action 28/32/44 in base-lg, 32/36/44 from 1440) are read
+    from the generated tokens; prose such as "100=24 / 200=32 / 300=56" is stale.

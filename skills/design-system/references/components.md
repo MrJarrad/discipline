@@ -170,3 +170,20 @@ Reusable composed sections (a header, a properties rail, a list panel) are
 **blocks**, built from primitives, and pages are built from blocks — never raw
 markup dropped onto a page (design-craft's composition rule). The portfolio site's blocks are the reference — see
 [portfolio.md](portfolio.md).
+
+## Application UI: the panel kit (ruling `2026-10-15-application-ui-uses-panel-kit`)
+
+Any application-style UI (review try-out panels and pills on the portfolio such as A/B/C switches, Light/Dark pill, sound knobs and glow
+toggles; Canvas; future tools) uses the panel kit in `@jhd/design-system` (`src/panel-kit.css`, owned by the Canvas session). Not the
+site's own visitor-facing UI: Action and Badge stay there. While the kit is in build, use the components that exist. Where a needed one is
+missing the builder follows the panel-kit patterns (tokens, `vp*` structure, naming) and EITHER builds it properly into the kit, OR, when
+that is too big for the lane, adds a Canvas backlog row (`projects/canvas/canvas-backlog.md`, CV prefix, via `row-add.mjs`) naming the
+component and where the stand-in lives.
+
+## Tool chrome outside the page frames (`canvas-chrome-takes-board-viewport-tier-2026-10-13`)
+
+DS Action sizes are viewport-tiered `@media (min-width: ...)` tokens. Chrome drawn in the Canvas board document (outside the page iframes)
+resolves the board window's tier, not the frame's: "size 100" buttons rendered 32px/24px text beside the page's size-200 nav buttons.
+Pin the tier the chrome means (for tool chrome one fixed tier, the base, so it is the same at every zoom and over every frame) and measure
+it against the page's own component at the frame's width, not against the board. Read sizes from the generated tokens (28/32/44 in
+base-lg, 32/36/44 from 1440), not from CLAUDE.md prose.

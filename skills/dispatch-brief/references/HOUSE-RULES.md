@@ -26,6 +26,9 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   choices) is a prop or setting with a token default; hard-coding needs a reason. An operator
   "off" or "change" ruling sets a prop value and never deletes the implementation unless the
   operator says remove.
+- **Desktop automation** — a lane on the operator's desktop targets only what it launched (pid, own `--user-data-dir`, bundle id); never
+  an unscoped `tell application`/"front window"; cleanup kills an exact owned pid or anchored profile path, never a prefix pattern
+  (`2026-10-08-agent-automation-touches-only-its-own-processes`).
 - **Contract order** — export (whole) → banked rulings → the operator's words this round, in
   that priority; a parent-authored "recommended" answer is never promoted to a rule.
 - **Shared clones** — the design-system root clone is shared by every lane: never switch it,

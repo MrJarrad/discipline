@@ -3,7 +3,8 @@
 A release comes only from `main`, by `pnpm release:promote` in the product repo: it promotes, waits for
 the build to settle, runs 12 real-Chromium repetitions against live, and rolls back on its own if they fail. No
 hand-pushed `release` branch, no promote from a branch. Helper PRs open as **drafts**, so un-drafting is a
-planned step the parent takes after the gates and review (never the helper). The gate evidence is the one
+planned step the parent takes after the gates and review; a helper may do it itself only under ruling
+`2026-10-15-agents-may-undraft-reviewed-prs` (passing gate run and reviewer verdict with no red finding; `routing` HARD-RULES 22). The gate evidence is the one
 gate-run tail comment (`doer-rules.md` § Gate-run tail): one format, parsed by `merge-after-review.mjs` and
 `lane-end.mjs`.
 

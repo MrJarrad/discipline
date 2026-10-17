@@ -192,3 +192,17 @@ build full field CWV CI — see `hooks/scripts/technical-design-check.mjs` for t
 covers laws 2 (partial), 4, 5 (partial), 6, 7, 8. Building the field/runtime release lane is
 follow-up work, not silently deferred: track it before claiming field Law 9 as enforced
 rather than merely documented.
+
+## Laying a light effect over a live page (`2026-10-16-overlay-glow-on-a-live-page`)
+
+1. **Parse a computed colour by its form** before any lightness rule: `rgb()` is 0-255, `color(srgb ...)` is 0-1 (the Time Circuits
+   Action fill computes to the latter; a 0-255 check called every Action dark and took the blue branch for two rounds).
+2. **Re-read a target's surface on every re-measure.** A one-off read of an element still fading in sticks (the Gallery/Grid switch stayed
+   blue); never decide a look once at an animated moment.
+3. **Effect layers that blend with the page need non-isolated ancestors.** `z-index`, `transform` or `opacity < 1` on a mirror layer makes
+   an isolated group and `soft-light` / `plus-lighter` / `screen` blend with nothing. Position mirrors with left/top, put `z-index` on each
+   light layer (never the box), animate strength through a registered custom property inside the mask (never opacity).
+4. **Anything drawn from a picture's pixels samples the painted rect**, transforms included: the img's own `getBoundingClientRect()`, then
+   its object-fit and object-position, not the tile's object-fit (the photo also carries zoom or parallax).
+5. **Read token ramps whole** from the generated file with a plain `grep -o ... | sort -u` and quote the resolved values; `sort -u -t- -kN`
+   collapsed a ramp to one row and a read-back claimed "the DS has one yellow step".

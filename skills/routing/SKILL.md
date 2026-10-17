@@ -51,7 +51,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 
 ## Resume vs fresh (read before any baton row)
 
-**Resume only to fix a red on the same sha, or to continue after a doer read-back** — those
+**A `SendMessage` redirect resumes that agent: no second lane for it until it hands back** (HARD-RULES 20). **Resume only to fix a red on the same sha, or to continue after a doer read-back** — those
 are the only two non-fresh continuations (a read-back continues in the same context,
 `doer-rules.md` § You are the doer). **Everything else is a
 fresh `Agent`**, artefacts named by path. **A lane found stopped or interrupted (session

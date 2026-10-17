@@ -175,3 +175,9 @@ in the project queues: `node <plugin>/hooks/scripts/needed-from-you.mjs --projec
 ## When reviewing UI motion
 
 Use the Before/After/Why markdown table format — see [references/BUILD-DOS-AND-DONTS.md](references/BUILD-DOS-AND-DONTS.md) for the exact required shape and worked examples, or the **Review** section below for the full review posture and explicit Block/Approve decision. Never a vertical "Before: ... After: ..." list.
+
+## Blend-mode effects over a live page
+
+A blend-mode light layer animates strength through a registered custom property inside its mask, never opacity or a transform on the
+layer's ancestors (they isolate the group and the blend reaches nothing). Full rule set: `design-craft/references/TECHNICAL-DESIGN.md`
+§ Laying a light effect over a live page (`2026-10-16-overlay-glow-on-a-live-page` 3).

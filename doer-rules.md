@@ -127,6 +127,11 @@ stop only their own pids** — the parent sweeps verification servers at every l
   by the safety check). A ruling, quote or `operator said` line holds only words the operator wrote this session or
   a banked file records. Where his words are needed and absent, offer the wording in chat for him to paste.
 - Work in the branch and cwd the brief names; stay inside the named bounds.
+- **Automation touches only what the lane launched** (`2026-10-08-agent-automation-touches-only-its-own-processes`): target a pid, your own
+  `--user-data-dir` or the product bundle id, never an unscoped `tell application "<browser>"`/"front window"; kill an exact owned pid or
+  anchored profile path read back first, never a prefix; a quit step names one app.
+- **A red build or an unexplained failure in your run goes back to the parent, red until named**, never re-pushed to retrigger or "couldn't
+  reproduce"; a code comment citing a contract cites the node, else the operator row (`look-yes-merge-needs-suite-of-touched-area-2026-10-12`).
 - **One worktree name per lane, and you remove only your own.** A worktree name encodes the
   lane kind and the sha — `upload-<sha>`, `review-r<n>-<sha>`, `fix-<sha>-<topic>` — so two
   lanes on one sha never share a tree, and never the bare sha (a finishing lane deleted a

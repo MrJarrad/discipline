@@ -124,9 +124,10 @@ test("the one rule is the contract pointer", () => {
 // Ceiling raised 318 -> 319 at 1.135.0: the idea-is-a-row bullet (DISC-168) sits beside the row-add bullet.
 // Raised 322 -> 325 at 1.140.0: the never-author-the-operator's-words bullet (DISC-173) and the one-format gate-tail clause (DISC-172).
 // Raised 319 -> 322 at 1.137.0: the bounded-wait example (sleep refused, Monitor absent) sits in the no-polling bullet.
-test("doer-rules.md stays under its 325-line ceiling", () => {
+// Raised 325 -> 330 at 1.142.0: the automation-scope bullet and the red-build/unexplained-failure bullet (records 2026-10-08 agent-automation, look-yes-merge).
+test("doer-rules.md stays under its 330-line ceiling", () => {
   const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 325, `doer-rules.md is ${lines} lines; the ceiling is 325`);
+  assert.ok(lines <= 330, `doer-rules.md is ${lines} lines; the ceiling is 330`);
 });
 
 test("doer-rules carries the four standing sections", () => {
