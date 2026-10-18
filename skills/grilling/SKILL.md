@@ -62,7 +62,7 @@ three feel questions, each anchored to a reference to react to** (*"stone droppe
 pond, or a blast wave?"*), and nothing more. Scope questions (which text, mid-wipe
 behaviour) do not substitute. Feel that words cannot answer ("how dramatic", "too uniform")
 goes to a rough slider test, rung 3 (`prototype`), not another full round
-(`2026-10-18-feel-questions-with-references`). Non-look work is unchanged.
+(`2026-10-18-feel-questions-with-references`). The cap is on the feel round only; the assumption gate still applies to non-feel properties. Non-look work is unchanged.
 
 ## Smell table
 

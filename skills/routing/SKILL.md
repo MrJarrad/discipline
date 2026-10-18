@@ -35,7 +35,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
 5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
 6. **The fleet merges and ships, never the orchestrator.** Reviewer informs; the parent decides. **Merge condition: gates green + no red finding open**. One review per change, LIGHT by default. Merge asks: `present-for-review` § 6.
-7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief.
+7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief. Look or motion build, even a concrete ask: `grilling` § Feel questions.
 8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
 9. **Dispatch surface — "if a task can be done in cloud, it is."** **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **at lane open**; `description` leads `cloud — ` / `local — `.
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
