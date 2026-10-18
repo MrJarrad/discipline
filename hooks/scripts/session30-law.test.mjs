@@ -19,4 +19,5 @@ test("operator-facing motion or behaviour numbers come from the deployed probe o
 });
 test("never cd into a shared clone: the journal hook writes into the cwd", () => {
   assert.match(flat("doer-rules.md"), /\*\*Never `cd` into a shared clone or a vault subfolder\*\*: run read-only commands with absolute paths from the vault root — the session journal hook writes `\.claude\/journal\.jsonl` into the working directory/);
+  assert.match(flat("output-styles/discipline.md"), /Your own shell never `cd`s into a shared clone or vault subfolder \(`doer-rules\.md` § Repo and safety\)/);
 });
