@@ -319,9 +319,16 @@ export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? `
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
 
+/* Last line of the section's last `| # |`-headed table. A `|` block with no header
+   (stranded rows) is never the target, or rows would be appended to it and rotated
+   on every --fix run (#107 review round 2). */
 const lastTableLine = (lines, start, end) => {
-  for (let i = end - 1; i >= start; i--) if (lines[i].startsWith("|")) return i;
-  return -1;
+  let h = -1;
+  for (let i = end - 1; i >= start; i--) if (/^\|\s*#\s*\|/.test(lines[i])) { h = i; break; }
+  if (h === -1) return -1;
+  let i = h;
+  while (i + 1 < end && lines[i + 1].startsWith("|")) i++;
+  return i;
 };
 const headingIndex = (lines, re) => lines.findIndex((l) => /^##\s/.test(l) && re.test(l));
 const sectionEnd = (lines, from) => {

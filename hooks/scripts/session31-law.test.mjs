@@ -124,6 +124,21 @@ test("(1) a distinct row that reuses a topic's words passes; a near-restatement 
   assert.deepEqual(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Project page footer typeface", offline: true }).similar, ["ZZ-1"]);
 });
 
+test("(2) a stranded block below a table after a blank line is refiled once; the second --fix is a byte-identical no-op", () => {
+  const head = "| # | Item | Raised | Status | Notes |\n| - | --- | --- | --- | --- |\n";
+  for (const n of [6, 7]) { // 6 is the real DISC ## Done archive shape; 7 does not divide 1000
+    const stranded = Array.from({ length: n }, (_, i) => `| ZZ-${20 + i} | shipped ${i} | 2026-10-01 | done (#4 abcdef1) | |`).join("\n");
+    const b = `---\nname: zz-backlog\nkind: backlog\nprefix: ZZ\n---\n\n## Open\n\n${head}| ZZ-1 | a | 2026-10-01 | open | |\n\n## Done archive\n\n${head}| ZZ-2 | b | 2026-10-01 | done (#4 abcdef1) | |\n\n${stranded}\n`;
+    const v = mkVault(b);
+    const file = join(v, "projects/zz/zz-backlog.md");
+    assert.ok(drift.fixVault(v, []).changed.includes("projects/zz/zz-backlog.md"), `n=${n}: first run refiles`);
+    const once = readFileSync(file, "utf8");
+    assert.deepEqual(drift.parseBacklog(once).filter((r) => r.section === "done").map((r) => r.id), ["ZZ-2", ...Array.from({ length: n }, (_, i) => `ZZ-${20 + i}`)], `n=${n}: order kept`);
+    assert.deepEqual(drift.fixVault(v, []).changed, [], `n=${n}: second run changes nothing`);
+    assert.equal(readFileSync(file, "utf8"), once, `n=${n}: byte-identical`);
+  }
+});
+
 test("(2) judgement calls are surfaced, not fixed", () => {
   const v = mkVault(BACKLOG.replace("| ZZ-1 | Gallery", "| ZZ-1 | Gallery").replace("2026-10-01 | open | |\n| ZZ-2", "2026-10-01 | parked | |\n| ZZ-2"));
   const res = drift.fixVault(v, []);
