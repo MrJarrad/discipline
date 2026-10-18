@@ -150,7 +150,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   <branch>` — two lanes argued from hours-old `origin/<branch>` refs. **Commit and push with
   `git -C <worktree-path>`, never a `cd … && git add -A && git commit` chain** — a failed `cd`
   committed and pushed inside the vault. On a branch other lanes also push, fetch and rebase
-  immediately before every push (`session10-codify-candidates-2026-10-05` 1, 2, 7).
+  immediately before every push (`session10-codify-candidates-2026-10-05` 1, 2, 7). **Never `cd` into a shared clone or a vault subfolder**: run read-only commands with absolute paths from the vault root — the session journal hook writes `.claude/journal.jsonl` into the working directory and trips the stop hook (`2026-10-18-look-rounds-and-harness-claims` 3).
 - **Do NOT push** unless the brief explicitly authorizes it — the orchestrator reviews and pushes.
 - Never force-push. Never fabricate a result or claim a gate you did not run.
 - **A "pre-existing" claim is proven against `main`, never a branch ancestor, and by a second
