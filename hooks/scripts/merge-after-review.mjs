@@ -61,22 +61,37 @@ export function gateRunTail(comments, headSha, trusted = []) {
 }
 
 /* Reviewer verdict (`2026-10-09-every-merge-reviewed`; #361 merged without one,
-   lesson `2026-10-18-helper-waits-for-go`): a PR comment from a `trusted` login
-   whose first line is a `## Review…` heading naming `head <sha>` (7+ hex, a
-   prefix of `headSha`, backticks allowed) and whose body says `merge: yes|no`.
-   The latest such comment on the head wins. Returns `{ verdict, sha }` or null. */
-export function reviewVerdict(comments, headSha, trusted = []) {
+   lesson `2026-10-18-helper-waits-for-go`). The shape is defined once, in
+   `agents/reviewer.md` § Verdict: a PR comment or review whose line 1 is a `##`
+   heading containing `Review` and `head <sha>`, and whose verdict line is the
+   first line beginning `merge: yes|no` (bold allowed). A bold line that carries
+   `merge: yes|no` mid-sentence (#107 round 3, before the shape was defined) is
+   read when no line begins with it. `items` are `{ body, author: { login }, at? }`
+   from `trusted` logins only; the latest on the head wins, by `at` when given
+   (comments and reviews interleave). Returns `{ verdict, sha }` or null. */
+export function reviewVerdict(items, headSha, trusted = []) {
   const ok = trusted.map((t) => String(t).toLowerCase());
+  const head = String(headSha).toLowerCase();
+  const timed = (items || []).map((c, i) => ({ c, i, t: Date.parse(c.at) }));
+  timed.sort((x, y) => (Number.isNaN(x.t) || Number.isNaN(y.t) ? x.i - y.i : x.t - y.t || x.i - y.i));
   let found = null;
-  for (const c of comments || []) {
-    const body = String(c.body || "");
+  for (const { c } of timed) {
     if (!ok.includes(String(c.author?.login || "").toLowerCase())) continue;
-    const h = body.match(/^## Review[^\n]*\bhead `?([0-9a-f]{7,40})`?/);
-    const m = body.replace(/\*/g, "").match(/\bmerge: (yes|no)\b/i);
-    if (!h || !m || !String(headSha).startsWith(h[1])) continue;
-    found = { verdict: m[1].toLowerCase(), sha: h[1] };
+    const [first, ...rest] = String(c.body || "").split("\n");
+    const h = /^##\s.*review/i.test(first) && first.match(/\bhead:?\s*`?([0-9a-f]{7,40})`?/i);
+    if (!h || !head.startsWith(h[1].toLowerCase())) continue;
+    const lines = rest.map((l) => l.trim());
+    const line = lines.find((l) => /^\**merge: (yes|no)\b/i.test(l)) ?? lines.find((l) => /^\*\*.*\bmerge: (yes|no)\b.*\*\*$/i.test(l));
+    if (!line) continue;
+    found = { verdict: line.match(/\bmerge: (yes|no)\b/i)[1].toLowerCase(), sha: h[1].toLowerCase() };
   }
   return found;
+}
+
+/* Notes-only vault PR (`2026-10-18-orchestrator-merges-own-vault-notes`): every
+   changed path is markdown, outside `.github/` and `.claude/` (CI, settings). */
+export function notesOnly(paths) {
+  return paths.length > 0 && paths.every((p) => /\.md$/i.test(p) && !/^\.(github|claude)\//.test(p));
 }
 
 /* Logins whose gate-run tail counts: the repo owner and the authenticated
@@ -135,7 +150,7 @@ function main() {
 
   let status;
   try {
-    const out = run("gh", ["pr", "view", prNumber, "--repo", ownerRepo, "--json", "statusCheckRollup,mergeable,headRefOid,comments"]);
+    const out = run("gh", ["pr", "view", prNumber, "--repo", ownerRepo, "--json", "statusCheckRollup,mergeable,headRefOid,comments,reviews,files"]);
     status = JSON.parse(out);
     status.trusted = trustedLogins(ownerRepo, (a) => run("gh", a));
   } catch (err) {
@@ -149,12 +164,13 @@ function main() {
     process.exit(1);
   }
   // Notes-only vault PRs are the orchestrator's own merge (`2026-10-18-orchestrator-merges-own-vault-notes`).
-  const review = reviewVerdict(status.comments, status.headRefOid, status.trusted);
-  if (!/\/jhd-vault$/i.test(ownerRepo) && review?.verdict !== "yes") {
-    console.error(`merge-after-review: refused — no reviewer verdict with merge: yes on head ${String(status.headRefOid).slice(0, 7)}${review ? " (latest says merge: no)" : ""}; dispatch the reviewer first`);
+  const at = (k) => (c) => ({ ...c, at: c[k] });
+  const review = reviewVerdict([...(status.comments || []).map(at("createdAt")), ...(status.reviews || []).map(at("submittedAt"))], status.headRefOid, status.trusted);
+  const notes = /^mrjarrad\/jhd-vault$/i.test(ownerRepo) && notesOnly((status.files || []).map((f) => f.path));
+  if (!notes && review?.verdict !== "yes") {
+    console.error(`merge-after-review: refused — no reviewer verdict with merge: yes on head ${String(status.headRefOid).slice(0, 7)}${review ? " (latest says merge: no)" : ""}; dispatch the reviewer first (verdict shape: agents/reviewer.md § Verdict)`);
     process.exit(1);
   }
-
   if (args.dryRun) {
     console.log(`merge-after-review --dry-run: would squash-merge ${args.pr}, delete branch, ff main, prune worktrees`);
     if (args.thenBuild) console.log(`  would then run release-build.mjs --repo ${args.repo}`);

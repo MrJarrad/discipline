@@ -124,7 +124,7 @@ action="$1"; shift
 sub="$1"; shift
 case "$sub" in
   view)
-    echo '{"statusCheckRollup":[{"conclusion":"SUCCESS"}],"mergeable":"MERGEABLE","headRefOid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","comments":[{"body":"## Review round 1 of 2 (LIGHT), head aaaaaaa, merge: yes.","author":{"login":"owner"}}]}'
+    echo '{"statusCheckRollup":[{"conclusion":"SUCCESS"}],"mergeable":"MERGEABLE","headRefOid":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","comments":[{"body":"## Review round 1 of 2 (LIGHT), head aaaaaaa\\n\\nmerge: yes.","author":{"login":"owner"}}]}'
     ;;
   merge)
     exit 0

@@ -4,14 +4,20 @@
    cloud parents, which merge through the GitHub MCP rather than
    merge-after-review.mjs (#361 merged with no verdict, lesson
    `2026-10-18-helper-waits-for-go`). The hook has no GitHub access of its own,
-   so it reads the PR's comments from this session's transcript: the results of
-   `pull_request_read` / `issue_read` `get_comments` calls for the same PR. The
-   merge must pin `expectedHeadSha`, and a trusted (repo owner) `## Review…`
-   comment naming that head must say `merge: yes` (`reviewVerdict`). Notes-only
-   vault PRs are the orchestrator's own merge
-   (`2026-10-18-orchestrator-merges-own-vault-notes`), so jhd-vault passes. */
+   so it reads the PR from this session's transcript: `pull_request_read` /
+   `issue_read` `get_comments` and `get_reviews` results for the same PR (a
+   persisted-output stub is read from its saved file). The merge must pin
+   `expectedHeadSha`, and a verdict on that head in the shape `agents/reviewer.md`
+   § Verdict defines must say `merge: yes` (`reviewVerdict`).
+   Notes-only MrJarrad/jhd-vault PRs are the orchestrator's own merge
+   (`2026-10-18-orchestrator-merges-own-vault-notes`), proven by a `get_files`
+   read in the session (`notesOnly`).
+   Limits: trusted means the repo owner, and every fleet agent posts as that
+   login, so the gate proves a verdict-shaped comment exists, not who wrote it.
+   A subagent's own reads are not in the parent's transcript.
+   Fails closed: unreadable input or any crash denies the merge, naming why. */
 import { readFileSync } from "node:fs";
-import { reviewVerdict } from "../scripts/merge-after-review.mjs";
+import { notesOnly, reviewVerdict } from "../scripts/merge-after-review.mjs";
 
 function deny(reason) {
   console.log(JSON.stringify({
@@ -24,43 +30,65 @@ function deny(reason) {
   process.exit(0);
 }
 
-/* Comments for owner/repo#pull fetched in the transcript, oldest first, shaped `{ body, author: { login } }`. */
-export function fetchedComments(lines, { owner, repo, pullNumber }) {
+/* The PR's reads in the transcript: `{ items, files, truncated }`. `items` are
+   comments and reviews shaped `{ body, author: { login }, at }`, oldest first;
+   `files` are changed paths from `get_files`, or null when never read;
+   `truncated` is set when a result was a persisted-output stub whose file
+   could not be read. */
+export function prReads(lines, { owner, repo, pullNumber }) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map();
-  const out = [];
+  const out = { items: [], files: null, truncated: false };
   for (const line of lines) {
     let e;
     try { e = JSON.parse(line); } catch { continue; }
     const content = Array.isArray(e?.message?.content) ? e.message.content : [];
     for (const part of content) {
-      if (part.type === "tool_use" && /__(pull_request_read|issue_read)$/.test(part.name || "")) calls.set(part.id, part.input || {});
-      if (part.type !== "tool_result") continue;
+      if (part?.type === "tool_use" && /__(pull_request_read|issue_read)$/.test(part.name || "")) calls.set(part.id, part.input || {});
+      if (part?.type !== "tool_result") continue;
       const i = calls.get(part.tool_use_id);
-      if (!i || i.method !== "get_comments" || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
-      const text = Array.isArray(part.content) ? part.content.map((p) => p.text || "").join("") : String(part.content || "");
-      try {
-        for (const c of JSON.parse(text)) out.push({ body: c.body, author: { login: c.user?.login } });
-      } catch {}
+      if (!i || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
+      if (!["get_comments", "get_reviews", "get_files"].includes(i.method)) continue;
+      let text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
+      if (text.startsWith("<persisted-output>")) {
+        try { text = readFileSync(text.match(/saved to: (\S+)/)[1], "utf8"); } catch { out.truncated = true; continue; }
+      }
+      let rows;
+      try { rows = JSON.parse(text); } catch { continue; }
+      if (!Array.isArray(rows)) continue;
+      if (i.method === "get_files") out.files = [...(out.files || []), ...rows.map((f) => f.filename)];
+      else for (const c of rows) out.items.push({ body: c.body, author: { login: c.user?.login }, at: c.submitted_at ?? c.created_at });
     }
   }
   return out;
 }
 
-function main() {
-  let input;
-  try { input = JSON.parse(readFileSync(0, "utf8")); } catch { process.exit(0); }
+function check(input) {
   const t = input.tool_input || {};
-  if (/^jhd-vault$/i.test(String(t.repo))) process.exit(0);
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
+  let lines = [];
+  try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
+  const reads = prReads(lines, t);
+  if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
+    if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; read its files with pull_request_read get_files first, or get a reviewer verdict.`);
+    if (notesOnly(reads.files)) process.exit(0);
+    const other = reads.files.filter((f) => !notesOnly([f]));
+    if (!other.length) deny(`merge-review-gate: ${pr} — the get_files read listed no files; re-read it before merging.`);
+    if (!/^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""))) deny(`merge-review-gate: ${pr} is not notes-only (${other.join(", ")}); it needs a reviewer verdict and a pinned expectedHeadSha.`);
+  }
   if (!/^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""))) {
     deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head the reviewer verdict names) so the merge lands only the reviewed head.`);
   }
-  let lines = [];
-  try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
-  const review = reviewVerdict(fetchedComments(lines, t), t.expectedHeadSha, [t.owner]);
+  const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner]);
   if (review?.verdict === "yes") process.exit(0);
-  deny(`merge-review-gate: ${pr} — ${review ? "the latest reviewer verdict says merge: no" : "no reviewer verdict"} with merge: yes on head ${t.expectedHeadSha.slice(0, 7)} in this session (\`2026-10-09-every-merge-reviewed\`). Dispatch the reviewer; once its verdict comment (\`## Review… head <sha>\` … \`merge: yes\`) is on the PR, read it with pull_request_read get_comments, then merge.`);
+  const why = review ? "the latest reviewer verdict says merge: no" : reads.truncated ? "the verdict read was truncated; re-read the comments and reviews with a smaller perPage —" : "no reviewer verdict";
+  deny(`merge-review-gate: ${pr} — ${why} with merge: yes on head ${t.expectedHeadSha.slice(0, 7)} in this session (\`2026-10-09-every-merge-reviewed\`). Dispatch the reviewer; once its verdict (shape: agents/reviewer.md § Verdict) is on the PR as a comment or review, read it with pull_request_read get_comments / get_reviews, then merge.`);
 }
 
-if (process.argv[1] && process.argv[1].endsWith("merge-review-gate.mjs")) main();
+if (process.argv[1] && process.argv[1].endsWith("merge-review-gate.mjs")) {
+  try {
+    check(JSON.parse(readFileSync(0, "utf8")));
+  } catch (err) {
+    deny(`merge-review-gate failed closed — ${err.message}. The merge is refused until the gate runs cleanly; re-run the merge, or report the gate error.`);
+  }
+}

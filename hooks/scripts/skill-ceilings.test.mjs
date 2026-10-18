@@ -90,7 +90,7 @@ const CEILINGS = [
   // the media-load-probe re-run evidence line (`media-loading`).
   // Ceiling raised 1500 -> 1600 at 1.105.0: the props-by-default review line
   // (rule text lives once in HOUSE-RULES; this line only carries severities).
-  { skill: "agents/reviewer.md", ceiling: 1645, /* 1.127.0 +30: no small-fix exemption; 1.144.1 +15: notes-only vault boundary stated in place */ before: 2017, frontmatterWords: 72 },
+  { skill: "agents/reviewer.md", ceiling: 1712, /* 1.127.0 +30: no small-fix exemption; 1.144.1 +15: notes-only vault boundary stated in place; 1.148.0 +67 (measured 1712): verdict shape defined once for the merge gates (#108 RED-2) */ before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
   { skill: "vault-write", ceiling: 1212, /* 1.144.0 +9 (measured, 2026-10-18): vault notes-only carve-out cite (DISC-186); 1.135.0 +3: ideas-as-rows pointer (DISC-168) */  before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },

@@ -226,6 +226,19 @@ test("full run: all-SUCCESS + MERGEABLE merges via stubbed gh and ff-pulls main"
   }
 });
 
+test("a verdict posted as a PR review (gh --json reviews) is enough to merge (#108 RED-1)", () => {
+  const { cloneDir } = makeBareRemoteAndClone("review");
+  const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-bin-"));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", headRefOid: "a".repeat(40), comments: [], reviews: [{ ...REVIEWED.comments[0], submittedAt: "2026-10-18T15:15:13Z" }] }));
+  try {
+    const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", cloneDir], { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } });
+    assert.match(out, /merged owner\/repo#9/);
+  } finally {
+    rmSync(cloneDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
 test("green + MERGEABLE with no reviewer verdict on the head is refused and never merges (#361)", () => {
   const { cloneDir } = makeBareRemoteAndClone("unreviewed");
   const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-bin-"));
