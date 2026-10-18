@@ -1,3 +1,6 @@
+1.145.0 — `2026-10-18-1145-disc-185`: backlog DISC-185, ruling [[2026-10-18-feel-questions-with-references]]. `grilling` § Feel questions owns the rule: before any look or motion build or round, two or three feel questions each anchored to a reference, nothing more; scope questions do not substitute; feel words cannot answer goes to a rough slider test (rung 3), not a full round. `dispatch-brief` row 5 already routes feel asks to `grilling`, so no pointer was added (dispatch-brief sits at its ceiling). No ceiling change (grilling has none).
+encoded: 1.145.0 — backlog DISC-185, 2026-10-18-feel-questions-with-references.
+
 1.144.1 — `2026-10-18-1144-disc-186b`: backlog DISC-186 follow-up, ruling [[2026-10-18-orchestrator-merges-own-vault-notes]]. "Notes-only vault PRs" is self-contained where a reviewer reads it: `agents/reviewer.md` and `routing` HARD-RULES name the MrJarrad/jhd-vault repo, markdown records, indexes and queue/backlog rows only, and that scripts, hooks, CI and settings still get a reviewer. Ceiling: agents/reviewer.md 1630 -> 1645 (1641).
 encoded: 1.144.1 — backlog DISC-186, 2026-10-18-orchestrator-merges-own-vault-notes.
 

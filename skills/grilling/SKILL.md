@@ -9,7 +9,8 @@ description: >-
   could answer in one line — "how does X look", "what kind of X", "which type of X",
   which convention/library/approach to use, what the expected behaviour is, any brief
   that assumes a property the operator could answer. Applies to fix rounds too, not
-  only new builds. Composes define-terms when a repo is open.
+  only new builds. Before any look or motion build or round, ask two or three feel
+  questions with references. Composes define-terms when a repo is open.
 ---
 
 # Grilling
@@ -53,6 +54,15 @@ label to invent — cross-reference the vocabulary rule in `define-terms`.
 
 See [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) for the worked
 velcro example.
+
+## Feel questions (look and motion work)
+
+Before dispatching any look- or motion-related build or round, ask the operator **two or
+three feel questions, each anchored to a reference to react to** (*"stone dropped in a
+pond, or a blast wave?"*), and nothing more. Scope questions (which text, mid-wipe
+behaviour) do not substitute. Feel that words cannot answer ("how dramatic", "too uniform")
+goes to a rough slider test, rung 3 (`prototype`), not another full round
+(`2026-10-18-feel-questions-with-references`). Non-look work is unchanged.
 
 ## Smell table
 
