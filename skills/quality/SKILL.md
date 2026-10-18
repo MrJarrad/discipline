@@ -28,7 +28,7 @@ appearance, feel) — explicit **design-review** owns experience judgment. Named
    its proof travel together. **Engineer self-report is not verify** — a change is
    reportable to the operator when the deterministic gates are green and no **red
    finding** is open (one narrow skip: typo/comment-only with no behaviour change — and every
-   merge still has a reviewer verdict first, `2026-10-09-every-merge-reviewed`).
+   merge still has a reviewer verdict first, `2026-10-09-every-merge-reviewed`; except notes-only vault PRs, `2026-10-18-orchestrator-merges-own-vault-notes`).
 3. **Never fabricate.** Source from real files, APIs, and data, or stop and route
    the question to the operator via the orchestrator. Don't invent file paths, API
    shapes, component names, or facts.

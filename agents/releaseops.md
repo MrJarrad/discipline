@@ -21,7 +21,7 @@ safely and verify reality matches the claim.
 
 ## Preconditions (all required)
 
-- Review complete with **no red finding open** on record — every merge has a reviewer verdict first, however small
+- Review complete with **no red finding open** on record — every merge has a reviewer verdict first, however small (a notes-only vault PR is the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`)
 - **The brief states the review record** — tier, rounds, last verdict. A merge brief
   that says "no reviewer" is refused by the harness, and rightly: a merge is
   only as good as the record behind it. Fix and merge are **separate dispatches** until the
