@@ -10,8 +10,10 @@
    (`ls-remote`, explicit-refspec fetch: clones are shallow, so a lane branch is
    invisible until fetched by name); `gh` is used for PR state and checks when it
    answers, and a line says what could not be read when it does not. Nothing here
-   throws on a network failure, writes to the vault, or reprints the operator queue
-   (path + open-row count only).
+   throws on a network failure or reprints the operator queue (path + open-row
+   count only). The one vault write is the list check's mechanical fix (DISC-189,
+   decision 2026-10-18-orderly-backlogs: list-drift-check --fix at session start);
+   the digest names the files it changed, for the parent to bank.
 
    Next-block format (one lane per `- lane:` item, ` | `-separated key: value):
      - lane: profile | repo: jhd-portfolio | branch: claude/profile | pr: #299 |
@@ -27,6 +29,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
+import { FAILING, fixVault } from "./list-drift-check.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -256,6 +259,12 @@ export function buildDigest(opts = {}) {
   text.push(qs.length
     ? `queues: ${qs.map(([prefix, e]) => `${prefix} ${countOpenQueueRows(readFileSync(join(vault, e.queue), "utf8"))} open`).join(" · ")} (counts only, one file per project: projects/<p>/<p>-queue.md; print a session's rows with needed-from-you.mjs --projects <prefixes>)`
     : "queues: no projects/<p>/<p>-queue.md found");
+  // DISC-189: the list check runs at session start and fixes what needs no judgement itself.
+  try {
+    const res = fixVault(vault, Object.values(ctx.repos));
+    const left = res.findings.filter((f) => FAILING.has(f.kind)).length;
+    text.push(`lists: ${res.changed.length ? `fixed ${res.changed.join(", ")} — bank with vault-write` : "nothing to fix"}; ${left} for a person (list-drift-check.mjs --vault <vault>)`);
+  } catch (e) { text.push(`lists: check not run (${String(e.message).split("\n")[0]})`); }
   text.push("");
 
   const lanes = [];

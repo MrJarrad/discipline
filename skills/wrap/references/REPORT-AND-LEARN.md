@@ -117,7 +117,8 @@ Ruling `follow-ups-before-wrap` (operator, 2026-10-08). Reviewer ambers and note
 ## Lists are never stale
 
 Ruling `lists-never-stale` (operator, 2026-10-08: *"the lists should never be stale"*). Before the wrap report, run
-`node <plugin>/hooks/scripts/list-drift-check.mjs --vault <vault> --repo <each product repo touched>` (offline; PRs are judged against that git history).
+`node <plugin>/hooks/scripts/list-drift-check.mjs --vault <vault> --repo <each product repo touched> --fix --stale` (offline; PRs are judged against that git history). `--fix` makes the repairs that need no judgement itself (DISC-189, decision `2026-10-18-orderly-backlogs`): rows a merged PR's title names are struck and moved to Done, merged `in flight` rows flip to done, misplaced and stranded rows are refiled, bare IDs get the prefix, `[NEXT SESSION]` tags on finished rows are struck, a stale `Next free number` is raised. Bank the files it names with `vault-write`; session start (`session-resume.mjs`) runs the same fix.
+- Each `stale` row (open, untouched 30 days) goes to the operator once, in the wrap report: keep or park. Park is `open` with the trigger in Notes; nothing is struck without his answer.
 
 - It reads every `projects/*/*-backlog.md` and `projects/*/*-queue.md` (and fails on any row left in the `orchestrator/operator-queue.md` index); it fails on a status outside the fixed set (`open`, `waiting on operator`, `in flight (<PR>)`, `done (<PR> <sha>)`, `moot (<reason>)`), a row citing a merged PR still open, a row under the wrong Open/Done heading, a project with a handover but no backlog, and two backlogs for one project.
 - `unknown` means a cited PR could not be resolved with the repos given: pass the repo, or check it by hand. It is never reported as done.
