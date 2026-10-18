@@ -49,6 +49,8 @@ it supersedes the before-the-link half of `accuracy-before-the-link`. Pixel proo
 audits, the coverage ledger's measured rows and scenario sweeps run **after the operator's yes**,
 sized to what merge needs. Trial: revisit if a link reaches him broken in a way this check would have caught.
 
+**Interactive or motion work: a live walk is part of link-ready** — real gestures on the deployed preview, and whenever the operator sends a recording ([PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Live walk). Static look lanes are unchanged.
+
 **The driven-row check follows the yes** — the ledger carries a driven row per control type (`qa-acceptance` § The eight row classes) and runs with the other after-yes proof; screenshots and a pixel diff prove look, not function (`ui-controls-never-clicked-2026-10-05`). The link never waits on it, and merge does: no control type merges undriven.
 
 **After the yes, none of that is a review round**, and none is shown to the operator.

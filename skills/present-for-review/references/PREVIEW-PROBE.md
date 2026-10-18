@@ -24,3 +24,13 @@ build, and the operator reported a "still broken" bug that was already fixed.
 9. Builds for one `preview/*` branch can finish out of order, an older sha overwriting a newer deploy, and a green build can keep
    the old bundle served for 3–5 minutes (`served-preview-is-the-proof-2026-10-17`). Probe the served page only once the build for
    **your sha is the latest successful build for that branch**, then for a string only your sha has (item 1).
+
+## Live walk
+
+Ruling `2026-10-18-live-walk-before-look-links` (DISC-190; operator: *"yes, hopefully this will mean less need for
+recording as well"*). For interactive or motion work, once the probe above finds your sha, drive the deployed preview with
+real gestures in headed Chromium and record it: a trackpad stream with momentum, reading pace, mouse notches, the pointer
+over each region, start → end → back, close and reopen. Check each item of the round against the recording; fix what fails,
+or name it in the link message. When the operator sends a recording, run the same walk beside the frame read and say which
+of his issues it confirms, corrects or adds to. Method and drive scripts: vault
+`references/portfolio/2026-10-18-notes-r16-live-walk/` (confirmed 3 of 4 recording issues, corrected 1, found 4 more).
