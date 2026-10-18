@@ -1,3 +1,6 @@
+1.145.1 — `2026-10-18-1145-disc-185b`: backlog DISC-185 follow-up (#104 reviewer ambers), ruling [[2026-10-18-feel-questions-with-references]]. `routing` rule 7 points any look or motion build or round, including a concrete ask, to `grilling` § Feel questions; that section states the cap binds the feel round only and the assumption gate still applies to non-feel properties. No other behaviour change. Ceiling: routing 1844 -> 1856.
+encoded: 1.145.1 — backlog DISC-185, 2026-10-18-feel-questions-with-references.
+
 1.145.0 — `2026-10-18-1145-disc-185`: backlog DISC-185, ruling [[2026-10-18-feel-questions-with-references]]. `grilling` § Feel questions owns the rule: before any look or motion build or round, two or three feel questions each anchored to a reference, nothing more; scope questions do not substitute; feel words cannot answer goes to a rough slider test (rung 3), not a full round. `dispatch-brief` row 5 already routes feel asks to `grilling`, so no pointer was added (dispatch-brief sits at its ceiling). No ceiling change (grilling has none).
 encoded: 1.145.0 — backlog DISC-185, 2026-10-18-feel-questions-with-references.
 
