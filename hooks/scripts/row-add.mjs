@@ -6,7 +6,12 @@
             --text "<item or need>" [--raised YYYY-MM-DD]          (backlog)
             [--status "waiting on operator"]  (backlog; an idea is added so)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
+            [--merge-into <ID>]  fold the text into that open row instead (dated; backlog Notes, queue Needed)
+            [--distinct]     add the row even though it resembles an open one
             [--offline]      skip the origin/main check (tests, no network)
+   A new row that resembles an open backlog row or unstruck queue row (shared
+   content words) is refused, naming the rows, unless --merge-into or --distinct
+   says which (DISC-189, decision 2026-10-18-orderly-backlogs).
    Prints the new ID (e.g. PF-682) on stdout. Exit 0 added · 1 refused (the
    reason is on stderr) · 2 usage error. Warnings (origin unreachable) go to
    stderr and do not fail the call.
@@ -17,7 +22,7 @@
    once across both.                                                         */
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { addRow } from "./list-drift-check.mjs";
+import { addRow, parseBacklog, parseStatus } from "./list-drift-check.mjs";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
 import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
@@ -43,7 +48,36 @@ export function addQueueRow(text, prefix, n, cells) {
   return { ok: true, text: lines.join("\n") };
 }
 
-export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status }) {
+/* Content words: lowercased runs of 4+ letters/digits, minus filler. */
+const FILLER = new Set("with from that this then than into when what which have been also only just more some each them they their there should would could after before again about".split(" "));
+const words = (s) => new Set((String(s).toLowerCase().match(/[a-z0-9]{4,}/g) || []).filter((w) => !FILLER.has(w)).map((w) => w.replace(/s$/, "")));
+
+/* Open rows of the project (backlog open/waiting/in flight, unstruck queue rows): { id, item, file, cells, lineIndex }. */
+function openRows(vault, owner) {
+  const out = [];
+  if (owner.backlog) for (const r of parseBacklog(readFileSync(join(vault, owner.backlog), "utf8"))) {
+    const k = parseStatus(r.status)?.kind;
+    if (!r.struck && r.section !== "done" && k !== "done" && k !== "moot") out.push({ id: r.id, item: r.cells[1] || "", file: owner.backlog, cells: r.cells, lineIndex: r.lineIndex });
+  }
+  if (owner.queue) for (const r of tableRows(readFileSync(join(vault, owner.queue), "utf8"))) {
+    if (!r.struck) out.push({ id: r.id, item: r.cells[1] || "", file: owner.queue, cells: r.cells, lineIndex: r.lineIndex });
+  }
+  return out;
+}
+
+/* Open rows sharing at least 3 content words and 60% of the longer text's words
+   (a distinct row that reuses a topic's words, "remove the footer typeface override
+   …" beside "pick the footer typeface …", passes; #107 review). */
+export function similarRows(text, rows) {
+  const a = words(text);
+  return rows.filter((r) => {
+    const b = words(r.item);
+    const shared = [...a].filter((w) => b.has(w)).length;
+    return shared >= 3 && shared / Math.max(a.size, b.size) >= 0.6;
+  });
+}
+
+export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct }) {
   const warnings = [];
   const fail = (reason) => ({ ok: false, reason, warnings });
   if (!/^[A-Z]{2,4}$/.test(String(prefix || ""))) return fail(`--prefix must be a project prefix like PF, got "${prefix ?? ""}"`);
@@ -58,6 +92,26 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
     const owner = discoverFiles(vault).byPrefix.get(prefix);
     if (!owner) return fail(`no project queue declares prefix ${prefix} (frontmatter \`prefix:\` in projects/<p>/<p>-queue.md)`);
     const rels = [owner.queue, owner.backlog].filter(Boolean);
+    const open = openRows(vault, owner);
+    if (mergeInto) {
+      const row = open.find((r) => r.id === mergeInto);
+      if (!row) return fail(`${mergeInto} is not an open row of ${prefix} (merge into an open backlog row or unstruck queue row)`);
+      const path = join(vault, row.file);
+      const lines = readFileSync(path, "utf8").split("\n");
+      const c = row.cells.slice();
+      const note = `${clean(raised) || new Date().toISOString().slice(0, 10)}: ${clean(text)}`;
+      // Backlog: the Notes (last) cell. Queue: the Needed cell, never Recommended (#107 review).
+      const at = row.file === owner.queue ? 1 : c.length - 1;
+      c[at] = c[at] ? `${c[at]} · ${note}` : note;
+      lines[row.lineIndex] = `| ${c.join(" | ")} |`;
+      writeAtomic(path, lines.join("\n"));
+      return { ok: true, id: row.id, file: row.file, merged: true, warnings };
+    }
+    const like = distinct ? [] : similarRows(clean(text), open);
+    if (like.length) {
+      const named = like.map((r) => `${r.id} ("${r.item.slice(0, 60)}")`).join(", ");
+      return { ...fail(`resembles open row ${named}: rerun with --merge-into ${like[0].id} to fold it in, or --distinct to add a new row`), similar: like.map((r) => r.id) };
+    }
     const target = owner[to];
     if (!target) return fail(`${prefix} has no ${to} file`);
     const local = rels.map((r) => readFileSync(join(vault, r), "utf8"));
@@ -91,16 +145,17 @@ function main() {
   for (let i = 0; i < argv.length; i++) {
     if (!argv[i].startsWith("--")) { console.error(`row-add: unexpected argument "${argv[i]}"`); process.exit(2); }
     const k = argv[i].slice(2);
-    a[k] = k === "offline" ? true : argv[++i];
+    a[k] = k === "offline" || k === "distinct" ? true : argv[++i];
   }
   if (!a.vault || !a.prefix || !a.to || !a.text) {
-    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--offline]");
+    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--merge-into ID | --distinct] [--offline]");
     process.exit(2);
   }
-  const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline) });
+  const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct) });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
   // DISC-179(1): tell the Stop hook a new ask was raised this turn.
+  if (res.merged) { console.log(res.id); return; }
   try { writeMarker(resolve(a.vault), { prefix: a.prefix, id: res.id, to: a.to }); } catch { /* the marker is a nudge, never a failure */ }
   console.log(res.id);
 }

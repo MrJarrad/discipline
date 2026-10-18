@@ -26,13 +26,29 @@
    Exit 1 on drift / bad-status / misplaced / no-backlog / duplicate; `suspect` and `unknown`
    alone exit 0 (needs a repo the caller did not give).
 
-   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]...
+   --fix (DISC-189, decision 2026-10-18-orderly-backlogs) repairs what needs no
+   judgement, then reports what is left: an `in flight (#n)` row whose own PR
+   merged becomes `done (<repo> #n <sha>)` and moves to Done; misplaced and
+   stranded rows (outside any `| # |` table) are refiled by status; a bare ID
+   takes the file's prefix when that ID is free; `[NEXT SESSION …]` on a
+   done/moot row is struck in place; a `Next free number` below the highest used
+   is raised. Rows are never deleted and numbers never reused. bad-status,
+   dup-id, suspect, unknown and named-by stay for a person: `named-by` (non-failing)
+   is an open row whose ID a merged PR's title names. A title can name a row it
+   does not finish ("part 1 of 3", a prototype, a follow-up), so it is never
+   struck on that alone; Revert titles are ignored (#107 review, red).
+   --stale [--days 30] adds a `stale` line (non-failing) for each open row whose
+   last change (git blame) and Raised date are both older than the window: keep
+   or park, asked at wrap. A shallow clone can only under-report.
+
+   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]]
    Also exports the row editors lane-end uses (setRowStatus, addRow).        */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { discoverFiles, frontmatterPrefix, tableRows } from "./lib/queue-ids.mjs";
 import { checkIdeaSheets } from "./lib/idea-sheets.mjs";
+import { highestUsed } from "./lib/row-alloc.mjs";
 
 const ALIAS = { ds: "jhd-design-system" };
 // `<name>/main` worktree layout: the repo is the parent folder's name.
@@ -106,14 +122,24 @@ export function mergedIndex(repos) {
   const list = [];
   for (const path of repos) {
     try {
-      const subjects = git(path, "log", defaultRef(path), "--format=%s").split("\n");
+      // One record per commit: sha, subject, body. A merge commit's PR title is its body's first line.
+      const commits = git(path, "log", defaultRef(path), "--format=%h%x00%s%x00%b%x1e").split("\x1e").map((c) => c.replace(/^\n/, "").split("\0")).filter((c) => c.length >= 2);
       const nums = new Set();
-      for (const s of subjects) {
-        for (const m of s.matchAll(/\(#(\d+)\)\s*$|^Merge pull request #(\d+)/g)) nums.add(m[1] || m[2]);
+      const shaOf = new Map();
+      const named = [];
+      for (const [sha, subj, body = ""] of commits) {
+        for (const m of subj.matchAll(/\(#(\d+)\)\s*$|^Merge pull request #(\d+)/g)) {
+          const n = m[1] || m[2];
+          nums.add(n);
+          if (!shaOf.has(n)) shaOf.set(n, sha);
+          const title = m[2] ? (body.split("\n").find((l) => l.trim()) || "") : subj;
+          if (/^revert\b/i.test(title.trim())) continue;
+          for (const id of title.match(/\b[A-Z]{2,4}-\d+[a-z]?\b/g) || []) named.push({ id, num: n, sha });
+        }
       }
       let slug = "";
       try { slug = /[:/]([\w.-]+\/[\w.-]+?)(?:\.git)?$/.exec(git(path, "remote", "get-url", "origin").trim())?.[1] || ""; } catch {}
-      list.push({ path, slug, nums, name: repoName(path) });
+      list.push({ path, slug, nums, shaOf, named, name: repoName(path) });
     } catch { /* not a repo: contributes nothing, so its PRs stay unknown */ }
   }
   // Repos a ref can mean: owner/repo by remote slug, a bare name by basename. A bare
@@ -138,6 +164,16 @@ export function mergedIndex(repos) {
     repoKnown(ref, project) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
       return Boolean(m) && match(m, project).length > 0;
+    },
+    // `<repo> #n <sha>` for each merged PR whose title names this row ID (DISC-189; reported, never struck).
+    namedBy(id) {
+      return list.flatMap((r) => r.named.filter((x) => x.id === id).map((x) => `${r.name} #${x.num} ${x.sha}`));
+    },
+    // `<repo> #n <sha>` for a merged PR ref, or null.
+    mergeOf(ref, project) {
+      const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
+      const r = m && match(m, project).find((x) => x.nums.has(m[3]));
+      return r ? `${r.name} #${m[3]} ${r.shaOf.get(m[3])}` : null;
     },
     hasSha(sha, ref = "#0", project) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
@@ -166,6 +202,7 @@ export function checkBacklog(project, text, idx) {
       continue;
     }
     if (st.kind === "moot") continue;
+    for (const by of idx.namedBy?.(r.id) || []) if (!r.struck) add("named-by", r.id, `${st.kind} row is named by merged ${by}: strike it if that PR finished it`);
     const cited = st.kind === "in-flight" ? [st.pr] : [];
     for (const pr of cited) {
       if (idx.merged(pr, project)) add("drift", r.id, `in flight on ${pr}, which is merged`);
@@ -185,7 +222,8 @@ export function checkQueue(text, idx, label = "") {
   const out = [];
   for (const line of String(text).split("\n")) {
     const m = ROW.exec(line);
-    if (!m || m[1]) continue;
+    if (!m || m[1] || /^\|\s*[^|]+\|\s*~~/.test(line)) continue;
+    for (const by of idx.namedBy?.(m[2]) || []) out.push({ kind: "named-by", project: label, row: m[2], msg: `open queue row is named by merged ${by}: strike it if the operator's ask is answered` });
     for (const pr of new Set(refsIn(line))) {
       if (idx.merged(pr)) out.push({ kind: "suspect", project: label, row: m[2], msg: `open queue row cites ${pr}, which is merged: confirm it is still open` });
     }
@@ -281,9 +319,16 @@ export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? `
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
 
+/* Last line of the section's last `| # |`-headed table. A `|` block with no header
+   (stranded rows) is never the target, or rows would be appended to it and rotated
+   on every --fix run (#107 review round 2). */
 const lastTableLine = (lines, start, end) => {
-  for (let i = end - 1; i >= start; i--) if (lines[i].startsWith("|")) return i;
-  return -1;
+  let h = -1;
+  for (let i = end - 1; i >= start; i--) if (/^\|\s*#\s*\|/.test(lines[i])) { h = i; break; }
+  if (h === -1) return -1;
+  let i = h;
+  while (i + 1 < end && lines[i + 1].startsWith("|")) i++;
+  return i;
 };
 const headingIndex = (lines, re) => lines.findIndex((l) => /^##\s/.test(l) && re.test(l));
 const sectionEnd = (lines, from) => {
@@ -347,15 +392,180 @@ export function addRow(text, item, raised, { floor = 0, status = "open" } = {}) 
   return { ok: true, text: lines.join("\n"), n: next, id: prefix ? `${prefix}-${next}` : String(next) };
 }
 
+/* --- --fix: repairs that need no judgement (DISC-189, decision 2026-10-18-orderly-backlogs) --- */
+
+/* Move the row at lineIndex to the end of the ## Open or ## Done table (created if missing). */
+function moveRow(text, lineIndex, to) {
+  const lines = String(text).split("\n");
+  const [row] = lines.splice(lineIndex, 1);
+  const re = to === "open" ? /^##\s+open\b/i : /^##\s+done\b/i;
+  let h = headingIndex(lines, re);
+  if (h === -1) {
+    if (to === "open") return null; // no Open section: a person files it
+    lines.push("", "## Done", "", ...doneHead(lines), row);
+    return lines.join("\n");
+  }
+  let at = lastTableLine(lines, h + 1, sectionEnd(lines, h));
+  if (at === -1) { const hd = doneHead(lines); lines.splice(h + 1, 0, "", ...hd); at = h + 1 + hd.length; }
+  lines.splice(at + 1, 0, row);
+  return lines.join("\n");
+}
+
+/* Row lines in a `|` block that does not start with a `| # |` header: stranded outside any table. */
+function strandedLines(text) {
+  const out = [];
+  let inTable = false;
+  String(text).split("\n").forEach((l, i) => {
+    if (!l.startsWith("|")) { inTable = false; return; }
+    if (/^\|\s*#\s*\|/.test(l)) { inTable = true; return; }
+    if (!inTable && ROW.test(l)) out.push(i);
+  });
+  return out;
+}
+
+const finishedKind = (status) => ["done", "moot"].includes(parseStatus(status)?.kind);
+
+/* Apply edit(text) -> text|null until it returns null; each pass re-parses, since rows move. */
+const untilStable = (text, edit, cap = 1000) => {
+  for (let i = 0; i < cap; i++) { const next = edit(text); if (next == null || next === text) return text; text = next; }
+  return text;
+};
+
+/* One backlog: `others` is the project's queue text (numbers are one sequence per prefix). */
+export function fixBacklog(text, project, idx, others = "") {
+  const prefix = frontmatterPrefix(text);
+  // 1. Stranded rows go to Open or Done by status.
+  text = untilStable(text, (t) => {
+    const i = strandedLines(t)[0];
+    if (i === undefined) return null;
+    const c = cells(t.split("\n")[i]);
+    const statusAt = cells(t.split("\n").find((l) => /^\|\s*#\s*\|/.test(l)) || "").findIndex((x) => x.toLowerCase() === "status");
+    // Filed by the status's first word, so an off-set `done — #329 …` still lands in Done (and is reported as bad-status).
+    return moveRow(t, i, /^(done|moot)\b/i.test(c[statusAt >= 0 ? statusAt : c.length - 1] || "") ? "done" : "open");
+  });
+  // 2. A bare ID takes the file's prefix when that ID is free across queue and backlog.
+  if (prefix) text = untilStable(text, (t) => {
+    const used = new Set([...tableRows(t), ...tableRows(others)].map((r) => r.id));
+    const r = tableRows(t).find((x) => x.bare && !used.has(`${prefix}-${x.n}`));
+    if (!r) return null;
+    const lines = t.split("\n");
+    lines[r.lineIndex] = lines[r.lineIndex].replace(/^(\|\s*(?:~~)?)(\d+[a-z]?)/, `$1${prefix}-$2`);
+    return lines.join("\n");
+  });
+  // 3. An `in flight (#n)` row whose own PR merged is done. A title naming a row is only reported (named-by).
+  text = untilStable(text, (t) => {
+    for (const r of parseBacklog(t)) {
+      const st = parseStatus(r.status);
+      if (r.struck || st?.kind !== "in-flight") continue;
+      const by = idx.mergeOf(st.pr, project);
+      if (!by) continue;
+      const res = setRowStatus(t, r.id, `done (${by})`);
+      if (res.ok) return res.text;
+    }
+    return null;
+  });
+  // 4. Misplaced rows: done/moot under Open move to Done; open-ish under Done move to Open.
+  text = untilStable(text, (t) => {
+    for (const r of parseBacklog(t)) {
+      const st = parseStatus(r.status);
+      if (!st) continue;
+      const fin = st.kind === "done" || st.kind === "moot";
+      if (r.section === "open" && fin) return moveRow(t, r.lineIndex, "done");
+      if (r.section === "done" && !fin) return moveRow(t, r.lineIndex, "open");
+    }
+    return null;
+  });
+  // 5. `[NEXT SESSION …]` on a finished row is struck in place (the session-start grep dispatches every hit).
+  const lines = text.split("\n");
+  for (const r of parseBacklog(text)) {
+    if (finishedKind(r.status)) lines[r.lineIndex] = lines[r.lineIndex].replace(/(?<!~~)(\[NEXT SESSION[^\]]*\])(?!~~)/gi, "~~$1~~");
+  }
+  return bumpNextFree(lines.join("\n"), others);
+}
+
+/* `**Next free number: N**` below the highest row number used across the project's files is raised. */
+function bumpNextFree(text, others) {
+  const m = /\*\*Next free number:\s*(\d+)/.exec(text);
+  if (!m) return text;
+  const top = highestUsed([text.replace(m[0], ""), String(others).replace(/\*\*Next free number:\s*\d+/, "")]);
+  if (parseInt(m[1], 10) > top) return text;
+  return text.replace(/(\*\*Next free number:\s*)\d+/, `$1${top + 1}`).replace(/(Next free number:[^\n]*\(highest used )\d+/, `$1${top}`);
+}
+
+/* One queue: only the number marker. A queue row is the operator's ask: never struck by a tool (#107 review). */
+export const fixQueue = (text, idx, others = "") => bumpNextFree(String(text), others);
+
+/* Fix every project's backlog and queue in place; returns { changed: [rel], findings } (what is left). */
+export function fixVault(vault, repos) {
+  const idx = mergedIndex(repos);
+  const changed = [];
+  const projects = join(vault, "projects");
+  const dirs = existsSync(projects) ? readdirSync(projects, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
+  for (const p of dirs) {
+    const files = readdirSync(join(projects, p));
+    const b = files.filter((f) => f.endsWith("-backlog.md"));
+    const q = files.filter((f) => f.endsWith("-queue.md"));
+    if (b.length > 1 || q.length > 1) continue; // duplicate files: a person merges them first
+    const rel = (f) => `projects/${p}/${f}`;
+    const read = (f) => (f ? readFileSync(join(vault, rel(f)), "utf8") : "");
+    const [bt, qt] = [read(b[0]), read(q[0])];
+    const nb = b[0] ? fixBacklog(bt, p, idx, qt) : bt;
+    const nq = q[0] ? fixQueue(qt, idx, nb) : qt;
+    if (nb !== bt) { writeFileSync(join(vault, rel(b[0])), nb); changed.push(rel(b[0])); }
+    if (nq !== qt) { writeFileSync(join(vault, rel(q[0])), nq); changed.push(rel(q[0])); }
+  }
+  return { changed, findings: checkVault(vault, repos) };
+}
+
+/* --- --stale: open rows untouched for `days` (blame and Raised both older), asked keep-or-park at wrap --- */
+export function staleRows(vault, { days = 30, today = new Date().toISOString().slice(0, 10) } = {}) {
+  const cutoff = Date.parse(`${today}T00:00:00Z`) / 1000 - days * 86400;
+  const out = [];
+  for (const [prefix, e] of discoverFiles(vault).byPrefix) {
+    for (const rel of [e.backlog, e.queue].filter(Boolean)) {
+      let blame;
+      try { blame = git(vault, "blame", "--line-porcelain", "--", rel); } catch { continue; } // not committed: nothing to date
+      const times = [];
+      let t = 0;
+      for (const l of blame.split("\n")) {
+        if (l.startsWith("author-time ")) t = parseInt(l.slice(12), 10);
+        else if (l.startsWith("\t")) times.push(t);
+      }
+      const text = readFileSync(join(vault, rel), "utf8");
+      const rows = rel === e.backlog
+        ? parseBacklog(text).filter((r) => !r.struck && r.section !== "done" && !finishedKind(r.status))
+        : tableRows(text).filter((r) => !r.struck);
+      for (const r of rows) {
+        const touched = times[r.lineIndex];
+        const raised = /^\d{4}-\d{2}-\d{2}$/.test(r.cells[2] || "") ? Date.parse(`${r.cells[2]}T00:00:00Z`) / 1000 : 0;
+        if (!touched || touched >= cutoff || raised >= cutoff) continue;
+        const since = new Date(Math.max(touched, raised) * 1000).toISOString().slice(0, 10);
+        out.push({ kind: "stale", project: prefix, file: rel, row: r.id, msg: `untouched since ${since}: keep or park` });
+      }
+    }
+  }
+  return out;
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const vi = argv.indexOf("--vault");
-  if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]..."); process.exit(2); }
+  if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]]"); process.exit(2); }
+  const vault = resolve(argv[vi + 1]);
   const repos = argv.flatMap((a, i) => (a === "--repo" && argv[i + 1] ? argv[i + 1].split(",") : [])).map((p) => resolve(p));
-  const findings = checkVault(resolve(argv[vi + 1]), repos);
+  let findings;
+  if (argv.includes("--fix")) {
+    const res = fixVault(vault, repos);
+    console.log(res.changed.length ? `list-drift-check: fixed ${res.changed.join(", ")} (bank with vault-write)` : "list-drift-check: nothing to fix");
+    findings = res.findings;
+  } else findings = checkVault(vault, repos);
+  if (argv.includes("--stale")) {
+    const di = argv.indexOf("--days");
+    findings.push(...staleRows(vault, di === -1 ? {} : { days: parseInt(argv[di + 1], 10) }));
+  }
   for (const f of findings) console.log(formatFinding(f));
   const failing = findings.filter((f) => FAILING.has(f.kind)).length;
-  console.log(`list-drift-check: ${findings.length} finding(s), ${failing} failing, ${findings.length - failing} non-failing (suspect/unknown).`);
+  console.log(`list-drift-check: ${findings.length} finding(s), ${failing} failing, ${findings.length - failing} non-failing (suspect/unknown/named-by/stale).`);
   process.exit(failing ? 1 : 0);
 }
 
