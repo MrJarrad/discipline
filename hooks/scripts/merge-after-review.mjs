@@ -60,6 +60,25 @@ export function gateRunTail(comments, headSha, trusted = []) {
   return found;
 }
 
+/* Reviewer verdict (`2026-10-09-every-merge-reviewed`; #361 merged without one,
+   lesson `2026-10-18-helper-waits-for-go`): a PR comment from a `trusted` login
+   whose first line is a `## Review…` heading naming `head <sha>` (7+ hex, a
+   prefix of `headSha`, backticks allowed) and whose body says `merge: yes|no`.
+   The latest such comment on the head wins. Returns `{ verdict, sha }` or null. */
+export function reviewVerdict(comments, headSha, trusted = []) {
+  const ok = trusted.map((t) => String(t).toLowerCase());
+  let found = null;
+  for (const c of comments || []) {
+    const body = String(c.body || "");
+    if (!ok.includes(String(c.author?.login || "").toLowerCase())) continue;
+    const h = body.match(/^## Review[^\n]*\bhead `?([0-9a-f]{7,40})`?/);
+    const m = body.replace(/\*/g, "").match(/\bmerge: (yes|no)\b/i);
+    if (!h || !m || !String(headSha).startsWith(h[1])) continue;
+    found = { verdict: m[1].toLowerCase(), sha: h[1] };
+  }
+  return found;
+}
+
 /* Logins whose gate-run tail counts: the repo owner and the authenticated
    `gh` user (a failed `gh api user` leaves the owner alone). */
 export function trustedLogins(ownerRepo, runGh) {
@@ -127,6 +146,12 @@ function main() {
   const verdict = canMerge(status);
   if (!verdict.ok) {
     console.error(`merge-after-review: refused — ${verdict.reason}`);
+    process.exit(1);
+  }
+  // Notes-only vault PRs are the orchestrator's own merge (`2026-10-18-orchestrator-merges-own-vault-notes`).
+  const review = reviewVerdict(status.comments, status.headRefOid, status.trusted);
+  if (!/\/jhd-vault$/i.test(ownerRepo) && review?.verdict !== "yes") {
+    console.error(`merge-after-review: refused — no reviewer verdict with merge: yes on head ${String(status.headRefOid).slice(0, 7)}${review ? " (latest says merge: no)" : ""}; dispatch the reviewer first`);
     process.exit(1);
   }
 

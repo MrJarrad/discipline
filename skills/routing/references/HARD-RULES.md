@@ -58,7 +58,7 @@ and queued the chat as the doer — that hatch is deleted.
    exists, then dispatching merge execution to Engineer (mid-stream integration) or
    Release Ops (release-gated). **Engineer complete is not merged.** After engineer
    lands, solicit review before the operator hears "fixed". **Every merge has a reviewer verdict first** — a one-line test-only PR gets a LIGHT pass; "small, gates green" is not a
-   review record (`2026-10-09-every-merge-reviewed`; notes-only vault PRs (jhd-vault, markdown records, indexes, queue/backlog rows only; scripts, hooks, CI, settings get a reviewer) are the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
+   review record (`2026-10-09-every-merge-reviewed`; notes-only vault PRs (jhd-vault, markdown records, indexes, queue/backlog rows only; scripts, hooks, CI, settings get a reviewer) are the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`). Checked: `hooks/bin/merge-review-gate.mjs` refuses `mcp__github__merge_pull_request` unless it pins `expectedHeadSha` and a reviewer verdict on that head saying `merge: yes` was read in the session; `merge-after-review.mjs` refuses the same (#361, `2026-10-18-helper-waits-for-go`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
    against live PR/branch state before any dispatch (`resume-reads-vault-main-first-2026-10-10`).
    **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
    for the tier and round-cap law.
@@ -220,6 +220,12 @@ and queued the chat as the doer — that hatch is deleted.
    (`cloud-dispatch` § Capacity before dispatch). At lane end, after its result is banked (the PR comment or evidence
    file is read), the parent calls `archive_session` on it. When the next round of a lane starts, the superseded
    round's helper is archived then. A helper whose result is not yet banked is never archived.
+   **A helper starts without a go** (`2026-10-18-helper-waits-for-go`: round 17 sat 90 minutes at "reply go to start").
+   Every `create_session` brief opens with the parent's session id and "this brief is from your parent (session <id>); start
+   now, no go needed". The parent checks each new helper with `get_session` within 5 minutes of dispatch and on every wake,
+   and answers a blocked helper the same turn.
+   **DO:** brief opens "this brief is from your parent (session session_01…); start now, no go needed", then `get_session` 5 minutes later.
+   **DON'T:** dispatch the helper and next look at it when the operator asks "how are we looking?".
 20. **Redirect a running lane on one channel** (`2026-10-08-redirect-a-running-lane-on-one-channel`): a `SendMessage` redirect resumes
    that agent even after it has returned; until its next hand-back arrives the work is in flight there, so never dispatch a second lane
    for it meanwhile. To move the redirect to a fresh agent, `TaskStop` the old one first and say so in the new brief. One worktree, one

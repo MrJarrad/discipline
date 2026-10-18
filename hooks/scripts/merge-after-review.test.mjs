@@ -5,8 +5,8 @@
 // Run: node --test hooks/scripts/merge-after-review.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -148,6 +148,9 @@ function makeBareRemoteAndClone(nameHint) {
   return { remoteDir, cloneDir };
 }
 
+// A reviewer verdict with merge: yes on the stub's head (every-merge-reviewed; #361).
+const REVIEWED = { headRefOid: "a".repeat(40), comments: [{ body: "## Review round 1 of 2 (LIGHT), head aaaaaaa\n\nmerge: yes.", author: { login: "owner" } }] };
+
 function makeFakeGhBin(binDir, statusJson) {
   const ghPath = join(binDir, "gh");
   writeFileSync(
@@ -193,7 +196,7 @@ test("refuses and exits non-zero when a check is not SUCCESS, never touching the
 test("--dry-run prints the would-merge line and does not call gh pr merge or touch the repo", () => {
   const { cloneDir } = makeBareRemoteAndClone("dry");
   const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-bin-"));
-  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", ...REVIEWED }));
   try {
     const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", cloneDir, "--dry-run"], {
       encoding: "utf8",
@@ -209,7 +212,7 @@ test("--dry-run prints the would-merge line and does not call gh pr merge or tou
 test("full run: all-SUCCESS + MERGEABLE merges via stubbed gh and ff-pulls main", () => {
   const { cloneDir } = makeBareRemoteAndClone("full");
   const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-bin-"));
-  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", ...REVIEWED }));
   try {
     const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", cloneDir], {
       encoding: "utf8",
@@ -217,6 +220,21 @@ test("full run: all-SUCCESS + MERGEABLE merges via stubbed gh and ff-pulls main"
     });
     assert.match(out, /merged owner\/repo#9, main fast-forwarded, worktrees pruned/);
     assert.equal(readFileSync(join(cloneDir, "feature.md"), "utf8"), "shipped\n");
+  } finally {
+    rmSync(cloneDir, { recursive: true, force: true });
+    rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("green + MERGEABLE with no reviewer verdict on the head is refused and never merges (#361)", () => {
+  const { cloneDir } = makeBareRemoteAndClone("unreviewed");
+  const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-bin-"));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", headRefOid: "a".repeat(40), comments: [] }));
+  try {
+    const r = spawnSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", cloneDir], { encoding: "utf8", env: { ...process.env, PATH: `${binDir}:${process.env.PATH}` } });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /refused — no reviewer verdict with merge: yes on head aaaaaaa/);
+    assert.equal(existsSync(join(cloneDir, "feature.md")), false);
   } finally {
     rmSync(cloneDir, { recursive: true, force: true });
     rmSync(binDir, { recursive: true, force: true });
@@ -258,7 +276,7 @@ function makeBareLayoutRepoAndUpstreamPush(nameHint) {
 test("law: bare-layout repo — ff-pulls the main worktree, never checks a branch out inside it", () => {
   const { root, mainDir } = makeBareLayoutRepoAndUpstreamPush("full");
   const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-blbin-"));
-  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", ...REVIEWED }));
   try {
     const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", root], {
       encoding: "utf8",
@@ -277,7 +295,7 @@ test("law: bare-layout repo — ff-pulls the main worktree, never checks a branc
 test("law: bare-layout repo — a --repo entry ending in /main normalises to the repo root", () => {
   const { root, mainDir } = makeBareLayoutRepoAndUpstreamPush("normalise");
   const binDir = mkdtempSync(join(tmpdir(), "merge-after-review-blbin2-"));
-  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE" }));
+  makeFakeGhBin(binDir, JSON.stringify({ statusCheckRollup: [{ conclusion: "SUCCESS" }], mergeable: "MERGEABLE", ...REVIEWED }));
   try {
     const out = execFileSync("node", [scriptPath, "--pr", "owner/repo#9", "--repo", mainDir], {
       encoding: "utf8",

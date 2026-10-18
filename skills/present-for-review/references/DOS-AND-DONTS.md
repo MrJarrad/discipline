@@ -42,3 +42,7 @@
 **DO:** *Ready to look. Hairline is off the pills. [jarrad.design](https://jarrad.design)*
 
 **DON'T:** Open a new Browser tab/window they have to close.
+
+**DO:** Interactive or motion round: walk the deployed preview with trackpad momentum, mouse notches and close/reopen, then send the link naming what the walk found.
+
+**DON'T:** Send the link on "opens hydrated, no error" alone and wait for the operator's recording to find the scroll drift.
