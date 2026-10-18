@@ -58,7 +58,7 @@ and queued the chat as the doer — that hatch is deleted.
    exists, then dispatching merge execution to Engineer (mid-stream integration) or
    Release Ops (release-gated). **Engineer complete is not merged.** After engineer
    lands, solicit review before the operator hears "fixed". **Every merge has a reviewer verdict first** — a one-line test-only PR gets a LIGHT pass; "small, gates green" is not a
-   review record (`2026-10-09-every-merge-reviewed`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
+   review record (`2026-10-09-every-merge-reviewed`; notes-only vault PRs are the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
    against live PR/branch state before any dispatch (`resume-reads-vault-main-first-2026-10-10`).
    **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
    for the tier and round-cap law.

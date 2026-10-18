@@ -65,7 +65,7 @@ const CEILINGS = [
   // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
   // lanes are always fresh, never resumed) and one work-type-table row
   // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1839, /* 1.142.0 +17 (measured, 2026-10-17): Resume-vs-fresh pointer, a SendMessage redirect resumes that agent (HARD-RULES 20); 1.141.0 +20 (measured, 2026-10-16): baton row, merged main changes unreleased -> parent releases (DISC-178); 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
+  { skill: "routing", ceiling: 1844, /* 1.144.0 +5 (measured, 2026-10-18): vault notes-only carve-out cite (DISC-186); 1.142.0 +17 (measured, 2026-10-17): Resume-vs-fresh pointer, a SendMessage redirect resumes that agent (HARD-RULES 20); 1.141.0 +20 (measured, 2026-10-16): baton row, merged main changes unreleased -> parent releases (DISC-178); 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
   // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
   // row (detail lives in references/BUILD.md and REVIEW.md).
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
@@ -92,7 +92,7 @@ const CEILINGS = [
   // (rule text lives once in HOUSE-RULES; this line only carries severities).
   { skill: "agents/reviewer.md", ceiling: 1630, /* 1.127.0 +30: no small-fix exemption */ before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
-  { skill: "vault-write", ceiling: 1203, /* 1.135.0 +3: ideas-as-rows pointer (DISC-168) */  before: 2394, frontmatterWords: 38 },
+  { skill: "vault-write", ceiling: 1212, /* 1.144.0 +9 (measured, 2026-10-18): vault notes-only carve-out cite (DISC-186); 1.135.0 +3: ideas-as-rows pointer (DISC-168) */  before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
   { skill: "nextjs", ceiling: 1200, before: 2082, frontmatterWords: 75 },
   { skill: "prompt-craft", ceiling: 1200, before: 1811, frontmatterWords: 56 },
@@ -142,7 +142,7 @@ const RATCHETS = [
   { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
   { skill: "model-routing", ceiling: 1708 }, // 1.142.0 raised to 1708 (+18, measured) for the first-slice-of-a-new-product row (2026-10-09-first-slice-of-a-new-product-is-opus). 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
   { skill: "present-for-review", ceiling: 1700 }, // 1661 words at 1.111.0; 1699 at 1.113.0 (parent-views-evidence + cloud preview alias pointers)
-  { skill: "release-deploy", ceiling: 1610 }, // 1609 words at 1.111.0
+  { skill: "release-deploy", ceiling: 1614 }, // 1.144.0 +4 (measured): vault notes-only carve-out cite (DISC-186). 1609 words at 1.111.0
   { skill: "qa-acceptance", ceiling: 1764 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line); 1730 -> 1764 at 1.143.0 (body 1729 -> 1764: sound judged by ear first)
   { skill: "cloud-dispatch", ceiling: 1855 }, // 1.138.0 raised to 1855 (+5, 2026-10-15) for Capacity before dispatch (disk + load + heavy count). 1.133.0 raised to 1850 for the Cloudflare-auth-from-the-proxy failure-mode bullet (lesson real-input-and-proxy-auth-2026-10-13). 1.126.0 raised to 1770 for the Disk before dispatch section (backlog 157; routing HARD-RULES 13 holds the sweep rule). Earlier: 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
 ];
