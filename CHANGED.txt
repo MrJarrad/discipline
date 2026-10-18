@@ -1,3 +1,6 @@
+1.144.1 — `2026-10-18-1144-disc-186b`: backlog DISC-186 follow-up, ruling [[2026-10-18-orchestrator-merges-own-vault-notes]]. "Notes-only vault PRs" is self-contained where a reviewer reads it: `agents/reviewer.md` and `routing` HARD-RULES name the MrJarrad/jhd-vault repo, markdown records, indexes and queue/backlog rows only, and that scripts, hooks, CI and settings still get a reviewer. Ceiling: agents/reviewer.md 1630 -> 1645 (1641).
+encoded: 1.144.1 — backlog DISC-186, 2026-10-18-orchestrator-merges-own-vault-notes.
+
 1.144.0 — `2026-10-18-1144-disc-186`: backlog DISC-186, ruling [[2026-10-18-orchestrator-merges-own-vault-notes]]. The notes-only vault carve-out to [[2026-10-09-every-merge-reviewed]] lands wherever that ruling is cited: `agents/reviewer.md`, `agents/releaseops.md`, `skills/routing/SKILL.md` + HARD-RULES, `skills/quality`, `skills/release-deploy`, `output-styles/discipline.md` and `skills/vault-write` § Banked means on vault main (Cloud). Product repos, the design system and the plugin keep the reviewer-first rule unchanged; vault PRs touching scripts, hooks, CI or settings are not notes-only. Ceilings raised for routing (+5), vault-write (+9), release-deploy (+4).
 encoded: 1.144.0 — backlog DISC-186, 2026-10-18-orchestrator-merges-own-vault-notes.
 
