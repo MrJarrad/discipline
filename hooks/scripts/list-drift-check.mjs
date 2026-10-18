@@ -27,14 +27,16 @@
    alone exit 0 (needs a repo the caller did not give).
 
    --fix (DISC-189, decision 2026-10-18-orderly-backlogs) repairs what needs no
-   judgement, then reports what is left: a merged PR whose title names a row ID
-   strikes that row (backlog: `done (<repo> #n <sha>)`, moved to Done; queue:
-   struck in place), as does an `in flight` row whose PR merged; misplaced and
+   judgement, then reports what is left: an `in flight (#n)` row whose own PR
+   merged becomes `done (<repo> #n <sha>)` and moves to Done; misplaced and
    stranded rows (outside any `| # |` table) are refiled by status; a bare ID
    takes the file's prefix when that ID is free; `[NEXT SESSION …]` on a
    done/moot row is struck in place; a `Next free number` below the highest used
    is raised. Rows are never deleted and numbers never reused. bad-status,
-   dup-id, suspect and unknown stay for a person.
+   dup-id, suspect, unknown and named-by stay for a person: `named-by` (non-failing)
+   is an open row whose ID a merged PR's title names. A title can name a row it
+   does not finish ("part 1 of 3", a prototype, a follow-up), so it is never
+   struck on that alone; Revert titles are ignored (#107 review, red).
    --stale [--days 30] adds a `stale` line (non-failing) for each open row whose
    last change (git blame) and Raised date are both older than the window: keep
    or park, asked at wrap. A shallow clone can only under-report.
@@ -131,6 +133,7 @@ export function mergedIndex(repos) {
           nums.add(n);
           if (!shaOf.has(n)) shaOf.set(n, sha);
           const title = m[2] ? (body.split("\n").find((l) => l.trim()) || "") : subj;
+          if (/^revert\b/i.test(title.trim())) continue;
           for (const id of title.match(/\b[A-Z]{2,4}-\d+[a-z]?\b/g) || []) named.push({ id, num: n, sha });
         }
       }
@@ -162,7 +165,7 @@ export function mergedIndex(repos) {
       const m = /^(?:([\w.-]+\/[\w.-]+)|([\w.-]+) )?#(\d+)$/.exec(ref);
       return Boolean(m) && match(m, project).length > 0;
     },
-    // `<repo> #n <sha>` for each merged PR whose title names this row ID (DISC-189).
+    // `<repo> #n <sha>` for each merged PR whose title names this row ID (DISC-189; reported, never struck).
     namedBy(id) {
       return list.flatMap((r) => r.named.filter((x) => x.id === id).map((x) => `${r.name} #${x.num} ${x.sha}`));
     },
@@ -199,6 +202,7 @@ export function checkBacklog(project, text, idx) {
       continue;
     }
     if (st.kind === "moot") continue;
+    for (const by of idx.namedBy?.(r.id) || []) if (!r.struck) add("named-by", r.id, `${st.kind} row is named by merged ${by}: strike it if that PR finished it`);
     const cited = st.kind === "in-flight" ? [st.pr] : [];
     for (const pr of cited) {
       if (idx.merged(pr, project)) add("drift", r.id, `in flight on ${pr}, which is merged`);
@@ -218,7 +222,8 @@ export function checkQueue(text, idx, label = "") {
   const out = [];
   for (const line of String(text).split("\n")) {
     const m = ROW.exec(line);
-    if (!m || m[1]) continue;
+    if (!m || m[1] || /^\|\s*[^|]+\|\s*~~/.test(line)) continue;
+    for (const by of idx.namedBy?.(m[2]) || []) out.push({ kind: "named-by", project: label, row: m[2], msg: `open queue row is named by merged ${by}: strike it if the operator's ask is answered` });
     for (const pr of new Set(refsIn(line))) {
       if (idx.merged(pr)) out.push({ kind: "suspect", project: label, row: m[2], msg: `open queue row cites ${pr}, which is merged: confirm it is still open` });
     }
@@ -440,12 +445,12 @@ export function fixBacklog(text, project, idx, others = "") {
     lines[r.lineIndex] = lines[r.lineIndex].replace(/^(\|\s*(?:~~)?)(\d+[a-z]?)/, `$1${prefix}-$2`);
     return lines.join("\n");
   });
-  // 3. A merged PR whose title names the row, or the merged PR an `in flight` row waits on, makes it done.
+  // 3. An `in flight (#n)` row whose own PR merged is done. A title naming a row is only reported (named-by).
   text = untilStable(text, (t) => {
     for (const r of parseBacklog(t)) {
       const st = parseStatus(r.status);
-      if (r.struck || !st || !["open", "waiting", "in-flight"].includes(st.kind)) continue;
-      const by = idx.namedBy(r.id)[0] || (st.kind === "in-flight" ? idx.mergeOf(st.pr, project) : null);
+      if (r.struck || st?.kind !== "in-flight") continue;
+      const by = idx.mergeOf(st.pr, project);
       if (!by) continue;
       const res = setRowStatus(t, r.id, `done (${by})`);
       if (res.ok) return res.text;
@@ -480,18 +485,8 @@ function bumpNextFree(text, others) {
   return text.replace(/(\*\*Next free number:\s*)\d+/, `$1${top + 1}`).replace(/(Next free number:[^\n]*\(highest used )\d+/, `$1${top}`);
 }
 
-/* One queue: an unstruck row a merged PR's title names is struck in place, the PR recorded. */
-export function fixQueue(text, idx, others = "") {
-  const lines = String(text).split("\n");
-  for (const r of tableRows(text)) {
-    const by = !r.struck && idx.namedBy(r.id)[0];
-    if (!by) continue;
-    const c = r.cells.slice();
-    c[1] = `~~${c[1]}~~ done (${by})`;
-    lines[r.lineIndex] = `| ${c.join(" | ")} |`;
-  }
-  return bumpNextFree(lines.join("\n"), others);
-}
+/* One queue: only the number marker. A queue row is the operator's ask: never struck by a tool (#107 review). */
+export const fixQueue = (text, idx, others = "") => bumpNextFree(String(text), others);
 
 /* Fix every project's backlog and queue in place; returns { changed: [rel], findings } (what is left). */
 export function fixVault(vault, repos) {
@@ -563,7 +558,7 @@ function main() {
   }
   for (const f of findings) console.log(formatFinding(f));
   const failing = findings.filter((f) => FAILING.has(f.kind)).length;
-  console.log(`list-drift-check: ${findings.length} finding(s), ${failing} failing, ${findings.length - failing} non-failing (suspect/unknown/stale).`);
+  console.log(`list-drift-check: ${findings.length} finding(s), ${failing} failing, ${findings.length - failing} non-failing (suspect/unknown/named-by/stale).`);
   process.exit(failing ? 1 : 0);
 }
 

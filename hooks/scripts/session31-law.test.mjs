@@ -64,7 +64,7 @@ test("(1) --distinct adds the row anyway", () => {
   assert.equal(r.ok, true);
 });
 
-test("(2) --fix strikes rows a merged PR's title names, flips merged in-flight rows, and repairs layout", () => {
+test("(2) --fix flips merged in-flight rows and repairs layout; a title-only mention is reported, not struck", () => {
   const v = mkVault();
   const repo = mkRepo();
   const res = drift.fixVault(v, [repo.path]);
@@ -72,8 +72,8 @@ test("(2) --fix strikes rows a merged PR's title names, flips merged in-flight r
   const q = readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8");
   const rows = drift.parseBacklog(b);
   const at = (id) => rows.find((r) => r.id === id);
-  assert.equal(at("ZZ-1").status, `done (zz #7 ${repo.sha})`);          // named by the merged PR's title
-  assert.equal(at("ZZ-1").section, "done");
+  assert.equal(at("ZZ-1").status, "open");                               // only named by #7's title: left open
+  assert.ok(res.findings.some((f) => f.kind === "named-by" && f.row === "ZZ-1"), "title mention reported for a person");
   assert.equal(at("ZZ-3").status, `done (zz #7 ${repo.sha})`);          // in flight on a merged PR
   assert.equal(at("ZZ-2").section, "done");                              // misplaced done row moved
   assert.equal(at("ZZ-4").section, "open");                              // misplaced open row moved
@@ -82,12 +82,46 @@ test("(2) --fix strikes rows a merged PR's title names, flips merged in-flight r
   assert.ok(at("ZZ-13"), "bare id given the project prefix");
   assert.match(b, /~~\[NEXT SESSION\]~~ check/);                         // tag struck in place, text kept
   assert.match(b, /Next free number: 14\./);                             // stale header recomputed
-  assert.match(q, /\| ZZ-10 \| ~~Approve the hover glow on project tiles~~ done \(zz #7 [0-9a-f]{7}\) \|/);
+  assert.match(q, /\| ZZ-10 \| Approve the hover glow on project tiles \|/);  // queue rows are never struck by the tool
+  assert.ok(res.findings.some((f) => f.kind === "named-by" && f.row === "ZZ-10"));
   assert.equal(rows.length, 7, "no row deleted");
   assert.ok(res.changed.includes("projects/zz/zz-backlog.md"));
   const left = drift.checkVault(v, [repo.path]).filter((f) => drift.FAILING.has(f.kind));
   assert.deepEqual(left.map((f) => `${f.kind} ${f.row}`), ["bad-status ZZ-11"], "only the judgement call is left failing");
   assert.deepEqual(drift.fixVault(v, [repo.path]).changed, [], "idempotent");
+});
+
+test("(2) #107 repros: revert, prototype on a waiting row, part 1 of 3, incidental squash mention, queue row: nothing struck", () => {
+  const v = mkVault(BACKLOG.replace("| ZZ-2 | Footer copyright year hardcoded | 2026-10-01 | done (#4 abcdef1) |", "| ZZ-2 | Pick the footer typeface | 2026-10-01 | waiting on operator |").replace("| ZZ-3 | Nav wordmark size token wrong | 2026-10-01 | in flight (#7) |", "| ZZ-3 | Nav wordmark size token wrong | 2026-10-01 | open |") + "| ZZ-5 | Squash row | 2026-10-01 | open | |\n");
+  const r = join(mkdtempSync(join(tmpdir(), "s31r-")), "zz");
+  mkdirSync(r);
+  git(r, "init", "-q", "-b", "main");
+  const c = (m) => git(r, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", m);
+  c('Merge pull request #8 from x/a\n\nRevert "Gallery flash fix (ZZ-1)"');
+  c("Merge pull request #9 from x/b\n\nPrototype for ZZ-2 options (no decision yet)");
+  c("Merge pull request #10 from x/c\n\nZZ-3 part 1 of 3");
+  c("Squash title not ZZ-5 related, see ZZ-10 (#11)");
+  const before = { b: readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), q: readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8") };
+  const res = drift.fixVault(v, [r]);
+  const rows = drift.parseBacklog(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"));
+  for (const id of ["ZZ-1", "ZZ-2", "ZZ-3", "ZZ-5"]) assert.ok(!/^done/.test(rows.find((x) => x.id === id).status), `${id} not struck`);
+  assert.equal(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), before.q, "queue untouched");
+  const named = res.findings.filter((f) => f.kind === "named-by").map((f) => f.row).sort();
+  assert.deepEqual(named, ["ZZ-10", "ZZ-2", "ZZ-3", "ZZ-5"], "revert ignored; the rest reported for a person");
+  assert.ok(!drift.FAILING.has("named-by"), "named-by never fails the check");
+});
+
+test("(1) --merge-into a queue row goes into the Needed cell, never Recommended", () => {
+  const v = mkVault();
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "also on the footer tiles", mergeInto: "ZZ-10", raised: "2026-10-18", offline: true });
+  assert.equal(r.ok, true);
+  assert.match(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), /\| ZZ-10 \| Approve the hover glow on project tiles · 2026-10-18: also on the footer tiles \| preview \| look \| yes \|/);
+});
+
+test("(1) a distinct row that reuses a topic's words passes; a near-restatement is refused", () => {
+  const v = mkVault(BACKLOG.replace("| ZZ-1 | Gallery strip images flash blank on first hover in Safari", "| ZZ-1 | Pick the footer typeface for project pages"));
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Remove the footer typeface override on project pages once DS ships", offline: true }).ok, true);
+  assert.deepEqual(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Project page footer typeface", offline: true }).similar, ["ZZ-1"]);
 });
 
 test("(2) judgement calls are surfaced, not fixed", () => {
@@ -112,4 +146,6 @@ test("skill text: the wrap and session-start runs are named where they are owned
   assert.match(flat("skills/wrap/references/REPORT-AND-LEARN.md"), /`stale` row.*keep or park/);
   assert.match(flat("skills/vault-write/references/WRITING.md"), /refuses a row that resembles an open one.*`--merge-into <ID>`.*`--distinct`/);
   assert.match(flat("hooks/scripts/session-resume.mjs"), /fixVault/);
+  assert.match(flat("hooks/scripts/session-resume.mjs"), /no product clone found, so merged-PR checks were skipped/);
+  assert.match(flat("skills/wrap/references/REPORT-AND-LEARN.md"), /`named-by` line, never struck/);
 });

@@ -6,7 +6,7 @@
             --text "<item or need>" [--raised YYYY-MM-DD]          (backlog)
             [--status "waiting on operator"]  (backlog; an idea is added so)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
-            [--merge-into <ID>]  fold the text into that open row instead (dated, last cell)
+            [--merge-into <ID>]  fold the text into that open row instead (dated; backlog Notes, queue Needed)
             [--distinct]     add the row even though it resembles an open one
             [--offline]      skip the origin/main check (tests, no network)
    A new row that resembles an open backlog row or unstruck queue row (shared
@@ -50,7 +50,7 @@ export function addQueueRow(text, prefix, n, cells) {
 
 /* Content words: lowercased runs of 4+ letters/digits, minus filler. */
 const FILLER = new Set("with from that this then than into when what which have been also only just more some each them they their there should would could after before again about".split(" "));
-const words = (s) => new Set((String(s).toLowerCase().match(/[a-z0-9]{4,}/g) || []).filter((w) => !FILLER.has(w)));
+const words = (s) => new Set((String(s).toLowerCase().match(/[a-z0-9]{4,}/g) || []).filter((w) => !FILLER.has(w)).map((w) => w.replace(/s$/, "")));
 
 /* Open rows of the project (backlog open/waiting/in flight, unstruck queue rows): { id, item, file, cells, lineIndex }. */
 function openRows(vault, owner) {
@@ -65,13 +65,15 @@ function openRows(vault, owner) {
   return out;
 }
 
-/* Open rows sharing at least 3 content words and 60% of the shorter text's words. */
+/* Open rows sharing at least 3 content words and 60% of the longer text's words
+   (a distinct row that reuses a topic's words, "remove the footer typeface override
+   …" beside "pick the footer typeface …", passes; #107 review). */
 export function similarRows(text, rows) {
   const a = words(text);
   return rows.filter((r) => {
     const b = words(r.item);
     const shared = [...a].filter((w) => b.has(w)).length;
-    return shared >= 3 && shared / Math.min(a.size, b.size) >= 0.6;
+    return shared >= 3 && shared / Math.max(a.size, b.size) >= 0.6;
   });
 }
 
@@ -98,7 +100,9 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
       const lines = readFileSync(path, "utf8").split("\n");
       const c = row.cells.slice();
       const note = `${clean(raised) || new Date().toISOString().slice(0, 10)}: ${clean(text)}`;
-      c[c.length - 1] = c[c.length - 1] ? `${c[c.length - 1]} · ${note}` : note;
+      // Backlog: the Notes (last) cell. Queue: the Needed cell, never Recommended (#107 review).
+      const at = row.file === owner.queue ? 1 : c.length - 1;
+      c[at] = c[at] ? `${c[at]} · ${note}` : note;
       lines[row.lineIndex] = `| ${c.join(" | ")} |`;
       writeAtomic(path, lines.join("\n"));
       return { ok: true, id: row.id, file: row.file, merged: true, warnings };

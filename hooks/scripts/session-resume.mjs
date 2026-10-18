@@ -234,6 +234,15 @@ function laneState(lane, ctx) {
   return out;
 }
 
+/* Product clones for the list check: explicit --repo paths, else git repos beside the vault, else ~/JHD/<p>/main. */
+export function productRepos(vault, given, home) {
+  if (Object.keys(given).length) return Object.values(given);
+  const isRepo = (p) => p !== vault && existsSync(join(p, ".git"));
+  const dirs = (d) => { try { return readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(d, e.name)); } catch { return []; } };
+  const beside = existsSync(join(vault, ".git")) ? dirs(dirname(vault)).filter(isRepo) : []; // a real vault clone, not a test folder
+  return beside.length ? beside : dirs(join(home, "JHD")).map((d) => join(d, "main")).filter(isRepo);
+}
+
 export function buildDigest(opts = {}) {
   const vault = resolve(opts.vault);
   const exec = opts.exec ?? runCmd;
@@ -260,10 +269,13 @@ export function buildDigest(opts = {}) {
     ? `queues: ${qs.map(([prefix, e]) => `${prefix} ${countOpenQueueRows(readFileSync(join(vault, e.queue), "utf8"))} open`).join(" · ")} (counts only, one file per project: projects/<p>/<p>-queue.md; print a session's rows with needed-from-you.mjs --projects <prefixes>)`
     : "queues: no projects/<p>/<p>-queue.md found");
   // DISC-189: the list check runs at session start and fixes what needs no judgement itself.
+  // PRs are judged against the product clones it can find: --repo, else git clones beside the vault (cloud) or ~/JHD/<p>/main (Mac).
   try {
-    const res = fixVault(vault, Object.values(ctx.repos));
+    const repos = productRepos(vault, ctx.repos, home);
+    const res = fixVault(vault, repos);
     const left = res.findings.filter((f) => FAILING.has(f.kind)).length;
     text.push(`lists: ${res.changed.length ? `fixed ${res.changed.join(", ")} — bank with vault-write` : "nothing to fix"}; ${left} for a person (list-drift-check.mjs --vault <vault>)`);
+    if (!repos.length) text.push("lists: no product clone found, so merged-PR checks were skipped (pass --repo name=path)");
   } catch (e) { text.push(`lists: check not run (${String(e.message).split("\n")[0]})`); }
   text.push("");
 
