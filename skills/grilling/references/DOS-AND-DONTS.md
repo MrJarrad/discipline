@@ -58,6 +58,12 @@ or leave blank? ➡️ **Recommended:** 'No projects yet'." One message settles 
 **Don't:** Pick a new state library and invent the empty-state copy, then explain
 both after review.
 
+### Behaviour spec
+
+**Do:** Before the first Notes build: "The text column scrolls; the image strip follows it. Nothing moves on its own. Start: first note under the header; end: last note clears the footer. The header hides on scroll down. Phones: one column, same scroll. Notes button: label swaps Notes ↔ Close." Operator says yes once; later rounds are feel.
+
+**Don't:** Build first and discover which scroll leads, what auto-scrolls and what drives the header one round at a time, or pad a two-state toggle's spec to a full page.
+
 ### Thin context / vague ask
 
 **Do:** Draft the implicit tree from context; mark Assumption on unsettled branches;

@@ -97,6 +97,8 @@ House primitives: **Action**, **Badge**, **`cn()`** — owned in the package onc
 
 Before hand-rolling a primitive, check the package (or portfolio interim). Compose screens from system parts; build custom only when the system genuinely lacks it and the operator agrees.
 
+**Components only in their defined states.** Building with our tokens and components includes their states: use each in a state the system defines (**activated** is a persistent on/selected state; **pressed** is momentary feedback while held, gone on release). A look or state the system doesn't define, whether invented or inherited by accident, is flagged to the operator as a question, never kept or added silently; a wanted one goes into the system (`2026-10-18-pressed-vs-activated`).
+
 **Application UI uses the panel kit** (ruling `2026-10-15-application-ui-uses-panel-kit`): review try-out panels and pills, Canvas and future tools take `@jhd/design-system` `src/panel-kit.css`; the site's visitor-facing UI keeps Action/Badge. Detail: [components.md](references/components.md).
 
 Component conventions (CVA, `data-slot`, focus ring): [components.md](references/components.md), [building-components.md](references/building-components.md).

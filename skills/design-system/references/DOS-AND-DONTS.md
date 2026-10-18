@@ -46,6 +46,12 @@
 
 **Don't:** Quietly leave it, or map it to the nearest-*looking* token when the correct *semantic* one differs.
 
+### When a component needs a state the system does not define
+
+**Do:** An on/off toggle uses the Action's **activated** state; a fill the system lacks (a 60%→solid "open" fill) is flagged to the operator, and a wanted one (pressed) is added to the system.
+
+**Don't:** Keep a persistent fill built outside the system because it looks fine, or ship a one-off pressed style only in product code.
+
 ### When the contract genuinely lacks the value
 
 **Do:** Flag it as "extend the system" with a rationale + where else it's reused; add the token, then reference it.
