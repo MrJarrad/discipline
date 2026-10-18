@@ -8,7 +8,7 @@ picking up the work"*; *"does this include motion law and anything else useful"*
 ```markdown
 ## House rules
 - **Design system** — `~/JHD/jhd-design-system/main`; generated tokens only, a matching
-  literal is still a defect; a raw colour/size/radius/space value is a defect.
+  literal is still a defect; a raw colour/size/radius/space value is a defect; components only in their defined states (`design-system` § Components).
 - **Motion law** — `~/JHD/jhd-design-system/main/motion-law.md`; reuse an existing atom, never
   a new one; first painted frame of an enter is the from-state; exit is 2–4× faster than enter.
 - **Markup standard** — `markup-standard` skill; its definition of done is the bar for shipped
