@@ -37,8 +37,9 @@ function deny(reason) {
    comments and reviews shaped `{ body, author: { login }, at }`, oldest first;
    `files` are changed paths from `get_files`, or null when never read, and
    `filesComplete` is true only when pages 1..k of `get_files` were all read and
-   page k came back short (page size: `perPage`, default 30, at most 100 as
-   GitHub caps it), so no file can be missing;
+   page k came back short, every page read at the same size (`perPage`, default
+   30, at most 100 as GitHub caps it; pages of different sizes cover different
+   rows), so no file can be missing;
    `truncated` is set when a result was a persisted-output stub whose file
    could not be read. */
 export function prReads(lines, { owner, repo, pullNumber }) {
@@ -72,8 +73,10 @@ export function prReads(lines, { owner, repo, pullNumber }) {
   }
   if (out.files) {
     out.filesComplete = false;
+    const first = pages.get(1)?.size;
     for (let p = 1; pages.has(p); p++) {
       const { n, size } = pages.get(p);
+      if (size !== first) break;
       if (n < size) { out.filesComplete = true; break; }
     }
   }
@@ -89,7 +92,7 @@ function check(input, { notesOnly, reviewVerdict }) {
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
     if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; read its files with pull_request_read get_files first, or get a reviewer verdict.`);
-    if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100), so a file may be missing; read the pages in order before merging.`);
+    if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {
       if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you are merging) so the merge lands only that head.`);
       process.exit(0);
