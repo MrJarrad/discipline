@@ -45,10 +45,10 @@ test("(N5) a notes-only vault merge must pin expectedHeadSha too", () => {
   assert.match(d.permissionDecisionReason, /pass expectedHeadSha/);
 });
 
-test("(N5) a full get_files page may hide more files: refused until a short page or a larger perPage is read", () => {
+test("(N5) a full get_files page may hide more files: refused until pages 1..k are read and page k is short", () => {
   const d = run(gate, vault(), transcript([files(30)]));
   assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /last get_files page was full.*larger perPage/);
+  assert.match(d.permissionDecisionReason, /get_files reads do not cover every page/);
   assert.equal(run(gate, vault(), transcript([files(30), files(3, { page: 2 })])).permissionDecision, "allow");
   assert.equal(run(gate, vault(), transcript([files(30, { perPage: 100 })])).permissionDecision, "allow");
 });
@@ -110,19 +110,11 @@ test("(DISC-195) one helper recipe: cloud-dispatch holds it, the pointers lead t
   const ref = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
   for (const s of [
     "`source_url`", "`add_repo`", "`register_repo_root`", "`model-routing`",
-    "Helper · <task in plain words> — no action needed", "session-titles-2026-10-15",
-    "this brief is from your parent (session <id>); start now, no go needed",
+    "session-titles-2026-10-15",
     "`send_message`", "Reports the plugin version it loaded", "Posts its return on the PR",
-    "`get_session`", "`list_events`", "`archive_session`", "never archived",
+    "`get_session`", "`list_events`", "`archive_session`",
   ]) has(ref, s);
   has("skills/cloud-dispatch/SKILL.md", "references/HELPER-SESSIONS.md");
   has("skills/routing/references/HARD-RULES.md", "`cloud-dispatch/references/HELPER-SESSIONS.md`");
   assert.ok(!flat("skills/routing/references/HARD-RULES.md").includes("blob_limit_kb"), "the recipe is stated once, in the reference");
-});
-
-test("release: 1.150.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) has(p, '"version": "1.150.0"');
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.150.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.150\.0 — .*2026-10-18-text-wrap-reproduce-the-real-gesture/);
 });

@@ -11,7 +11,8 @@
       as numbered items, so IDs are compared, not table text.) Prefixes come
       from the `###` headings inside the message's own block.
    b) A `row-add.mjs` call this turn (its marker, lib/row-marker.mjs) or a
-      `## Build in Progress` heading means a status reply / new ask: the message
+      `## Build in Progress` / `## Upcoming` heading (DISC-197; the script
+      prints Upcoming above the block) means a status reply / new ask: the message
       must then carry the block, with a heading for each marker prefix.
    Otherwise (an automated wake with nothing new, a wrapped session) it allows.
    A failure blocks once (`stop_hook_active` set -> allow, no loop). No
@@ -44,7 +45,7 @@ export function check({ text: raw, userTs, vault, sessionId }) {
   if (!text || /^\s*This session is wrapped/i.test(text)) return null;
   const markers = readMarkers(vault).filter((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId));
   const hasHead = HEAD.test(text);
-  const status = hasHead || markers.length > 0 || /^## Build in Progress\s*$/m.test(text);
+  const status = hasHead || markers.length > 0 || /^## (Build in Progress|Upcoming)\s*$/m.test(text);
   if (!status) return null;
   const mPrefixes = [...new Set(markers.map((m) => m.prefix))];
   const how = "End the reply with the `## Needed from you` block exactly as `node <plugin>/hooks/scripts/needed-from-you.mjs --vault <vault> --projects <PFX,...>` prints it (every open row, each project under `### <PFX> — <project>`), as the last section.";
