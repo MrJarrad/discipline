@@ -75,7 +75,7 @@ const CEILINGS = [
   // (ruling `follow-ups-before-wrap`); the rule text lives in references/REPORT-AND-LEARN.md.
   // Ceiling raised 930 -> 980 at 1.123.0: § Last step (wrapped sessions go quiet, ruling
   // `2026-10-09-wrapped-sessions-go-quiet`); the procedure lives in references/CLOSING-CHECKS.md.
-  { skill: "wrap", ceiling: 995, /* 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
+  { skill: "wrap", ceiling: 1003, /* 1.152.1 +8 (measured): DISC Open empty at wrap pointer; 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line

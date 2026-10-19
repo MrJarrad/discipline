@@ -38,7 +38,7 @@ down from 90% to 70%"*). `hooks/bin/context-fill.mjs` reads the context-window c
 transcript and reports it on every prompt past 70%, and after an automatic summary. On that line:
 finish in-flight merges, run `wrap`, tell the operator in one line. No reading → wrap at a natural break.
 
-**Follow-ups ship before wrap**; **lists are never stale** (`list-drift-check.mjs`): [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
+**Follow-ups ship before wrap**; **lists are never stale** (`list-drift-check.mjs`); **a discipline session ends with DISC Open empty** (`--discipline-empty`): [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
 
 ## The seven sections — walk all of them, in order
 
