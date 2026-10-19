@@ -151,12 +151,102 @@ function scanTexts(command, { unquoted = false } = {}) {
   return out;
 }
 
+/* A small shell reader for the checks that need to know which command is being run, with which words and
+   in which directory (kill-by-name, force-push, Mac-job add). It splits at every place a new command can
+   start — `; & | newline ( ) { } $( ` backtick` — outside quotes, drops `if/then/do/!` and wrapper words
+   (`sudo`, `env X=1`, `timeout 5`, `command`…), reads `cd`, and recurses into the body of `sh|bash|zsh -c`,
+   `eval` and `<<<` so a wrapped command is read as itself. Anything it cannot read stays a word the checks
+   treat conservatively. Regex-only matching missed `(git push -f)`, `$(…)`, `then`, `eval` (reviewer A3). */
+const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh"]);
+const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "time", "exec", "builtin"]);
+const WRAPPER_WORDS = new Set(["sudo", "doas", "env", "xargs", "nohup", "timeout", "nice", "ionice", "stdbuf", "setsid", "command"]);
+
+function splitSegments(code) {
+  const segs = [];
+  let cur = "";
+  let q = null;
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    if (q) {
+      cur += c;
+      if (c === "\\" && q === '"') cur += code[++i] ?? "";
+      else if (c === q) q = null;
+    } else if (c === "'" || c === '"') {
+      q = c;
+      cur += c;
+    } else if (c === "\\") {
+      cur += c + (code[++i] ?? "");
+    } else if (c === "`") {
+      segs.push(cur.trim() ? cur + " `" : cur); // a trailing word "`" marks a substitution inside an add
+      cur = "";
+    } else if (";&|\n(){}".includes(c)) {
+      segs.push(cur);
+      cur = "";
+    } else cur += c;
+  }
+  segs.push(cur);
+  return segs;
+}
+function shellWords(seg) {
+  const out = [];
+  let cur = "";
+  let has = false;
+  let q = null;
+  for (let i = 0; i < seg.length; i++) {
+    const c = seg[i];
+    if (q) {
+      if (c === "\\" && q === '"') { cur += seg[++i] ?? ""; }
+      else if (c === q) q = null;
+      else cur += c;
+    } else if (c === "'" || c === '"') { q = c; has = true; }
+    else if (c === "\\") { cur += seg[++i] ?? ""; has = true; }
+    else if (/\s/.test(c)) { if (has || cur) out.push(cur); cur = ""; has = false; }
+    else { cur += c; has = true; }
+  }
+  if (has || cur) out.push(cur);
+  return out;
+}
+
+/* Every simple command in `command`: { name, args, dir } (name is the basename, wrappers removed; dir is the
+   working directory the earlier `cd`s and `git -C` set). Bodies of `-c`/eval/here-strings are included. */
+export function simpleCommands(command, cwd = process.cwd(), depth = 0) {
+  const found = [];
+  let dir = cwd;
+  for (const seg of splitSegments(stripHeredocs(command))) {
+    let w = shellWords(seg);
+    for (let guard = 0; w.length && guard < 40; guard++) {
+      if (/^[A-Za-z_]\w*=/.test(w[0]) || KEYWORDS.has(w[0])) w = w.slice(1);
+      else if (WRAPPER_WORDS.has(w[0])) {
+        if (w[0] === "command" && /^-[vV]/.test(w[1] ?? "")) { w = []; break; } // a lookup, not a run
+        w = w.slice(1);
+        while (w.length && /^(?:-\S*|[A-Za-z_]\w*=\S*|\d+[smhd]?|[A-Z]{2,})$/.test(w[0])) w = w.slice(1);
+      } else break;
+    }
+    if (!w.length) continue;
+    const name = w[0].replace(/^.*\//, "");
+    const args = w.slice(1);
+    if (name === "cd") { if (args.find((a) => !a.startsWith("-"))) dir = resolve(dir, expandHome(args.find((a) => !a.startsWith("-")))); continue; }
+    if (depth < 4) {
+      if (name === "eval") { found.push(...simpleCommands(args.join(" "), dir, depth + 1)); continue; }
+      if (SHELLS.has(name)) {
+        const c = args.findIndex((a) => /^-[a-z]*c[a-z]*$/.test(a));
+        const here = args.indexOf("<<<");
+        const body = c >= 0 ? args[c + 1] : here >= 0 ? args[here + 1] : undefined;
+        if (body !== undefined) found.push(...simpleCommands(body, dir, depth + 1));
+        continue;
+      }
+    }
+    found.push({ name, args, dir });
+  }
+  return found;
+}
+
 /* Is `pkill`/`killall` the command being run (at the start of a shell segment, optionally behind a wrapper
    or a path, or inside `bash -c`)? Quoted spans and heredoc bodies are stripped first, so `grep pkill`,
    `echo "pkill x"` and a commit message that mentions it pass. */
 const KILL_BY_NAME = new RegExp(SEGMENT_START + WRAPPERS + String.raw`(?:\S*/)?(?:pkill|killall)(?=\s|$)`);
 export function killsByName(command = "") {
-  return scanTexts(command).some((t) => KILL_BY_NAME.test(t));
+  return scanTexts(command).some((t) => KILL_BY_NAME.test(t)) || simpleCommands(command).some((c) => c.name === "pkill" || c.name === "killall");
 }
 export function checkBashKillByName(toolInput = {}) {
   if (!killsByName(toolInput.command)) return { ok: true };
@@ -173,17 +263,28 @@ export function checkBashKillByName(toolInput = {}) {
 /* Is `git push` run with a force spelling (DISC-107, DISC-135)? `-f`/`-uf`, `--force`, `--force-with-lease`,
    `--force-if-includes`, `--mirror`, or a `+ref` refspec (`+x`, `HEAD:+x`) — behind a wrapper, `git -C dir`,
    `cd x &&` or `bash -c`. A lease is still a force: the rule is never force-push, so there is no allow form. */
-const GIT_PUSH = new RegExp(
-  SEGMENT_START + WRAPPERS + String.raw`git\s+(?:(?:-[Cc]|--git-dir|--work-tree|--namespace)\s+\S+\s+|-\S+\s+)*push\b([^;&|\n]*)`,
-  "g",
-);
-const FORCE_FLAG = /^(?:--force(?:-with-lease|-if-includes)?(?:=.*)?|--mirror|-[A-Za-z]*f[A-Za-z]*)$/;
+/* The subcommand of a `git …` simple command and the directory it runs in (`-C dir`, `-c k=v`, `--git-dir=…` skipped). */
+function gitCommand(cmd) {
+  let dir = cmd.dir;
+  let i = 0;
+  while (i < cmd.args.length && cmd.args[i].startsWith("-")) {
+    const a = cmd.args[i];
+    if (a === "-C" && cmd.args[i + 1]) { dir = resolve(dir, expandHome(cmd.args[i + 1])); i += 2; }
+    else if (["-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"].includes(a)) i += 2;
+    else i++;
+  }
+  return { sub: cmd.args[i], args: cmd.args.slice(i + 1), dir };
+}
+// git takes any unique prefix of a long option: `--force-w`, `--mir` (3+ characters after `--`).
+const FORCE_LONG = ["force", "force-with-lease", "force-if-includes", "mirror"];
+const isForceFlag = (a) =>
+  /^-[A-Za-z]*f[A-Za-z]*$/.test(a) || (a.startsWith("--") && a.length >= 5 && FORCE_LONG.some((n) => n.startsWith(a.slice(2).split("=")[0])));
 export function forcePushes(command = "") {
-  return scanTexts(command, { unquoted: true }).some((t) =>
-    [...t.matchAll(GIT_PUSH)].some((m) =>
-      m[1].trim().split(/\s+/).some((a) => FORCE_FLAG.test(a) || /^\+|:\+/.test(a)),
-    ),
-  );
+  return simpleCommands(command).some((c) => {
+    if (c.name !== "git") return false;
+    const g = gitCommand(c);
+    return g.sub === "push" && g.args.some((a) => isForceFlag(a) || /^\+|:\+/.test(a));
+  });
 }
 export function checkBashForcePush(toolInput = {}) {
   if (!forcePushes(toolInput.command)) return { ok: true };
@@ -244,29 +345,40 @@ function stagedPendingProblems(dir, trackedOnly) {
 }
 export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
   const problems = [];
-  let cwd = startCwd;
-  for (const seg of scanTexts(toolInput.command ?? "", { unquoted: true }).slice(0, 1)[0].split(/&&|\|\||[;|\n]/)) {
-    const words = seg.trim().split(/\s+/).filter((w) => !/^[A-Za-z_]\w*=/.test(w));
-    if (words[0] === "cd" && words[1]) { cwd = resolve(cwd, expandHome(words[1])); continue; }
-    if (words[0] !== "git") continue;
-    let dir = cwd;
-    let i = 1;
-    while (words[i]?.startsWith("-")) { if (words[i] === "-C" && words[i + 1]) dir = resolve(dir, expandHome(words[++i])); i++; }
-    if (words[i] !== "add") continue;
-    const addArgs = words.slice(i + 1);
-    const flags = addArgs.filter((w) => w.startsWith("-") && w !== "--");
-    const paths = addArgs.filter((w) => !w.startsWith("-"));
-    for (const arg of paths.filter((w) => PENDING.test(w))) {
+  for (const cmd of simpleCommands(toolInput.command ?? "", startCwd)) {
+    if (cmd.name !== "git") continue;
+    const { sub, args, dir } = gitCommand(cmd);
+    if (sub !== "add" && sub !== "stage") continue;
+    const flags = args.filter((a) => a.startsWith("-") && a !== "--");
+    const paths = args.filter((a) => !a.startsWith("-") && a !== "--");
+    let unknown = false; // a pathspec the gate cannot read ahead of time: ask git what is staged
+    const pf = args.findIndex((a) => a.startsWith("--pathspec-from-file"));
+    if (pf >= 0) {
+      const [, inline] = args[pf].split(/=(.*)/s);
+      const file = inline ?? args[pf + 1];
       try {
-        for (const file of pendingFiles(arg, dir))
-          for (const p of macJobProblems(readFileSync(file, "utf8"))) problems.push(`${file}: ${p}`);
+        if (!file || file === "-") throw new Error("stdin");
+        const nul = args.includes("--pathspec-file-nul");
+        paths.push(...readFileSync(resolve(dir, expandHome(file)), "utf8").split(nul ? "\0" : "\n").map((l) => l.trim()).filter(Boolean));
+        if (inline === undefined) paths.splice(paths.indexOf(file), 1);
       } catch (err) {
-        problems.push(`${arg}: cannot be read to check (${err.code ?? err.message})`);
+        problems.push(`${args[pf]}: the pathspec list cannot be read ahead of the add (${err.code ?? err.message})`);
       }
     }
-    // `git add -A`, `.`, `-u`, `queue` … stage pending jobs without naming them: ask git what would be staged.
+    for (const arg of paths) {
+      if (/[$`]/.test(arg)) { unknown = true; continue; }
+      if (PENDING.test(resolve(dir, expandHome(arg)) + "/")) {
+        try {
+          for (const file of pendingFiles(arg, dir))
+            for (const p of macJobProblems(readFileSync(file, "utf8"))) problems.push(`${file}: ${p}`);
+        } catch (err) {
+          problems.push(`${arg}: cannot be read to check (${err.code ?? err.message})`);
+        }
+      }
+    }
+    // `git add -A`, `.`, `-u`, `queue`, a substitution … stage pending jobs without naming them: ask git.
     const treeWide = !paths.length && flags.some((f) => /^(?:--all|--update|-[a-zA-Z]*[Au][a-zA-Z]*)$/.test(f));
-    if (treeWide || paths.some((w) => !PENDING.test(w) && coversPending(w, dir)))
+    if (unknown || treeWide || paths.some((w) => !PENDING.test(resolve(dir, expandHome(w)) + "/") && coversPending(w, dir)))
       problems.push(...stagedPendingProblems(dir, flags.some((f) => /^(?:--update|-[a-zA-Z]*u[a-zA-Z]*)$/.test(f)) && !flags.some((f) => /^(?:--all|-[a-zA-Z]*A[a-zA-Z]*)$/.test(f))));
   }
   if (!problems.length) return { ok: true };
