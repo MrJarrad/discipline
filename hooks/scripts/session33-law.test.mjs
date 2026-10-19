@@ -33,8 +33,3 @@ test("(2) folded into the build standard, not a button-specific rule", () => {
   assert.ok(!/buttons? match/i.test(flat("skills/design-system/SKILL.md")));
   assert.ok(!/buttons? match/i.test(flat("skills/dispatch-brief/references/HOUSE-RULES.md")));
 });
-
-test("release: 1.149.0 in both manifests and CHANGED.txt", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) has(p, '"version": "1.149.0"');
-  assert.ok(readFileSync(join(root, "CHANGED.txt"), "utf8").startsWith("1.149.0 — "));
-});

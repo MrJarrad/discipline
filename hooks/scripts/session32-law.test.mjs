@@ -119,9 +119,10 @@ test("(B2) comments fetched for another PR do not count", () => {
 
 test("(B2) the vault carve-out is notes-only MrJarrad/jhd-vault, proven by get_files in the session", () => {
   const files = (names) => ({ input: { method: "get_files", owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9 }, items: names.map((filename) => ({ filename })) });
-  const vault = pr({ repo: "jhd-vault", pullNumber: 9, expectedHeadSha: undefined });
+  const vault = pr({ repo: "jhd-vault", pullNumber: 9 });
   assert.equal(runGate(vault, transcript([files(["projects/portfolio/portfolio-queue.md"])])).permissionDecision, "allow");
-  assert.match(runGate(vault, transcript([files(["projects/x.md", "scripts/cloud-start.sh"])])).permissionDecisionReason, /not notes-only.*scripts\/cloud-start\.sh/);
+  assert.match(runGate({ ...vault, expectedHeadSha: undefined }, transcript([files(["projects/x.md", "scripts/cloud-start.sh"])])).permissionDecisionReason, /not notes-only.*scripts\/cloud-start\.sh/);
+  assert.match(runGate(vault, transcript([files(["projects/x.md", "scripts/cloud-start.sh"])])).permissionDecisionReason, /no reviewer verdict/);
   assert.match(runGate(vault, transcript([])).permissionDecisionReason, /get_files/);
   assert.equal(runGate(pr({ owner: "someone", repo: "jhd-vault", pullNumber: 1 }), transcript([])).permissionDecision, "deny");
 });

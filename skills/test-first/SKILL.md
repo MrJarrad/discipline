@@ -118,6 +118,9 @@ DO:
   expect(nav.width).toBe(expected); // placed by grid-column from the export
 ```
 
+**A gate's threshold is one the specified behaviour can pass** (`2026-10-18-text-wrap-reproduce-the-real-gesture`): derive the bound from the mechanism
+(one slide's 90% time, not "0 holes every frame" beside "neighbours slide closed") and get it agreed before building to it.
+
 **Fixtures are page-shaped and valid at rest** (`2026-10-17-measure-motion-on-the-deployed-page-honestly`):
 a token fixture carries the value the page resolves (`--duration-375` as `0.375s`, not only `375ms`)
 and the code parses both units; a layout fixture passes its own check at frame 0 before it
