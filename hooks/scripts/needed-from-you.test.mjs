@@ -71,7 +71,7 @@ test("CLI prints the block for the named projects and exits 1 on a refusal", () 
   const v = vault();
   const ok = spawnSync("node", [script, "--vault", v, "--projects", "HB"], { encoding: "utf8" });
   assert.equal(ok.status, 0);
-  assert.match(ok.stdout, /^## Needed from you/);
+  assert.match(ok.stdout, /^## Upcoming\n[\s\S]*\n## Needed from you/);
   assert.doesNotMatch(ok.stdout, /PF-|DS-/);
   const bad = spawnSync("node", [script, "--vault", v], { encoding: "utf8" });
   assert.equal(bad.status, 1);

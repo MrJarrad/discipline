@@ -151,7 +151,7 @@ Before each heavy-lane dispatch (suite, build, browser; `routing` rule 15) the p
 one check: `df -h /home/user`, `du -sh` of the live worktrees, `uptime`, and the count of
 live heavy lanes. Over capacity means any of: free disk, after subtracting the largest live worktree, under 5 GB (dispatch here only if at least 5 GB remains), 1-minute load above `nproc`, or heavy lanes already at `nproc / 2`. Over: run the
 lane-end sweep (`routing` HARD-RULES 13), re-read, and if still over send the heavy lane to
-a child cloud session (`create_session`) carrying the brief (`routing` HARD-RULES 19). Recipe: `references/HELPER-SESSIONS.md`.. Do not queue it here; the
+a child cloud session (`create_session`) carrying the brief (`routing` HARD-RULES 19). Recipe: `references/HELPER-SESSIONS.md`. Do not queue it here; the
 operator is never asked to move sessions for disk or load. The shared DS root clone is never switched or
 regenerated in (`dispatch-brief` HOUSE-RULES). Thresholds adjustable, reason in the handover.
 

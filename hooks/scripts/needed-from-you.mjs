@@ -14,8 +14,15 @@
    prefix is not the file's own is refused, not shown. An unknown prefix, or no
    project at all, is a refusal.
 
+   It also prints, above the block, an `## Upcoming` section (DISC-197): one
+   link per session project to its backlog file on the vault's main branch,
+   built from the vault's `origin` remote, so "what is coming" is a click away
+   and never hand-built. `## Needed from you` stays the last section of the
+   output, as the Stop hook requires.
+
    Usage: node needed-from-you.mjs --vault <root> --projects PF,HB
    Exit 0 printed (even when "none") · 1 refused.                          */
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
@@ -37,7 +44,7 @@ export function neededFromYou(vault, prefixes) {
   for (const prefix of want) {
     const e = reg.byPrefix.get(prefix);
     const queue = { head: [], rows: [] };
-    const backlog = { head: [], rows: [] };
+    const backlog = { head: [], rows: [], file: e.backlog || null };
     if (e.queue) {
       const qt = readFileSync(join(vault, e.queue), "utf8");
       queue.head = head(qt);
@@ -71,6 +78,28 @@ export function render(result) {
   return lines.join("\n");
 }
 
+/* `https://github.com/<owner>/<repo>/blob/main` from the vault's origin remote
+   (https or ssh, credentials and `.git` stripped), or null when it has none. */
+export function vaultBlobBase(vault, run = (args) => execFileSync("git", ["-C", vault, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })) {
+  let url;
+  try { url = run(["remote", "get-url", "origin"]).trim(); } catch { return null; }
+  const m = /github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/.exec(url);
+  return m ? `https://github.com/${m[1]}/${m[2]}/blob/main` : null;
+}
+
+/* The `## Upcoming` section: one backlog link per project. Without a GitHub
+   remote the vault-relative path is shown instead, and says why. */
+export function renderUpcoming(result, base) {
+  const rows = result.projects.filter((p) => p.backlog.file);
+  if (!rows.length) return "";
+  const lines = ["## Upcoming", ""];
+  for (const p of rows) {
+    const label = `${p.prefix} — ${p.project} backlog`;
+    lines.push(base ? `- [${label}](${base}/${p.backlog.file.split("/").map(encodeURIComponent).join("/")})` : `- ${label}: \`${p.backlog.file}\` (the vault has no GitHub remote, so no link)`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 function main() {
   const a = process.argv.slice(2);
   const get = (k) => { const i = a.indexOf(k); return i !== -1 ? a[i + 1] : undefined; };
@@ -78,7 +107,8 @@ function main() {
   if (!vault) { console.error("usage: needed-from-you --vault <root> --projects PF,HB"); process.exit(1); }
   const r = neededFromYou(resolve(vault), String(get("--projects") || "").split(","));
   if (!r.ok) { console.error(`needed-from-you: ${r.reason}`); process.exit(1); }
-  console.log(render(r));
+  const up = renderUpcoming(r, vaultBlobBase(resolve(vault)));
+  console.log(up ? `${up}\n${render(r)}` : render(r));
 }
 
 if (process.argv[1] && process.argv[1].endsWith("needed-from-you.mjs")) main();

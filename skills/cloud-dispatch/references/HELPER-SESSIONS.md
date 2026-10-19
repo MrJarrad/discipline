@@ -1,6 +1,6 @@
 # Helper sessions — dispatching a helper cloud session end to end
 
-A helper is a `create_session` child: a whole cloud session that does one lane while the parent keeps talking to the operator. The parent reads this once, top to bottom, when it sends a lane out (`cloud-dispatch` § Capacity before dispatch; `routing` HARD-RULES 19). Other skills point here and do not restate it.
+A helper is a `create_session` child: a whole cloud session that does one lane while the parent keeps talking to the operator. The parent reads this once, top to bottom, when it sends a lane out (`cloud-dispatch` § Capacity before dispatch). The standing rules for helpers (the brief opener, the sweep cadence, answering a blocked helper, the archive trigger) are `routing` HARD-RULES 19 and are not restated here; this page is the steps around them.
 
 ## 1. Before creating it
 
@@ -9,28 +9,22 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 - **Other repos.** The helper attaches each with `add_repo` and then clones it itself: one clone at a time, a generous timeout (about 10 minutes), then `register_repo_root`. The vault is read-only unless the brief says otherwise, and a vault write gets its own worktree (output style, "Parent routes").
 - **Model.** Pass `model` explicitly. Pick it per `model-routing` (job shape × complexity), never by inheriting the parent's by accident.
 - **Environment.** Omit `environment_id` to inherit the parent's.
-- **Title and tags** (ruling `session-titles-2026-10-15`). Title: `Helper · <task in plain words> — no action needed`. Tag the lane (`set_session_tags`, or `tags` on create), for example `helper` and the lane name.
-- **Brief.** `dispatch-brief` shape. It opens: "this brief is from your parent (session <id>); start now, no go needed" (HARD-RULES 19). It names the contract, the branch, the gates, and where the return goes. Ask for a read-back and a wait for "go" only when the lane needs one (a contested or system-size lane); then the brief says so in its first lines, because the default is to start.
+- **Title and tags.** The title follows the session-titles ruling (`session-titles-2026-10-15`, in the output style). Tag the lane (`set_session_tags`, or `tags` on create), for example `helper` and the lane name.
+- **Brief.** `dispatch-brief` shape, opening as HARD-RULES 19 says. It names the contract, the branch, the gates, and where the return goes. It also says, in its first lines, that every read-back and the final return go to the parent with `send_message` using the parent id above, and that the helper's own transcript is not a channel to the parent. Ask for a read-back and a wait for "go" only when the lane needs one (a contested or system-size lane); the default is to start.
 
 ## 2. What the helper does
 
-1. Starts at once. On a brief that asks for a read-back, it sends the read-back to the parent with `send_message` (`session_id` = the parent id above) and stops until the parent's "go" arrives (`ReadNotifications`).
+1. Starts at once. On a brief that asks for a read-back, it sends the read-back to the parent with `send_message` (`session_id` = the parent id above) and stops until the parent's "go" arrives (`ReadNotifications`). A read-back written only in its transcript does not reach the parent.
 2. **Reports the plugin version it loaded** in its read-back or first return (the highest version directory under `~/.claude/plugins/cache/discipline/discipline/`, or `installed_plugins.json`; "not found" is an answer). A cloud container has loaded an older version than main before; this is how the parent learns it.
 3. Builds on the branch the brief names. It pushes to that branch only, never main, and opens one draft PR.
-4. **Posts its return on the PR** as a comment: PR link, head sha, the ledger the brief asked for, the suite tail. The comment is the banked result. A helper's chat is not.
+4. **Posts its return on the PR** as a comment (PR link, head sha, the ledger the brief asked for, the suite tail) **and sends the same return to the parent with `send_message`**. The PR comment is the banked result; the message is what tells the parent it is ready.
 
 ## 3. How the parent sweeps it
 
-- `get_session` on each helper within 5 minutes of dispatch and on every wake. `status_bucket` reads `working`, `blocked`, `review_ready`, `completed` or `failed`; `failed` means its last turn errored.
-- A blocked helper is answered the same turn (`send_message`), including a "go" to a read-back.
+- `get_session` shows `status_bucket`: `working`, `blocked`, `review_ready`, `completed` or `failed` (`failed` means its last turn errored). Cadence and blocked helpers: HARD-RULES 19.
 - To see what a helper is doing, `list_events` with `kinds: ["user", "assistant", "result"]` and `limit: 100`.
 - Redirect a running helper with `send_message` on that one channel (HARD-RULES 20); never a second helper for the same lane.
 
-## 4. Landing and archive
+## 4. Landing
 
-When the PR comment is read and the result banked, `archive_session` the helper. When the next round of the lane starts, archive the superseded round's helper then. A helper whose result is not yet banked is never archived. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6).
-
-## DO / DON'T
-
-**DO:** `create_session` with `source_url`, `model`, a `Helper · … — no action needed` title, and a brief that opens with the parent id; `get_session` 5 minutes later; read the PR comment; then `archive_session`.
-**DON'T:** let a helper wait on a go the brief never asked for; read a helper's result from its chat instead of the PR comment; archive before the result is banked.
+Read the PR comment, bank the result, then `archive_session` as HARD-RULES 19 says. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6).

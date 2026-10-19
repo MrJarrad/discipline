@@ -11,8 +11,10 @@
    § Verdict defines must say `merge: yes` (`reviewVerdict`).
    Notes-only MrJarrad/jhd-vault PRs are the orchestrator's own merge
    (`2026-10-18-orchestrator-merges-own-vault-notes`), proven by a `get_files`
-   read in the session (`notesOnly`) whose last page came back short (a full
-   page may hide more files), and the merge still pins `expectedHeadSha`.
+   read in the session (`notesOnly`) that listed every page, page 1 through a
+   short one (a full page may hide more files), and the merge still pins
+   `expectedHeadSha`. Limit: a `get_files` result carries no sha, so the pin
+   proves the merge lands the head named, not that the files were read at it.
    Limits: trusted means the repo owner, and every fleet agent posts as that
    login, so the gate proves a verdict-shaped comment exists, not who wrote it.
    A subagent's own reads are not in the parent's transcript.
@@ -34,14 +36,16 @@ function deny(reason) {
 /* The PR's reads in the transcript: `{ items, files, truncated }`. `items` are
    comments and reviews shaped `{ body, author: { login }, at }`, oldest first;
    `files` are changed paths from `get_files`, or null when never read, and
-   `filesComplete` is false when the latest `get_files` page was full (default
-   30 rows, else its `perPage`), so more files may follow;
+   `filesComplete` is true only when pages 1..k of `get_files` were all read and
+   page k came back short (page size: `perPage`, default 30, at most 100 as
+   GitHub caps it), so no file can be missing;
    `truncated` is set when a result was a persisted-output stub whose file
    could not be read. */
 export function prReads(lines, { owner, repo, pullNumber }) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map();
   const out = { items: [], files: null, filesComplete: true, truncated: false };
+  const pages = new Map();
   for (const line of lines) {
     let e;
     try { e = JSON.parse(line); } catch { continue; }
@@ -61,9 +65,16 @@ export function prReads(lines, { owner, repo, pullNumber }) {
       if (!Array.isArray(rows)) continue;
       if (i.method === "get_files") {
         out.files = [...(out.files || []), ...rows.map((f) => f.filename)];
-        out.filesComplete = rows.length < Number(i.perPage || 30);
+        pages.set(Number(i.page || 1), { n: rows.length, size: Math.min(Number(i.perPage || 30), 100) });
       }
       else for (const c of rows) out.items.push({ body: c.body, author: { login: c.user?.login }, at: c.submitted_at ?? c.created_at });
+    }
+  }
+  if (out.files) {
+    out.filesComplete = false;
+    for (let p = 1; pages.has(p); p++) {
+      const { n, size } = pages.get(p);
+      if (n < size) { out.filesComplete = true; break; }
     }
   }
   return out;
@@ -78,9 +89,9 @@ function check(input, { notesOnly, reviewVerdict }) {
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
     if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; read its files with pull_request_read get_files first, or get a reviewer verdict.`);
-    if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the last get_files page was full, so more files may follow; re-read with a larger perPage (or the next page) before merging.`);
+    if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {
-      if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you read the files at) so the merge lands only the head you checked.`);
+      if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you are merging) so the merge lands only that head.`);
       process.exit(0);
     }
     const other = reads.files.filter((f) => !notesOnly([f]));
