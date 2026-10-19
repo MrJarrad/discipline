@@ -110,7 +110,8 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   const wrapped = Boolean(sid) && existsSync(wrappedPath(dir, sid));
   if (wrapped && event === "UserPromptSubmit" && !existsSync(reopenedPath(dir, sid))) {
     // Row 158: an operator turn in a wrapped session gets the banner rule, unless he said "reopen".
-    if (/^\s*reopen\b/i.test(String(input.prompt || ""))) {
+    // The word on its own ("reopen", "Reopen please"), never a sentence that starts with it ("reopen the PR").
+    if (/^\s*reopen(?:\s+(?:this\s+session|the\s+session|session|it|please|now))*\s*[.!]?\s*$/i.test(String(input.prompt || ""))) {
       try { writeFileSync(reopenedPath(dir, sid), "1"); } catch { /* best effort */ }
       return "The operator reopened this wrapped session. Reply normally; the wrap nudge stays silent.";
     }

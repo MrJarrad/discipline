@@ -49,7 +49,7 @@
    would otherwise sit in the registry forever, nagging on every check.
 */
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { withRegistryLock } from "../bin/progress-registry.mjs";
 
@@ -372,6 +372,12 @@ export function artifactRefusal(path) {
     return "no such path";
   }
   try {
+    // lstat above covers only the last component; a symlinked parent folder lands on someone else's tree.
+    if (realpathSync(path) !== path) return "symlinked parent folder in the path: never followed";
+  } catch {
+    return "no such path";
+  }
+  try {
     git = lstatSync(join(path, ".git"));
   } catch {
     return "no .git: not a git worktree";
@@ -384,10 +390,16 @@ export function artifactRefusal(path) {
   } catch {
     return "unreadable .git file";
   }
-  // A linked worktree's pointer is `gitdir: <repo>/.git/worktrees/<name>`; any other target is not one.
-  return /^gitdir:\s*\S*[\\/]\.git[\\/]worktrees[\\/][^\\/\s]+\s*$/m.test(pointer)
-    ? null
-    : "the .git pointer is not under .git/worktrees: not a linked worktree";
+  // A linked worktree's pointer is one line, `gitdir: <repo>/.git/worktrees/<name>`, and that directory exists.
+  const m = /^gitdir:[ \t]*(\S+)\s*$/.exec(pointer);
+  if (!m || !/[\\/]\.git[\\/]worktrees[\\/][^\\/]+$/.test(m[1]))
+    return "the .git pointer is not under .git/worktrees: not a linked worktree";
+  try {
+    if (!statSync(resolve(path, m[1])).isDirectory()) throw new Error("not a directory");
+  } catch {
+    return "the .git pointer's target does not exist: not a live linked worktree";
+  }
+  return null;
 }
 
 function runArtifactSweep(paths, dryRun) {

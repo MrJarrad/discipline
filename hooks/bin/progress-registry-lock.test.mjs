@@ -49,13 +49,19 @@ if (mode === "unsynced") {
   return scriptPath;
 }
 
-function runConcurrently(scriptPath, mode, registryPath, n) {
-  const waits = [];
-  for (let i = 0; i < n; i++) {
-    const child = spawn(process.execPath, [scriptPath, mode, registryPath, `/lane-${i}.md`]);
-    waits.push(new Promise((resolve, reject) => child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`racer exited ${code}`))))));
+// `perWave` bounds how many processes contend at once. The lock's wait is a deliberate 1.5 s (a hook must
+// not hang its tool call), so 25 processes starting together on a loaded box can outwait it and the lock
+// fails open by design (DISC-143). The test asks "does the lock lose rows under real contention", which a
+// handful of simultaneous processes per wave answers without leaning on the box being idle.
+async function runConcurrently(scriptPath, mode, registryPath, n, perWave = n) {
+  for (let first = 0; first < n; first += perWave) {
+    const waits = [];
+    for (let i = first; i < Math.min(first + perWave, n); i++) {
+      const child = spawn(process.execPath, [scriptPath, mode, registryPath, `/lane-${i}.md`]);
+      waits.push(new Promise((resolve, reject) => child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`racer exited ${code}`))))));
+    }
+    await Promise.all(waits);
   }
-  return Promise.all(waits);
 }
 
 test("the OLD unsynchronized load->mutate->save pattern loses concurrent rows (documents the race, not a request to keep it)", async () => {
@@ -71,7 +77,7 @@ test("withRegistryLock: N concurrent processes each adding one row lose none —
   const registryPath = tempRegistryPath();
   const scriptPath = writeRacerScript(dirname(registryPath));
   const n = 25;
-  await runConcurrently(scriptPath, "locked", registryPath, n);
+  await runConcurrently(scriptPath, "locked", registryPath, n, 5);
   const entries = loadRegistry(registryPath);
   assert.equal(entries.length, n, `expected all ${n} concurrently-written rows to survive, got ${entries.length}`);
   const paths = new Set(entries.map((e) => e.path));
