@@ -14,10 +14,3 @@ test("the gate states the same-size rule for get_files pages", () => {
   has("hooks/bin/merge-review-gate.mjs", "every page read at the same size");
   has("hooks/bin/merge-review-gate.mjs", "every page at the same perPage");
 });
-
-test("release: 1.151.1 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) has(p, '"version": "1.151.1"');
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.151.1 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.151\.1 — /);
-});

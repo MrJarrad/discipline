@@ -10,7 +10,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 // The Mac user's home — run.sh requires `repo:` under $HOME; an absolute path is
-// accepted only under this (override with JHD_MAC_HOME), `~` always.
+// accepted only below this (override with JHD_MAC_HOME), as is `~/…`; the bare home is refused.
 const MAC_HOME = (process.env.JHD_MAC_HOME || "/Users/jarrad.harvey").replace(/\/+$/, "");
 export const NO_BACKGROUND = /no background tasks,? no subagents/i;
 
@@ -29,8 +29,9 @@ export function macJobProblems(text) {
   const repo = line === undefined ? "" : line.replace(/^repo:[ ]*/, "").replace(/["']/g, "");
   const problems = [];
   if (!repo.trim()) problems.push("repo: line missing or empty (runner exit 97)");
-  else if (!(repo === "~" || repo.startsWith("~/") || repo === MAC_HOME || repo.startsWith(MAC_HOME + "/")))
-    problems.push(`repo: '${repo}' is not under $HOME (~ or ${MAC_HOME}; runner exit 97)`);
+  // run.sh expands a leading `~` to $HOME, then requires `$HOME/*`: the bare home itself is refused.
+  else if (!(repo.startsWith("~/") || repo.startsWith(MAC_HOME + "/")))
+    problems.push(`repo: '${repo}' is not under $HOME (a path below ~/ or ${MAC_HOME}/, not the home itself; runner exit 97)`);
   // run.sh brief: every line after the first fence pair, minus any `---` line.
   const body = lines.slice(fences[1] + 1).filter((l) => l !== "---").join("\n");
   if (!body.trim()) problems.push("empty brief (runner exit 98)");

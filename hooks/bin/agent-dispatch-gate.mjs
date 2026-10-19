@@ -80,9 +80,10 @@
 
    The check is exported as a pure function so the tests drive it directly;
    the CLI wrapper only does stdin/stdout. */
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join } from "node:path";
+import { join, dirname, basename, resolve } from "node:path";
+import { macJobProblems } from "../scripts/mac-job-check.mjs";
 import { loadavg, cpus } from "node:os";
 import { upsertLane, expandHome, withRegistryLock, loadRegistry } from "./progress-registry.mjs";
 
@@ -122,12 +123,40 @@ export function launchesAgent(command = "") {
   return AGENT_LAUNCHES.some((re) => re.test(text));
 }
 
-/* Is `pkill`/`killall` the command being run (at the start of a shell segment, optionally
-   behind `sudo`/`env`/a path)? Quoted spans and heredoc bodies are stripped first, so
-   `grep pkill`, `echo "pkill x"` and a commit message that mentions it pass. */
-const KILL_BY_NAME = new RegExp(SEGMENT_START + String.raw`(?:(?:sudo|env|xargs|nohup|exec)\s+(?:-\S+\s+)*)*(?:\S*/)?(?:pkill|killall)(?=\s|$)`);
+/* Commands that run another command: `sudo`, `env VAR=1`, `timeout 5`, `command`, `nice -n 5`… Each may
+   carry flags, `VAR=value` words, a duration or a signal name before the command it runs. `command -v`
+   is a lookup, not a run, so `command` takes no flag. */
+const WRAPPERS = String.raw`(?:(?:sudo|env|xargs|nohup|exec|time|timeout|nice|ionice|stdbuf|setsid)\s+(?:(?:-\S+|[A-Za-z_]\w*=\S*|\d+[smhd]?|[A-Z]{2,})\s+)*|command\s+(?!-))*`;
+const SHELL_C = new RegExp(
+  SEGMENT_START + WRAPPERS + String.raw`(?:\S*/)?(?:ba|z|da|k)?sh\s+(?:-\S+\s+)*?-\w*c\w*\s+(?:'([^']*)'|"((?:\\[\s\S]|[^"\\])*)")`,
+  "g",
+);
+function stripHeredocs(text) {
+  return String(text).replace(/<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n[\s\S]*?(?:\n\s*\2(?=\n|$)|$)/g, (m) => m.slice(0, m.indexOf("\n")));
+}
+
+/* The texts a command can run: its own code, plus the body of each `sh|bash|zsh -c '…'` in it (to depth 3),
+   so a wrapped `bash -c 'pkill x'` is read as `pkill x`. `unquoted` keeps quoted words instead of blanking
+   them, for checks that read arguments (`git push origin "+x"`). */
+function scanTexts(command, { unquoted = false } = {}) {
+  const out = [];
+  const queue = [[String(command), 0]];
+  while (queue.length) {
+    const [raw, depth] = queue.pop();
+    const code = stripHeredocs(raw);
+    out.push(unquoted ? code.replace(/['"]/g, "") : stripNonCode(raw));
+    if (depth >= 3) continue;
+    for (const m of code.matchAll(SHELL_C)) queue.push([m[1] ?? m[2], depth + 1]);
+  }
+  return out;
+}
+
+/* Is `pkill`/`killall` the command being run (at the start of a shell segment, optionally behind a wrapper
+   or a path, or inside `bash -c`)? Quoted spans and heredoc bodies are stripped first, so `grep pkill`,
+   `echo "pkill x"` and a commit message that mentions it pass. */
+const KILL_BY_NAME = new RegExp(SEGMENT_START + WRAPPERS + String.raw`(?:\S*/)?(?:pkill|killall)(?=\s|$)`);
 export function killsByName(command = "") {
-  return KILL_BY_NAME.test(stripNonCode(command));
+  return scanTexts(command).some((t) => KILL_BY_NAME.test(t));
 }
 export function checkBashKillByName(toolInput = {}) {
   if (!killsByName(toolInput.command)) return { ok: true };
@@ -138,6 +167,115 @@ export function checkBashKillByName(toolInput = {}) {
       "Bash blocked — kill-by-name: `pkill`/`killall` match processes by name and can kill another session's " +
       "browser, server or suite on a shared machine. Record the pids you start and `kill <pid>` only those " +
       "(`doer-rules.md` § Repo and safety, `agent-ops` hardening lesson 2026-10-01).",
+  };
+}
+
+/* Is `git push` run with a force spelling (DISC-107, DISC-135)? `-f`/`-uf`, `--force`, `--force-with-lease`,
+   `--force-if-includes`, `--mirror`, or a `+ref` refspec (`+x`, `HEAD:+x`) — behind a wrapper, `git -C dir`,
+   `cd x &&` or `bash -c`. A lease is still a force: the rule is never force-push, so there is no allow form. */
+const GIT_PUSH = new RegExp(
+  SEGMENT_START + WRAPPERS + String.raw`git\s+(?:(?:-[Cc]|--git-dir|--work-tree|--namespace)\s+\S+\s+|-\S+\s+)*push\b([^;&|\n]*)`,
+  "g",
+);
+const FORCE_FLAG = /^(?:--force(?:-with-lease|-if-includes)?(?:=.*)?|--mirror|-[A-Za-z]*f[A-Za-z]*)$/;
+export function forcePushes(command = "") {
+  return scanTexts(command, { unquoted: true }).some((t) =>
+    [...t.matchAll(GIT_PUSH)].some((m) =>
+      m[1].trim().split(/\s+/).some((a) => FORCE_FLAG.test(a) || /^\+|:\+/.test(a)),
+    ),
+  );
+}
+export function checkBashForcePush(toolInput = {}) {
+  if (!forcePushes(toolInput.command)) return { ok: true };
+  return {
+    ok: false,
+    item: "force-push",
+    reason:
+      "Bash blocked — force-push: `git push` with `-f`, `--force`, `--force-with-lease`, `--mirror` or a `+ref` " +
+      "refspec can overwrite history on the remote. Push the branch normally; if the remote moved, fetch and " +
+      "merge (or ask the operator) — never force (`doer-rules.md` § Repo and safety, DISC-107).",
+  };
+}
+
+/* `git add queue/mac/pending/…` files a Mac job, so mac-job-check runs on each file being added first
+   (DISC-144; the runner refuses a bad job only after it is claimed). Fails closed: a file the gate cannot
+   read, or a path it cannot resolve, is refused with the problem named. `cd x &&` and `git -C x` move the
+   directory the path resolves against. */
+const PENDING = /queue\/mac\/pending(?:\/|$)/;
+function pendingFiles(arg, cwd) {
+  const target = resolve(cwd, expandHome(arg));
+  if (/[*?[]/.test(basename(target))) {
+    const re = new RegExp("^" + basename(target).replace(/[.+^${}()|\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
+    return readdirSync(dirname(target)).filter((f) => re.test(f)).map((f) => join(dirname(target), f));
+  }
+  if (statSync(target).isDirectory()) return readdirSync(target).filter((f) => f.endsWith(".md")).map((f) => join(target, f));
+  return [target];
+}
+/* Does this `git add` pathspec cover queue/mac/pending without naming it — `.`, `:/`, a glob, or `queue`,
+   `queue/mac` (an ancestor of the pending directory in the repo `dir` belongs to)? */
+function coversPending(arg, dir) {
+  if (arg.startsWith(":") || /[*?[]/.test(arg)) return true;
+  let top;
+  try { top = repoTop(dir); } catch { return true; } // no repo to say: treat as covering, so the add fails closed
+  const pending = join(top, "queue", "mac", "pending");
+  const target = resolve(dir, expandHome(arg));
+  return pending === target || pending.startsWith(target.replace(/\/+$/, "") + "/");
+}
+function repoTop(dir) {
+  return execFileSync("git", ["-C", dir, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+// The pending jobs a tree-wide add would stage, from `git status`; a failure to ask is a problem (fails closed).
+function stagedPendingProblems(dir, trackedOnly) {
+  try {
+    const top = repoTop(dir);
+    const out = execFileSync("git", ["-C", top, "status", "--porcelain", "-z", "--untracked-files=all", "--", "queue/mac/pending"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const found = [];
+    const entries = out.split("\0").filter(Boolean);
+    for (let n = 0; n < entries.length; n++) {
+      const [xy, file] = [entries[n].slice(0, 2), entries[n].slice(3)];
+      if (xy[0] === "R" || xy[0] === "C") n++; // a rename carries its old path as the next entry
+      if (!file.endsWith(".md") || xy.includes("D") || (trackedOnly && xy === "??")) continue;
+      for (const p of macJobProblems(readFileSync(join(top, file), "utf8"))) found.push(`${join(top, file)}: ${p}`);
+    }
+    return found;
+  } catch (err) {
+    return [`this add stages the whole tree and git could not say whether queue/mac/pending files are in it (${err.code ?? err.message})`];
+  }
+}
+export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
+  const problems = [];
+  let cwd = startCwd;
+  for (const seg of scanTexts(toolInput.command ?? "", { unquoted: true }).slice(0, 1)[0].split(/&&|\|\||[;|\n]/)) {
+    const words = seg.trim().split(/\s+/).filter((w) => !/^[A-Za-z_]\w*=/.test(w));
+    if (words[0] === "cd" && words[1]) { cwd = resolve(cwd, expandHome(words[1])); continue; }
+    if (words[0] !== "git") continue;
+    let dir = cwd;
+    let i = 1;
+    while (words[i]?.startsWith("-")) { if (words[i] === "-C" && words[i + 1]) dir = resolve(dir, expandHome(words[++i])); i++; }
+    if (words[i] !== "add") continue;
+    const addArgs = words.slice(i + 1);
+    const flags = addArgs.filter((w) => w.startsWith("-") && w !== "--");
+    const paths = addArgs.filter((w) => !w.startsWith("-"));
+    for (const arg of paths.filter((w) => PENDING.test(w))) {
+      try {
+        for (const file of pendingFiles(arg, dir))
+          for (const p of macJobProblems(readFileSync(file, "utf8"))) problems.push(`${file}: ${p}`);
+      } catch (err) {
+        problems.push(`${arg}: cannot be read to check (${err.code ?? err.message})`);
+      }
+    }
+    // `git add -A`, `.`, `-u`, `queue` … stage pending jobs without naming them: ask git what would be staged.
+    const treeWide = !paths.length && flags.some((f) => /^(?:--all|--update|-[a-zA-Z]*[Au][a-zA-Z]*)$/.test(f));
+    if (treeWide || paths.some((w) => !PENDING.test(w) && coversPending(w, dir)))
+      problems.push(...stagedPendingProblems(dir, flags.some((f) => /^(?:--update|-[a-zA-Z]*u[a-zA-Z]*)$/.test(f)) && !flags.some((f) => /^(?:--all|-[a-zA-Z]*A[a-zA-Z]*)$/.test(f))));
+  }
+  if (!problems.length) return { ok: true };
+  return {
+    ok: false,
+    item: "mac-job-check",
+    reason:
+      `Bash blocked — mac-job-check: this adds a Mac job the runner would refuse or kill. ${problems.join("; ")}. ` +
+      "Fix the job file (hooks/scripts/mac-job-check.mjs <file> lists the same problems) and add it again (DISC-144).",
   };
 }
 
@@ -715,6 +853,12 @@ function main() {
   if (input.tool_name === "Bash") {
     const kill = checkBashKillByName(input.tool_input);
     if (!kill.ok) deny(kill.reason);
+    try {
+      for (const check of [checkBashForcePush(input.tool_input), checkBashMacJob(input.tool_input, input.cwd || process.cwd())])
+        if (!check.ok) deny(check.reason);
+    } catch (err) {
+      deny(`Bash blocked — the force-push / mac-job check failed closed: ${err.message}`);
+    }
     const bash = checkBashAgentLabel(input.tool_input);
     if (!bash.ok) deny(bash.reason);
     allow();

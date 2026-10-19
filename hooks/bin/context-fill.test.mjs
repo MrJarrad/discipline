@@ -291,7 +291,8 @@ test("row 156 A1: an unwritable marker dir (ENOENT) still emits the PostToolUse 
   const d = fresh();
   const q = transcript(d, [assistant(750_000)]);
   const e = { hook_event_name: "PostToolUse", session_id: "y", transcript_path: q };
-  assert.ok(handle(e, { ...opts(d), dir: join(d, "no-such-dir") }), "a failed marker write must not drop the nudge");
+  // both the marker dir and its fallback are unwritable: the nudge still fires (a repeat beats silence)
+  assert.ok(handle(e, { ...opts(d), dir: join(d, "no-such-dir"), fallbackDir: join(d, "no-such-fallback") }), "a failed marker write must not drop the nudge");
   assert.equal(handle(e, opts(d)) !== null, true);
   assert.equal(handle(e, opts(d)), null); // EEXIST still suppresses the repeat
   rmSync(d, { recursive: true });

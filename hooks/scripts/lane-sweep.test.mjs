@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -173,13 +173,17 @@ function fakeLane(root, name, gitAsFile) {
   mkdirSync(join(d, ".next"), { recursive: true });
   mkdirSync(join(d, "src"), { recursive: true });
   writeFileSync(join(d, "src", "a.ts"), "keep");
-  if (gitAsFile) writeFileSync(join(d, ".git"), `gitdir: /repo/.git/worktrees/${name}\n`);
+  if (gitAsFile) {
+    const target = join(root, "repo", ".git", "worktrees", name); // a pointer is live only if its target exists
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(d, ".git"), `gitdir: ${target}\n`);
+  }
   else mkdirSync(join(d, ".git"));
   return d;
 }
 
 test("--clean-artifacts removes node_modules and .next from a linked worktree, keeps source", () => {
-  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "sweep-art-"));
   const wt = fakeLane(root, "lane", true);
   const r = spawnSync("node", [sweep, "--clean-artifacts", wt], { encoding: "utf8" });
   assert.equal(r.status, 0);
@@ -189,7 +193,7 @@ test("--clean-artifacts removes node_modules and .next from a linked worktree, k
 });
 
 test("--clean-artifacts refuses a root clone (.git is a directory) and a non-git path", () => {
-  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "sweep-art-"));
   const clone = fakeLane(root, "root-clone", false);
   const plain = join(root, "plain");
   mkdirSync(join(plain, "node_modules"), { recursive: true });
@@ -201,7 +205,7 @@ test("--clean-artifacts refuses a root clone (.git is a directory) and a non-git
 });
 
 test("--clean-artifacts --dry-run removes nothing", () => {
-  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "sweep-art-"));
   const wt = fakeLane(root, "lane", true);
   const r = spawnSync("node", [sweep, "--clean-artifacts", wt, "--dry-run"], { encoding: "utf8" });
   assert.match(r.stdout, /would remove/);
@@ -209,7 +213,7 @@ test("--clean-artifacts --dry-run removes nothing", () => {
 });
 
 test("--clean-artifacts refuses a symlinked top-level path into a linked worktree (row 159)", () => {
-  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "sweep-art-"));
   const wt = fakeLane(root, "lane", true);
   const link = join(root, "link");
   symlinkSync(wt, link);
@@ -220,7 +224,7 @@ test("--clean-artifacts refuses a symlinked top-level path into a linked worktre
 });
 
 test("--clean-artifacts refuses a .git pointer that is not under .git/worktrees (row 159)", () => {
-  const root = mkdtempSync(join(tmpdir(), "sweep-art-"));
+  const root = mkdtempSync(join(realpathSync(tmpdir()), "sweep-art-"));
   const wt = fakeLane(root, "lane", true);
   writeFileSync(join(wt, ".git"), "gitdir: /elsewhere\n");
   const r = spawnSync("node", [sweep, "--clean-artifacts", wt], { encoding: "utf8" });
