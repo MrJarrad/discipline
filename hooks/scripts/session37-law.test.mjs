@@ -3,7 +3,7 @@
 // Run: node --test hooks/scripts/session37-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, existsSync, symlinkSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -169,6 +169,73 @@ test("DISC-164: 'reopen the PR' in a wrapped session is not the reopen word; 're
   assert.match(handle(ev("reopen the PR and fix the title"), opts), /^This session is wrapped/);
   assert.match(handle(ev("reopen the PR #12 please"), opts), /^This session is wrapped/);
   assert.match(handle(ev("reopen"), opts), /reopened this wrapped session/);
+});
+
+// --- DISC-144 (follow-up): tree-wide adds stage pending jobs without naming them ----
+
+function gitJobRepo({ pending = {}, commit = {} } = {}) {
+  const d = mkdtempSync(join(realpathSync(tmpdir()), "macrepo-"));
+  const git = (...a) => execFileSync("git", ["-C", d, "-c", "user.email=t@t", "-c", "user.name=t", ...a], { stdio: "ignore" });
+  git("init", "-q");
+  mkdirSync(join(d, "queue", "mac", "pending"), { recursive: true });
+  writeFileSync(join(d, "README.md"), "x");
+  for (const [f, text] of Object.entries(commit)) writeFileSync(join(d, "queue", "mac", "pending", f), text);
+  git("add", "-A");
+  git("commit", "-q", "-m", "init");
+  for (const [f, text] of Object.entries(pending)) writeFileSync(join(d, "queue", "mac", "pending", f), text);
+  return d;
+}
+const BAD_JOB = "---\nrepo: ~\n---\nx\n";
+
+test("DISC-144: git add -A / . / --all / queue / a glob refuse when an unstaged pending job is bad", () => {
+  const d = gitJobRepo({ pending: { "bad.md": BAD_JOB } });
+  for (const c of ["git add -A", "git add .", "git add --all", "git add queue", "git add queue/mac", "git add -A .", "git add ':/'", "git add *", "git add -Av"]) {
+    const v = checkBashMacJob({ command: c }, d);
+    assert.equal(v.ok, false, c);
+    assert.match(v.reason, /bad\.md.*not under \$HOME/, c);
+  }
+});
+
+test("DISC-144: git add -u checks modified tracked jobs only; a clean job, no pending dir and a non-pending path pass", () => {
+  const modified = gitJobRepo({ commit: { "j.md": GOOD_JOB }, pending: { "j.md": BAD_JOB } });
+  assert.equal(checkBashMacJob({ command: "git add -u" }, modified).ok, false);
+  const untrackedOnly = gitJobRepo({ pending: { "bad.md": BAD_JOB } });
+  assert.equal(checkBashMacJob({ command: "git add -u" }, untrackedOnly).ok, true); // -u never stages an untracked file
+  assert.equal(checkBashMacJob({ command: "git add -A" }, gitJobRepo({ pending: { "ok.md": GOOD_JOB } })).ok, true);
+  assert.equal(checkBashMacJob({ command: "git add -A" }, gitJobRepo()).ok, true);
+  assert.equal(checkBashMacJob({ command: "git add README.md" }, untrackedOnly).ok, true);
+  assert.equal(checkBashMacJob({ command: "git add src/" }, untrackedOnly).ok, true);
+});
+
+test("DISC-144: a tree-wide add fails closed when git cannot say what it stages", () => {
+  const notARepo = mkdtempSync(join(realpathSync(tmpdir()), "norepo-"));
+  assert.equal(checkBashMacJob({ command: "git add -A" }, notARepo).ok, false);
+  assert.equal(checkBashMacJob({ command: "git add ." }, notARepo).ok, false);
+});
+
+test("DISC-144: the gate process denies git add -A over a bad pending job", () => {
+  const d = gitJobRepo({ pending: { "bad.md": BAD_JOB } });
+  assert.equal(runGate({ command: "git add -A" }, d).decision, "deny");
+  assert.equal(runGate({ command: "git add -A" }, gitJobRepo()).decision, "allow");
+});
+
+// --- DISC-164 (follow-up): an unwritable marker dir must not repeat the 70% nudge ----
+
+test("DISC-164: with the marker dir unwritable the 70% nudge falls back to a second dir and fires once per percent", () => {
+  const d = mkdtempSync(join(tmpdir(), "cf-"));
+  const tp = join(d, "t.jsonl");
+  writeFileSync(tp, JSON.stringify({ type: "assistant", message: { usage: { input_tokens: 150000 } } }) + "\n");
+  const blocked = join(d, "not-a-dir");
+  writeFileSync(blocked, "file, so every marker write fails");
+  const fallbackDir = mkdtempSync(join(tmpdir(), "cf-fallback-"));
+  const ev = { hook_event_name: "PostToolUse", session_id: "u", transcript_path: tp };
+  const opts = { window: 200_000, dir: blocked, fallbackDir };
+  assert.match(handle(ev, opts), /past the 70% wrap line/);
+  assert.equal(handle(ev, opts), null);
+  // both unwritable: a repeat beats silence
+  const both = { window: 200_000, dir: blocked, fallbackDir: blocked };
+  assert.match(handle(ev, both), /past the 70% wrap line/);
+  assert.match(handle(ev, both), /past the 70% wrap line/);
 });
 
 test("release: 1.152.0 in both manifests and CHANGED.txt, with the encoded line", () => {

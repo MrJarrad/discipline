@@ -26,7 +26,7 @@
    Env: DISCIPLINE_CONTEXT_WINDOW, DISCIPLINE_WRAP_AT (0.7).
    Dry-run: node context-fill.mjs < input.json */
 import { closeSync, existsSync, fstatSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 const TAIL_BYTES = 4 * 1024 * 1024;
@@ -103,7 +103,7 @@ const k = (n) => `${Math.round(n / 1000)}k`;
 const MARKER_TTL_MS = 10 * 60_000;
 const WRAPPED_WARN_AT = 0.9;
 
-export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
+export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), fallbackDir = join(homedir(), ".claude"), now = Date.now(), markerTtlMs = MARKER_TTL_MS } = {}) {
   if (!input || input.agent_id) return null;
   const event = input.hook_event_name;
   const sid = safeSid(input.session_id);
@@ -125,6 +125,7 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
     return null;
   }
   if (event === "SessionEnd") {
+    if (sid) remove(fallbackDir, (f) => new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     if (sid) remove(dir, (f) => f === `${PREFIX}precompact-${sid}` || f === `${PREFIX}wrapped-${sid}` || f === `${PREFIX}wrapped-warned-${sid}` || f === `${PREFIX}reopened-${sid}` || new RegExp(`^${PREFIX}${sid}-\\d+$`).test(f));
     return null;
   }
@@ -160,7 +161,11 @@ export function handle(input, { window, wrapAt = 0.7, dir = tmpdir(), now = Date
   if (tokens / window < wrapAt) return null;
   if (event === "PostToolUse") {
     if (!sid) return null;
-    try { writeFileSync(join(dir, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); } catch (e) { if (e?.code === "EEXIST") return null; }
+    // Marker dir unwritable (not EEXIST): try the fallback dir so the nudge still fires once per percent;
+    // only when both fail does it repeat, because a repeat beats silence.
+    for (const d of [dir, fallbackDir]) {
+      try { writeFileSync(join(d, `${PREFIX}${sid}-${pct}`), "1", { flag: "wx" }); break; } catch (e) { if (e?.code === "EEXIST") return null; }
+    }
   }
   return `Context fill: ${k(tokens)} of ${k(window)} (${pct}%), past the ${Math.round(wrapAt * 100)}% wrap line. ${actionFor(sid)}`;
 }

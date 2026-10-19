@@ -211,6 +211,37 @@ function pendingFiles(arg, cwd) {
   if (statSync(target).isDirectory()) return readdirSync(target).filter((f) => f.endsWith(".md")).map((f) => join(target, f));
   return [target];
 }
+/* Does this `git add` pathspec cover queue/mac/pending without naming it — `.`, `:/`, a glob, or `queue`,
+   `queue/mac` (an ancestor of the pending directory in the repo `dir` belongs to)? */
+function coversPending(arg, dir) {
+  if (arg.startsWith(":") || /[*?[]/.test(arg)) return true;
+  let top;
+  try { top = repoTop(dir); } catch { return true; } // no repo to say: treat as covering, so the add fails closed
+  const pending = join(top, "queue", "mac", "pending");
+  const target = resolve(dir, expandHome(arg));
+  return pending === target || pending.startsWith(target.replace(/\/+$/, "") + "/");
+}
+function repoTop(dir) {
+  return execFileSync("git", ["-C", dir, "rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+}
+// The pending jobs a tree-wide add would stage, from `git status`; a failure to ask is a problem (fails closed).
+function stagedPendingProblems(dir, trackedOnly) {
+  try {
+    const top = repoTop(dir);
+    const out = execFileSync("git", ["-C", top, "status", "--porcelain", "-z", "--untracked-files=all", "--", "queue/mac/pending"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const found = [];
+    const entries = out.split("\0").filter(Boolean);
+    for (let n = 0; n < entries.length; n++) {
+      const [xy, file] = [entries[n].slice(0, 2), entries[n].slice(3)];
+      if (xy[0] === "R" || xy[0] === "C") n++; // a rename carries its old path as the next entry
+      if (!file.endsWith(".md") || xy.includes("D") || (trackedOnly && xy === "??")) continue;
+      for (const p of macJobProblems(readFileSync(join(top, file), "utf8"))) found.push(`${join(top, file)}: ${p}`);
+    }
+    return found;
+  } catch (err) {
+    return [`this add stages the whole tree and git could not say whether queue/mac/pending files are in it (${err.code ?? err.message})`];
+  }
+}
 export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
   const problems = [];
   let cwd = startCwd;
@@ -222,7 +253,10 @@ export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
     let i = 1;
     while (words[i]?.startsWith("-")) { if (words[i] === "-C" && words[i + 1]) dir = resolve(dir, expandHome(words[++i])); i++; }
     if (words[i] !== "add") continue;
-    for (const arg of words.slice(i + 1).filter((w) => !w.startsWith("-") && PENDING.test(w))) {
+    const addArgs = words.slice(i + 1);
+    const flags = addArgs.filter((w) => w.startsWith("-") && w !== "--");
+    const paths = addArgs.filter((w) => !w.startsWith("-"));
+    for (const arg of paths.filter((w) => PENDING.test(w))) {
       try {
         for (const file of pendingFiles(arg, dir))
           for (const p of macJobProblems(readFileSync(file, "utf8"))) problems.push(`${file}: ${p}`);
@@ -230,6 +264,10 @@ export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
         problems.push(`${arg}: cannot be read to check (${err.code ?? err.message})`);
       }
     }
+    // `git add -A`, `.`, `-u`, `queue` … stage pending jobs without naming them: ask git what would be staged.
+    const treeWide = !paths.length && flags.some((f) => /^(?:--all|--update|-[a-zA-Z]*[Au][a-zA-Z]*)$/.test(f));
+    if (treeWide || paths.some((w) => !PENDING.test(w) && coversPending(w, dir)))
+      problems.push(...stagedPendingProblems(dir, flags.some((f) => /^(?:--update|-[a-zA-Z]*u[a-zA-Z]*)$/.test(f)) && !flags.some((f) => /^(?:--all|-[a-zA-Z]*A[a-zA-Z]*)$/.test(f))));
   }
   if (!problems.length) return { ok: true };
   return {
