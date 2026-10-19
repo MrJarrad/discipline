@@ -73,7 +73,10 @@ export function reviewVerdict(items, headSha, trusted = []) {
   const ok = trusted.map((t) => String(t).toLowerCase());
   const head = String(headSha).toLowerCase();
   const timed = (items || []).map((c, i) => ({ c, i, t: Date.parse(c.at) }));
-  timed.sort((x, y) => (Number.isNaN(x.t) || Number.isNaN(y.t) ? x.i - y.i : x.t - y.t || x.i - y.i));
+  /* A post with no readable timestamp ranks oldest (then list order), so the sort stays transitive
+     and an untimed yes never outranks a timed no (#108 N7). */
+  const rank = (x) => (Number.isNaN(x.t) ? -Infinity : x.t);
+  timed.sort((x, y) => (rank(x) === rank(y) ? x.i - y.i : rank(x) < rank(y) ? -1 : 1));
   let found = null;
   for (const { c } of timed) {
     if (!ok.includes(String(c.author?.login || "").toLowerCase())) continue;
