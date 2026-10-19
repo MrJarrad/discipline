@@ -47,6 +47,13 @@ test("(A1) get_files completeness needs page 1 through a short page, with no gap
   assert.equal(decide([{ n: 7, input: {} }]), "allow");
 });
 
+test("(A1 residual, #111) every page is read at the same perPage: mixed sizes leave a gap and are refused", () => {
+  assert.equal(decide([{ n: 100, input: { perPage: 100 } }, { n: 5, input: { page: 2, perPage: 30 } }]), "deny", "rows 101 onward never read");
+  assert.equal(decide([{ n: 30, input: { perPage: 30 } }, { n: 5, input: { page: 2, perPage: 100 } }]), "deny", "rows 31-100 never read");
+  assert.equal(decide([{ n: 100, input: { perPage: 100 } }, { n: 5, input: { page: 2, perPage: 100 } }]), "allow", "the same size throughout");
+  assert.equal(decide([{ n: 30, input: {} }, { n: 5, input: { page: 2, perPage: 30 } }]), "allow", "default size equals an explicit 30");
+});
+
 /* --- A2: the helper rules are stated once --- */
 test("(A2) HARD-RULES 19 owns the opener, the sweep cadence and the archive trigger; the recipe points at it without restating", () => {
   const rules = flat("skills/routing/references/HARD-RULES.md");
@@ -123,11 +130,4 @@ test("(DISC-197) the Stop hook accepts Upcoming above the block, treats it as a 
   assert.match(check({ text: `${block}\n${up}`, userTs: T, vault: v }), /last section/);
   has("output-styles/discipline.md", "**`## Upcoming` sits between them**");
   has("output-styles/discipline.md", "never hand-build a link");
-});
-
-test("release: 1.151.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) has(p, '"version": "1.151.0"');
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.151.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.151\.0 — .*DISC-197/);
 });
