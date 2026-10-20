@@ -158,15 +158,7 @@ test("the three queued lessons each have a pointer line in the skill that owns t
   has("skills/research-synthesis/SKILL.md", "2026-10-18-pattern-reads-start-from-the-reference");
 });
 test("CHANGED.txt names the ruling and all three lessons under 1.152.1", () => {
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8").split("\n\n")[0];
+  const top = readFileSync(join(root, "CHANGED.txt"), "utf8").split("\n\n").find((e) => e.startsWith("1.152.1 — "));
   for (const n of ["2026-10-19-discipline-backlog-is-session-only", "2026-10-18-check-parallel-sessions-before-resuming", "2026-10-18-interrupt-stops-background-lanes", "2026-10-18-pattern-reads-start-from-the-reference"])
     assert.ok(top.includes(n), n);
-});
-
-test("release: 1.152.1 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"])
-    assert.ok(readFileSync(join(root, p), "utf8").includes('"version": "1.152.1"'), p);
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.152.1 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.152\.1 — /);
 });

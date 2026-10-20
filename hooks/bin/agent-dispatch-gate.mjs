@@ -155,11 +155,21 @@ function scanTexts(command, { unquoted = false } = {}) {
    in which directory (kill-by-name, force-push, Mac-job add). It splits at every place a new command can
    start — `; & | newline ( ) { } $( ` backtick` — outside quotes, drops `if/then/do/!` and wrapper words
    (`sudo`, `env X=1`, `timeout 5`, `command`…), reads `cd`, and recurses into the body of `sh|bash|zsh -c`,
-   `eval` and `<<<` so a wrapped command is read as itself. Anything it cannot read stays a word the checks
-   treat conservatively. Regex-only matching missed `(git push -f)`, `$(…)`, `then`, `eval` (reviewer A3). */
+   `eval` and `<<<` so a wrapped command is read as itself. A command built by an expansion (`$G push -f`, `git push $FORCE`) cannot be read here. The Mac-job check treats `$` in an add path as unknown and asks git; push and kill cannot, because `git push origin "$BRANCH"` is everyday, so that is a known gap, not a conservative default. Also unread: `echo '…' | bash`, `ssh host '…'`. Regex-only matching missed `(git push -f)`, `$(…)`, `then`, `eval` (reviewer A3). */
 const SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh"]);
 const KEYWORDS = new Set(["if", "then", "else", "elif", "do", "while", "until", "!", "time", "exec", "builtin"]);
 const WRAPPER_WORDS = new Set(["sudo", "doas", "env", "xargs", "nohup", "timeout", "nice", "ionice", "stdbuf", "setsid", "command"]);
+// Options of a wrapper that take the next word as their value; that word is not the command (`sudo -u bob git …`).
+const VALUED = {
+  sudo: ["-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "-R", "-T", "--user", "--group", "--chdir", "--host", "--prompt", "--role", "--type", "--other-user", "--chroot"],
+  doas: ["-u", "-C"],
+  env: ["-u", "-C", "--unset", "--chdir"],
+  nice: ["-n", "--adjustment"],
+  timeout: ["-s", "-k", "--signal", "--kill-after"],
+  stdbuf: ["-i", "-o", "-e", "--input", "--output", "--error"],
+  ionice: ["-c", "-n", "-p", "-P", "-u", "--class", "--classdata"],
+  xargs: ["-I", "-n", "-L", "-P", "-s", "-d", "-a", "-E", "-l", "--max-args", "--max-lines", "--max-procs", "--delimiter"],
+};
 
 function splitSegments(code) {
   const segs = [];
@@ -207,19 +217,57 @@ function shellWords(seg) {
   return out;
 }
 
+// `$(…)` and `` `…` `` inside a double-quoted span still run; the segment splitter keeps quoted spans whole, so read them here.
+function dquoteSubstitutions(seg) {
+  const bodies = [];
+  let q = null;
+  for (let i = 0; i < seg.length; i++) {
+    const c = seg[i];
+    if (q === "'") { if (c === "'") q = null; continue; }
+    if (c === "\\") { i++; continue; }
+    if (q === '"') {
+      if (c === '"') q = null;
+      else if (c === "$" && seg[i + 1] === "(") {
+        let depth = 1;
+        let j = i + 2;
+        for (; j < seg.length && depth; j++) depth += seg[j] === "(" ? 1 : seg[j] === ")" ? -1 : 0;
+        bodies.push(seg.slice(i + 2, j - 1));
+        i = j - 1;
+      } else if (c === "`") {
+        const j = seg.indexOf("`", i + 1);
+        if (j > 0) { bodies.push(seg.slice(i + 1, j)); i = j; }
+      }
+    } else if (c === "'" || c === '"') q = c;
+  }
+  return bodies;
+}
+// Heredocs with the line that opens each: a body fed to a shell or `eval` is code.
+const HEREDOC_BODY = /<<-?\s*(['"]?)([A-Za-z_]\w*)\1[^\n]*\n([\s\S]*?)(?:\n\s*\2(?=\n|$)|$)/g;
+function heredocs(text) {
+  return [...String(text).matchAll(HEREDOC_BODY)].map((m) => ({
+    opener: text.slice(text.lastIndexOf("\n", m.index) + 1, m.index + m[0].indexOf("\n")).replace(/<<-?\s*(['"]?)\w+\1/, ""),
+    body: m[3],
+  }));
+}
+
 /* Every simple command in `command`: { name, args, dir } (name is the basename, wrappers removed; dir is the
    working directory the earlier `cd`s and `git -C` set). Bodies of `-c`/eval/here-strings are included. */
 export function simpleCommands(command, cwd = process.cwd(), depth = 0) {
   const found = [];
   let dir = cwd;
+  if (depth < 4)
+    for (const h of heredocs(command))
+      if (simpleCommands(h.opener, cwd, depth + 1).some((c) => c.bareShell)) found.push(...simpleCommands(h.body, cwd, depth + 1));
   for (const seg of splitSegments(stripHeredocs(command))) {
+    if (depth < 4) for (const body of dquoteSubstitutions(seg)) found.push(...simpleCommands(body, dir, depth + 1));
     let w = shellWords(seg);
     for (let guard = 0; w.length && guard < 40; guard++) {
       if (/^[A-Za-z_]\w*=/.test(w[0]) || KEYWORDS.has(w[0])) w = w.slice(1);
       else if (WRAPPER_WORDS.has(w[0])) {
         if (w[0] === "command" && /^-[vV]/.test(w[1] ?? "")) { w = []; break; } // a lookup, not a run
+        const wrapper = w[0];
         w = w.slice(1);
-        while (w.length && /^(?:-\S*|[A-Za-z_]\w*=\S*|\d+[smhd]?|[A-Z]{2,})$/.test(w[0])) w = w.slice(1);
+        while (w.length && /^(?:-\S*|[A-Za-z_]\w*=\S*|\d+[smhd]?|[A-Z]{2,})$/.test(w[0])) w = w.slice(VALUED[wrapper]?.includes(w[0]) ? 2 : 1);
       } else break;
     }
     if (!w.length) continue;
@@ -227,12 +275,17 @@ export function simpleCommands(command, cwd = process.cwd(), depth = 0) {
     const args = w.slice(1);
     if (name === "cd") { if (args.find((a) => !a.startsWith("-"))) dir = resolve(dir, expandHome(args.find((a) => !a.startsWith("-")))); continue; }
     if (depth < 4) {
-      if (name === "eval") { found.push(...simpleCommands(args.join(" "), dir, depth + 1)); continue; }
+      if (name === "eval") {
+        if (!args.length) found.push({ name, args, dir, bareShell: true });
+        else found.push(...simpleCommands(args.join(" "), dir, depth + 1));
+        continue;
+      }
       if (SHELLS.has(name)) {
         const c = args.findIndex((a) => /^-[a-z]*c[a-z]*$/.test(a));
         const here = args.indexOf("<<<");
         const body = c >= 0 ? args[c + 1] : here >= 0 ? args[here + 1] : undefined;
         if (body !== undefined) found.push(...simpleCommands(body, dir, depth + 1));
+        else if (!args.some((a) => !a.startsWith("-") && !/^\d*[<>]/.test(a)) || args.includes("-s") || args.includes("-")) found.push({ name, args, dir, bareShell: true }); // reads stdin
         continue;
       }
     }
