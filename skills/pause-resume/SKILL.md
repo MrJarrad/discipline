@@ -40,6 +40,8 @@ Nothing runs after step 4 until "resume."
 
 ## Resume
 
+After any operator interrupt, and before any status reply, confirm each background lane is alive (last activity, no interrupt marker); a progress file that has not moved is not proof. A lane the interrupt stopped is re-dispatched below, and the operator gets one "Correction:" line (lesson `2026-10-18-interrupt-stops-background-lanes`).
+
 Trigger words: "resume", "pick up where we left off", "carry on from the
 snapshot".
 

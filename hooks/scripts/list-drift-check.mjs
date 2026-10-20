@@ -41,7 +41,11 @@
    last change (git blame) and Raised date are both older than the window: keep
    or park, asked at wrap. A shallow clone can only under-report.
 
-   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]]
+   --discipline-empty (ruling 2026-10-19-discipline-backlog-is-session-only) adds a failing
+   `disc-open` line for every row still under `## Open` in the DISC backlog: a session that
+   touched discipline ends with that section empty (each row done with its PR, or moot).
+
+   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty]
    Also exports the row editors lane-end uses (setRowStatus, addRow).        */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -314,7 +318,7 @@ export function crossFileDupIds(vault) {
   return out;
 }
 
-export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index", "idea-unrowed"]);
+export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index", "idea-unrowed", "disc-open"]);
 export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? ` row ${f.row}` : ""}: ${f.msg}`;
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
@@ -547,10 +551,19 @@ export function staleRows(vault, { days = 30, today = new Date().toISOString().s
   return out;
 }
 
+/* --discipline-empty: the DISC backlog carries nothing over, so any unstruck row still in `## Open` fails. */
+export function discOpenRows(vault) {
+  const e = discoverFiles(vault).byPrefix.get("DISC");
+  if (!e?.backlog) return [{ kind: "disc-open", project: "DISC", file: "projects/jhd-discipline", msg: "no DISC backlog found to check" }];
+  return parseBacklog(readFileSync(join(vault, e.backlog), "utf8"))
+    .filter((r) => r.section === "open" && !r.struck && !finishedKind(r.status))
+    .map((r) => ({ kind: "disc-open", project: "DISC", file: e.backlog, row: r.id, msg: `still open at wrap (${r.status}): mark it done with its PR, or moot with the operator's reason; nothing carries over` }));
+}
+
 function main() {
   const argv = process.argv.slice(2);
   const vi = argv.indexOf("--vault");
-  if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]]"); process.exit(2); }
+  if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty]"); process.exit(2); }
   const vault = resolve(argv[vi + 1]);
   const repos = argv.flatMap((a, i) => (a === "--repo" && argv[i + 1] ? argv[i + 1].split(",") : [])).map((p) => resolve(p));
   let findings;
@@ -563,6 +576,7 @@ function main() {
     const di = argv.indexOf("--days");
     findings.push(...staleRows(vault, di === -1 ? {} : { days: parseInt(argv[di + 1], 10) }));
   }
+  if (argv.includes("--discipline-empty")) findings.push(...discOpenRows(vault));
   for (const f of findings) console.log(formatFinding(f));
   const failing = findings.filter((f) => FAILING.has(f.kind)).length;
   console.log(`list-drift-check: ${findings.length} finding(s), ${failing} failing, ${findings.length - failing} non-failing (suspect/unknown/named-by/stale).`);

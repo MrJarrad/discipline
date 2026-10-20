@@ -237,11 +237,3 @@ test("DISC-164: with the marker dir unwritable the 70% nudge falls back to a sec
   assert.match(handle(ev, both), /past the 70% wrap line/);
   assert.match(handle(ev, both), /past the 70% wrap line/);
 });
-
-test("release: 1.152.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"])
-    assert.ok(readFileSync(join(root, p), "utf8").includes('"version": "1.152.0"'), p);
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.152.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.152\.0 — /);
-});
