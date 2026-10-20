@@ -15,7 +15,7 @@ A link dump is not research. The deliverable is a **decision-ready answer**: wha
 true, how you know, and how sure you are. Never answer live-world facts from training
 memory alone.
 
-A pattern or benchmark read starts from the reference's inventory (its patterns and components), then asks of each whether we follow, partly follow or lack it; a clash with a ruling is reported as "conflicts with <ruling>, worth revisiting?", never resolved to "keep" (lesson `2026-10-18-pattern-reads-start-from-the-reference`).
+A pattern or benchmark read starts from the reference's inventory (its patterns and components), then asks of each whether we follow, partly follow or lack it; a clash with a ruling is reported as "conflicts with <ruling>, worth revisiting?", never resolved to "keep"; the brief asks the question and does not frame the answer around our current parts, `neutral-briefs-never-steer` (lesson `2026-10-18-pattern-reads-start-from-the-reference`).
 
 Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
