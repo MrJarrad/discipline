@@ -75,7 +75,7 @@ test("AM3: the comment and CHANGED say expansions are unreadable for push and ki
   has("hooks/bin/agent-dispatch-gate.mjs", "A command built by an expansion (`$G push -f`, `git push $FORCE`) cannot be read");
   assert.equal(push("G=git; $G push -f"), true); // unchanged: documented, not blocked
   assert.equal(push("git push $FORCE"), true);
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8").split("\n\n")[0];
+  const top = readFileSync(join(root, "CHANGED.txt"), "utf8").split("\n\n").find((e) => e.startsWith("1.152.2 — "));
   assert.match(top, /expansion/);
   assert.match(top, /\| bash/); // the pipe-into-a-shell gap stays named
 });
@@ -87,11 +87,4 @@ test("AM5: vault-recall carries all three checks and the wrap-merges rule; resea
   has("skills/vault-recall/SKILL.md", "wrap merges its vault branch");
   has("skills/research-synthesis/SKILL.md", "does not frame the answer around our current parts");
   has("skills/research-synthesis/SKILL.md", "neutral-briefs-never-steer");
-});
-
-test("release: 1.152.2 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(readFileSync(join(root, p), "utf8").includes('"version": "1.152.2"'), p);
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.152.2 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.152\.2 — /);
 });
