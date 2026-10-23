@@ -17,15 +17,11 @@
 |-------|-----|
 | Restate the house voice in a project guide | One source; the guide carries only what is specific to the project |
 | Use a word on the house banned list | The list is the lexicon floor for every project |
-| Open with "This means that..." or "Our focus is to ensure..." | Meta-commentary; go straight to the point |
+| Add intro clauses or meta-commentary | The no-meta-commentary rule and its examples live in [HOUSE-VOICE.md](HOUSE-VOICE.md) |
 | Claim a superlative or "#1" you cannot back | Every claim true and specific |
 | Use vibe words in place of the specific | "Powerful" and "next-level" show nothing |
 | Apply this to operator chat or agent output styles | Scope is published copy |
 
 ## Worked example
 
-Fluff: "Crafting comprehensive and holistic brand identity systems across an integrated blueprint to ensure a best-in-class, seamless user experience."
-
-House: "Building flexible typographic systems, color palettes, and core visual assets that translate natively between physical spaces and digital interfaces."
-
-Read aloud: the second names the work, opens on a present-participle verb, and carries no banned word.
+The BAD/GOOD contrast pair lives in [HOUSE-VOICE.md](HOUSE-VOICE.md). Read the GOOD line aloud: it names the work, opens on a present-participle verb, and carries no banned word.

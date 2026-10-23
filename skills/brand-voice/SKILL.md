@@ -21,7 +21,7 @@ A single adjective ("friendly") isn't a voice — it's a vibe. Pin the voice on 
 
 - **Personality / traits** — the 3–5 defining adjectives, each with a **"we are X, not Y"** contrast (*confident, not arrogant*; *warm, not saccharine*; *precise, not clinical*). The contrast is what makes a trait operational — it tells you what to cut.
 - **Person & formality** — first/second person, contractions yes/no, sentence length, how much the brand addresses "you."
-- **Lexicon** — words we use and words we ban (the house banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md) always applies; the project adds its own): product/feature names, jargon policy, forbidden clichés ("seamless", "revolutionary", "game-changer").
+- **Lexicon** — words we use and words we ban (the house banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md) always applies; the project adds its own): product/feature names, jargon policy, forbidden clichés beyond the house list.
 - **Register range** — how much enthusiasm, humor, and empathy the brand allows, and where each is *not* allowed.
 
 ## Adapt to the surface, hold the voice — same brand, different volume
@@ -38,7 +38,7 @@ Match the surface's job **without changing who the brand is.** A brand that's wa
 
 ## The content bar (applies everywhere)
 - **Benefit before feature** — lead with what the user *gets*, not the mechanism. "Find any note in a second," not "Full-text search index."
-- **Concrete over vague** — kill vibe words ("powerful", "seamless", "robust", "next-level"). Show the specific, don't claim the abstract.
+- **Concrete over vague** — kill vibe words (the banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md), plus "powerful", "next-level"). Show the specific, don't claim the abstract.
 - **Every claim true and specific** — no invented superlatives, no "#1" you can't back. If you can't support it, cut it. (This is `quality`'s never-fabricate, at the sentence level.)
 - **One idea per sentence** — if there's a second clause carrying a second idea, split it.
 - **Active voice, present tense** by default.

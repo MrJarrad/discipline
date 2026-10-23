@@ -43,6 +43,13 @@ test("the banned list lives only in HOUSE-VOICE.md", () => {
     assert.ok(!flat(p).includes("end-to-end, holistic"), p);
 });
 
+test("the BAD/GOOD pair and the meta-commentary examples are stated only in HOUSE-VOICE.md", () => {
+  const fixed = ["Crafting comprehensive and holistic", "Building flexible typographic systems", "This means that", "Our focus is to ensure"];
+  for (const p of ["skills/brand-voice/SKILL.md", "skills/brand-voice/references/DOS-AND-DONTS.md"])
+    for (const f of fixed) assert.ok(!flat(p).includes(f), `${p} restates: ${f}`);
+  assert.ok(!/"seamless"|"robust"/.test(flat(SK)), "SKILL.md lists banned words instead of pointing at HOUSE-VOICE.md");
+});
+
 test("every references/ link brand-voice names resolves", () => {
   for (const m of readFileSync(join(root, SK), "utf8").matchAll(/\]\((references\/[A-Za-z0-9._-]+\.md)\)/g))
     assert.ok(existsSync(join(root, "skills/brand-voice", m[1])), m[1]);
