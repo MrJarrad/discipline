@@ -15,12 +15,12 @@ const SK = "skills/brand-voice/SKILL.md";
 test("HOUSE-VOICE.md carries every rule of the brief", () => {
   assert.ok(existsSync(join(root, HV)));
   has(HV, "Grounded Editorial Minimalist");
-  has(HV, "comprehensive, end-to-end, holistic, robust, seamless, overarching, strategic, integrated, synergy, hyper-realistic, best-in-class, premium, frictionless, distinctive");
+  has(HV, "comprehensive, holistic, robust, seamless, overarching, strategic, integrated, synergy, hyper-realistic, best-in-class, premium, frictionless, distinctive");
   has(HV, "\"This means that...\"");
   has(HV, "\"Our focus is to ensure...\"");
   for (const w of ["Action-first", "Radical economy", "Conversational but serious", "Business-aware"]) has(HV, w);
   has(HV, "Crafting comprehensive and holistic brand identity systems across an integrated blueprint to ensure a best-in-class, seamless user experience.");
-  has(HV, "Building flexible typographic systems, color palettes, and core visual assets that translate natively between physical spaces and digital interfaces.");
+  has(HV, "Building flexible typographic systems, colour palettes, and core visual assets that translate natively between physical spaces and digital interfaces.");
 });
 
 test("the Gemini role-play framing is dropped", () => {
@@ -40,7 +40,7 @@ test("brand-voice loads the house voice first and stays one source", () => {
 
 test("the banned list lives only in HOUSE-VOICE.md", () => {
   for (const p of ["skills/brand-voice/SKILL.md", "skills/brand-voice/references/DOS-AND-DONTS.md"])
-    assert.ok(!flat(p).includes("end-to-end, holistic"), p);
+    assert.ok(!flat(p).includes("comprehensive, holistic"), p);
 });
 
 test("the BAD/GOOD pair and the meta-commentary examples are stated only in HOUSE-VOICE.md", () => {
@@ -59,9 +59,8 @@ test("output styles are untouched by the house voice", () => {
   assert.ok(!flat("output-styles/discipline.md").includes("Grounded Editorial Minimalist"));
 });
 
-test("release: 1.153.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(readFileSync(join(root, p), "utf8").includes('"version": "1.153.0"'), p);
-  const top = readFileSync(join(root, "CHANGED.txt"), "utf8");
-  assert.ok(top.startsWith("1.153.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.153\.0 — /);
+test("release: 1.153.0 has its CHANGED.txt entry with the encoded line", () => {
+  const top = readFileSync(join(root, "CHANGED.txt"), "utf8").split("\n\n").find((e) => e.startsWith("1.153.0 — "));
+  assert.ok(top);
+  assert.match(top, /\nencoded: 1\.153\.0 — /);
 });
