@@ -21,6 +21,7 @@
    Fails closed: unreadable input, any crash, or a failure to load
    merge-after-review.mjs (imported inside the try) denies the merge, naming why. */
 import { readFileSync } from "node:fs";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 function deny(reason) {
   console.log(JSON.stringify({
@@ -42,9 +43,10 @@ function deny(reason) {
    rows), so no file can be missing;
    `truncated` is set when a result was a persisted-output stub whose file
    could not be read. */
-export function prReads(lines, { owner, repo, pullNumber }) {
+export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map();
+  const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
   const out = { items: [], files: null, filesComplete: true, truncated: false };
   const pages = new Map();
   for (const line of lines) {
@@ -58,11 +60,25 @@ export function prReads(lines, { owner, repo, pullNumber }) {
       if (!i || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
       if (!["get_comments", "get_reviews", "get_files"].includes(i.method)) continue;
       let text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
-      if (text.startsWith("<persisted-output>")) {
-        try { text = readFileSync(text.match(/saved to: (\S+)/)[1], "utf8"); } catch { out.truncated = true; continue; }
+      /* Over the tool-result limit the harness saves a result to disk and replaces it with one of
+         two exact shapes, anchored at the start of the result: a `<persisted-output>` block
+         ("...saved to: <path>"), or the error "result (N characters) exceeds maximum allowed
+         tokens. Output has been saved to <path>". A phrase anywhere else (a filename, a comment
+         body) is data, not a harness stub. The path must resolve inside this session's own
+         `<transcript dir>/<transcript name>/tool-results/`.
+         The file's text may be the rows or a content-block wrapper around them
+         (`[{ "type": "text", "text": "[...]" }]`). */
+      const stub = text.match(/^<persisted-output>[^]*?\bsaved to:? (\S+)/) || text.match(/^(?:Error: )?result(?: \([^)]*\))? exceeds maximum allowed tokens\. Output has been saved to (\S+?)\.?(?:\s|$)/);
+      if (stub) {
+        const path = resolve(stub[1]);
+        if (!transcriptPath || !path.startsWith(saves)) { out.truncated = true; continue; }
+        try { text = readFileSync(path, "utf8"); } catch { out.truncated = true; continue; }
       }
       let rows;
       try { rows = JSON.parse(text); } catch { continue; }
+      if (Array.isArray(rows) && rows.length && rows.every((r) => r?.type === "text" && typeof r.text === "string")) {
+        try { rows = JSON.parse(rows.map((r) => r.text).join("")); } catch { continue; }
+      }
       if (!Array.isArray(rows)) continue;
       if (i.method === "get_files") {
         out.files = [...(out.files || []), ...rows.map((f) => f.filename)];
@@ -88,9 +104,13 @@ function check(input, { notesOnly, reviewVerdict }) {
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
   let lines = [];
   try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
-  const reads = prReads(lines, t);
+  const reads = prReads(lines, t, input.transcript_path);
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
+    /* Reads can fail to prove notes-only (a page over the size limit and unreadable, a gap), but
+       a reviewer's merge: yes on the pinned head clears the merge on its own (DISC-205). */
+    const cleared = pinned && reviewVerdict(reads.items, t.expectedHeadSha, [t.owner])?.verdict === "yes";
+    if (cleared && (!reads.files || !reads.filesComplete)) process.exit(0);
     if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; read its files with pull_request_read get_files first, or get a reviewer verdict.`);
     if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {

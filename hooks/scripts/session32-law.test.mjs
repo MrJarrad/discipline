@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,8 +67,8 @@ test("(B2) notes-only means markdown records outside .github and .claude; anythi
 const gate = join(root, "hooks/bin/merge-review-gate.mjs");
 const dir = () => mkdtempSync(join(tmpdir(), "s32-"));
 /* calls: [{ name, input, items | text }] → a transcript in the real Claude Code JSONL shape. */
-const transcript = (calls) => {
-  const p = join(dir(), "t.jsonl");
+const transcript = (calls, d = dir()) => {
+  const p = join(d, "t.jsonl");
   const lines = calls.flatMap((k, i) => {
     const id = `toolu_${i}`;
     const text = k.text ?? JSON.stringify(k.items);
@@ -128,11 +128,14 @@ test("(B2) the vault carve-out is notes-only MrJarrad/jhd-vault, proven by get_f
 });
 
 test("(B2) a persisted-output stub is read from its saved file, or the denial says the read was truncated", () => {
-  const saved = join(dir(), "beyzt5l19.txt");
+  const d = dir();
+  const results = join(d, "t", "tool-results");
+  mkdirSync(results, { recursive: true });
+  const saved = join(results, "beyzt5l19.txt");
   writeFileSync(saved, JSON.stringify([{ body: REAL.d107r3(S7), user: { login: "MrJarrad" } }]));
   const stub = (path) => ({ input: { method: "get_comments", owner: "MrJarrad", repo: "jhd-portfolio", pullNumber: 361 }, text: `<persisted-output>\nOutput too large (33KB). Full output saved to: ${path}\n</persisted-output>` });
-  assert.equal(runGate(pr(), transcript([stub(saved)])).permissionDecision, "allow");
-  assert.match(runGate(pr(), transcript([stub("/nonexistent/x.txt")])).permissionDecisionReason, /verdict read was truncated; re-read the comments/);
+  assert.equal(runGate(pr(), transcript([stub(saved)], d)).permissionDecision, "allow");
+  assert.match(runGate(pr(), transcript([stub(join(results, "gone.txt"))], d)).permissionDecisionReason, /verdict read was truncated; re-read the comments/);
 });
 
 test("(B2) the gate fails closed: unreadable input or a crash refuses the merge with a clear message", () => {
