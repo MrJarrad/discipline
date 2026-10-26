@@ -21,7 +21,7 @@
    Fails closed: unreadable input, any crash, or a failure to load
    merge-after-review.mjs (imported inside the try) denies the merge, naming why. */
 import { readFileSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 function deny(reason) {
   console.log(JSON.stringify({
@@ -43,9 +43,10 @@ function deny(reason) {
    rows), so no file can be missing;
    `truncated` is set when a result was a persisted-output stub whose file
    could not be read. */
-export function prReads(lines, { owner, repo, pullNumber }) {
+export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map();
+  const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
   const out = { items: [], files: null, filesComplete: true, truncated: false };
   const pages = new Map();
   for (const line of lines) {
@@ -63,13 +64,14 @@ export function prReads(lines, { owner, repo, pullNumber }) {
          two exact shapes, anchored at the start of the result: a `<persisted-output>` block
          ("...saved to: <path>"), or the error "result (N characters) exceeds maximum allowed
          tokens. Output has been saved to <path>". A phrase anywhere else (a filename, a comment
-         body) is data, not a harness stub. The path must sit under a `tool-results` directory.
+         body) is data, not a harness stub. The path must resolve inside this session's own
+         `<transcript dir>/<transcript name>/tool-results/`.
          The file's text may be the rows or a content-block wrapper around them
          (`[{ "type": "text", "text": "[...]" }]`). */
       const stub = text.match(/^<persisted-output>[^]*?\bsaved to:? (\S+)/) || text.match(/^(?:Error: )?result(?: \([^)]*\))? exceeds maximum allowed tokens\. Output has been saved to (\S+?)\.?(?:\s|$)/);
       if (stub) {
         const path = resolve(stub[1]);
-        if (!path.split(sep).includes("tool-results")) { out.truncated = true; continue; }
+        if (!transcriptPath || !path.startsWith(saves)) { out.truncated = true; continue; }
         try { text = readFileSync(path, "utf8"); } catch { out.truncated = true; continue; }
       }
       let rows;
@@ -102,7 +104,7 @@ function check(input, { notesOnly, reviewVerdict }) {
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
   let lines = [];
   try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
-  const reads = prReads(lines, t);
+  const reads = prReads(lines, t, input.transcript_path);
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
     /* Reads can fail to prove notes-only (a page over the size limit and unreadable, a gap), but
