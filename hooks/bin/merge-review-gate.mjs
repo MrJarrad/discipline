@@ -58,11 +58,18 @@ export function prReads(lines, { owner, repo, pullNumber }) {
       if (!i || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
       if (!["get_comments", "get_reviews", "get_files"].includes(i.method)) continue;
       let text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
-      if (text.startsWith("<persisted-output>")) {
-        try { text = readFileSync(text.match(/saved to: (\S+)/)[1], "utf8"); } catch { out.truncated = true; continue; }
+      /* Over the tool-result limit, a result is saved to disk in one of two shapes: a
+         `<persisted-output>` block, or a plain error ("result exceeds maximum allowed tokens.
+         Output has been saved to <path>"). Both name the file; its text may be the rows or a
+         content-block wrapper around them (`[{ "type": "text", "text": "[...]" }]`). */
+      if (text.startsWith("<persisted-output>") || /exceeds maximum allowed tokens/.test(text)) {
+        try { text = readFileSync(text.match(/saved (?:in|to):? (\S+?)\.?(?:\s|$)/)[1], "utf8"); } catch { out.truncated = true; continue; }
       }
       let rows;
       try { rows = JSON.parse(text); } catch { continue; }
+      if (Array.isArray(rows) && rows.length && rows.every((r) => r?.type === "text" && typeof r.text === "string")) {
+        try { rows = JSON.parse(rows.map((r) => r.text).join("")); } catch { continue; }
+      }
       if (!Array.isArray(rows)) continue;
       if (i.method === "get_files") {
         out.files = [...(out.files || []), ...rows.map((f) => f.filename)];
@@ -91,6 +98,10 @@ function check(input, { notesOnly, reviewVerdict }) {
   const reads = prReads(lines, t);
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
+    /* Reads can fail to prove notes-only (a page over the size limit and unreadable, a gap), but
+       a reviewer's merge: yes on the pinned head clears the merge on its own (DISC-205). */
+    const cleared = pinned && reviewVerdict(reads.items, t.expectedHeadSha, [t.owner])?.verdict === "yes";
+    if (cleared && (!reads.files || !reads.filesComplete)) process.exit(0);
     if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; read its files with pull_request_read get_files first, or get a reviewer verdict.`);
     if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {

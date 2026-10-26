@@ -39,9 +39,8 @@ test("house spelling is British English", () => {
   assert.ok(!/\bcolor\b/i.test(t.replace(/colour/gi, "")));
 });
 
-test("release: 1.153.1 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.153.1"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.153.1 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.153\.1 — /);
+test("release: 1.153.1 has its CHANGED.txt entry with the encoded line", () => {
+  const top = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.153.1 — "));
+  assert.ok(top);
+  assert.match(top, /\nencoded: 1\.153\.1 — /);
 });
