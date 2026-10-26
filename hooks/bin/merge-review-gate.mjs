@@ -21,6 +21,7 @@
    Fails closed: unreadable input, any crash, or a failure to load
    merge-after-review.mjs (imported inside the try) denies the merge, naming why. */
 import { readFileSync } from "node:fs";
+import { resolve, sep } from "node:path";
 
 function deny(reason) {
   console.log(JSON.stringify({
@@ -58,12 +59,18 @@ export function prReads(lines, { owner, repo, pullNumber }) {
       if (!i || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
       if (!["get_comments", "get_reviews", "get_files"].includes(i.method)) continue;
       let text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
-      /* Over the tool-result limit, a result is saved to disk in one of two shapes: a
-         `<persisted-output>` block, or a plain error ("result exceeds maximum allowed tokens.
-         Output has been saved to <path>"). Both name the file; its text may be the rows or a
-         content-block wrapper around them (`[{ "type": "text", "text": "[...]" }]`). */
-      if (text.startsWith("<persisted-output>") || /exceeds maximum allowed tokens/.test(text)) {
-        try { text = readFileSync(text.match(/saved (?:in|to):? (\S+?)\.?(?:\s|$)/)[1], "utf8"); } catch { out.truncated = true; continue; }
+      /* Over the tool-result limit the harness saves a result to disk and replaces it with one of
+         two exact shapes, anchored at the start of the result: a `<persisted-output>` block
+         ("...saved to: <path>"), or the error "result (N characters) exceeds maximum allowed
+         tokens. Output has been saved to <path>". A phrase anywhere else (a filename, a comment
+         body) is data, not a harness stub. The path must sit under a `tool-results` directory.
+         The file's text may be the rows or a content-block wrapper around them
+         (`[{ "type": "text", "text": "[...]" }]`). */
+      const stub = text.match(/^<persisted-output>[^]*?\bsaved to:? (\S+)/) || text.match(/^(?:Error: )?result(?: \([^)]*\))? exceeds maximum allowed tokens\. Output has been saved to (\S+?)\.?(?:\s|$)/);
+      if (stub) {
+        const path = resolve(stub[1]);
+        if (!path.split(sep).includes("tool-results")) { out.truncated = true; continue; }
+        try { text = readFileSync(path, "utf8"); } catch { out.truncated = true; continue; }
       }
       let rows;
       try { rows = JSON.parse(text); } catch { continue; }

@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -128,7 +128,9 @@ test("(B2) the vault carve-out is notes-only MrJarrad/jhd-vault, proven by get_f
 });
 
 test("(B2) a persisted-output stub is read from its saved file, or the denial says the read was truncated", () => {
-  const saved = join(dir(), "beyzt5l19.txt");
+  const results = join(dir(), "tool-results");
+  mkdirSync(results);
+  const saved = join(results, "beyzt5l19.txt");
   writeFileSync(saved, JSON.stringify([{ body: REAL.d107r3(S7), user: { login: "MrJarrad" } }]));
   const stub = (path) => ({ input: { method: "get_comments", owner: "MrJarrad", repo: "jhd-portfolio", pullNumber: 361 }, text: `<persisted-output>\nOutput too large (33KB). Full output saved to: ${path}\n</persisted-output>` });
   assert.equal(runGate(pr(), transcript([stub(saved)])).permissionDecision, "allow");
