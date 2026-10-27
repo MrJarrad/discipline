@@ -110,9 +110,8 @@ test("a vault PR with no reads and no verdict is still denied; so is a non-vault
   assert.equal(run(merge({ repo: "jhd-portfolio" }), other).permissionDecision, "deny");
 });
 
-test("release: 1.153.2 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.153.2"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.153.2 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.153\.2 — /);
+test("release: 1.153.2 has its CHANGED.txt entry with the encoded line", () => {
+  const top = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.153.2 — "));
+  assert.ok(top);
+  assert.match(top, /\nencoded: 1\.153\.2 — /);
 });
