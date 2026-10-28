@@ -21,7 +21,18 @@ test("the five rules live in HOUSE-VOICE.md", () => {
     "Allow a few honest feeling words** (considered, quiet, crafted, exceptional) where they are true",
     "One idea per paragraph",
     "Drop workplace words:** align, iterate, steer, production, deliver",
+    "Don't reuse one sentence shape across a set.** Vary how each line opens and moves.",
+    "Say what it's for,** not just what it is.",
   ]) assert.ok(t.includes(r), r);
+});
+
+test("framing is guidance, not a rule: never a required intro, no Glossary intro", () => {
+  const t = flat(HV);
+  assert.ok(t.includes("Framing is general copywriting guidance, not a rule"));
+  assert.ok(t.includes("never a required intro"));
+  assert.ok(t.includes("the Glossary, one term each) gets none"));
+  assert.ok(flat(SK).includes("it is never a required intro"));
+  assert.ok(flat(DD).includes("Rule 7"));
 });
 
 test("the approved paragraphs and the draft-3 paragraphs form the tone-target pair", () => {

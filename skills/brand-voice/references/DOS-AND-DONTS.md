@@ -14,6 +14,9 @@
 | Let sentences run and join, and vary their length | Rule 2: copy that reads like a person talking |
 | Use considered, quiet, crafted or exceptional where it is true | Rule 3: honest feeling, not filler |
 | State one belief per paragraph | Rule 4: a belief lands; an explanation lists |
+| Vary how each line in a set opens and moves | Rule 6: one repeated shape reads as a template |
+| Say what a thing is for, not only what it is | Rule 7: purpose is what the reader came for |
+| Tie a set of items together with one line where it helps | General guidance, never a required intro; one-item-at-a-time pages get none |
 
 ## Don't
 
@@ -25,6 +28,7 @@
 | Claim a superlative or "#1" you cannot back | Every claim true and specific |
 | Use vibe words in place of the specific | "Powerful" and "next-level" show nothing |
 | Stack three verbs or three abstract nouns in a row | Rule 2: it reads mechanical |
+| Open every line in a set with the same shape | Rule 6: it reads mechanical |
 | Use workplace words: align, iterate, steer, production, deliver | Rule 5: they sound like a status report |
 | Strip a true feeling word as if it were padding | Rule 3: the aim is to stop mechanical copy |
 | Apply this to operator chat or agent output styles | Scope is published copy |

@@ -37,10 +37,10 @@ The voice is constant; the **register flexes by the surface's job**. An error me
 Match the surface's job **without changing who the brand is.** A brand that's warm-but-precise is still warm-but-precise in an error message — just quieter.
 
 ## The content bar (applies everywhere)
-- **Benefit before feature** — lead with what the user *gets*, not the mechanism. "Find any note in a second," not "Full-text search index."
+- **Benefit before feature** — lead with what the user *gets*, not the mechanism. "Find any note in a second," not "Full-text search index." Say what a thing is for, not only what it is.
 - **Concrete over vague** — kill vibe words (the banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md), plus "powerful", "next-level"). Show the specific, don't claim the abstract. An honest feeling word that is true (considered, quiet, crafted, exceptional) is not a vibe word.
 - **Every claim true and specific** — no invented superlatives, no "#1" you can't back. If you can't support it, cut it. (This is `quality`'s never-fabricate, at the sentence level.)
-- **One idea per paragraph**, stated as a belief. Sentences may run and join, and vary in length; avoid a list of three verbs.
+- **One idea per paragraph**, stated as a belief. Sentences may run and join, and vary in length; avoid a list of three verbs, and don't open every line in a set the same way. Where several items sit together, one line that ties them helps; it is never a required intro.
 - **Active voice, present tense** by default.
 - **The reader's words, not ours** — the audience's vocabulary, not internal jargon or feature codenames.
 - **Plain and inclusive** — no idioms that don't translate, no ableist metaphors; readable at the audience's level.
