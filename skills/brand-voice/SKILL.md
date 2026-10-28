@@ -7,7 +7,7 @@ description: How to write user-facing copy in one consistent brand voice — the
 
 A brand's voice guide tells you *what* the voice is — its traits, its lexicon, its say/don't-say. This skill is *how* to wield it, so every line a user reads sounds like one brand — on any project, any surface.
 
-Load [references/HOUSE-VOICE.md](references/HOUSE-VOICE.md) first, on every use: it is the house voice for all published copy. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+Load [references/HOUSE-VOICE.md](references/HOUSE-VOICE.md) first, on every use: it is the house voice for all published copy. Its "Warmth over mechanics" section holds the five rules and the tone-target paragraphs for every page; write toward them. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
 ## The one rule — voice is applied, never improvised
 Every line of shipped copy traces to the brand's voice definition: its **traits**, its **lexicon**, its **say/don't-say**. No off-brand phrasing, no generic "AI voice," no per-writer drift. **Improvised tone is a bug, not a shortcut.** If the voice guide doesn't cover the case, **extend the guide, then write** — don't quietly invent a one-off tone. This holds regardless of which brand you're writing for — it's the rule beneath all the rest. The house voice is the floor under every brand; a project's voice guide adds only project specifics (traits, lexicon, surface quirks) and never restates it.
@@ -37,16 +37,16 @@ The voice is constant; the **register flexes by the surface's job**. An error me
 Match the surface's job **without changing who the brand is.** A brand that's warm-but-precise is still warm-but-precise in an error message — just quieter.
 
 ## The content bar (applies everywhere)
-- **Benefit before feature** — lead with what the user *gets*, not the mechanism. "Find any note in a second," not "Full-text search index."
-- **Concrete over vague** — kill vibe words (the banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md), plus "powerful", "next-level"). Show the specific, don't claim the abstract.
+- **Benefit before feature** — lead with what the user *gets*, not the mechanism. "Find any note in a second," not "Full-text search index." Say what a thing is for, not only what it is.
+- **Concrete over vague** — kill vibe words (the banned list in [HOUSE-VOICE.md](references/HOUSE-VOICE.md), plus "powerful", "next-level"). Show the specific, don't claim the abstract. An honest feeling word that is true (considered, quiet, crafted, exceptional) is not a vibe word.
 - **Every claim true and specific** — no invented superlatives, no "#1" you can't back. If you can't support it, cut it. (This is `quality`'s never-fabricate, at the sentence level.)
-- **One idea per sentence** — if there's a second clause carrying a second idea, split it.
+- **One idea per paragraph**, stated as a belief. Sentences may run and join, and vary in length; avoid a list of three verbs, and don't open every line in a set the same way. Where several items sit together, one line that ties them helps; it is never a required intro.
 - **Active voice, present tense** by default.
 - **The reader's words, not ours** — the audience's vocabulary, not internal jargon or feature codenames.
 - **Plain and inclusive** — no idioms that don't translate, no ableist metaphors; readable at the audience's level.
 
 ## Verify before done — the read-aloud test (voice-truth)
-Read the copy **aloud**. If it sounds like a generic assistant, or like a *different* brand, it fails. Then check it **trait by trait**: for each key line, name which voice trait it delivers — and cut any line that delivers none. Don't approve copy from a silent skim. (Parallel to design-craft's "render at real viewports" — copy has its own verification, and it's the ear.)
+Read the copy **aloud**. If it sounds like a generic assistant, like a *different* brand, or mechanical and not nice to hear, it fails. Then check it **trait by trait**: for each key line, name which voice trait it delivers — and cut any line that delivers none. Don't approve copy from a silent skim. (Parallel to design-craft's "render at real viewports" — copy has its own verification, and it's the ear.)
 
 ## Scope boundary — voice is the *sound*, not everything about the words
 This skill owns how published copy *sounds* (sites, apps, case studies, App Store, microcopy, posts). It is **not**:
