@@ -10,7 +10,10 @@
    first step writes with the parent's session id; each cloud session has its
    own container, so the file marks this session only. No env var marks a
    helper: CLAUDE_CODE_CHILD_SESSION=1 is set in the orchestrator too (parent,
-   2026-10-29), and the entrypoint only says "not desktop".
+   2026-10-29), and the entrypoint only says "not desktop". On a Mac every
+   local session shares one home folder, so the marker counts only when
+   CLAUDE_CODE_REMOTE=true (DISC-217). An isMeta user entry (a skill load) is
+   not a new turn, so it does not reset `sent` (DISC-217).
    A tiny ack (under ACK_MAX characters with no `next: parent` line) is let
    through so it does not wake the parent for nothing; `next: parent` always
    counts as a return. Blocks at most once (`stop_hook_active` -> allow);
@@ -34,7 +37,7 @@ export function lastTurn(transcriptText) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { text = null; sent = false; }
+    if (e.type === "user" && !e.isMeta && !isToolResult(c)) { text = null; sent = false; }
     else if (e.type === "assistant") {
       if (blocks(c).some((b) => b?.type === "tool_use" && SEND.test(b.name || ""))) sent = true;
       const t = typeof c === "string" ? c : blocks(c).filter((b) => b?.type === "text").map((b) => b.text).join("\n");
@@ -52,6 +55,7 @@ export function check({ text, sent, parent }) {
 }
 
 function main() {
+  if (process.env.CLAUDE_CODE_REMOTE !== "true") return;
   let parent; try { parent = readFileSync(join(homedir(), HELPER_MARKER), "utf8").trim(); } catch { return; }
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;

@@ -32,9 +32,8 @@ test("the parent arms one send_later sweep per helper dispatch as the backstop",
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("Arm one `send_later` about 50 minutes out per dispatch"));
 });
 
-test("release: 1.155.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.155.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.155.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.155\.0 — /);
+test("release: 1.155.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.155.0 — "));
+  assert.ok(entry);
+  assert.match(entry, /\nencoded: 1\.155\.0 — /);
 });

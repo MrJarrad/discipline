@@ -16,14 +16,28 @@ Strip qualifier padding, agency buzzwords and empty corporate modifiers.
 - No introductory clauses, meta-commentary or fluff such as "This means that..." or "Our focus is to ensure...". Go straight to the literal point.
 - Honest feeling words are not padding. Considered, quiet, crafted and exceptional stay available where they are true (see Warmth over mechanics).
 
+## Real terminology stays
+Amendment 2026-10-29 to the warmth ruling (PF-856, PF-861), operator verbatim: "A lot of this sounds like we're trying really hard to avoid using actual terminology in the definitions and it's making it hard to actually understand." Then: "I think this is a tov wide thing to correct."
+
+- Applies to all published copy. Name the discipline's actual terms (prototypes, behavioural research, AI workflows, design systems, technical execution). Replacing a term with a plain description of it is a defect.
+- Plain-words rules apply to the connecting words around the terms only: swap stiff corporate verbs for plain ones ("integrating" → "combining"), never the terms themselves.
+- Where another rule here would remove a real term, this one wins.
+
 ## Sentence structure and grammar
-1. **Action-first.** In lists and descriptions, open directly with a strong present-participle verb: "Designing," "Structuring," "Shaping," "Building."
+1. **Action-first.** List and glossary lines may open on a verb ("Designing," "Structuring," "Shaping," "Building"). Operator ruling 2026-10-28 (PF-844, "as recommened"): variety wins; a verb opening is allowed but not required. Rule 6 of Warmth over mechanics governs sets.
 2. **Radical economy.** Say what the thing is without padding. One fluid, authoritative fragment instead of several sentences explaining why it matters. Economy cuts filler, not warmth: a belief that needs a longer sentence gets one.
 3. **Conversational but serious.** A human talking directly to another human. No academic tech language; crisp, sharp professionalism. Say it the way you'd explain it to someone across the table: plain words, one concrete example, and no string of three or more abstract nouns ("alignment frameworks for scalable brand ecosystems").
 4. **Business-aware.** Ground product stories in user needs, stakeholder requirements and business goals together.
 5. **British English.** Colour, organising, modelling.
 
 Action-first openings stay for list and glossary definitions. Long-form copy (case studies) reads as normal sentences.
+
+## No colons, semicolons or dashes
+Amendment 2026-10-29 (b) to the warmth ruling, operator verbatim: "i'd prefer not use colons or semi colons or dashes in written content generally, particularly in longer form copy like this". And: "there are exceptions like for an actual list but generally i don't like to structure reading content in a way that needs that".
+
+- Applies to all published copy, strictest in long-form (Profile, case studies). Dashes means punctuation dashes (— – and a spaced -). Hyphens inside words (end-to-end, user-centred) stay.
+- A colon may introduce an actual list. Structural labels outside running text (a "Label: value" UI pattern) are not copy.
+- The aim is to write sentences that do not need the punctuation, not to swap it for commas. Split the sentence or use a full stop.
 
 ## Contrast
 - BAD (agency fluff): "Crafting comprehensive and holistic brand identity systems across an integrated blueprint to ensure a best-in-class, seamless user experience."
@@ -42,7 +56,7 @@ Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and 
 
 Framing is general copywriting guidance, not a rule: where a page shows several items together, one line that says what ties them together helps. It is never a required intro, and a page that shows one item at a time (the Glossary, one term each) gets none.
 
-Tone target, approved by the operator (a reference for the sound, not final copy). Before is Profile and Approach draft 3:
+Tone target, approved by the operator (a reference for the sound, not final copy). Before is Profile and Approach draft 3. The AFTER Approach line predates the no-colons amendment; its colon would now be a full stop.
 
 - BEFORE (Profile): "I'm a design lead and creative technologist, working across product, web, identity and visual design. I care about how a thing looks, and just as much about whether it works for the people using it and the business behind it. I set the direction, keep the team aligned on it and steer the work to production without losing what made it good."
 - AFTER (Profile): "My work is quiet and considered, built on strong typography, clear structure and images that let a brand speak for itself. I love the whole journey, from shaping an idea to seeing it live, and I care as much about how something works as how it looks."
