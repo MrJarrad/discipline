@@ -14,7 +14,7 @@ const HR = "skills/routing/references/HARD-RULES.md";
 test("every create_session prompt opens with the run-it-now line and closes with the send to @parent", () => {
   const OPEN = 'opens "This message is your task — run it now."';
   const CLOSE = 'closes "Send the full return to the parent with send_message (session_id "@parent")."';
-  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes(`**A \`create_session\` brief** ${OPEN} and ${CLOSE}`));
+  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes(`**A \`create_session\` brief** ${OPEN.replace(/"$/, '",')} has the helper write \`~/.claude/helper-session\` first, and ${CLOSE}`));
   const r = flat(HR);
   assert.ok(r.includes('Every `create_session` prompt opens with "This message is your task — run it now."'));
   assert.ok(r.includes('Every `create_session` brief closes with "Send the full return to the parent with send_message (session_id "@parent")."'));
@@ -22,7 +22,8 @@ test("every create_session prompt opens with the run-it-now line and closes with
 
 test("the Stop hook is registered and named where helpers are dispatched", () => {
   assert.match(read("hooks/hooks.json"), /"Stop"[\s\S]*parent-return-stop\.mjs/);
-  assert.ok(flat(HR).includes("The Stop hook `parent-return-stop.mjs` holds a helper (`CLAUDE_CODE_CHILD_SESSION=1`) once when its turn ends with a return and no `send_message`."));
+  assert.ok(flat(HR).includes('then the step "First run: mkdir -p ~/.claude && echo <parent id> > ~/.claude/helper-session"'));
+  assert.ok(flat(HR).includes("The Stop hook `parent-return-stop.mjs` holds a helper (marked by `~/.claude/helper-session`; no env var marks one, `CLAUDE_CODE_CHILD_SESSION=1` is set in the orchestrator too) once when its turn ends with a return and no `send_message`."));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("the Stop hook `parent-return-stop.mjs` holds it once and asks for the send"));
 });
 

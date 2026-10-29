@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,13 +17,17 @@ const said = (text) => ({ type: "assistant", message: { content: [{ type: "text"
 const called = (name, input = {}) => ({ type: "assistant", message: { content: [{ type: "tool_use", id: "t", name, input }] } });
 const result = () => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "t", content: "ok" }] } });
 
-function run(entries, { child = "1", stopActive = false, path } = {}) {
+// The orchestrator's own cloud env (parent, 2026-10-29): CLAUDE_CODE_CHILD_SESSION=1 is set there too.
+const ORCHESTRATOR_ENV = { CLAUDE_CODE_CHILD_SESSION: "1", CLAUDE_CODE_ENTRYPOINT: "remote_desktop", CLAUDE_CODE_SESSION_ATTENDED: "1", CLAUDE_CODE_HOSTED_DESKTOP: "1", CLAUDE_CODE_REMOTE: "true" };
+const PARENT = "session_019vvsL25nhA75yyQzy7YKuY";
+
+function run(entries, { marker = PARENT, stopActive = false, path } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "prs-"));
   const transcript = path ?? join(dir, "t.jsonl");
   if (!path) writeFileSync(transcript, entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
-  const env = { ...process.env };
-  delete env.CLAUDE_CODE_CHILD_SESSION;
-  if (child !== null) env.CLAUDE_CODE_CHILD_SESSION = child;
+  const home = join(dir, "home");
+  if (marker !== null) { mkdirSync(join(home, ".claude"), { recursive: true }); writeFileSync(join(home, ".claude", "helper-session"), marker + "\n"); }
+  const env = { ...process.env, ...ORCHESTRATOR_ENV, HOME: home };
   const r = spawnSync(process.execPath, [hook], {
     input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: "s" }),
     env, encoding: "utf8",
@@ -32,11 +36,12 @@ function run(entries, { child = "1", stopActive = false, path } = {}) {
   return r.stdout ? JSON.parse(r.stdout) : null;
 }
 
-test("a helper's turn that ends with a return and no send_message is blocked once, pointing at @parent", () => {
+test("a helper's turn that ends with a return and no send_message is blocked once, naming the parent id from the marker", () => {
   const out = run([user("This message is your task — run it now."), said(LONG)]);
   assert.equal(out?.decision, "block");
   assert.match(out.reason, /send_message/);
-  assert.match(out.reason, /@parent/);
+  assert.ok(out.reason.includes(PARENT));
+  assert.match(run([user("go"), said(LONG)], { marker: "" }).reason, /"@parent"/, "an empty marker still marks a helper; the send goes to @parent");
 });
 
 test("a helper's turn that already called send_message passes", () => {
@@ -56,15 +61,17 @@ test("a tiny ack is not nudged; a short reply carrying `next: parent` is", () =>
   assert.equal(run([user("go"), said("Read-back sent.\n\nnext: parent (go?)")])?.decision, "block");
 });
 
-test("the orchestrator (no CLAUDE_CODE_CHILD_SESSION, or not 1) is never nudged", () => {
-  assert.equal(run([user("go"), said(LONG)], { child: null }), null);
-  assert.equal(run([user("go"), said(LONG)], { child: "0" }), null);
+test("the orchestrator's env set (CLAUDE_CODE_CHILD_SESSION=1 included) with no helper marker is never nudged", () => {
+  assert.equal(run([user("go"), said(LONG)], { marker: null }), null);
 });
 
 test("no loop, and quiet on errors", () => {
   assert.equal(run([user("go"), said(LONG)], { stopActive: true }), null);
   assert.equal(run([], { path: "/nonexistent/t.jsonl" }), null);
-  const bad = spawnSync(process.execPath, [hook], { input: "not json", env: { ...process.env, CLAUDE_CODE_CHILD_SESSION: "1" }, encoding: "utf8" });
+  const home = mkdtempSync(join(tmpdir(), "prs-"));
+  mkdirSync(join(home, ".claude"));
+  writeFileSync(join(home, ".claude", "helper-session"), PARENT);
+  const bad = spawnSync(process.execPath, [hook], { input: "not json", env: { ...process.env, HOME: home }, encoding: "utf8" });
   assert.equal(bad.status, 0);
   assert.equal(bad.stdout, "");
 });

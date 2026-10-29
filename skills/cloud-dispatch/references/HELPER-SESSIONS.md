@@ -14,7 +14,7 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 
 ## 2. What the helper does
 
-1. Starts at once. On a brief that asks for a read-back, it sends the read-back to the parent with `send_message` (`session_id` = the parent id above) and stops until the parent's "go" arrives (`ReadNotifications`). A read-back written only in its transcript does not reach the parent.
+1. Starts at once, and first writes the parent id to `~/.claude/helper-session` (the marker the Stop hook reads). On a brief that asks for a read-back, it sends the read-back to the parent with `send_message` (`session_id` = the parent id above) and stops until the parent's "go" arrives (`ReadNotifications`). A read-back written only in its transcript does not reach the parent.
 2. **Reports the plugin version it loaded** in its read-back or first return (the highest version directory under `~/.claude/plugins/cache/discipline/discipline/`, or `installed_plugins.json`; "not found" is an answer). A cloud container has loaded an older version than main before; this is how the parent learns it.
 3. Builds on the branch the brief names. It pushes to that branch only, never main, and opens one draft PR.
 4. **Posts its return on the PR** as a comment (PR link, head sha, the ledger the brief asked for, the suite tail) **and sends the same return to the parent with `send_message`**. The PR comment is the banked result; the message is what tells the parent it is ready. If a turn ends with a return and no `send_message`, the Stop hook `parent-return-stop.mjs` holds it once and asks for the send (a one-line ack under 200 characters with no `next: parent` is let through).
