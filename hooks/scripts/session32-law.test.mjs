@@ -154,7 +154,8 @@ test("(B2) the hook is registered, the verdict shape is defined once in the revi
 
 test("(B1) every create_session brief opens with the parent's id and start-now; the parent checks within 5 minutes and on every wake", () => {
   const r = flat("skills/routing/references/HARD-RULES.md");
-  assert.match(r, /Every `create_session` brief opens with the parent's session id and "this brief is from your parent \(session <id>\); start now, no go needed"/);
+  // 1.155.0 (DISC-216): the opener now leads with "This message is your task — run it now."; id and start-now follow it.
+  assert.match(r, /Every `create_session` prompt opens with "This message is your task — run it now\."[^.]*\.?[^"]*then the parent's session id and "start now, no go needed"/);
   assert.match(r, /checks each new helper with `get_session` within 5 minutes of dispatch and on every wake, and answers a blocked helper the same turn/);
 });
 
