@@ -91,6 +91,8 @@ kinds only, quote plus its source, banned mechanism content, gate-enforced:
   doer). Default `<lane evidence dir>/progress.md` in the vault; name it explicitly when the
   lane's evidence dir differs. **line** lanes omit this field.
 
+**A `create_session` brief** opens "This message is your task — run it now." and closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216).
+
 **Target brief length: under 250 words**, lock table excluded.
 
 ## What the parent does not add

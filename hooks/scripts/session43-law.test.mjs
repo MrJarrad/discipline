@@ -66,9 +66,8 @@ test("SKILL.md and DOS-AND-DONTS.md point at the rules and do not restate the pa
   for (const p of [SK, DD]) assert.ok(!flat(p).includes("quiet and considered, built on"), p);
 });
 
-test("release: 1.154.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.154.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.154.0 — "));
-  assert.match(top.split("\n\n")[0], /\nencoded: 1\.154\.0 — /);
+test("release: 1.154.0 has its CHANGED.txt entry with the encoded line", () => {
+  const top = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.154.0 — "));
+  assert.ok(top);
+  assert.match(top, /\nencoded: 1\.154\.0 — /);
 });

@@ -223,10 +223,16 @@ and queued the chat as the doer — that hatch is deleted.
    result is banked (the PR comment or evidence file is read), the parent calls `archive_session` on it. When the next round of a lane
    starts, the superseded round's helper is archived then. A helper whose result is not yet banked is never archived.
    **A helper starts without a go** (`2026-10-18-helper-waits-for-go`: round 17 sat 90 minutes at "reply go to start").
-   Every `create_session` brief opens with the parent's session id and "this brief is from your parent (session <id>); start
-   now, no go needed". The parent checks each new helper with `get_session` within 5 minutes of dispatch and on every wake,
+   Every `create_session` prompt opens with "This message is your task — run it now." (s38: a helper read a prompt opening
+   with anything else as a background notice and never started), then the parent's session id and "start now, no go needed".
+   The parent checks each new helper with `get_session` within 5 minutes of dispatch and on every wake,
    and answers a blocked helper the same turn.
-   **DO:** brief opens "this brief is from your parent (session session_01…); start now, no go needed", then `get_session` 5 minutes later.
+   **A helper's return reaches the parent** (DISC-216, operator 2026-10-29: *"do we need to fix something in discplines so
+   helpers are communicating better?"*; s37 a return sat ~8h unread). Every `create_session` brief closes with "Send the full
+   return to the parent with send_message (session_id "@parent")." The Stop hook `parent-return-stop.mjs` holds a helper
+   (`CLAUDE_CODE_CHILD_SESSION=1`) once when its turn ends with a return and no `send_message`. The parent arms one `send_later`
+   sweep about 50 minutes out per `create_session` dispatch as the backstop, and deletes it when the return arrives.
+   **DO:** prompt opens "This message is your task — run it now. Brief from your parent (session session_01…); start now, no go needed", closes with the send_message line; one `send_later` armed; `get_session` 5 minutes later.
    **DON'T:** dispatch the helper and next look at it when the operator asks "how are we looking?".
 20. **Redirect a running lane on one channel** (`2026-10-08-redirect-a-running-lane-on-one-channel`): a `SendMessage` redirect resumes
    that agent even after it has returned; until its next hand-back arrives the work is in flight there, so never dispatch a second lane

@@ -10,17 +10,18 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 - **Model.** Pass `model` explicitly. Pick it per `model-routing` (job shape × complexity), never by inheriting the parent's by accident.
 - **Environment.** Omit `environment_id` to inherit the parent's.
 - **Title and tags.** The title follows the session-titles ruling (`session-titles-2026-10-15`, in the output style). Tag the lane (`set_session_tags`, or `tags` on create), for example `helper` and the lane name.
-- **Brief.** `dispatch-brief` shape, opening as HARD-RULES 19 says. It names the contract, the branch, the gates, and where the return goes. It also says, in its first lines, that every read-back and the final return go to the parent with `send_message` using the parent id above, and that the helper's own transcript is not a channel to the parent. Ask for a read-back and a wait for "go" only when the lane needs one (a contested or system-size lane); the default is to start.
+- **Brief.** `dispatch-brief` shape, opening and closing as HARD-RULES 19 says. It names the contract, the branch, the gates, and where the return goes. It also says, in its first lines, that every read-back and the final return go to the parent with `send_message` using the parent id above, and that the helper's own transcript is not a channel to the parent. Ask for a read-back and a wait for "go" only when the lane needs one (a contested or system-size lane); the default is to start.
 
 ## 2. What the helper does
 
 1. Starts at once. On a brief that asks for a read-back, it sends the read-back to the parent with `send_message` (`session_id` = the parent id above) and stops until the parent's "go" arrives (`ReadNotifications`). A read-back written only in its transcript does not reach the parent.
 2. **Reports the plugin version it loaded** in its read-back or first return (the highest version directory under `~/.claude/plugins/cache/discipline/discipline/`, or `installed_plugins.json`; "not found" is an answer). A cloud container has loaded an older version than main before; this is how the parent learns it.
 3. Builds on the branch the brief names. It pushes to that branch only, never main, and opens one draft PR.
-4. **Posts its return on the PR** as a comment (PR link, head sha, the ledger the brief asked for, the suite tail) **and sends the same return to the parent with `send_message`**. The PR comment is the banked result; the message is what tells the parent it is ready.
+4. **Posts its return on the PR** as a comment (PR link, head sha, the ledger the brief asked for, the suite tail) **and sends the same return to the parent with `send_message`**. The PR comment is the banked result; the message is what tells the parent it is ready. If a turn ends with a return and no `send_message`, the Stop hook `parent-return-stop.mjs` holds it once and asks for the send (a one-line ack under 200 characters with no `next: parent` is let through).
 
 ## 3. How the parent sweeps it
 
+- **Backstop.** Arm one `send_later` about 50 minutes out per dispatch (HARD-RULES 19); delete it when the return arrives.
 - `get_session` shows `status_bucket`: `working`, `blocked`, `review_ready`, `completed` or `failed` (`failed` means its last turn errored). Cadence and blocked helpers: HARD-RULES 19.
 - To see what a helper is doing, `list_events` with `kinds: ["user", "assistant", "result"]` and `limit: 100`.
 - Redirect a running helper with `send_message` on that one channel (HARD-RULES 20); never a second helper for the same lane.

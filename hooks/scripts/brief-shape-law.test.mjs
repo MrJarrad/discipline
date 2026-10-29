@@ -42,9 +42,11 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1500 -> 1520 at 1.102.0: the literal `Skills:` line, the Bash
 // agent-label sentence and the BRIEF-CRAFT pointer — the lesson rollout's briefing
 // facts live in references/BRIEF-CRAFT.md; only the pointers are here.
-test("the dispatch-brief skill stays under its 1520-word ceiling", () => {
+// Ceiling raised 1520 -> 1550 at 1.155.0 (measured 1549): the create_session
+// open/close lines (DISC-216), at the moment a helper brief is written.
+test("the dispatch-brief skill stays under its 1550-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1520, `dispatch-brief is ${count} words; the ceiling is 1520`);
+  assert.ok(count <= 1550, `dispatch-brief is ${count} words; the ceiling is 1550`);
 });
 
 test("the scenario table has exactly eight rows", () => {
