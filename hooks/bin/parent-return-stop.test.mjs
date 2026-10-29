@@ -21,13 +21,13 @@ const result = () => ({ type: "user", message: { content: [{ type: "tool_result"
 const ORCHESTRATOR_ENV = { CLAUDE_CODE_CHILD_SESSION: "1", CLAUDE_CODE_ENTRYPOINT: "remote_desktop", CLAUDE_CODE_SESSION_ATTENDED: "1", CLAUDE_CODE_HOSTED_DESKTOP: "1", CLAUDE_CODE_REMOTE: "true" };
 const PARENT = "session_019vvsL25nhA75yyQzy7YKuY";
 
-function run(entries, { marker = PARENT, stopActive = false, path } = {}) {
+function run(entries, { marker = PARENT, stopActive = false, path, remote = "true" } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "prs-"));
   const transcript = path ?? join(dir, "t.jsonl");
   if (!path) writeFileSync(transcript, entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
   const home = join(dir, "home");
   if (marker !== null) { mkdirSync(join(home, ".claude"), { recursive: true }); writeFileSync(join(home, ".claude", "helper-session"), marker + "\n"); }
-  const env = { ...process.env, ...ORCHESTRATOR_ENV, HOME: home };
+  const env = { ...process.env, ...ORCHESTRATOR_ENV, HOME: home, CLAUDE_CODE_REMOTE: remote };
   const r = spawnSync(process.execPath, [hook], {
     input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: "s" }),
     env, encoding: "utf8",
@@ -63,6 +63,19 @@ test("a tiny ack is not nudged; a short reply carrying `next: parent` is", () =>
 
 test("the orchestrator's env set (CLAUDE_CODE_CHILD_SESSION=1 included) with no helper marker is never nudged", () => {
   assert.equal(run([user("go"), said(LONG)], { marker: null }), null);
+});
+
+// DISC-217 (1): a skill load after send_message writes an isMeta user entry; it is not a new turn.
+test("an isMeta user entry after send_message does not reset the turn", () => {
+  const meta = { ...user("Base directory for this skill: ..."), isMeta: true };
+  assert.equal(run([user("go"), called(SEND), result(), meta, said(LONG)]), null);
+});
+
+// DISC-217 (2): on a Mac every local session shares the home folder, so the marker counts only in a cloud session.
+test("the helper marker is honoured only when CLAUDE_CODE_REMOTE=true", () => {
+  assert.equal(run([user("go"), said(LONG)], { remote: "" }), null);
+  assert.equal(run([user("go"), said(LONG)], { remote: "false" }), null);
+  assert.equal(run([user("go"), said(LONG)])?.decision, "block");
 });
 
 test("no loop, and quiet on errors", () => {
