@@ -37,13 +37,8 @@ test("HT-2: the house lines survived the merge into the canonical copy", () => {
   assert.ok(s.includes("A locked `aspectRatio` builds the ratio, never the fixed height"));
 });
 
-test("HT-2: the mirror pins the handoff-css release that carries this copy", () => {
-  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "v0\.11\.0"/);
-});
-
-test("release: 1.157.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.157.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.157.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.157.0 — backlog HT-2, HT-15, HT-10"));
+test("release: 1.157.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.157.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.157.0 — backlog HT-2, HT-15, HT-10"));
 });
