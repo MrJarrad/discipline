@@ -137,7 +137,7 @@ for (const { skill, ceiling, before } of CEILINGS) {
 // check: these skills never offloaded, and the offload tests above belong to skills
 // that did.
 const RATCHETS = [
-  { skill: "handoff-to-code", ceiling: 1768 }, // 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer); 1745 -> 1768 at 1.143.0 (body 1741 -> 1768: keep-design-handoff ruling sentence, live-annotation spot-check pointer)
+  { skill: "handoff-to-code", ceiling: 1980 }, // 1768 -> 1980 at 1.157.0 (measured 1972: HT-15 export set + spec index, mirrored from handoff-css; command and codes disclosed to references/export-set.md); 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer); 1745 -> 1768 at 1.143.0 (body 1741 -> 1768: keep-design-handoff ruling sentence, live-annotation spot-check pointer)
   { skill: "capture-website", ceiling: 1720 }, // 1711 words at 1.111.0
   { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
   { skill: "model-routing", ceiling: 1708 }, // 1.142.0 raised to 1708 (+18, measured) for the first-slice-of-a-new-product row (2026-10-09-first-slice-of-a-new-product-is-opus). 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
