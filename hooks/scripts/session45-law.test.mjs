@@ -37,9 +37,8 @@ test("DISC-215: no colons, semicolons or punctuation dashes in published copy", 
   assert.ok(t.includes("write sentences that do not need the punctuation"));
 });
 
-test("release: 1.156.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.156.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.156.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.156.0 — backlog DISC-213, DISC-214, DISC-215, DISC-217"));
+test("release: 1.156.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.156.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.156.0 — backlog DISC-213, DISC-214, DISC-215, DISC-217"));
 });

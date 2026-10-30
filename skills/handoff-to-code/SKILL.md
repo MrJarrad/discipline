@@ -4,8 +4,9 @@ description: >-
   Build code from a Design Handoff export pair — the design-handoff markdown and its
   design-system-handoff JSON companion — treating the pair as the contract. Trigger on
   "consume the handoff", "build from the handoff", "handoff pair", "the export says",
-  "regenerate tokens", a `*-design-system-handoff.json` or `design-handoff-*.md` path, or
-  any implementation whose values come from a handoff export rather than from the canvas.
+  "regenerate tokens", a `*-design-system-handoff.json` or `design-handoff-*.md` path, a
+  Figma link to export with the design-handoff script, or any implementation whose values
+  come from a handoff export rather than from the canvas.
   Every node, token, copy string and annotation in the pair is built; deviations are
   returned as a table and drift stops for a ruling. Not for reading a Figma file itself —
   that's capture-figma, which owns pixels, screenshots, variant walks and live selection;
@@ -33,12 +34,20 @@ per-mode code-named tokens, generated CSS, the changelog or the pair hashes
 detail, spot-verified binding proofs via REST `--raw`, and the live-annotation spot check. Reach for it *inside* step 4
 when the pair is silent — not instead of it.
 
+## The export is a set
+
+The Design Handoff export is made by **`design-handoff-script`** from a Figma link (the
+plugin's in-Figma export is superseded); you may run it yourself when you hold a link and a
+token. It joins one Design System Handoff export per source file — this file and each library
+the layer uses, by key. That **set** is the contract: the pair below means the brief plus every
+export it names. Command, joins, `linkRun` codes, spec index: `references/export-set.md`.
+
 ## Inputs — four required, one optional
 
 | Input | What it is |
 | --- | --- |
-| `design-handoff-*.md` | Layer brief: node tree, sizing chains, props, Build standards, changelog. |
-| `*-design-system-handoff.json` | Companion: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
+| `design-handoff-*.md` + `.json` | Layer brief: node tree, sizing chains, props, Build standards, changelog, **Link-run findings** (`linkRun`). |
+| `*-design-system-handoff.json` | Companion, one per source the brief lists: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
 | `handoff.config.mjs` | Consumer policy — schema versions, viewport units, aliases, paths. |
 | Generated tokens + theme | The CSS the JSON produced — the only place a value is stated. |
 | Generated style classes | `styles.generated.css` (schema 12+) — one class per Figma style. Bind the class; never re-author its declarations. |
@@ -57,10 +66,19 @@ Read identity first: markdown's schema version + companion block; JSON's `schema
 `content` hash — one design-system state, not simultaneous export. A mismatch is a
 **stale-pair defect**: stop and ask for a re-export. Never build the newer half alone.
 
-`handoff-css validate <export>.json <design-handoff>.md` — an **error** stops you, a
-**warning** is a decision waiting on a human: carry it into your deviation table, and build.
+`handoff-css validate <design-handoff>.json <design-handoff>.md <every design-system-handoff>.json
+--spec-index <index>.md` checks the whole set — an **error** stops you (`STALE_PAIR`,
+`SET_MEMBER_MISSING`), a **warning** is a decision waiting on a human: carry it into your
+deviation table, and build. Each link-run finding is one of those warnings; its move is in
+`references/export-set.md`. **A link-run finding is a reported item, never a reason to inline
+a value.**
 
-**Done when** all three hashes reconcile and `schemaVersion` is one the config declares.
+**Specs are read from the spec index, never from the design tool.** The export lists each spec
+without its text; `validate --spec-index` prints the file that holds it — read it as part of the
+pair. `SPEC_NOT_INDEXED` is a finding: name the spec and ask; never build from a guess of it.
+
+**Done when** all three hashes reconcile for every set member, `schemaVersion` is one the
+config declares, and every listed spec's file is read.
 
 ### 2. Regenerate, then read every warning
 
@@ -83,7 +101,8 @@ generated, naming it in your deviation table — is correct.
 
 ### 3. Map every binding to `codeSyntax.WEB` — an unmapped binding is a defect
 
-Walk every `$variable` per node, find it in the companion JSON, take **`codeSyntax.WEB.value`**,
+Walk every `$variable` per node, find it in the set member that owns it (the brief's Sources
+name which export covers each library's variables), take **`codeSyntax.WEB.value`**,
 write `var(<name>)`.
 
 - **`codeSyntax.WEB` is the name.** Not the variable's path, not a derived name, not one
@@ -116,7 +135,6 @@ wrong mechanism is a defect.
    marker says which: `start`/`end` builds as `margin-block-start`/`-end` (or inline) on the
    block it edges, `mid` (between siblings) builds as the container's `gap`, always token-bound,
    never a literal.
-
 8. A component set's property `defaultValue` in an export is a display convention — Figma
    components are left "everything on" so the set shows all it can do — never the build
    default and never a deviation. Code defaults come from locked rulings and from the
