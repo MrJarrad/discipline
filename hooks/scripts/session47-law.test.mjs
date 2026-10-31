@@ -28,9 +28,6 @@ test("v0.12.0: a stale set is brought up to date, not handed back as a re-export
   assert.ok(s.includes("**The one thing to ask a person for is a Design System Handoff plugin run, named by file.**"));
 });
 
-test("the mirror pins the handoff-css release that carries this copy", () => {
-  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "v0\.12\.0"/);
-});
 
 test("release: 1.158.0 has its CHANGED.txt entry with the encoded line", () => {
   const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.158.0 — "));

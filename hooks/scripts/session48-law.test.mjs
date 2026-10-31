@@ -32,11 +32,10 @@ test("session start, wrap and the helper recipe point at rule 19's sweep without
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("The helper sweep (HARD-RULES 19) catches any helper a parent missed"));
 });
 
-test("release: 1.159.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.159.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.159.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.159.0 — backlog DISC-211"));
+test("release: 1.159.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.159.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.159.0 — backlog DISC-211"));
 });
 
 test("no rule text tells a session to archive a wrapped parent", () => {

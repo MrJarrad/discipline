@@ -25,6 +25,19 @@ node handoff/design-handoff-script/bin/design-handoff.mjs --regenerate <stale br
 It re-exports the brief's own layer against the exports given, and writes nothing when the brief
 already matches them. A plugin-made brief records no file key: add the file's link.
 
+**Vendoring a new export** — the project keeps each set in a version folder with `latest` a
+symlink to the current one:
+
+```sh
+handoff-css vendor <new>-design-system-handoff.json [<new>.md] --into design/handoff
+```
+
+It writes `v<N+1>-<date>/` (the current set carried forward, the new export in place of its old
+self, named by `artifactFilename`), repoints `latest`, and prints both; the old version folder is
+never written. Given no `.md`, the old one is left behind, not carried beside the new JSON. The
+same export twice writes nothing. Copying into `latest/` by hand overwrites
+the version folder it links to.
+
 ## How the set joins
 
 | Join | Key | What `validate` does when it fails |
