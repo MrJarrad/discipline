@@ -63,7 +63,7 @@ than guessing a single folder — the folder is determined by thing-then-aspect,
 
 **History mode:** Only when explicitly asked for history (e.g., "show me the superseded versions") return `status: superseded` records. Include `superseded_by:` links to see the lineage.
 
-**Before resuming a project**, list sessions (`list_sessions`) and read the newest turns, list unmerged vault branches that touch it (`git log origin/main..origin/<branch> -- projects/<p>`), and list product-repo branches newer than the handover's heads: anything newer than the handover is the current state, and wrap merges its vault branch, always (lesson `2026-10-18-check-parallel-sessions-before-resuming`).
+**Before resuming a project**, list sessions (`list_sessions`), run the helper sweep (`routing` HARD-RULES 19) and read the newest turns, list unmerged vault branches that touch it (`git log origin/main..origin/<branch> -- projects/<p>`), and list product-repo branches newer than the handover's heads: anything newer than the handover is the current state, and wrap merges its vault branch, always (lesson `2026-10-18-check-parallel-sessions-before-resuming`).
 
 **Session start:** grep the project backlog for rows marked "next session" / "NEXT SESSION" and dispatch every no-input one, not only the handover's numbered list (session 9, 2026-10-04).
 

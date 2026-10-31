@@ -28,4 +28,4 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 
 ## 4. Landing
 
-Read the PR comment, bank the result, then `archive_session` as HARD-RULES 19 says. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6).
+Read the PR comment, bank the result, then `archive_session` as HARD-RULES 19 says. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6). The helper sweep (HARD-RULES 19) catches any helper a parent missed, at the next session start or wrap.
