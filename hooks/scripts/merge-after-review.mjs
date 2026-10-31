@@ -86,7 +86,13 @@ export function reviewVerdict(items, headSha, trusted = []) {
     const lines = rest.map((l) => l.trim());
     const line = lines.find((l) => /^\**merge: (yes|no)\b/i.test(l)) ?? lines.find((l) => /^\*\*.*\bmerge: (yes|no)\b.*\*\*$/i.test(l));
     if (!line) continue;
-    found = { verdict: line.match(/\bmerge: (yes|no)\b/i)[1].toLowerCase(), sha: h[1].toLowerCase() };
+    /* DISC-221 L5: a verdict the parent posts for a reviewer helper names it on a `reviewer: session_<id>`
+       line; a reviewer: line that is not a session id does not count. Same login either way, so this
+       records provenance, not proof of authorship (see merge-review-gate.mjs limits). */
+    const who = lines.find((l) => /^\**reviewer:/i.test(l));
+    const reviewer = who ? (who.replace(/\*/g, "").match(/^reviewer:\s*`?(session_[A-Za-z0-9]+)`?\s*$/i) || [])[1] : null;
+    if (reviewer === undefined) continue;
+    found = { verdict: line.match(/\bmerge: (yes|no)\b/i)[1].toLowerCase(), sha: h[1].toLowerCase(), reviewer };
   }
   return found;
 }

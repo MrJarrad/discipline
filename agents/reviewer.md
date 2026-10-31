@@ -148,7 +148,7 @@ Open with **round N of 2** and the **tier**, then the two axes with their ranked
 and a bottom line: **"n red, n amber — merge condition met / not met."** Merge is met when
 gates are green and **no red finding** is open; the parent remits.
 
-**Verdict shape — the one definition the merge gates parse** (`reviewVerdict()` in `hooks/scripts/merge-after-review.mjs`). Posted on the PR as a comment or a PR review. Line 1 is a `##` heading containing `Review` and `head <sha>` (7+ hex of the head reviewed): `## Review — round 1 of 2, tier LIGHT — head c7868b2`. The verdict line is the first line that begins `merge: yes` or `merge: no` (bold allowed: `**merge: yes.**`).
+**Verdict shape — the one definition the merge gates parse** (`reviewVerdict()` in `hooks/scripts/merge-after-review.mjs`). Posted on the PR as a comment or a PR review. Line 1 is a `##` heading containing `Review` and `head <sha>` (7+ hex of the head reviewed): `## Review — round 1 of 2, tier LIGHT — head c7868b2`. The verdict line is the first line that begins `merge: yes` or `merge: no` (bold allowed: `**merge: yes.**`). Posted by the parent for you, it adds `reviewer: <your session id>` under the heading (`cloud-dispatch` HELPER-SESSIONS § 2).
 
 ## Evidence return
 

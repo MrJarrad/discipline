@@ -30,3 +30,11 @@ test("L4: at session start the parent sends each Re-point row its message — HA
   assert.ok(s.includes("**At session start the parent sends each Re-point row its message**"));
   assert.ok(s.includes("the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped, naming the new parent's id; send it once, that turn."));
 });
+
+test("L5: a reviewer helper sends its verdict block to the parent verbatim — one home, two pointers", () => {
+  const h = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
+  assert.ok(h.includes("**A reviewer helper sends its verdict block to the parent verbatim**"));
+  assert.ok(h.includes("adds, under it, `reviewer: <its own session id>` (from `get_session`); the parent posts the block on the PR unchanged, and the merge gates read that line."));
+  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes('A reviewer brief says "send the verdict block to the parent verbatim"'));
+  assert.ok(flat("agents/reviewer.md").includes("Posted by the parent for you, it adds `reviewer: <your session id>` under the heading"));
+});
