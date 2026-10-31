@@ -279,5 +279,7 @@ and queued the chat as the doer — that hatch is deleted.
    do to make session start less heavy on context?"*; s44 merged 15 PRs and paged 40 sessions before its first reply, 22% of
    the window). A starting or resuming parent sends its first status reply from three reads only: `session-resume.mjs`,
    `needed-from-you.mjs` and the cockpit. Merges, the helper sweep, re-point messages and PR or session reads come after it, in a
-   turn the parent starts itself with one `send_later` (`delay_minutes: 1`) armed before the reply. DO: arm the follow-up, reply,
+   turn the parent starts itself with one `send_later` (`delay_minutes: 1`) armed before the reply. Measured by
+   `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply;
+   s44: ~176.7k). DO: arm the follow-up, reply,
    then merge and sweep. DON'T: read PR files and session lists before the operator has a status.

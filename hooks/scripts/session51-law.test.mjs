@@ -79,3 +79,8 @@ test("DISC-224 E: the first status reply comes before housekeeping — HARD-RULE
   assert.ok(flat("skills/routing/SKILL.md").includes("The first status reply comes before any merge or sweep (HARD-RULES 24)."));
   assert.ok(flat("skills/pause-resume/SKILL.md").includes("the first status reply comes before any merge or sweep (`routing` HARD-RULES 24)"));
 });
+
+test("DISC-224 F: the start is measured by start-cost.mjs against a budget — HARD-RULES 24", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("Measured by `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply; s44: ~176.7k)."));
+});
