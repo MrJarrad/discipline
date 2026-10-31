@@ -139,6 +139,14 @@ function yesVault(rows) {
   return v;
 }
 
+test("s44: an awaited or denied yes is not a yes", async () => {
+  const { recordsOperatorYes } = await import("./session-resume.mjs");
+  assert.equal(recordsOperatorYes('2026-10-31 operator "yes" to: the glow'), true);
+  assert.equal(recordsOperatorYes("awaiting the operator's yes on the ring"), false);
+  assert.equal(recordsOperatorYes("operator has not said yes"), false);
+  assert.equal(recordsOperatorYes("held until operator yes"), false);
+});
+
 test("DISC-221 L3: an open row carrying the operator's yes and no lane id is approved, not started", () => {
   const v = yesVault([PF938, "| PF-1 | other | 2026-10-01 | open | no decision yet |"]);
   assert.deepEqual(approvedNotStarted(v).map((r) => r.id), ["PF-938"]);

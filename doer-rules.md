@@ -21,6 +21,10 @@ it never restates what is here.
   class below; operator ruling 2026-09-21: *"would it make sense to also introduce brief
   reading and playback with any question from the doer before commencing. I'm just
   conscious it's cheap to get the briefs clear, it's expensive to iterate or redo work"*).
+- **Read notifications between build steps, not only at turn end.** A parent's scope change
+  arrives in your notification queue mid-build; two sat unread through a long build and the
+  helper shipped a feature the operator had dropped (s44, HT-40). Between steps, call
+  `ReadNotifications`; a message that changes scope or says stop wins over the brief.
 - **Progress is a file, with a clock.** Above line, keep a progress file at the path the
   brief names (default `<lane evidence dir>/progress.md` in the vault). **Its first line
   stamps the dispatch time.** The read-back numbers the lane's steps (`step N of M`); every

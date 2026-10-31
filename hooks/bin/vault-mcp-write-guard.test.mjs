@@ -49,3 +49,21 @@ test("unreadable input denies for safety (fails closed)", () => {
   const r = spawnSync(process.execPath, [hook], { input: "not json", encoding: "utf8" });
   assert.equal(JSON.parse(r.stdout).hookSpecificOutput.permissionDecision, "deny");
 });
+
+// s44 reviewer follow-up: push_files carries no sha, so it is checked against the session's read.
+const runPush = (files, transcriptLines = []) => {
+  const tp = join(mkdtempSync(join(tmpdir(), "vmwg-")), "t.jsonl");
+  writeFileSync(tp, transcriptLines.map((l) => JSON.stringify(l)).join("\n"));
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name: "mcp__github__push_files", tool_input: { owner: "MrJarrad", repo: "jhd-vault", branch: "claude/x", message: "m", files }, transcript_path: tp }), encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : null;
+};
+test("push_files: a file shrunk under half of what the session read is denied", () => {
+  const d = runPush([{ path: "projects/p/notes.md", content: "x".repeat(100) }], readOf("projects/p/notes.md", "y".repeat(1000)));
+  assert.equal(d?.permissionDecision, "deny");
+  assert.match(d.permissionDecisionReason, /push_files/);
+});
+test("push_files: a full-size rewrite and an unread new file pass", () => {
+  assert.equal(runPush([{ path: "projects/p/notes.md", content: "x".repeat(900) }], readOf("projects/p/notes.md", "y".repeat(1000))), null);
+  assert.equal(runPush([{ path: "projects/p/new.md", content: "tiny" }]), null);
+});

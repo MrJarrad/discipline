@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-/* PreToolUse (mcp__github__create_or_update_file) — a vault update through the
+/* PreToolUse (mcp__github__create_or_update_file, mcp__github__push_files) — a vault update through the
    GitHub MCP sends the whole file (DISC-221, lesson 2026-10-31-s43 #6: a helper
    replaced a vault file with an 8-byte placeholder, then restored it).
    MrJarrad/jhd-vault only. An update (a `sha` is passed) is denied when
    `content` is under MIN_BYTES, or under half the size of the largest
    `get_file_contents` read of the same path in this session's transcript.
    A new file (no `sha`) and every other repo pass. Fails closed: unreadable
-   input or a crash denies, naming why.                                     */
+   input or a crash denies, naming why. push_files (s44 reviewer follow-up)
+   carries no `sha`, so each file is checked against what this session read
+   of the same path: denied when under half that size, or under MIN_BYTES
+   when the path was read (an existing file); an unread path passes.        */
 import { readFileSync } from "node:fs";
 
 export const MIN_BYTES = 256;
@@ -40,9 +43,22 @@ export function largestRead(lines, { owner, repo, path }) {
   return max;
 }
 
+function checkPushFiles(input, t) {
+  let lines = [];
+  try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
+  for (const f of Array.isArray(t.files) ? t.files : []) {
+    const read = largestRead(lines, { owner: t.owner, repo: t.repo, path: f.path });
+    if (!read) continue;
+    const bytes = Buffer.byteLength(String(f.content ?? ""));
+    const where = `${f.path} on ${t.branch || "the default branch"}`;
+    if (bytes < MIN_BYTES || bytes * 2 < read) deny(`vault-mcp-write-guard: push_files writes ${where} with ${bytes} bytes, against the ${read} bytes this session read of it — push_files replaces the whole file (DISC-221). Send the full content.`);
+  }
+}
+
 function check(input) {
   const t = input.tool_input || {};
   if (!/^mrjarrad$/i.test(String(t.owner)) || !/^jhd-vault$/i.test(String(t.repo))) return;
+  if (/__push_files$/.test(input.tool_name || "")) return checkPushFiles(input, t);
   if (!t.sha) return;
   const where = `${t.path} on ${t.branch || "the default branch"}`;
   const bytes = Buffer.byteLength(String(t.content ?? ""));

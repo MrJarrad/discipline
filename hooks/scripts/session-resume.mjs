@@ -247,6 +247,13 @@ export function productRepos(vault, given, home) {
    unstruck queue rows whose text records the operator's yes and names no lane — no `#<n>` PR,
    no `claude/` branch, no progress file, status not in flight: [{ id, item }]. */
 const OPERATOR_YES = /\boperator\b[^|.]{0,40}?["“]?\byes\b/i;
+/* A yes that is awaited or denied is not a yes (s44 reviewer follow-up): "awaiting the operator's yes",
+   "operator has not said yes", "until operator yes". */
+const YES_NOT_GIVEN = /\b(not|no|never|awaiting|await|waiting|until|once|pending|needs?|without|before|if)\b/i;
+export function recordsOperatorYes(text) {
+  const m = OPERATOR_YES.exec(text);
+  return !!m && !YES_NOT_GIVEN.test(text.slice(Math.max(0, m.index - 25), m.index + m[0].length));
+}
 const LANE_ID = /#\d+|\bclaude\/[\w.-]+|progress\.md/;
 export function approvedNotStarted(vault) {
   const out = [];
@@ -258,7 +265,7 @@ export function approvedNotStarted(vault) {
     if (e.queue) for (const r of tableRows(readFileSync(join(vault, e.queue), "utf8"))) if (!r.struck) rows.push(r);
     for (const r of rows) {
       const rest = r.cells.slice(2).join(" | ");
-      if (OPERATOR_YES.test(rest) && !LANE_ID.test(r.cells.join(" | "))) out.push({ id: r.id, item: r.cells[1] || "" });
+      if (recordsOperatorYes(rest) && !LANE_ID.test(r.cells.join(" | "))) out.push({ id: r.id, item: r.cells[1] || "" });
     }
   }
   return out;

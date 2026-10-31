@@ -29,7 +29,7 @@
         ]
       },
       {
-        "matcher": "mcp__github__create_or_update_file",
+        "matcher": "mcp__github__create_or_update_file|mcp__github__push_files",
         "hooks": [
           {
             "type": "command",

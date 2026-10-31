@@ -26,6 +26,9 @@ else
 fi
 REMOTE_BASE="${JHD_FLEET_REMOTE_BASE:-https://github.com}"
 URL="$REMOTE_BASE/$NWO.git"
+# Fetch hardening (s44 reviewer follow-up): a repo's own config never picks the ssh command for these calls.
+# http.proxy is left alone: the cloud session proxy arrives through the environment, and an empty value would bypass it.
+GIT_HARDEN=(-c core.sshCommand=)
 
 mkdir -p "$(dirname "$DEST")"
 
@@ -45,7 +48,7 @@ overlay_main() {
 # Already a container?
 if [ -d "$DEST/.bare" ] && { [ -f "$DEST/main/.git" ] || [ -d "$DEST/main/.git" ]; }; then
   echo "==> container exists: $DEST"
-  git --git-dir="$DEST/.bare" fetch --prune origin 2>/dev/null || true
+  git "${GIT_HARDEN[@]}" --git-dir="$DEST/.bare" fetch --prune origin 2>/dev/null || true
   git -C "$DEST/main" pull --ff-only 2>/dev/null \
     || echo "    WARNING: could not fast-forward $DEST/main"
   exit 0
@@ -93,7 +96,7 @@ finish_main() {
 if [ -d "$DEST/.bare" ]; then
   echo "==> completing container $DEST"
   git --git-dir="$DEST/.bare" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-  git --git-dir="$DEST/.bare" fetch origin 2>/dev/null || true
+  git "${GIT_HARDEN[@]}" --git-dir="$DEST/.bare" fetch origin 2>/dev/null || true
   finish_main "$DEST" "$BRANCH"
   exit 0
 fi
@@ -105,9 +108,9 @@ if [ -d "$DEST/.git" ]; then
   BAK="${DEST}.flat-bak"
   rm -rf "$TMP"
   mkdir -p "$TMP/worktrees"
-  git clone --bare "$URL" "$TMP/.bare"
+  git "${GIT_HARDEN[@]}" clone --bare "$URL" "$TMP/.bare"
   git --git-dir="$TMP/.bare" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-  git --git-dir="$TMP/.bare" fetch origin
+  git "${GIT_HARDEN[@]}" --git-dir="$TMP/.bare" fetch origin
   # Copy the live tree aside; do not register a worktree until DEST is final.
   mkdir -p "$TMP/main-overlay"
   rsync -a --exclude .git "$DEST/" "$TMP/main-overlay/"
@@ -126,7 +129,7 @@ fi
 
 echo "==> cloning $NWO -> $DEST (container)"
 mkdir -p "$DEST/worktrees"
-git clone --bare "$URL" "$DEST/.bare"
+git "${GIT_HARDEN[@]}" clone --bare "$URL" "$DEST/.bare"
 git --git-dir="$DEST/.bare" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
-git --git-dir="$DEST/.bare" fetch origin 2>/dev/null || true
+git "${GIT_HARDEN[@]}" --git-dir="$DEST/.bare" fetch origin 2>/dev/null || true
 finish_main "$DEST" "$BRANCH"
