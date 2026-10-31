@@ -47,6 +47,13 @@ arithmetic, token vs literal) — this one keeps the *look/feel* solution open.
 - **DO:** "The rim stays within 1mm of the reference silhouette at the operator's crop; one option worth trying is an elastica solve, not required."
 - **DON'T:** "Run an elastica solver to compute the rim curve."
 
+## Restate the instruction literally before drafting
+
+When the operator's instruction says how to combine material, restate it back in his words
+first: which parts, joined how. "Using the beginning of both together" meant the first
+sentence of each draft; the parent took one phrase and drafted the wrong thing (s44). Restate,
+then draft; a one-line mismatch costs less than a redraft.
+
 ## Mechanism named
 
 A brief states how each locked value is produced, not only what it measures. Must be named whenever present: a grid — `display: grid` container and children placed

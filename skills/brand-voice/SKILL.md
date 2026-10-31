@@ -12,6 +12,8 @@ Load [references/HOUSE-VOICE.md](references/HOUSE-VOICE.md) first, on every use:
 ## The one rule — voice is applied, never improvised
 Every line of shipped copy traces to the brand's voice definition: its **traits**, its **lexicon**, its **say/don't-say**. No off-brand phrasing, no generic "AI voice," no per-writer drift. **Improvised tone is a bug, not a shortcut.** If the voice guide doesn't cover the case, **extend the guide, then write** — don't quietly invent a one-off tone. This holds regardless of which brand you're writing for — it's the rule beneath all the rest. The house voice is the floor under every brand; a project's voice guide adds only project specifics (traits, lexicon, surface quirks) and never restates it.
 
+Before drafting from the operator's instruction, restate it literally (which parts, joined how) — `prompt-craft` § Restate the instruction literally.
+
 ## On arrival — find the voice
 1. **Load the house voice** ([references/HOUSE-VOICE.md](references/HOUSE-VOICE.md)), then **locate the project's voice definition.** Check the repo: `AGENTS.md`, a brand/tone-of-voice doc, a `VISION.md`, existing *shipped* copy (App Store listing, marketing site, in-app strings). Read it before writing a word.
 2. **No guide? Derive one — and surface it.** Start from the house voice; infer a lightweight voice from the best existing shipped copy plus the product's positioning and audience, write it down (the dimensions below), and **surface it for confirmation** — don't wing a tone silently. A derived voice you named beats an improvised one you didn't.
