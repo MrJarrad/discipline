@@ -105,7 +105,7 @@ test("the verdict path still needs the pin, the right head and a yes", () => {
 test("a vault PR with no reads and no verdict is still denied; so is a non-vault PR without a yes", () => {
   const d = run(merge(), transcript([]));
   assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /read its files with pull_request_read get_files first/);
+  assert.match(d.permissionDecisionReason, /vault-pr-files\.mjs.*read its files with pull_request_read get_files/);
   const other = transcript([{ input: { method: "get_comments", repo: "jhd-portfolio" }, out: [{ body: no, user: { login: "MrJarrad" } }] }]);
   assert.equal(run(merge({ repo: "jhd-portfolio" }), other).permissionDecision, "deny");
 });
