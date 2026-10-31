@@ -64,6 +64,21 @@ Tone target, approved by the operator (a reference for the sound, not final copy
 - BEFORE (Approach): "I start with what the business needs and what people need from it, then let taste lead. My taste leans towards restraint, shaped by modernism and by people like Dieter Rams and Steve Jobs: fewer things, each one done properly, and nothing there without a reason. On screen that means a quiet interface, clear type and images that carry the brand. Every brand should feel like itself, never like a template. I share work early, in whatever form reads best, so the whole team can understand it, align and iterate."
 - AFTER (Approach): "I start every project by understanding what the business needs and what people need from it, then let taste lead the way. I'm drawn to restraint, the kind you find in modernism and in Dieter Rams's work: fewer things, each one done well. Every brand should feel like itself, never like a template."
 
+## Writing a paragraph — the pattern
+
+Operator 2026-10-31 (DISC-226, the Approach paragraph, PF-995): "it good to list specific do nots but what's more important is the pattern to follow". Source: vault `projects/portfolio/artifacts/2026-10-31-approach-chatgpt-conversation-operator-supplied.md`.
+
+Write from the person's own approach and perspective, stated plainly, never a broad declaration about design or belief. For any paragraph that carries several ideas:
+
+1. **Name the concepts** the paragraph has to carry.
+2. **Find how they relate**: what leads to what. Reordering the same ideas is not a resolution.
+3. **Write one point of view** that holds them, in the order perspective, how the work is done, what that makes possible. A role or title explains the how; it is not dropped in as a label.
+4. **Build toward the most distinctive idea**, so the paragraph ends on it.
+
+A tone reference (a site, a page) is read for its qualities, such as direct, purpose-led, personal but considered, naturally structured, never for its wording. The aim is confident without being declarative, thoughtful without being philosophical, commercially aware without sounding like a pitch.
+
+What the pattern rules out, as examples (this operator, 2026-10-31): "I believe" and "good design" openers, which turn a perspective into a manifesto.
+
 ## Register reference
 Gil Huybrecht's profile page (gilhuybrecht.com/profile) and his overlay for disciplines are the reference for tone: talked through like a conversation, with one concrete example in place of a stack of abstract nouns.
 

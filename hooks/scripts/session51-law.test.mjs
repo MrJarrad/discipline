@@ -85,6 +85,21 @@ test("DISC-224 F: the start is measured by start-cost.mjs against a budget — H
   assert.ok(s.includes("Measured by `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply; s44: ~176.7k)."));
 });
 
+test("DISC-226: a paragraph follows the pattern first, the ruled-out openers after — HOUSE-VOICE, prompt-craft pointer", () => {
+  const s = flat("skills/brand-voice/references/HOUSE-VOICE.md");
+  assert.ok(s.includes("## Writing a paragraph — the pattern"));
+  assert.ok(s.includes("Write from the person's own approach and perspective, stated plainly, never a broad declaration about design or belief."));
+  assert.ok(s.includes("1. **Name the concepts** the paragraph has to carry."));
+  assert.ok(s.includes("2. **Find how they relate**: what leads to what. Reordering the same ideas is not a resolution."));
+  assert.ok(s.includes("3. **Write one point of view** that holds them, in the order perspective, how the work is done, what that makes possible."));
+  assert.ok(s.includes("4. **Build toward the most distinctive idea**, so the paragraph ends on it."));
+  assert.ok(s.includes("A tone reference (a site, a page) is read for its qualities, such as direct, purpose-led, personal but considered, naturally structured, never for its wording."));
+  const i = s.indexOf("## Writing a paragraph — the pattern"), ex = s.indexOf("What the pattern rules out", i);
+  assert.ok(ex > s.indexOf("4. **Build toward the most distinctive idea**", i), "the ruled-out examples come after the pattern");
+  assert.ok(s.slice(ex).includes("\"I believe\"") && s.slice(ex).includes("\"good design\""));
+  assert.ok(flat("skills/prompt-craft/SKILL.md").includes("A copy brief points at `brand-voice` HOUSE-VOICE § Writing a paragraph — the pattern"));
+});
+
 test("release: 1.162.0 in both manifests and CHANGED.txt, with the encoded line", () => {
   for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.162.0"'), p);
   const top = read("CHANGED.txt");
