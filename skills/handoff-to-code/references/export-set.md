@@ -15,6 +15,16 @@ node handoff/design-handoff-script/bin/design-handoff.mjs "<link to the layer>" 
 It writes `design-handoff-<file>-<page>-<layer>-<date-time>.md` and `.json`: the plugin's
 export, then **Link-run findings** and **Sources** in the brief and `linkRun` in the JSON.
 
+**Bringing a stale brief up to date** — `STALE_PAIR` prints this; run it yourself:
+
+```sh
+node handoff/design-handoff-script/bin/design-handoff.mjs --regenerate <stale brief .json> \
+  --ds <each export> --out <dir>
+```
+
+It re-exports the brief's own layer against the exports given, and writes nothing when the brief
+already matches them. A plugin-made brief records no file key: add the file's link.
+
 ## How the set joins
 
 | Join | Key | What `validate` does when it fails |
@@ -38,12 +48,13 @@ concerns is built as the export states or not at all — never inlined from some
 
 | Code | Your move |
 | --- | --- |
-| `DS_EXPORT_NOT_LATEST` | A newer Design System Handoff run exists: a stale set. Stop and ask for the export to be made again with the newer run. |
-| `STYLE_DIFFERS_FROM_DS_EXPORT` | The file changed after the Design System Handoff export: a stale set. Stop and ask for Design System Handoff to be run again, then the export. |
+| `DS_EXPORT_NOT_LATEST` | A newer Design System Handoff run exists. Find it (Drop, vault `references/handoffs/`) and regenerate the brief against it; when you cannot find it, relay `DS_EXPORT_OUT_OF_DATE`. |
+| `STYLE_DIFFERS_FROM_DS_EXPORT` | The file changed after the Design System Handoff export. Relay `DS_EXPORT_OUT_OF_DATE`; build the style as exported meanwhile, one row. |
 | `STYLE_UNPUBLISHED` / `STYLE_CHANGED_SINCE_PUBLISH` | Bind the generated class as exported; row says "publish the style" — a design-file fix, not a code one. |
 | `STYLE_PUBLISH_NOT_CHECKED` | Note row; build as exported. |
-| `ANNOTATION_NEWER_THAN_DS_EXPORT` / `DS_EXPORT_HAS_NO_ANNOTATIONS` | Those annotations arrive as the label only. Ask for a Design System Handoff run; until then build nothing beyond what the label states, one row per layer named. |
-| `VARIABLE_NOT_IN_DS_EXPORTS` | An incomplete set: the binding cannot be mapped (step 3). Stop and ask for that library's export. |
+| `ANNOTATION_NEWER_THAN_DS_EXPORT` / `DS_EXPORT_HAS_NO_ANNOTATIONS` | Those annotations arrive as the label only. Relay `DS_EXPORT_OUT_OF_DATE`; until then build nothing beyond what the label states, one row per layer named. |
+| `VARIABLE_NOT_IN_DS_EXPORTS` | The binding cannot be mapped (step 3). A library variable (`VariableID:<key>/…`): add that library's export with another `--ds` and regenerate. One of this file's own: relay `DS_EXPORT_OUT_OF_DATE`. |
+| `DS_EXPORT_OUT_OF_DATE` | `validate`'s one ask for every row above that means this file's export is behind: relay it as written — the Design System Handoff plugin run on the named file — then regenerate the brief with the new export and validate again. |
 | `LIBRARY_MISSING` / `LIBRARY_NOT_READABLE` | The component or style has no source the export can read (often layers pasted from another file). Stop for a ruling on those nodes; never build the instance's values as if they were local. |
 
 ## The spec index

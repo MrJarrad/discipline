@@ -5,8 +5,9 @@ description: >-
   design-system-handoff JSON companion — treating the pair as the contract. Trigger on
   "consume the handoff", "build from the handoff", "handoff pair", "the export says",
   "regenerate tokens", a `*-design-system-handoff.json` or `design-handoff-*.md` path, a
-  Figma link to export with the design-handoff script, or any implementation whose values
-  come from a handoff export rather than from the canvas.
+  Figma link to export with the design-handoff script, a brief for a project that already
+  has its own tokens and components and no Design System Handoff export (brownfield), or any
+  implementation whose values come from a handoff export rather than from the canvas.
   Every node, token, copy string and annotation in the pair is built; deviations are
   returned as a table and drift stops for a ruling. Not for reading a Figma file itself —
   that's capture-figma, which owns pixels, screenshots, variant walks and live selection;
@@ -42,6 +43,24 @@ token. It joins one Design System Handoff export per source file — this file a
 the layer uses, by key. That **set** is the contract: the pair below means the brief plus every
 export it names. Command, joins, `linkRun` codes, spec index: `references/export-set.md`.
 
+## Brownfield — existing code, no Design System Handoff export
+
+When the project already has its own tokens and components and no Design System Handoff
+export exists for its design file, the brief is the set: its token rows carry each variable's
+CSS name and mode values, its component list each component. When one exists, give it —
+`SET_MEMBER_MISSING` still stops you.
+
+`handoff-css match --handoff <design-handoff>.md --src <code paths…> --rulings <ruling table>.md`
+proposes, for every Figma variable and component, the closest existing code match with its
+evidence (name, value, usage) and a confidence, and lists every item with no match.
+**A proposal is a question, never a binding.** Each item is ruled in the project's ruling table
+— `use` a code name, add the brief's name as `new`, or `skip` — and the next run reads that
+table back; a `use` whose code has gone is `RULING_STALE` and is ruled again. Step 3 then binds
+each variable to its ruled name. Output shape, confidence rules and the table:
+`references/brownfield.md`.
+
+**Done when** `match` exits 0: every item ruled, none stale.
+
 ## Inputs — four required, one optional
 
 | Input | What it is |
@@ -63,13 +82,16 @@ behaviour, links, copy overrides. The pair wins over anything else there.
 Read identity first: markdown's schema version + companion block; JSON's `schemaVersion`,
 `contentHash`, `fingerprint.designSystemStateHash`. The markdown's `state` and JSON's
 `designSystemStateHash` must match, and JSON's `contentHash` must equal the companion's
-`content` hash — one design-system state, not simultaneous export. A mismatch is a
-**stale-pair defect**: stop and ask for a re-export. Never build the newer half alone.
+`content` hash — one design-system state, not simultaneous export. A mismatch is a **stale-pair defect**: bring the set up to date yourself — run the command `validate` names, then validate again. Never build the newer half alone.
 
 `handoff-css validate <design-handoff>.json <design-handoff>.md <every design-system-handoff>.json
---spec-index <index>.md` checks the whole set — an **error** stops you (`STALE_PAIR`,
-`SET_MEMBER_MISSING`), a **warning** is a decision waiting on a human: carry it into your
-deviation table, and build. Each link-run finding is one of those warnings; its move is in
+--spec-index <index>.md` checks the whole set. An **error** means not yet one state: `STALE_PAIR`
+names its fix — `design-handoff --regenerate …` when the brief is the older half, the run the
+brief names when the export is; `SET_MEMBER_MISSING` names the export to add. A **warning** is a
+decision waiting on a human: carry it into your deviation table, and build.
+`SCHEMA_NEWER_THAN_CHECKER` is one: the export is ahead of this checker — build, and note the
+version. **The one thing to ask a person for is a Design System Handoff plugin run, named by file.**
+`DS_EXPORT_OUT_OF_DATE` is that ask, ready to relay: variables cannot be read without the plugin. Each link-run finding is one of those warnings; its move is in
 `references/export-set.md`. **A link-run finding is a reported item, never a reason to inline
 a value.**
 
@@ -106,7 +128,8 @@ name which export covers each library's variables), take **`codeSyntax.WEB.value
 write `var(<name>)`.
 
 - **`codeSyntax.WEB` is the name.** Not the variable's path, not a derived name, not one
-  already in the stylesheet.
+  already in the stylesheet — unless a ruling chose it. In brownfield the name is the one the
+  ruling table records: a `use` ruling's code name, or the brief's own CSS name for `new`.
 - **An alias is not the name.** Bind the handoff's name — an alias hides which token you
   consumed.
 - **No emitted token is a defect, not a guess.** If a binding maps to no custom property, stop
@@ -169,6 +192,10 @@ against all of them. A pass on the component file alone leaves sibling rendering
 (`UNKNOWN_NAME`), a device sample as a literal (`SAMPLE_PX_LITERAL`), column maths in place of
 `col-span N/M` (`GRID_ARITHMETIC`), or shipped `⚠ placeholder` copy (`PLACEHOLDER_COPY`). Red
 fails; amber is a deviation row with a reason. CSS only — markup is checked by hand.
+
+In brownfield, pass the brief's JSON as `--export`, the project's token stylesheet as
+`--tokens`, and each ruled `use` name declared outside it as `--allow-name`; each
+`UNMAPPED_BINDING` that follows is a ruled item, and its deviation row cites the ruling.
 
 **Done when** the run is red-free, or every red has a deviation row and a ruling.
 
