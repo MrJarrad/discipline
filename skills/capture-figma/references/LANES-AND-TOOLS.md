@@ -165,6 +165,7 @@ live. Each output names what its lane lost.
 | Annotations | REST node `annotations[].label`; MCP `get_design_context` `data-annotations` (one node per call) | `category` (Interaction / Development) and `labelMarkdown`: REST returns the label only |
 | Prototype interactions | REST node `interactions` (trigger, action, transition, easing incl. cubic-bezier); MCP `get_motion_context` for keyframes | — |
 | Component props | REST `componentPropertyDefinitions` on the set, `componentProperties` on each instance — never `get_context_for_code_connect` (Code Connect is OUT) | — |
+| Spec text | `use_figma` with `figma.spec.getContent` to read, `figma.spec.editContent` to write (each call all-or-none; re-read after a write) | everything: REST and the other MCP reads do not return spec text |
 | Bindings | REST `boundVariables` | ids only: names come from the sync bank, `variables/local` is Enterprise (403) |
 
 Export-only, not readable live: `codeSyntax` per mode, `cssClass`, pair hashes, changelog. A

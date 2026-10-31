@@ -55,9 +55,8 @@ test("L7: a Mac job's PR merges in the same turn it is filed — HARD-RULES 9, t
   assert.ok(!read("doer-rules.md").includes("Queuing a Mac job merges"), "one home: HARD-RULES 9");
 });
 
-test("release: 1.161.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.161.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.161.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.161.0 — backlog DISC-220, DISC-221."));
+test("release: 1.161.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.161.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.161.0 — backlog DISC-220, DISC-221."));
 });

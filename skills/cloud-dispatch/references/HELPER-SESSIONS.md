@@ -24,7 +24,7 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 
 - **Backstop.** Arm one `send_later` about 50 minutes out per dispatch (HARD-RULES 19); delete it when the return arrives.
 - `get_session` shows `status_bucket`: `working`, `blocked`, `review_ready`, `completed` or `failed` (`failed` means its last turn errored). Cadence and blocked helpers: HARD-RULES 19.
-- To see what a helper is doing, `list_events` with `kinds: ["user", "assistant", "result"]` and `limit: 100`.
+- To see what a helper is doing, read its progress file (the brief names it) first; otherwise `list_events` with `kinds: ["result"]` and `limit: 5`, widening to `"assistant"` only when that does not answer (DISC-224, s44: 12.7k chars for one read).
 - Redirect a running helper with `send_message` on that one channel (HARD-RULES 20); never a second helper for the same lane.
 
 ## 4. Landing

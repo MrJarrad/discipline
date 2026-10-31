@@ -58,7 +58,7 @@ and queued the chat as the doer — that hatch is deleted.
    exists, then dispatching merge execution to Engineer (mid-stream integration) or
    Release Ops (release-gated). **Engineer complete is not merged.** After engineer
    lands, solicit review before the operator hears "fixed". **Every merge has a reviewer verdict first** — a one-line test-only PR gets a LIGHT pass; "small, gates green" is not a
-   review record (`2026-10-09-every-merge-reviewed`; notes-only vault PRs (jhd-vault, markdown records, indexes, queue/backlog rows only; scripts, hooks, CI, settings get a reviewer) are the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`). Checked: `hooks/bin/merge-review-gate.mjs` refuses `mcp__github__merge_pull_request` unless it pins `expectedHeadSha` and a reviewer verdict on that head (comment or review, shape in `agents/reviewer.md` § Verdict) saying `merge: yes` was read in the session; a MrJarrad/jhd-vault PR passes only when a `get_files` read shows it notes-only; the gate fails closed. `merge-after-review.mjs` refuses the same (#361, `2026-10-18-helper-waits-for-go`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
+   review record (`2026-10-09-every-merge-reviewed`; notes-only vault PRs (jhd-vault, markdown records, indexes, queue/backlog rows only; scripts, hooks, CI, settings get a reviewer) are the orchestrator's own merge, `2026-10-18-orchestrator-merges-own-vault-notes`). Checked: `hooks/bin/merge-review-gate.mjs` refuses `mcp__github__merge_pull_request` unless it pins `expectedHeadSha` and a reviewer verdict on that head (comment or review, shape in `agents/reviewer.md` § Verdict) saying `merge: yes` was read in the session; a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this; `<plugin>` as an absolute path, the one the gate's refusal prints) or by `get_files` reads (every patch in context; s44 spent 43.8k chars on three); the gate fails closed. `merge-after-review.mjs` refuses the same (#361, `2026-10-18-helper-waits-for-go`). **Resume pulls main first:** `git fetch origin main`, cockpit and handover from `origin/main`, every "running" lane re-checked
    against live PR/branch state before any dispatch (`resume-reads-vault-main-first-2026-10-10`).
    **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
    for the tier and round-cap law.
@@ -230,8 +230,11 @@ and queued the chat as the doer — that hatch is deleted.
    starts, the superseded round's helper is archived then. A helper whose result is not yet banked is never archived.
    **The helper sweep runs at session start and at wrap** (DISC-211; DISC-212, operator 2026-10-28: *"archive it when it's task is
    complete or if another session takes over"*; 2026-10-31: *"aren't being archived when completed or possibly worse aren't being
-   completed"*). Save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
-   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`. It sorts every
+   completed"*). **At wrap** save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
+   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`; wrap writes the Keep and
+   Surface ids, and its own id, on the cockpit wrap block's `Helpers:` line. **At session start** call `get_session` only on the ids in
+   that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages
+   `list_sessions` (DISC-224, s44: 25.3k chars). It sorts every
    un-archived helper: archive (completed, and its parent wrapped or was archived, or its PR merged), keep, surface (blocked,
    review-ready, failed or quiet past 12 hours under a wrapped parent). Call `archive_session` on each archive row; the surface
    list is taken over or reported in the status; a refused archive is one line in the status, never dropped.
@@ -272,3 +275,11 @@ and queued the chat as the doer — that hatch is deleted.
    until he asked). When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch
    or PR into the row's Notes. `session-resume.mjs` lists every open row carrying an operator yes and no lane id as
    "approved, not started". DO: dispatch, then add `lane claude/text-glow` to the row. DON'T: bank the yes and move on.
+24. **The first status reply comes before housekeeping** (DISC-224, operator 2026-10-31: *"is there anything we should disconnect or
+   do to make session start less heavy on context?"*; s44 merged 15 PRs and paged 40 sessions before its first reply, 22% of
+   the window). A starting or resuming parent sends its first status reply from three reads only: `session-resume.mjs`,
+   `needed-from-you.mjs` and the cockpit. Merges, the helper sweep, re-point messages and PR or session reads come after it, in a
+   turn the parent starts itself with one `send_later` (`delay_minutes: 1`) armed before the reply. Measured by
+   `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply;
+   s44: ~176.7k). DO: arm the follow-up, reply,
+   then merge and sweep. DON'T: read PR files and session lists before the operator has a status.

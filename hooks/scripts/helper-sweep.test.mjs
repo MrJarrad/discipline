@@ -182,3 +182,17 @@ test("DISC-221 L4: the CLI prints a Re-point block after Surface with the messag
   assert.ok(rp > r.stdout.indexOf("## Surface"), r.stdout);
   assert.match(r.stdout.slice(rp), /h_blocked .*session_id "me"/);
 });
+
+test("DISC-224: saved get_session results ({ccr:{…one session…}}) are read as sessions, so the start sweep needs no list_sessions", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { spawnSync } = await import("node:child_process");
+  const d = mkdtempSync(join(tmpdir(), "helper-sweep-gs-"));
+  const one = (x, name) => { const p = join(d, name); writeFileSync(p, JSON.stringify({ ccr: x, lineage: { depth: 1 } })); return p; };
+  const files = [one(WRAPPED_P, "parent.json"), one(h("h_blocked", "p_w", { status_bucket: "SESSION_STATUS_BUCKET_BLOCKED" }), "h.json")];
+  const r = spawnSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--self", "me", "--now", NOW, ...files.flatMap((f) => ["--sessions", f])], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /## Surface \(1\)\n- h_blocked/);
+  assert.match(r.stdout, /## Re-point \(1\)/);
+});

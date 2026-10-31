@@ -65,7 +65,7 @@ stash) and re-verifies it as an untrusted claim before building on it
 cockpit and handover from `origin/main`, and re-check every "running" lane against live PR and
 branch state (merged, moved on, operator-held) before restarting it
 (`resume-reads-vault-main-first-2026-10-10`; `pause-resume` step 0). One command does the
-re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`.
+re-check: `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>`. The first status reply comes before any merge or sweep (HARD-RULES 24).
 
 ## Baton handoff table
 

@@ -22,6 +22,8 @@ This is the operator's standing lesson: **narrow for execution, wide for strateg
 
 **An operator's new-idea question is strategy altitude, blue-sky first.** "Could this be a better approach / a starting point" gets an open brief that asks for solution shapes; a fit-check against the current plan comes after, never as the framing (operator, 2026-10-08: *"the goal is not see how it would fit into our existing process"*).
 
+A copy brief points at `brand-voice` HOUSE-VOICE § Writing a paragraph — the pattern, and names the operator's own tone reference.
+
 ## Neutral wording never steers
 
 State the question and the constraints. Never a predicted answer. If you name a

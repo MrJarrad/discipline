@@ -44,7 +44,7 @@ Amendment 2026-10-29 (b) to the warmth ruling, operator verbatim: "i'd prefer no
 - GOOD (house style): "Building flexible typographic systems, colour palettes, and core visual assets that translate natively between physical spaces and digital interfaces."
 
 ## Warmth over mechanics
-Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and not nice to read ("100000 times better" for the result). It applies to every page and case study. The point is copy that sounds like a person who cares, so these rules loosen; none adds a prohibition beyond the banned list above. Rules 6 and 7 were added 2026-10-28.
+Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and not nice to read ("100000 times better" for the result). It applies to every page and case study. The point is copy that sounds like a person who cares, so these rules loosen; none adds a prohibition beyond the banned list above. Rules 6 and 7 were added 2026-10-28, rule 8 on 2026-10-31.
 
 1. **Open with what the person loves and makes**, not their title.
 2. **Let sentences run and join, and vary their length.** No lists of three verbs.
@@ -53,6 +53,7 @@ Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and 
 5. **Drop workplace words:** align, iterate, steer, production, deliver.
 6. **Don't reuse one sentence shape across a set.** Vary how each line opens and moves.
 7. **Say what it's for,** not just what it is.
+8. **Equal items go in one list.** Things the copy means as equals sit side by side in one list, never one of them in a clause trailing after the rest. Operator 2026-10-31 (PF-979, on "A good system makes teams and AI more efficient, and gives creativity more room"): "close but the creativity isn't an after thought, these makes it sound like it is".
 
 Framing is general copywriting guidance, not a rule: where a page shows several items together, one line that says what ties them together helps. It is never a required intro, and a page that shows one item at a time (the Glossary, one term each) gets none.
 
@@ -62,6 +63,21 @@ Tone target, approved by the operator (a reference for the sound, not final copy
 - AFTER (Profile): "My work is quiet and considered, built on strong typography, clear structure and images that let a brand speak for itself. I love the whole journey, from shaping an idea to seeing it live, and I care as much about how something works as how it looks."
 - BEFORE (Approach): "I start with what the business needs and what people need from it, then let taste lead. My taste leans towards restraint, shaped by modernism and by people like Dieter Rams and Steve Jobs: fewer things, each one done properly, and nothing there without a reason. On screen that means a quiet interface, clear type and images that carry the brand. Every brand should feel like itself, never like a template. I share work early, in whatever form reads best, so the whole team can understand it, align and iterate."
 - AFTER (Approach): "I start every project by understanding what the business needs and what people need from it, then let taste lead the way. I'm drawn to restraint, the kind you find in modernism and in Dieter Rams's work: fewer things, each one done well. Every brand should feel like itself, never like a template."
+
+## Writing a paragraph — the pattern
+
+Operator 2026-10-31 (DISC-226, the Approach paragraph, PF-995): "it good to list specific do nots but what's more important is the pattern to follow". Source: vault `projects/portfolio/artifacts/2026-10-31-approach-chatgpt-conversation-operator-supplied.md`.
+
+Write from the person's own approach and perspective, stated plainly, never a broad declaration about design or belief. For any paragraph that carries several ideas:
+
+1. **Name the concepts** the paragraph has to carry.
+2. **Find how they relate**: what leads to what. Reordering the same ideas is not a resolution.
+3. **Write one point of view** that holds them, in the order perspective, how the work is done, what that makes possible. A role or title explains the how; it is not dropped in as a label.
+4. **Build toward the most distinctive idea**, so the paragraph ends on it.
+
+A tone reference (a site, a page) is read for its qualities, such as direct, purpose-led, personal but considered, naturally structured, never for its wording. The aim is confident without being declarative, thoughtful without being philosophical, commercially aware without sounding like a pitch.
+
+What the pattern rules out, as examples (this operator, 2026-10-31): "I believe" and "good design" openers, which turn a perspective into a manifesto.
 
 ## Register reference
 Gil Huybrecht's profile page (gilhuybrecht.com/profile) and his overlay for disciplines are the reference for tone: talked through like a conversation, with one concrete example in place of a stack of abstract nouns.
