@@ -29,6 +29,7 @@
 | Use vibe words in place of the specific | "Powerful" and "next-level" show nothing |
 | Stack three verbs or three abstract nouns in a row | Rule 2: it reads mechanical |
 | Open every line in a set with the same shape | Rule 6: it reads mechanical |
+| Hang one of a set of equals off the end in a trailing clause | Rule 8: it reads as an afterthought |
 | Use workplace words: align, iterate, steer, production, deliver | Rule 5: they sound like a status report |
 | Strip a true feeling word as if it were padding | Rule 3: the aim is to stop mechanical copy |
 | Apply this to operator chat or agent output styles | Scope is published copy |

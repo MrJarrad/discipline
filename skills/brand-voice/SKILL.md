@@ -7,7 +7,7 @@ description: How to write user-facing copy in one consistent brand voice — the
 
 A brand's voice guide tells you *what* the voice is — its traits, its lexicon, its say/don't-say. This skill is *how* to wield it, so every line a user reads sounds like one brand — on any project, any surface.
 
-Load [references/HOUSE-VOICE.md](references/HOUSE-VOICE.md) first, on every use: it is the house voice for all published copy. Its "Warmth over mechanics" section holds the five rules and the tone-target paragraphs for every page; write toward them. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+Load [references/HOUSE-VOICE.md](references/HOUSE-VOICE.md) first, on every use: it is the house voice for all published copy. Its "Warmth over mechanics" section holds its numbered rules and the tone-target paragraphs for every page; write toward them. Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
 
 ## The one rule — voice is applied, never improvised
 Every line of shipped copy traces to the brand's voice definition: its **traits**, its **lexicon**, its **say/don't-say**. No off-brand phrasing, no generic "AI voice," no per-writer drift. **Improvised tone is a bug, not a shortcut.** If the voice guide doesn't cover the case, **extend the guide, then write** — don't quietly invent a one-off tone. This holds regardless of which brand you're writing for — it's the rule beneath all the rest. The house voice is the floor under every brand; a project's voice guide adds only project specifics (traits, lexicon, surface quirks) and never restates it.

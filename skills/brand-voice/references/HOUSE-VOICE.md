@@ -44,7 +44,7 @@ Amendment 2026-10-29 (b) to the warmth ruling, operator verbatim: "i'd prefer no
 - GOOD (house style): "Building flexible typographic systems, colour palettes, and core visual assets that translate natively between physical spaces and digital interfaces."
 
 ## Warmth over mechanics
-Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and not nice to read ("100000 times better" for the result). It applies to every page and case study. The point is copy that sounds like a person who cares, so these rules loosen; none adds a prohibition beyond the banned list above. Rules 6 and 7 were added 2026-10-28.
+Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and not nice to read ("100000 times better" for the result). It applies to every page and case study. The point is copy that sounds like a person who cares, so these rules loosen; none adds a prohibition beyond the banned list above. Rules 6 and 7 were added 2026-10-28, rule 8 on 2026-10-31.
 
 1. **Open with what the person loves and makes**, not their title.
 2. **Let sentences run and join, and vary their length.** No lists of three verbs.
@@ -53,6 +53,7 @@ Operator ruling 2026-10-27 (DISC-210), on copy that read "a bit mechanical" and 
 5. **Drop workplace words:** align, iterate, steer, production, deliver.
 6. **Don't reuse one sentence shape across a set.** Vary how each line opens and moves.
 7. **Say what it's for,** not just what it is.
+8. **Equal items go in one list.** Things the copy means as equals sit side by side in one list, never one of them in a clause trailing after the rest. Operator 2026-10-31 (PF-979, on "A good system makes teams and AI more efficient, and gives creativity more room"): "close but the creativity isn't an after thought, these makes it sound like it is".
 
 Framing is general copywriting guidance, not a rule: where a page shows several items together, one line that says what ties them together helps. It is never a required intro, and a page that shows one item at a time (the Glossary, one term each) gets none.
 
