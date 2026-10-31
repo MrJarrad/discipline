@@ -87,7 +87,10 @@ Read identity first: markdown's schema version + companion block; JSON's `schema
 `handoff-css validate <design-handoff>.json <design-handoff>.md <every design-system-handoff>.json
 --spec-index <index>.md` checks the whole set. An **error** means not yet one state: `STALE_PAIR`
 names its fix — `design-handoff --regenerate …` when the brief is the older half, the run the
-brief names when the export is; `SET_MEMBER_MISSING` names the export to add. A **warning** is a
+brief names when the export is; `SET_MEMBER_MISSING` names the export to add. A new export is
+added with `handoff-css vendor <export>.json [<export>.md] --into design/handoff` — a new
+`v<N>-<date>` folder, `latest` repointed to it — never copied into `latest/`, which writes
+through the link into the version it points at. A **warning** is a
 decision waiting on a human: carry it into your deviation table, and build.
 `SCHEMA_NEWER_THAN_CHECKER` is one: the export is ahead of this checker — build, and note the
 version. **The one thing to ask a person for is a Design System Handoff plugin run, named by file.**
