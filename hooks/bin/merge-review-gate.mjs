@@ -15,9 +15,10 @@
    short one (a full page may hide more files), and the merge still pins
    `expectedHeadSha`. Limit: a `get_files` result carries no sha, so the pin
    proves the merge lands the head named, not that the files were read at it.
-   Lighter proof (DISC-224): a Bash run of `vault-pr-files.mjs --pr <n>` in the session
-   whose JSON line is complete, names the pinned head and only notes; it lists names
-   from local git, bound to that sha, instead of every patch.
+   Lighter proof (DISC-224): a Bash run of this plugin's own `hooks/scripts/vault-pr-files.mjs`
+   (absolute path, one plain command) for this PR whose JSON line is complete, names the
+   pinned head, a MrJarrad/jhd-vault origin and only notes; it lists names from GitHub's
+   merge ref for the PR, bound to that sha, instead of every patch.
    Limits: trusted means the repo owner, and every fleet agent posts as that
    login, so the gate proves a verdict-shaped comment exists, not who wrote it.
    A subagent's own reads are not in the parent's transcript.
@@ -25,6 +26,12 @@
    merge-after-review.mjs (imported inside the try) denies the merge, naming why. */
 import { readFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/* vault-pr-files.mjs as installed beside this gate; a copy anywhere else is not proof (r1 red 1). */
+const OWN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "scripts", "vault-pr-files.mjs");
+/* The clone the stamp came from must fetch from MrJarrad/jhd-vault (r1 amber 1). */
+const VAULT_ORIGIN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)mrjarrad\/jhd-vault(?:\.git)?\/?$/i;
 
 function deny(reason) {
   console.log(JSON.stringify({
@@ -65,13 +72,14 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
            this PR. A stamp echoed by hand or printed for another PR is not proof. */
         const cmd = bash.get(part.tool_use_id);
         /* The whole command is one plain run of the script: no other command can print after it. */
-        const plain = /^[ \t]*node[ \t]+[^\s;&|`$<>()\\]*vault-pr-files\.mjs(?:[ \t]+[^\s;&|`$<>()\\'"]+)*[ \t]*$/.test(cmd);
-        const m = plain && cmd.match(/[ \t]--pr[ \t]+(\d+)(?:[ \t]|$)/);
+        const run = cmd.match(/^[ \t]*node[ \t]+([^\s;&|`$<>()\\'"]+)((?:[ \t]+[^\s;&|`$<>()\\'"]+)*)[ \t]*$/);
+        if (!run || resolve(run[1]) !== run[1] || run[1] !== OWN_SCRIPT) continue; // the gate's own sibling copy only
+        const m = run[2].match(/[ \t]--pr[ \t]+(\d+)(?:[ \t]|$)/);
         if (!m || Number(m[1]) !== Number(pullNumber)) continue;
         const text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
         let v;
         try { v = JSON.parse(text.trim().split("\n").pop()).vaultPrFiles; } catch { continue; }
-        if (v && Number(v.pr) === Number(pullNumber)) out.stamps.push(v);
+        if (v && Number(v.pr) === Number(pullNumber) && VAULT_ORIGIN.test(String(v.origin || ""))) out.stamps.push(v);
         continue;
       }
       const i = calls.get(part.tool_use_id);
@@ -131,7 +139,7 @@ function check(input, { notesOnly, reviewVerdict }) {
     if (cleared && (!reads.files || !reads.filesComplete)) process.exit(0);
     /* A vault-pr-files result on the pinned head proves notes-only without get_files (DISC-224). */
     if (pinned && reads.stamps.some((v) => v.complete === true && v.head === t.expectedHeadSha && Array.isArray(v.files) && notesOnly(v.files))) process.exit(0);
-    if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; prove it with \`node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr ${t.pullNumber}\` (names only, at the head you pin), or read its files with pull_request_read get_files, or get a reviewer verdict.`);
+    if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; prove it with \`node ${OWN_SCRIPT} --vault <vault> --pr ${t.pullNumber}\` (that absolute path, one plain command; names only, at the head you pin), or read its files with pull_request_read get_files, or get a reviewer verdict.`);
     if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {
       if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you are merging) so the merge lands only that head.`);

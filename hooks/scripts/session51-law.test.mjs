@@ -42,7 +42,7 @@ test("DISC-223.4: preview builds are spaced — release-deploy, beside Workers B
 
 test("DISC-224 A: notes-only vault PRs are proven by vault-pr-files, names only — HARD-RULES 6", () => {
   const s = flat("skills/routing/references/HARD-RULES.md");
-  assert.ok(s.includes("a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this) or by `get_files` reads"));
+  assert.ok(s.includes("a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this; `<plugin>` as an absolute path, the one the gate's refusal prints) or by `get_files` reads"));
 });
 
 test("DISC-224 B: the start sweep reads only the helpers wrap named — HARD-RULES 19, wrap, vault-recall", () => {
