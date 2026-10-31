@@ -53,6 +53,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { discoverFiles, frontmatterPrefix, tableRows } from "./lib/queue-ids.mjs";
 import { checkIdeaSheets } from "./lib/idea-sheets.mjs";
 import { highestUsed } from "./lib/row-alloc.mjs";
+import { writeDriftStamp } from "./lib/row-marker.mjs";
 
 const ALIAS = { ds: "jhd-design-system" };
 // `<name>/main` worktree layout: the repo is the parent folder's name.
@@ -566,6 +567,7 @@ function main() {
   if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty]"); process.exit(2); }
   const vault = resolve(argv[vi + 1]);
   const repos = argv.flatMap((a, i) => (a === "--repo" && argv[i + 1] ? argv[i + 1].split(",") : [])).map((p) => resolve(p));
+  try { writeDriftStamp(vault, undefined, repos); } catch { /* the stamp is row-add's gate input, never this check's failure */ }
   let findings;
   if (argv.includes("--fix")) {
     const res = fixVault(vault, repos);

@@ -12,6 +12,9 @@
    A new row that resembles an open backlog row or unstruck queue row (shared
    content words) is refused, naming the rows, unless --merge-into or --distinct
    says which (DISC-189, decision 2026-10-18-orderly-backlogs).
+   A queue row that names other rows of its own project (`ZZ-12`) is refused unless every
+   named row is open and list-drift-check ran for this vault in the last 15 minutes
+   (DISC-221, lesson 2026-10-31-s43 #1: closed rows were offered as "which next?").
    Prints the new ID (e.g. PF-682) on stdout. Exit 0 added · 1 refused (the
    reason is on stderr) · 2 usage error. Warnings (origin unreachable) go to
    stderr and do not fail the call.
@@ -26,7 +29,7 @@ import { addRow, parseBacklog, parseStatus } from "./list-drift-check.mjs";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
 import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
-import { writeMarker } from "./lib/row-marker.mjs";
+import { DRIFT_STAMP_MINUTES, driftStampFresh, writeMarker } from "./lib/row-marker.mjs";
 
 /* Write via a sibling temp file + rename so a reader never sees a truncated file. */
 const writeAtomic = (path, text) => { const tmp = `${path}.${process.pid}.tmp`; writeFileSync(tmp, text); renameSync(tmp, path); };
@@ -77,6 +80,11 @@ export function similarRows(text, rows) {
   });
 }
 
+/* Row IDs of this project named in a row's text, deduplicated, in order. */
+export function citedIds(text, prefix) {
+  return [...new Set(String(text).match(new RegExp(`\\b${prefix}-\\d+\\b`, "g")) || [])];
+}
+
 export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct }) {
   const warnings = [];
   const fail = (reason) => ({ ok: false, reason, warnings });
@@ -106,6 +114,12 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
       lines[row.lineIndex] = `| ${c.join(" | ")} |`;
       writeAtomic(path, lines.join("\n"));
       return { ok: true, id: row.id, file: row.file, merged: true, warnings };
+    }
+    if (to === "queue") {
+      const cited = citedIds([text, where, why, recommended].map(clean).join(" "), prefix);
+      const shut = cited.filter((id) => !open.some((r) => r.id === id));
+      if (shut.length) return fail(`cites ${shut.join(", ")}, not an open row of ${prefix} (struck, done, moot or absent): check it against merged work before asking`);
+      if (cited.length && !driftStampFresh(vault)) return fail(`cites ${cited.join(", ")}: run \`node <plugin>/hooks/scripts/list-drift-check.mjs --vault <vault> --repo <paths>\` first (no run in the last ${DRIFT_STAMP_MINUTES} minutes; ruling lists-never-stale)`);
     }
     const like = distinct ? [] : similarRows(clean(text), open);
     if (like.length) {

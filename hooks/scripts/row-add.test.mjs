@@ -205,3 +205,45 @@ test("DISC-179(1): the CLI leaves a marker naming the prefix, for the Stop hook"
   assert.equal(m[0].prefix, "ZZ");
   assert.match(m[0].id, /^ZZ-\d+$/);
 });
+
+// DISC-221 L1 (s43): a queue row that cites other rows of its project is an ask built on
+// list state, so it needs that state fresh (ruling lists-never-stale).
+import { writeDriftStamp, DRIFT_STAMP_MINUTES } from "./lib/row-marker.mjs";
+
+test("DISC-221 L1: a queue row citing a struck or done row is refused, naming it", () => {
+  const v = mkVault();
+  writeDriftStamp(v);
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "which next: ZZ-600 or ZZ-192?", offline: true });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /ZZ-600/);
+  assert.match(r.reason, /not an open row/);
+});
+
+test("DISC-221 L1: a queue row citing open rows is refused with no recent list-drift-check run", () => {
+  const v = mkVault();
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /list-drift-check\.mjs --vault/);
+});
+
+test("DISC-221 L1: a fresh list-drift-check stamp lets the citing row in; a stale one does not", () => {
+  const v = mkVault();
+  writeDriftStamp(v, new Date(Date.now() - (DRIFT_STAMP_MINUTES + 1) * 60e3).toISOString());
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true }).ok, false);
+  writeDriftStamp(v);
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  assert.equal(r.ok, true, r.reason);
+});
+
+test("DISC-221 L1: a queue row citing no rows needs no stamp; another project's ID is not checked", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "approve the hero copy", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "same call as PF-938 elsewhere", offline: true }).ok, true);
+});
+
+test("DISC-221 L1: the list-drift-check CLI leaves the stamp row-add reads", () => {
+  const v = mkVault();
+  try { execFileSync(process.execPath, [join(here, "list-drift-check.mjs"), "--vault", v], { stdio: "ignore" }); } catch { /* findings exit 1; the stamp is written either way */ }
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  assert.equal(r.ok, true, r.reason);
+});

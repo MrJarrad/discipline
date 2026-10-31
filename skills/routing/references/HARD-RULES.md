@@ -170,6 +170,10 @@ and queued the chat as the doer — that hatch is deleted.
    project's repo, and a PR the check cannot resolve is `unknown`, never done.
    `lane-end.mjs` flips the row in the lane's own commit and runs the check last; `wrap`
    runs it before the report (`wrap/references/REPORT-AND-LEARN.md`).
+   **An ask that cites rows is checked first** (DISC-221, s43: closed rows offered as "which look next?"):
+   `row-add.mjs --to queue` refuses a row naming its project's IDs unless each is open and
+   `list-drift-check.mjs` ran in the last 15 minutes. DO: run the check, then add "HB-196 or HB-197?".
+   DON'T: copy row IDs from the handover into a new ask.
 
 15. **Heavy lanes are capped per container** (step-failures audit, 2026-10-15). On one 4-core
    container about ten lanes ran suites, builds and headless browsers together: load averaged
