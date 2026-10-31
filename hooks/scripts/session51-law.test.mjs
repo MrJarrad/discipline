@@ -104,5 +104,5 @@ test("release: 1.162.0 in both manifests and CHANGED.txt, with the encoded line"
   for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.162.0"'), p);
   const top = read("CHANGED.txt");
   assert.ok(top.startsWith("1.162.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.162.0 — backlog DISC-223, DISC-224."));
+  assert.ok(top.split("\n\n")[0].includes("encoded: 1.162.0 — backlog DISC-223, DISC-224, DISC-226."));
 });
