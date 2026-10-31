@@ -49,7 +49,7 @@ snapshot".
    from `origin/main`, never from the local or branch copy: a session that kept working after
    its wrap leaves newer state on main, and a stale branch cockpit restarts lanes that already
    merged (`resume-reads-vault-main-first-2026-10-10`).
-1. Run `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>` once: it prints, per lane, branch head, PR/CI, last progress line vs branch reality, contract, next owner, and whether this session's plugin is older than the installed one (reload before dispatching). Then read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`.
+1. Run `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>` once: it prints, per lane, branch head, PR/CI, last progress line vs branch reality, contract, next owner, and whether this session's plugin is older than the installed one (reload before dispatching). Then read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`; the first status reply comes before any merge or sweep (`routing` HARD-RULES 24).
    **Re-check every "running" lane** against live PR and branch state (`gh pr view`, branch
    head, merged or closed, draft or ready, whose decision it is) before any re-dispatch; a
    lane whose PR merged, moved on, or is held by the operator is not restarted.

@@ -70,3 +70,12 @@ test("DISC-224 D: a helper's state is read from its progress file first, list_ev
   assert.ok(h.includes("To see what a helper is doing, read its progress file (the brief names it) first; otherwise `list_events` with `kinds: [\"result\"]` and `limit: 5`, widening to `\"assistant\"` only when that does not answer (DISC-224, s44: 12.7k chars for one read)."));
   assert.ok(!h.includes("`limit: 100`"));
 });
+
+test("DISC-224 E: the first status reply comes before housekeeping — HARD-RULES 24, pointed at from routing and pause-resume", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("24. **The first status reply comes before housekeeping**"));
+  assert.ok(s.includes("A starting or resuming parent sends its first status reply from three reads only: `session-resume.mjs`, `needed-from-you.mjs` and the cockpit."));
+  assert.ok(s.includes("Merges, the helper sweep, re-point messages and PR or session reads come after it, in a turn the parent starts itself with one `send_later` (`delay_minutes: 1`) armed before the reply."));
+  assert.ok(flat("skills/routing/SKILL.md").includes("The first status reply comes before any merge or sweep (HARD-RULES 24)."));
+  assert.ok(flat("skills/pause-resume/SKILL.md").includes("the first status reply comes before any merge or sweep (`routing` HARD-RULES 24)"));
+});

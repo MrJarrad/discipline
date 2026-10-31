@@ -275,3 +275,9 @@ and queued the chat as the doer — that hatch is deleted.
    until he asked). When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch
    or PR into the row's Notes. `session-resume.mjs` lists every open row carrying an operator yes and no lane id as
    "approved, not started". DO: dispatch, then add `lane claude/text-glow` to the row. DON'T: bank the yes and move on.
+24. **The first status reply comes before housekeeping** (DISC-224, operator 2026-10-31: *"is there anything we should disconnect or
+   do to make session start less heavy on context?"*; s44 merged 15 PRs and paged 40 sessions before its first reply, 22% of
+   the window). A starting or resuming parent sends its first status reply from three reads only: `session-resume.mjs`,
+   `needed-from-you.mjs` and the cockpit. Merges, the helper sweep, re-point messages and PR or session reads come after it, in a
+   turn the parent starts itself with one `send_later` (`delay_minutes: 1`) armed before the reply. DO: arm the follow-up, reply,
+   then merge and sweep. DON'T: read PR files and session lists before the operator has a status.
