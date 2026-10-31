@@ -64,3 +64,9 @@ test("DISC-224 C: the cockpit keeps one wrap block and carries queue paths and c
   assert.ok(!s.includes("the cockpit wrap block carries every open row verbatim"));
   assert.ok(flat("skills/pause-resume/SKILL.md").includes("The open queue is not copied: the cockpit carries each project's queue path and open-row count"));
 });
+
+test("DISC-224 D: a helper's state is read from its progress file first, list_events narrow — HELPER-SESSIONS § 3", () => {
+  const h = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
+  assert.ok(h.includes("To see what a helper is doing, read its progress file (the brief names it) first; otherwise `list_events` with `kinds: [\"result\"]` and `limit: 5`, widening to `\"assistant\"` only when that does not answer (DISC-224, s44: 12.7k chars for one read)."));
+  assert.ok(!h.includes("`limit: 100`"));
+});
