@@ -233,6 +233,10 @@ and queued the chat as the doer — that hatch is deleted.
    un-archived helper: archive (completed, and its parent wrapped or was archived, or its PR merged), keep, surface (blocked,
    review-ready, failed or quiet past 12 hours under a wrapped parent). Call `archive_session` on each archive row; the surface
    list is taken over or reported in the status; a refused archive is one line in the status, never dropped.
+   **At session start the parent sends each Re-point row its message** (DISC-221, s43: every s42 helper kept reporting to
+   the wrapped s42 parent): the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped,
+   naming the new parent's id; send it once, that turn. DO: send the row's message as printed. DON'T: wait for the helper to
+   write to the old parent and re-point it by hand.
    **A parent session is never archived** (operator 2026-10-31: *"it's important the we don't archive the parent sessions though,
    i'm a bit nervous about that"*): a helper is a session with a parent and a title starting "Helper ·"; every other session,
    wrapped, "← talk here" or otherwise, is a parent, lands in no list, and is never passed to `archive_session` by any session.

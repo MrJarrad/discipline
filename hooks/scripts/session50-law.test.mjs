@@ -24,3 +24,9 @@ test("L3: a yes opens a lane the same turn — HARD-RULES 23, and the digest poi
   assert.ok(s.includes("When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch or PR into the row's Notes."));
   assert.ok(read("hooks/scripts/session-resume.mjs").includes("(routing HARD-RULES 23)"));
 });
+
+test("L4: at session start the parent sends each Re-point row its message — HARD-RULES 19", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("**At session start the parent sends each Re-point row its message**"));
+  assert.ok(s.includes("the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped, naming the new parent's id; send it once, that turn."));
+});
