@@ -29,7 +29,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
-import { FAILING, fixVault } from "./list-drift-check.mjs";
+import { FAILING, fixVault, parseBacklog, parseStatus } from "./list-drift-check.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -243,6 +243,27 @@ export function productRepos(vault, given, home) {
   return beside.length ? beside : dirs(join(home, "JHD")).map((d) => join(d, "main")).filter(isRepo);
 }
 
+/* DISC-221 L3 (lesson 2026-10-31-s43 #3: PF-938's yes sat with no lane). Open backlog rows and
+   unstruck queue rows whose text records the operator's yes and names no lane — no `#<n>` PR,
+   no `claude/` branch, no progress file, status not in flight: [{ id, item }]. */
+const OPERATOR_YES = /\boperator\b[^|.]{0,40}?["“]?\byes\b/i;
+const LANE_ID = /#\d+|\bclaude\/[\w.-]+|progress\.md/;
+export function approvedNotStarted(vault) {
+  const out = [];
+  for (const [, e] of [...discoverFiles(vault).byPrefix].sort(([a], [b]) => a.localeCompare(b))) {
+    const rows = [];
+    if (e.backlog) for (const r of parseBacklog(readFileSync(join(vault, e.backlog), "utf8"))) {
+      if (!r.struck && r.section !== "done" && parseStatus(r.status)?.kind === "open") rows.push(r);
+    }
+    if (e.queue) for (const r of tableRows(readFileSync(join(vault, e.queue), "utf8"))) if (!r.struck) rows.push(r);
+    for (const r of rows) {
+      const rest = r.cells.slice(2).join(" | ");
+      if (OPERATOR_YES.test(rest) && !LANE_ID.test(r.cells.join(" | "))) out.push({ id: r.id, item: r.cells[1] || "" });
+    }
+  }
+  return out;
+}
+
 export function buildDigest(opts = {}) {
   const vault = resolve(opts.vault);
   const exec = opts.exec ?? runCmd;
@@ -277,6 +298,10 @@ export function buildDigest(opts = {}) {
     text.push(`lists: ${res.changed.length ? `fixed ${res.changed.join(", ")} — bank with vault-write` : "nothing to fix"}; ${left} for a person (list-drift-check.mjs --vault <vault>)`);
     if (!repos.length) text.push("lists: no product clone found, so merged-PR checks were skipped (pass --repo name=path)");
   } catch (e) { text.push(`lists: check not run (${String(e.message).split("\n")[0]})`); }
+  try {
+    const yes = approvedNotStarted(vault);
+    if (yes.length) text.push(`!! approved, not started: ${yes.map((r) => `${r.id} (${clip(r.item, 60)})`).join(" · ")} — dispatch each and write its branch or PR into the row's Notes (routing HARD-RULES 23)`);
+  } catch (e) { text.push(`approved rows: not read (${String(e.message).split("\n")[0]})`); }
   text.push("");
 
   const lanes = [];

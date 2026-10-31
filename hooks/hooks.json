@@ -27,6 +27,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/merge-review-gate.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__github__create_or_update_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/vault-mcp-write-guard.mjs\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

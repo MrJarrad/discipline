@@ -9,8 +9,10 @@
      [--now <ISO>]
    Input files are saved list_sessions results (raw {"ccr":{"data":[…]}}, {data:[…]} or an array).
 
-   Interface: classify({ sessions, self, now, keep, merged, staleHours }) -> { archive, keep, surface },
-   each row { id, title, reason }.                                                              */
+   Interface: classify({ sessions, self, now, keep, merged, staleHours }) -> { archive, keep, surface, repoint },
+   each row { id, title, reason }. `repoint` (DISC-221, lesson 2026-10-31-s43 #4: s42's helpers kept
+   messaging the wrapped s42 parent) repeats every kept or surfaced helper whose parent is wrapped or
+   archived, each with `message`: the one send_message text that points it at `self`.                                                              */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -23,16 +25,20 @@ const isHelper = (x) => Boolean(x.parent_session_id) && /^Helper ·/.test(x.titl
 export const STALE_HOURS = 12;
 
 export function classify({ sessions, self, now, keep = [], merged = [], staleHours = STALE_HOURS }) {
-  const out = { archive: [], keep: [], surface: [] };
+  const out = { archive: [], keep: [], surface: [], repoint: [] };
   const byId = new Map(sessions.map((x) => [x.id, x]));
   for (const x of sessions) {
     if (x.id === self || isArchived(x)) continue;
-    const add = (list, reason) => out[list].push({ id: x.id, title: x.title, reason });
     if (!isHelper(x)) continue; // a parent session is never archived and lands in no list
-    if (keep.includes(x.id)) { add("keep", "PR waits on a look or review"); continue; }
-    const bucket = String(x.status_bucket || "").replace("SESSION_STATUS_BUCKET_", "").toLowerCase();
     const parent = byId.get(x.parent_session_id);
     const parentLive = parent && !isArchived(parent) && !WRAPPED.test(parent.title || "");
+    const add = (list, reason) => {
+      out[list].push({ id: x.id, title: x.title, reason });
+      if (list !== "archive" && !parentLive) out.repoint.push({ id: x.id, title: x.title, reason: "its parent wrapped or was archived",
+        message: `Your parent session ${x.parent_session_id} has wrapped; ${self} is your parent now. Send every return, question and verdict with send_message (session_id "${self}"), not "@parent".` });
+    };
+    if (keep.includes(x.id)) { add("keep", "PR waits on a look or review"); continue; }
+    const bucket = String(x.status_bucket || "").replace("SESSION_STATUS_BUCKET_", "").toLowerCase();
     if (parentLive) {
       if (merged.includes(x.id) && bucket === "completed") add("archive", "PR merged and helper completed");
       else add("keep", "its parent is live and owns it");
@@ -72,7 +78,8 @@ function main(argv) {
   }
   const r = classify({ sessions: readPages(opt.sessions), self: opt.self, now: opt.now || new Date().toISOString(), keep: opt.keep, merged: opt.merged });
   const block = (hd, rows) => [`## ${hd} (${rows.length})`, ...rows.map((x) => `- ${x.id} | ${x.title} | ${x.reason}`), ""].join("\n");
-  console.log([block("Archive", r.archive), block("Keep", r.keep), block("Surface", r.surface)].join("\n"));
+  const repoint = [`## Re-point (${r.repoint.length})`, ...r.repoint.map((x) => `- ${x.id} | ${x.message}`), ""].join("\n");
+  console.log([block("Archive", r.archive), block("Keep", r.keep), block("Surface", r.surface), repoint].join("\n"));
   return 0;
 }
 

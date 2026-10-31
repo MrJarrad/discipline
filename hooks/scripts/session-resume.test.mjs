@@ -126,3 +126,32 @@ test("look-lane cap (routing rule 17): counts open `look: yes` lanes, warns at 3
   write(["- lane: plain | repo: shallow | branch: lane-x"]);
   assert.doesNotMatch(run(), /look-lanes/, "no look marker, no line");
 });
+
+// DISC-221 L3 (s43): PF-938 got the operator's yes and no lane was opened; it surfaced only
+// when he asked. The digest lists a yes with no lane id as "approved, not started".
+import { approvedNotStarted } from "./session-resume.mjs";
+const PF938 = `| PF-938 | Text glow (operator 2026-10-31, verbatim, on the BTTF glow fix): "a different task, but can we add the same glow effect to text?" | 2026-10-31 | open | 2026-10-31 operator "yes" to: the same as media, text the board passes over lights up with the same glow while BTTF is on. |`;
+function yesVault(rows) {
+  const v = mkdtempSync(join(tmpdir(), "sess-yes-"));
+  mkdirSync(join(v, "projects", "pf"), { recursive: true });
+  writeFileSync(join(v, "projects", "pf", "pf-queue.md"), "---\nname: pf-queue\nkind: queue\nprefix: PF\n---\n| # | Needed | Where | Why | Recommended |\n|---|---|---|---|---|\n");
+  writeFileSync(join(v, "projects", "pf", "pf-backlog.md"), `---\nname: pf-backlog\nkind: backlog\nprefix: PF\n---\n## Open\n\n| # | Item | Raised | Status | Notes |\n| - | --- | --- | --- | --- |\n${rows.join("\n")}\n`);
+  return v;
+}
+
+test("DISC-221 L3: an open row carrying the operator's yes and no lane id is approved, not started", () => {
+  const v = yesVault([PF938, "| PF-1 | other | 2026-10-01 | open | no decision yet |"]);
+  assert.deepEqual(approvedNotStarted(v).map((r) => r.id), ["PF-938"]);
+  const { text } = buildDigest({ vault: v, exec: noGh, env: {}, pluginRoot: "/x", installedPath: "/x", home: v });
+  assert.match(text, /approved, not started: PF-938 \(Text glow/);
+});
+
+test("DISC-221 L3: a yes row whose Notes name a branch or PR, or whose status is in flight, is not listed", () => {
+  const branch = PF938.replace("PF-938", "PF-939").replace("goes back", "goes back").replace(/ \|$/, " lane claude/text-glow. |");
+  const pr = PF938.replace("PF-938", "PF-940").replace(/ \|$/, " #412 |");
+  const flight = PF938.replace("PF-938", "PF-941").replace("| open |", "| in flight (#413) |");
+  const v = yesVault([branch, pr, flight]);
+  assert.deepEqual(approvedNotStarted(v), []);
+  const { text } = buildDigest({ vault: v, exec: noGh, env: {}, pluginRoot: "/x", installedPath: "/x", home: v });
+  assert.doesNotMatch(text, /approved, not started/);
+});

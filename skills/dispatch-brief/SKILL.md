@@ -91,7 +91,7 @@ kinds only, quote plus its source, banned mechanism content, gate-enforced:
   doer). Default `<lane evidence dir>/progress.md` in the vault; name it explicitly when the
   lane's evidence dir differs. **line** lanes omit this field.
 
-**A `create_session` brief** opens "This message is your task — run it now.", has the helper write `~/.claude/helper-session` first, and closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216).
+**A `create_session` brief** opens "This message is your task — run it now.", has the helper write `~/.claude/helper-session` first, and closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216; verdicts, vault branch: HELPER-SESSIONS).
 
 **Target brief length: under 250 words**, lock table excluded.
 

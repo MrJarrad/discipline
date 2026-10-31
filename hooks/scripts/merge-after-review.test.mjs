@@ -320,3 +320,21 @@ test("law: bare-layout repo — a --repo entry ending in /main normalises to the
     rmSync(binDir, { recursive: true, force: true });
   }
 });
+
+// DISC-221 L5 (s43): reviewer helpers were refused push, so the parent posted their verdicts
+// verbatim. A parent-posted verdict names its reviewer session on a `reviewer:` line.
+import { reviewVerdict } from "./merge-after-review.mjs";
+const L5_HEAD = "c7868b2aa1c0ffee00112233445566778899aabb";
+const l5 = (extra) => ({ body: `## Review r1 (LIGHT), head c7868b2\n${extra}merge: yes\n0 red, 1 amber`, author: { login: "MrJarrad" }, at: "2026-10-31T15:00:00Z" });
+
+test("DISC-221 L5: a parent-posted verdict naming its reviewer session counts and reports the session", () => {
+  assert.deepEqual(reviewVerdict([l5("reviewer: session_01AbC9\n")], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: "session_01AbC9" });
+});
+
+test("DISC-221 L5: a reviewer: line that is not a session id makes the comment not count", () => {
+  assert.equal(reviewVerdict([l5("reviewer: the reviewer\n")], L5_HEAD, ["MrJarrad"]), null);
+});
+
+test("DISC-221 L5: a verdict with no reviewer: line still counts (reviewer posted it itself)", () => {
+  assert.deepEqual(reviewVerdict([l5("")], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: null });
+});

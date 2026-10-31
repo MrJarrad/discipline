@@ -28,9 +28,8 @@ test("the mirror pins the handoff-css commit that carries this copy", () => {
   assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "103db037721ffaf06191a1b7dceabdc7783db8aa"/);
 });
 
-test("release: 1.160.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.160.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.160.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.160.0 — backlog DISC-219."));
+test("release: 1.160.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.160.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.160.0 — backlog DISC-219."));
 });

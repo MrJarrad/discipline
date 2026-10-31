@@ -102,6 +102,8 @@ and queued the chat as the doer — that hatch is deleted.
    **Queuing a Mac job merges the vault branch to main in the same action** — the runner claims only
    from main, and a Drop-recording job sat pending on the session branch for over an hour (`session10-codify-candidates-2026-10-05` 3);
    the job's first step names the vault sha it expects (`vault-write` § Banked means on vault main).
+   Mid-session too (DISC-221, s43: a tag job waited until its notes PR merged): the notes-only PR that files the job is
+   the parent's own merge, that turn. DO: file the job, merge its PR, then report it queued. DON'T: leave it for wrap.
    **A Mac job cannot open an Access-gated preview** — `*.workers.dev` previews 302 to Cloudflare Access, and only the
    cloud proxy injects credentials. A Mac GPU measurement on a preview needs an Access service token in the Mac's
    environment (never the vault) or a local build; until one exists, ask the operator for the one-line device check.
@@ -170,6 +172,10 @@ and queued the chat as the doer — that hatch is deleted.
    project's repo, and a PR the check cannot resolve is `unknown`, never done.
    `lane-end.mjs` flips the row in the lane's own commit and runs the check last; `wrap`
    runs it before the report (`wrap/references/REPORT-AND-LEARN.md`).
+   **An ask that cites rows is checked first** (DISC-221, s43: closed rows offered as "which look next?"):
+   `row-add.mjs --to queue` refuses a row naming its project's IDs unless each is open and
+   `list-drift-check.mjs` ran in the last 15 minutes. DO: run the check, then add "HB-196 or HB-197?".
+   DON'T: copy row IDs from the handover into a new ask.
 
 15. **Heavy lanes are capped per container** (step-failures audit, 2026-10-15). On one 4-core
    container about ten lanes ran suites, builds and headless browsers together: load averaged
@@ -229,6 +235,10 @@ and queued the chat as the doer — that hatch is deleted.
    un-archived helper: archive (completed, and its parent wrapped or was archived, or its PR merged), keep, surface (blocked,
    review-ready, failed or quiet past 12 hours under a wrapped parent). Call `archive_session` on each archive row; the surface
    list is taken over or reported in the status; a refused archive is one line in the status, never dropped.
+   **At session start the parent sends each Re-point row its message** (DISC-221, s43: every s42 helper kept reporting to
+   the wrapped s42 parent): the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped,
+   naming the new parent's id; send it once, that turn. DO: send the row's message as printed. DON'T: wait for the helper to
+   write to the old parent and re-point it by hand.
    **A parent session is never archived** (operator 2026-10-31: *"it's important the we don't archive the parent sessions though,
    i'm a bit nervous about that"*): a helper is a session with a parent and a title starting "Helper ·"; every other session,
    wrapped, "← talk here" or otherwise, is a parent, lands in no list, and is never passed to `archive_session` by any session.
@@ -258,3 +268,7 @@ and queued the chat as the doer — that hatch is deleted.
    has a passing gate run and a reviewer verdict with no red finding. The operator saved the allow entry in the Default environment's setup
    script on 2026-10-15, effective from the next session; where a session's safety check still refuses, un-drafting stays the operator's
    click. This supersedes "never the helper" in `release-deploy/references/RELEASE-PATH.md` for that case only.
+23. **A yes opens a lane the same turn** (DISC-221, s43: PF-938's text glow got the operator's yes and no lane was opened
+   until he asked). When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch
+   or PR into the row's Notes. `session-resume.mjs` lists every open row carrying an operator yes and no lane id as
+   "approved, not started". DO: dispatch, then add `lane claude/text-glow` to the row. DON'T: bank the yes and move on.

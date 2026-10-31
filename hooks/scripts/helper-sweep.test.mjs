@@ -147,3 +147,38 @@ test("r1 note: --keep or --merged with no value prints the usage line and exits 
     assert.match(r.stderr, /^usage: helper-sweep\.mjs/, flag);
   }
 });
+
+// DISC-221 L4 (s43): every s42 helper kept messaging the wrapped s42 parent; the new parent
+// re-pointed each by hand. The sweep lists them under Re-point with the one message to send.
+test("DISC-221 L4: a kept or surfaced helper under a wrapped parent is in repoint, its message naming the new parent", () => {
+  const r = classify({ now: NOW, self: "me", keep: ["h_look"], sessions: [WRAPPED_P,
+    h("h_look", "p_w"), h("h_blocked", "p_w", { status_bucket: "SESSION_STATUS_BUCKET_BLOCKED" }), h("h_done", "p_w")] });
+  assert.deepEqual(ids(r.repoint), ["h_blocked", "h_look"]);
+  for (const row of r.repoint) {
+    assert.match(row.message, /session_id "me"/);
+    assert.match(row.message, /p_w/);
+  }
+});
+
+test("DISC-221 L4: a helper under a live parent, an archived helper, and any parent session are never in repoint", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [
+    s("p_live", "Portfolio · 31 Oct ← talk here"),
+    h("h_live", "p_live", { status_bucket: "SESSION_STATUS_BUCKET_WORKING" }),
+    WRAPPED_P, h("h_gone", "p_w", { session_status: "SESSION_STATUS_ARCHIVED", status_bucket: "SESSION_STATUS_BUCKET_BLOCKED" }),
+  ] });
+  assert.deepEqual(ids(r.repoint), []);
+});
+
+test("DISC-221 L4: the CLI prints a Re-point block after Surface with the message per row", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { spawnSync } = await import("node:child_process");
+  const p = join(mkdtempSync(join(tmpdir(), "helper-sweep-")), "p.json");
+  writeFileSync(p, JSON.stringify([WRAPPED_P, h("h_blocked", "p_w", { status_bucket: "SESSION_STATUS_BUCKET_BLOCKED" })]));
+  const r = spawnSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--self", "me", "--now", NOW, "--sessions", p], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const rp = r.stdout.indexOf("## Re-point (1)");
+  assert.ok(rp > r.stdout.indexOf("## Surface"), r.stdout);
+  assert.match(r.stdout.slice(rp), /h_blocked .*session_id "me"/);
+});
