@@ -112,3 +112,38 @@ test("CLI: reads raw list_sessions pages, merges them, skips archived sessions, 
   assert.ok(r.stdout.slice(keep, surf).includes("h_look"));
   assert.ok(r.stdout.slice(surf).includes("h_blocked"));
 });
+
+// Review r1 on #124 (amber + three notes).
+test("r1 amber: a parent listed with session_status ARCHIVED is not live, so its completed helper is archived", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [
+    s("p_arch", "Portfolio · 29 Oct", { created_at: "2026-10-29T08:00:00Z", session_status: "SESSION_STATUS_ARCHIVED" }),
+    h("h_under_arch", "p_arch"),
+  ] });
+  assert.deepEqual(ids(r.archive), ["h_under_arch"]);
+});
+
+test("r1 note: '(wrapped)' counts only as the title's end marker, so a live parent with it mid-title keeps its helpers", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [
+    s("p_mid", "Notes on the (wrapped) gallery · 31 Oct ← talk here"),
+    h("h_mid", "p_mid"),
+  ] });
+  assert.deepEqual(ids(r.keep), ["h_mid"]);
+  assert.deepEqual(ids(r.archive), []);
+});
+
+test("r1 note: a working helper with no updated_at under a wrapped parent is surfaced, not kept forever", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [WRAPPED_P,
+    h("h_noupd", "p_w", { status_bucket: "SESSION_STATUS_BUCKET_WORKING", updated_at: undefined }),
+  ] });
+  assert.deepEqual(ids(r.surface), ["h_noupd"]);
+});
+
+test("r1 note: --keep or --merged with no value prints the usage line and exits 2", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const bin = new URL("./helper-sweep.mjs", import.meta.url).pathname;
+  for (const flag of ["--keep", "--merged"]) {
+    const r = spawnSync(process.execPath, [bin, "--self", "me", "--sessions", "x.json", flag], { encoding: "utf8" });
+    assert.equal(r.status, 2, flag);
+    assert.match(r.stderr, /^usage: helper-sweep\.mjs/, flag);
+  }
+});

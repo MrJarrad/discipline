@@ -14,7 +14,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const WRAPPED = /\(wrapped\)/;
+const WRAPPED = /\(wrapped\)\s*$/; // the end marker wrap sets, not the word anywhere in a title
+const isArchived = (x) => /ARCHIVED/.test(x.session_status || "");
 /** A helper has a parent AND a "Helper ·" title; every other session is a parent (operator 2026-10-31). */
 const isHelper = (x) => Boolean(x.parent_session_id) && /^Helper ·/.test(x.title || "");
 
@@ -25,23 +26,24 @@ export function classify({ sessions, self, now, keep = [], merged = [], staleHou
   const out = { archive: [], keep: [], surface: [] };
   const byId = new Map(sessions.map((x) => [x.id, x]));
   for (const x of sessions) {
-    if (x.id === self || /ARCHIVED/.test(x.session_status || "")) continue;
+    if (x.id === self || isArchived(x)) continue;
     const add = (list, reason) => out[list].push({ id: x.id, title: x.title, reason });
     if (!isHelper(x)) continue; // a parent session is never archived and lands in no list
     if (keep.includes(x.id)) { add("keep", "PR waits on a look or review"); continue; }
     const bucket = String(x.status_bucket || "").replace("SESSION_STATUS_BUCKET_", "").toLowerCase();
     const parent = byId.get(x.parent_session_id);
-    const parentLive = parent && !WRAPPED.test(parent.title);
+    const parentLive = parent && !isArchived(parent) && !WRAPPED.test(parent.title || "");
     if (parentLive) {
       if (merged.includes(x.id) && bucket === "completed") add("archive", "PR merged and helper completed");
       else add("keep", "its parent is live and owns it");
       continue;
     }
-    const why = parent ? "parent wrapped" : "parent archived";
+    const why = parent && !isArchived(parent) ? "parent wrapped" : "parent archived";
     if (bucket === "completed") add("archive", `completed; ${why}`);
     else if (bucket === "working") {
       const quietH = (Date.parse(now) - Date.parse(x.updated_at)) / 3.6e6;
-      if (quietH > staleHours) add("surface", `working but quiet ${Math.floor(quietH)}h; ${why}`);
+      if (!Number.isFinite(quietH)) add("surface", `working, no update time; ${why}`);
+      else if (quietH > staleHours) add("surface", `working but quiet ${Math.floor(quietH)}h; ${why}`);
       else add("keep", `still working; ${why}`);
     } else add("surface", `${bucket || "unknown"}; ${why}, nobody is answering it`);
   }
@@ -59,11 +61,12 @@ function main(argv) {
   const opt = { sessions: [], keep: [], merged: [] };
   for (let i = 0; i < argv.length; i += 2) {
     const k = argv[i].replace(/^--/, ""), v = argv[i + 1];
+    if (v === undefined || v.startsWith("--")) { opt.bad = true; break; }
     if (k === "sessions") opt.sessions.push(v);
     else if (k === "keep" || k === "merged") opt[k].push(...v.split(",").filter(Boolean));
     else opt[k] = v;
   }
-  if (!opt.self || !opt.sessions.length) {
+  if (opt.bad || !opt.self || !opt.sessions.length) {
     console.error("usage: helper-sweep.mjs --self <id> --sessions <file> [--sessions <file>] [--keep ids] [--merged ids] [--now ISO]");
     return 2;
   }
