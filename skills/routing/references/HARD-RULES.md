@@ -262,3 +262,7 @@ and queued the chat as the doer — that hatch is deleted.
    has a passing gate run and a reviewer verdict with no red finding. The operator saved the allow entry in the Default environment's setup
    script on 2026-10-15, effective from the next session; where a session's safety check still refuses, un-drafting stays the operator's
    click. This supersedes "never the helper" in `release-deploy/references/RELEASE-PATH.md` for that case only.
+23. **A yes opens a lane the same turn** (DISC-221, s43: PF-938's text glow got the operator's yes and no lane was opened
+   until he asked). When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch
+   or PR into the row's Notes. `session-resume.mjs` lists every open row carrying an operator yes and no lane id as
+   "approved, not started". DO: dispatch, then add `lane claude/text-glow` to the row. DON'T: bank the yes and move on.

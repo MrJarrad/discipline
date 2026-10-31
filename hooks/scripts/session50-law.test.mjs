@@ -17,3 +17,10 @@ test("L1: an ask that cites rows is checked first — HARD-RULES 14 names the ro
   assert.ok(s.includes("**An ask that cites rows is checked first**"));
   assert.ok(s.includes("`row-add.mjs --to queue` refuses a row naming its project's IDs unless each is open and `list-drift-check.mjs` ran in the last 15 minutes."));
 });
+
+test("L3: a yes opens a lane the same turn — HARD-RULES 23, and the digest points at it", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("23. **A yes opens a lane the same turn**"));
+  assert.ok(s.includes("When the operator says yes to a build row, the parent dispatches it that turn and writes the lane's branch or PR into the row's Notes."));
+  assert.ok(read("hooks/scripts/session-resume.mjs").includes("(routing HARD-RULES 23)"));
+});
