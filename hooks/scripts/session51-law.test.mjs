@@ -19,3 +19,11 @@ test("DISC-223.1: equal items go in one list — HOUSE-VOICE rule 8, with its DO
   const d = flat("skills/brand-voice/references/DOS-AND-DONTS.md");
   assert.ok(d.includes("| Hang one of a set of equals off the end in a trailing clause | Rule 8: it reads as an afterthought |"));
 });
+
+test("DISC-223.2: feel questions use the operator's own references — grilling § Feel questions", () => {
+  const s = flat("skills/grilling/SKILL.md");
+  assert.ok(s.includes("**The references are the operator's own**: a capture, site, Figma frame or recording he gave or named, never an analogy the parent invents"));
+  assert.ok(s.includes("(*\"like the paper curve on Gil's profile page, or the React Bits Flying Posters?\"*)"));
+  assert.ok(!s.includes("stone dropped in a pond"), "the invented-analogy example is gone");
+  assert.ok(s.includes("HB-287 r1, 2026-10-31: \"a trampoline isn't the right reference for this\""));
+});

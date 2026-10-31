@@ -58,8 +58,11 @@ velcro example.
 ## Feel questions (look and motion work)
 
 Before dispatching any look- or motion-related build or round, ask the operator **two or
-three feel questions, each anchored to a reference to react to** (*"stone dropped in a
-pond, or a blast wave?"*), and nothing more. Scope questions (which text, mid-wipe
+three feel questions, each anchored to a reference to react to** (*"like the paper curve on Gil's
+profile page, or the React Bits Flying Posters?"*), and nothing more. **The references are the operator's
+own**: a capture, site, Figma frame or recording he gave or named, never an analogy the parent invents
+(HB-287 r1, 2026-10-31: "a trampoline isn't the right reference for this"). With none on file, the first
+question asks him for one. Scope questions (which text, mid-wipe
 behaviour) do not substitute. Feel that words cannot answer ("how dramatic", "too uniform")
 goes to a rough slider test, rung 3 (`prototype`), not another full round
 (`2026-10-18-feel-questions-with-references`). The cap is on the feel round only; the assumption gate still applies to non-feel properties. On any motion feature the first question asks for the reference behaviour itself: "what should this feel like, show me something that does it" (`2026-10-18-text-wrap-reproduce-the-real-gesture`: six rounds tuned fades and slides before his window-resize reference showed the target was plain re-layout). Non-look work is unchanged.
