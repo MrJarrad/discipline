@@ -84,3 +84,10 @@ test("DISC-224 F: the start is measured by start-cost.mjs against a budget — H
   const s = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(s.includes("Measured by `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply; s44: ~176.7k)."));
 });
+
+test("release: 1.162.0 in both manifests and CHANGED.txt, with the encoded line", () => {
+  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.162.0"'), p);
+  const top = read("CHANGED.txt");
+  assert.ok(top.startsWith("1.162.0 — "));
+  assert.ok(top.split("\n\n")[0].includes("encoded: 1.162.0 — backlog DISC-223, DISC-224."));
+});
