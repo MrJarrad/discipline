@@ -47,3 +47,10 @@ test("L6: the helper's own vault branch is named in the brief, and the MCP write
   const g = hooks.find((x) => x.matcher === "mcp__github__create_or_update_file");
   assert.ok(g && g.hooks.some((x) => x.command.includes("hooks/bin/vault-mcp-write-guard.mjs")));
 });
+
+test("L7: a Mac job's PR merges in the same turn it is filed — HARD-RULES 9, the one home", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("**Queuing a Mac job merges the vault branch to main in the same action**"));
+  assert.ok(s.includes("Mid-session too (DISC-221, s43: a tag job waited until its notes PR merged): the notes-only PR that files the job is the parent's own merge, that turn."));
+  assert.ok(!read("doer-rules.md").includes("Queuing a Mac job merges"), "one home: HARD-RULES 9");
+});

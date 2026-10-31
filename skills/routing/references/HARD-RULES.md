@@ -102,6 +102,8 @@ and queued the chat as the doer — that hatch is deleted.
    **Queuing a Mac job merges the vault branch to main in the same action** — the runner claims only
    from main, and a Drop-recording job sat pending on the session branch for over an hour (`session10-codify-candidates-2026-10-05` 3);
    the job's first step names the vault sha it expects (`vault-write` § Banked means on vault main).
+   Mid-session too (DISC-221, s43: a tag job waited until its notes PR merged): the notes-only PR that files the job is
+   the parent's own merge, that turn. DO: file the job, merge its PR, then report it queued. DON'T: leave it for wrap.
    **A Mac job cannot open an Access-gated preview** — `*.workers.dev` previews 302 to Cloudflare Access, and only the
    cloud proxy injects credentials. A Mac GPU measurement on a preview needs an Access service token in the Mac's
    environment (never the vault) or a local build; until one exists, ask the operator for the one-line device check.
