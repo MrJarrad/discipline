@@ -10,36 +10,35 @@ const s = (id, title, extra = {}) => ({ id, title, status_bucket: "SESSION_STATU
   created_at: "2026-10-31T09:00:00Z", updated_at: "2026-10-31T13:00:00Z", ...extra });
 const ids = (rows) => rows.map((r) => r.id).sort();
 
-test("a wrapped parent session from an earlier day is archived", () => {
+// Operator 2026-10-31, verbatim: "it's important the we don't archive the parent sessions though,
+// i'm a bit nervous about that". A helper is a session with parent_session_id AND a title starting
+// "Helper ·"; every other session is a parent and lands in no list at all.
+const none = (r, id) => ["archive", "keep", "surface"].every((k) => !ids(r[k]).includes(id));
+
+test("a wrapped parent session from an earlier day is never archived, and is in no list", () => {
   const r = classify({ now: NOW, self: "me", sessions: [
     s("p_old", "Portfolio · 28 Oct (wrapped)", { created_at: "2026-10-28T08:00:00Z" }),
   ] });
-  assert.deepEqual(ids(r.archive), ["p_old"]);
+  assert.deepEqual(ids(r.archive), []);
+  assert.ok(none(r, "p_old"));
 });
 
-test("a session titled '← talk here' is never archived, whatever its age or bucket", () => {
+test("no parent session lands in any list: '← talk here', today's, an unwrapped earlier one, or the sweeper itself", () => {
   const r = classify({ now: NOW, self: "me", sessions: [
     s("p_talk", "Portfolio · 27 Oct (wrapped) ← talk here", { created_at: "2026-10-27T08:00:00Z" }),
-  ] });
-  assert.deepEqual(ids(r.archive), []);
-  assert.deepEqual(ids(r.keep), ["p_talk"]);
-});
-
-test("today's wrapped parent and the sweeping session itself are left alone", () => {
-  const r = classify({ now: NOW, self: "me", sessions: [
     s("p_today", "Portfolio · 31 Oct (wrapped)"),
-    s("me", "Portfolio · 31 Oct ← talk here"),
+    s("p_open", "Portfolio · 29 Oct", { created_at: "2026-10-29T08:00:00Z" }),
+    s("me", "Helper · this sweep — no action needed", { parent_session_id: "p_today" }),
   ] });
-  assert.deepEqual(ids(r.archive), []);
-  assert.deepEqual(ids(r.keep), ["p_today"]);
+  for (const id of ["p_talk", "p_today", "p_open", "me"]) assert.ok(none(r, id), id);
 });
 
-test("an earlier-day parent never retitled '(wrapped)' is surfaced, not archived", () => {
+test("a child session whose title does not start 'Helper ·' counts as a parent and is never archived", () => {
   const r = classify({ now: NOW, self: "me", sessions: [
-    s("p_open", "Portfolio · 29 Oct", { created_at: "2026-10-29T08:00:00Z" }),
+    s("p_w", "Portfolio · 30 Oct (wrapped)", { created_at: "2026-10-30T08:00:00Z" }),
+    s("c_orch", "Portfolio · 31 Oct (wrapped)", { parent_session_id: "p_w" }),
   ] });
-  assert.deepEqual(ids(r.archive), []);
-  assert.deepEqual(ids(r.surface), ["p_open"]);
+  assert.ok(none(r, "c_orch"));
 });
 
 const LIVE = s("p_live", "Portfolio · 31 Oct ← talk here");
@@ -69,7 +68,7 @@ test("a live parent's helper stays with that parent, unless its PR is merged and
     h("h_busy", "p_live", { status_bucket: "SESSION_STATUS_BUCKET_WORKING" }),
   ] });
   assert.deepEqual(ids(r.archive), ["h_merged"]);
-  assert.deepEqual(ids(r.keep), ["h_busy", "h_running", "p_live"]);
+  assert.deepEqual(ids(r.keep), ["h_busy", "h_running"]);
 });
 
 test("lock 2: a helper left blocked, review-ready or failed under a wrapped parent is surfaced, never silently left", () => {
@@ -79,7 +78,7 @@ test("lock 2: a helper left blocked, review-ready or failed under a wrapped pare
     h("h_failed", "p_w", { status_bucket: "SESSION_STATUS_BUCKET_FAILED" }),
   ] });
   assert.deepEqual(ids(r.surface), ["h_blocked", "h_failed", "h_ready"]);
-  assert.deepEqual(ids(r.archive), ["p_w"]);
+  assert.deepEqual(ids(r.archive), []);
 });
 
 test("lock 2: a 'working' helper under a wrapped parent is surfaced once it has gone quiet past STALE_HOURS (12)", async () => {
@@ -107,7 +106,8 @@ test("CLI: reads raw list_sessions pages, merges them, skips archived sessions, 
   assert.equal(r.status, 0, r.stderr);
   const [arch, keep, surf] = ["## Archive", "## Keep", "## Surface"].map((hd) => r.stdout.indexOf(hd));
   assert.ok(arch >= 0 && keep > arch && surf > keep, r.stdout);
-  assert.ok(r.stdout.slice(arch, keep).includes("p_w"));
+  assert.ok(!r.stdout.includes("p_w |"));
+  assert.ok(r.stdout.slice(arch, keep).includes("(0)"));
   assert.ok(!r.stdout.includes("x_arch"));
   assert.ok(r.stdout.slice(keep, surf).includes("h_look"));
   assert.ok(r.stdout.slice(surf).includes("h_blocked"));

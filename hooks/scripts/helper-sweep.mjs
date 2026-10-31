@@ -14,8 +14,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const TALK_HERE = /← talk here/;
 const WRAPPED = /\(wrapped\)/;
+/** A helper has a parent AND a "Helper ·" title; every other session is a parent (operator 2026-10-31). */
+const isHelper = (x) => Boolean(x.parent_session_id) && /^Helper ·/.test(x.title || "");
 
 /** Hours without an update after which a "working" helper under a wrapped parent is surfaced. */
 export const STALE_HOURS = 12;
@@ -23,18 +24,10 @@ export const STALE_HOURS = 12;
 export function classify({ sessions, self, now, keep = [], merged = [], staleHours = STALE_HOURS }) {
   const out = { archive: [], keep: [], surface: [] };
   const byId = new Map(sessions.map((x) => [x.id, x]));
-  const today = new Date(now).toISOString().slice(0, 10);
   for (const x of sessions) {
     if (x.id === self || /ARCHIVED/.test(x.session_status || "")) continue;
     const add = (list, reason) => out[list].push({ id: x.id, title: x.title, reason });
-    if (TALK_HERE.test(x.title)) { add("keep", "titled ← talk here"); continue; }
-    if (!x.parent_session_id) {
-      const earlier = x.created_at.slice(0, 10) < today;
-      if (!earlier) add("keep", "parent session from today");
-      else if (WRAPPED.test(x.title)) add("archive", "wrapped parent from an earlier day");
-      else add("surface", "earlier-day parent never marked (wrapped)");
-      continue;
-    }
+    if (!isHelper(x)) continue; // a parent session is never archived and lands in no list
     if (keep.includes(x.id)) { add("keep", "PR waits on a look or review"); continue; }
     const bucket = String(x.status_bucket || "").replace("SESSION_STATUS_BUCKET_", "").toLowerCase();
     const parent = byId.get(x.parent_session_id);

@@ -18,7 +18,9 @@ test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens t
     "aren't being archived when completed or possibly worse aren't being completed",
     "**The helper sweep runs at session start and at wrap**",
     "hooks/scripts/helper-sweep.mjs",
-    "never one titled \"← talk here\"",
+    "it's important the we don't archive the parent sessions though, i'm a bit nervous about that",
+    "**A parent session is never archived**",
+    "a helper is a session with a parent and a title starting \"Helper ·\"",
     "the surface list is taken over or reported in the status",
     "a refused archive is one line in the status, never dropped",
   ]) assert.ok(r.includes(s), s);
@@ -26,7 +28,7 @@ test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens t
 
 test("session start, wrap and the helper recipe point at rule 19's sweep without restating it", () => {
   assert.ok(flat("skills/vault-recall/SKILL.md").includes("run the helper sweep (`routing` HARD-RULES 19)"));
-  assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("run the helper sweep (routing HARD-RULES 19), which also archives earlier days' wrapped parent sessions"));
+  assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("run the helper sweep (routing HARD-RULES 19), which never archives a parent session, this one or any earlier one"));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("The helper sweep (HARD-RULES 19) catches any helper a parent missed"));
 });
 
@@ -35,4 +37,11 @@ test("release: 1.159.0 in both manifests and CHANGED.txt, with the encoded line"
   const top = read("CHANGED.txt");
   assert.ok(top.startsWith("1.159.0 — "));
   assert.ok(top.split("\n\n")[0].includes("encoded: 1.159.0 — backlog DISC-211"));
+});
+
+test("no rule text tells a session to archive a wrapped parent", () => {
+  for (const p of ["skills/routing/references/HARD-RULES.md", "skills/wrap/references/CLOSING-CHECKS.md", "CHANGED.txt"]) {
+    const top = p === "CHANGED.txt" ? read(p).split("\n\n")[0] : flat(p);
+    assert.ok(!/archives? earlier days' wrapped parent|a wrapped parent from an earlier day;? never/.test(top), p);
+  }
 });
