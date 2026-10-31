@@ -44,7 +44,7 @@ test("L6: the helper's own vault branch is named in the brief, and the MCP write
   assert.ok(h.includes("**A brief that lets the helper write the vault names the helper's own vault branch**"));
   assert.ok(h.includes("`vault-mcp-write-guard.mjs` refuses an update under 256 bytes or under half the size the session last read."));
   const hooks = JSON.parse(read("hooks/hooks.json")).hooks.PreToolUse;
-  const g = hooks.find((x) => x.matcher === "mcp__github__create_or_update_file");
+  const g = hooks.find((x) => x.matcher === "mcp__github__create_or_update_file|mcp__github__push_files");
   assert.ok(g && g.hooks.some((x) => x.command.includes("hooks/bin/vault-mcp-write-guard.mjs")));
 });
 
