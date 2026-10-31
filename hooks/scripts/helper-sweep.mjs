@@ -7,7 +7,8 @@
      [--keep <id,...>]    helpers whose PR still waits on a look or review
      [--merged <id,...>]  helpers whose PR is merged
      [--now <ISO>]
-   Input files are saved list_sessions results (raw {"ccr":{"data":[…]}}, {data:[…]} or an array).
+   Input files are saved list_sessions results (raw {"ccr":{"data":[…]}}, {data:[…]} or an array)
+   or saved get_session results ({"ccr":{…one session…}}).
 
    Interface: classify({ sessions, self, now, keep, merged, staleHours }) -> { archive, keep, surface, repoint },
    each row { id, title, reason }. `repoint` (DISC-221, lesson 2026-10-31-s43 #4: s42's helpers kept
@@ -59,7 +60,9 @@ export function classify({ sessions, self, now, keep = [], merged = [], staleHou
 function readPages(paths) {
   return paths.flatMap((p) => {
     const j = JSON.parse(readFileSync(p, "utf8"));
-    return Array.isArray(j) ? j : j.ccr?.data ?? j.data ?? [];
+    if (Array.isArray(j)) return j;
+    if (j.ccr?.id) return [j.ccr]; // one saved get_session result (DISC-224: the start sweep reads only the helpers wrap named)
+    return j.ccr?.data ?? j.data ?? [];
   });
 }
 

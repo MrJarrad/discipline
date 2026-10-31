@@ -44,3 +44,15 @@ test("DISC-224 A: notes-only vault PRs are proven by vault-pr-files, names only 
   const s = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(s.includes("a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this) or by `get_files` reads"));
 });
+
+test("DISC-224 B: the start sweep reads only the helpers wrap named — HARD-RULES 19, wrap, vault-recall", () => {
+  const s = flat("skills/routing/references/HARD-RULES.md");
+  assert.ok(s.includes("**At wrap** save `list_sessions` (every page) to files and run"));
+  assert.ok(s.includes("wrap writes the Keep and Surface ids, and its own id, on the cockpit wrap block's `Helpers:` line."));
+  assert.ok(s.includes("**At session start** call `get_session` only on the ids in that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages `list_sessions` (DISC-224, s44: 25.3k chars)."));
+  assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`Helpers: <id>, …` — the wrap sweep's Keep and Surface ids plus this session's own id"));
+  assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("at wrap it reads every `list_sessions` page."));
+  const v = flat("skills/vault-recall/SKILL.md");
+  assert.ok(v.includes("**Before resuming a project**, run the helper sweep (`routing` HARD-RULES 19) on the cockpit's `Helpers:` line"));
+  assert.ok(v.includes("check for a parallel parent with one `list_sessions` page (`limit: 10`)"));
+});

@@ -53,6 +53,8 @@ On wrap:
   deferred. The handover's "Next session" list is picked FROM the backlog and never replaces
   it (operator, 2026-10-02: "stuff is just disapearing from the queue").
 - In-flight list: add/remove **this chat's** line only.
+- The wrap block carries `Helpers: <id>, …` — the wrap sweep's Keep and Surface ids plus this session's own id
+  (`routing` HARD-RULES 19); the next session start sweeps only these, by `get_session`.
 - Merged/unpushed commits for a repo belong on that project's handover.
 - **Open operator items are written once** (2026-10-10, backlog 161): each project's `projects/<p>/<p>-queue.md`
   is the source (read rows with `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, never from `orchestrator/operator-queue.md`, which is only an index); the cockpit wrap block carries every open row verbatim; a handover carries a

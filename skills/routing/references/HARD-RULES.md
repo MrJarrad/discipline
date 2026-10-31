@@ -230,8 +230,11 @@ and queued the chat as the doer — that hatch is deleted.
    starts, the superseded round's helper is archived then. A helper whose result is not yet banked is never archived.
    **The helper sweep runs at session start and at wrap** (DISC-211; DISC-212, operator 2026-10-28: *"archive it when it's task is
    complete or if another session takes over"*; 2026-10-31: *"aren't being archived when completed or possibly worse aren't being
-   completed"*). Save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
-   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`. It sorts every
+   completed"*). **At wrap** save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
+   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`; wrap writes the Keep and
+   Surface ids, and its own id, on the cockpit wrap block's `Helpers:` line. **At session start** call `get_session` only on the ids in
+   that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages
+   `list_sessions` (DISC-224, s44: 25.3k chars). It sorts every
    un-archived helper: archive (completed, and its parent wrapped or was archived, or its PR merged), keep, surface (blocked,
    review-ready, failed or quiet past 12 hours under a wrapped parent). Call `archive_session` on each archive row; the surface
    list is taken over or reported in the status; a refused archive is one line in the status, never dropped.
