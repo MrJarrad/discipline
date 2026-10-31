@@ -33,3 +33,9 @@ test("DISC-223.3: Figma spec text goes through figma.spec only — one home in L
   assert.ok(l.includes("| Spec text | `use_figma` with `figma.spec.getContent` to read, `figma.spec.editContent` to write (each call all-or-none; re-read after a write) | everything: REST and the other MCP reads do not return spec text |"));
   assert.ok(flat("skills/capture-figma/SKILL.md").includes("Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) § No-export lanes."), "SKILL points at the one home");
 });
+
+test("DISC-223.4: preview builds are spaced — release-deploy, beside Workers Builds", () => {
+  const s = flat("skills/release-deploy/SKILL.md");
+  assert.ok(s.includes("Previews build on Cloudflare Workers Builds. **Space preview builds**: three or more overlapping branch builds hit Cloudflare's R2 API rate limit (429) and fail with no code change."));
+  assert.ok(s.includes("Start the next build once the one before it finishes, and re-run a red build once the others are done (`overload-and-untested-live-2026-10-15` item 3)."));
+});

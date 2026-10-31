@@ -111,7 +111,10 @@ release's work product. An unticked checklist is not a release — it's a plan.
 GitHub Actions run — workflows are manual-only. The release gate is the full suite passing
 in a cloud gate-run lane, install→typecheck→test→lint→build once, with its tail posted on
 the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on
-Cloudflare Workers Builds.
+Cloudflare Workers Builds. **Space preview builds**: three or more overlapping branch builds hit
+Cloudflare's R2 API rate limit (429) and fail with no code change. Start the next build once the one
+before it finishes, and re-run a red build once the others are done
+(`overload-and-untested-live-2026-10-15` item 3).
 
 ## Release path
 
