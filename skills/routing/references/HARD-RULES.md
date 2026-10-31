@@ -222,6 +222,16 @@ and queued the chat as the doer — that hatch is deleted.
    the archive) is `cloud-dispatch/references/HELPER-SESSIONS.md`; read it before the first `create_session`. At lane end, after its
    result is banked (the PR comment or evidence file is read), the parent calls `archive_session` on it. When the next round of a lane
    starts, the superseded round's helper is archived then. A helper whose result is not yet banked is never archived.
+   **The helper sweep runs at session start and at wrap** (DISC-211; DISC-212, operator 2026-10-28: *"archive it when it's task is
+   complete or if another session takes over"*; 2026-10-31: *"aren't being archived when completed or possibly worse aren't being
+   completed"*). Save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
+   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`. It sorts every
+   un-archived helper: archive (completed, and its parent wrapped or was archived, or its PR merged), keep, surface (blocked,
+   review-ready, failed or quiet past 12 hours under a wrapped parent). Call `archive_session` on each archive row; the surface
+   list is taken over or reported in the status; a refused archive is one line in the status, never dropped.
+   **A parent session is never archived** (operator 2026-10-31: *"it's important the we don't archive the parent sessions though,
+   i'm a bit nervous about that"*): a helper is a session with a parent and a title starting "Helper ·"; every other session,
+   wrapped, "← talk here" or otherwise, is a parent, lands in no list, and is never passed to `archive_session` by any session.
    **A helper starts without a go** (`2026-10-18-helper-waits-for-go`: round 17 sat 90 minutes at "reply go to start").
    Every `create_session` prompt opens with "This message is your task — run it now." (s38: a helper read a prompt opening
    with anything else as a background notice and never started), then the parent's session id and "start now, no go needed",
