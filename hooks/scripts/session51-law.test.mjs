@@ -27,3 +27,9 @@ test("DISC-223.2: feel questions use the operator's own references — grilling 
   assert.ok(!s.includes("stone dropped in a pond"), "the invented-analogy example is gone");
   assert.ok(s.includes("HB-287 r1, 2026-10-31: \"a trampoline isn't the right reference for this\""));
 });
+
+test("DISC-223.3: Figma spec text goes through figma.spec only — one home in LANES-AND-TOOLS", () => {
+  const l = flat("skills/capture-figma/references/LANES-AND-TOOLS.md");
+  assert.ok(l.includes("| Spec text | `use_figma` with `figma.spec.getContent` to read, `figma.spec.editContent` to write (each call all-or-none; re-read after a write) | everything: REST and the other MCP reads do not return spec text |"));
+  assert.ok(flat("skills/capture-figma/SKILL.md").includes("Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) § No-export lanes."), "SKILL points at the one home");
+});
