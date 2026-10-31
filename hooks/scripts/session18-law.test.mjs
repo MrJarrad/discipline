@@ -15,8 +15,8 @@ test("1.128.0 CHANGED entry names the script, the once-only queue, and the 1.127
   for (const r of ["routing 1560 -> 1620", "wrap 980 -> 995", "agents/reviewer.md 1600 -> 1630"]) assert.ok(top.includes(r), `missing ceiling reason: ${r}`);
 });
 
-test("the queue is written once: cockpit verbatim, handovers link and count (wrap, pause-resume, SECTIONS)", () => {
-  assert.match(flat("skills/wrap/SKILL.md"), /cockpit wrap block carries open rows verbatim \(`node [^`]*needed-from-you\.mjs[^`]*`\); a handover carries a link and count, never rows/);
+test("the queue is written once: handovers link and count (wrap, pause-resume, SECTIONS); the cockpit's share moved to session51 (DISC-224)", () => {
+  assert.match(flat("skills/wrap/SKILL.md"), /a handover carry a link and count, never rows/);
   assert.match(flat("skills/pause-resume/SKILL.md"), /a handover carries a link\s+and the open-row count only/);
   assert.match(flat("skills/wrap/references/SECTIONS.md"), /a handover carries a link and the open-row count, never the rows/);
 });

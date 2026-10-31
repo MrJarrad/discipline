@@ -56,3 +56,11 @@ test("DISC-224 B: the start sweep reads only the helpers wrap named — HARD-RUL
   assert.ok(v.includes("**Before resuming a project**, run the helper sweep (`routing` HARD-RULES 19) on the cockpit's `Helpers:` line"));
   assert.ok(v.includes("check for a parallel parent with one `list_sessions` page (`limit: 10`)"));
 });
+
+test("DISC-224 C: the cockpit keeps one wrap block and carries queue paths and counts, never rows", () => {
+  assert.ok(flat("skills/wrap/SKILL.md").includes("**The open queue is written once, in the queue files:** the wrap reply prints the rows in full (`needed-from-you.mjs --projects <prefixes>`); the cockpit wrap block and a handover carry a link and count, never rows (`cockpit-check.mjs` passes)"));
+  const s = flat("skills/wrap/references/SECTIONS.md");
+  assert.ok(s.includes("the cockpit keeps the newest wrap block only (older ones move to the cockpit archive) and carries each project's queue path and open-row count, never rows (DISC-224); `node <plugin>/hooks/scripts/cockpit-check.mjs --vault <vault>` exits 0 before the wrap commit;"));
+  assert.ok(!s.includes("the cockpit wrap block carries every open row verbatim"));
+  assert.ok(flat("skills/pause-resume/SKILL.md").includes("The open queue is not copied: the cockpit carries each project's queue path and open-row count"));
+});

@@ -57,7 +57,7 @@ On wrap:
   (`routing` HARD-RULES 19); the next session start sweeps only these, by `get_session`.
 - Merged/unpushed commits for a repo belong on that project's handover.
 - **Open operator items are written once** (2026-10-10, backlog 161): each project's `projects/<p>/<p>-queue.md`
-  is the source (read rows with `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, never from `orchestrator/operator-queue.md`, which is only an index); the cockpit wrap block carries every open row verbatim; a handover carries a
+  is the source (read rows with `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, never from `orchestrator/operator-queue.md`, which is only an index); the cockpit keeps the newest wrap block only (older ones move to the cockpit archive) and carries each project's queue path and open-row count, never rows (DISC-224); `node <plugin>/hooks/scripts/cockpit-check.mjs --vault <vault>` exits 0 before the wrap commit; a handover carries a
   link and the open-row count, never the rows. Chat reprints the session's projects' rows only (output style).
 - **End each handover with a `## Next` block** (newest wrap first; the resume digest reads only
   the first one): one `- lane:` line per lane, ` | `-separated, one physical line each:
