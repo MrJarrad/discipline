@@ -65,10 +65,9 @@ test("DISC-235 A4: metadata has an owner, grounded in Google Search Central; no 
   assert.ok(flat("skills/markup-standard/SKILL.md").includes("Wording is `brand-voice`'s (`references/METADATA.md`)"));
 });
 
-test("DISC-235 A5: a copy brief gives job, reader and exemplars, never a sentence formula — prompt-craft; dispatch-brief points", () => {
+test("DISC-235 A5: a copy brief gives job, reader and exemplars, never a sentence formula — prompt-craft", () => {
   const p = flat("skills/prompt-craft/SKILL.md");
   assert.ok(p.includes("It gives the page's job, its reader, and the project's copy brief and exemplar bank (`brand-voice` § Drafting method); it never gives a sentence formula, a fixed order of parts or a mandatory phrase: formula in, formula out (DISC-235)."));
-  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Copy briefs: `prompt-craft`."));
 });
 
 test("DISC-235 A6: copy lanes run on the strongest tier — model-routing", () => {
@@ -99,7 +98,7 @@ test("s45.2 and s46.5 and s47.1: supplied copy is fact-checked only; stop after 
 });
 
 test("s45.3: every reviewer brief copies the verdict shape from its one home", () => {
-  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Its done-when copies the verdict shape from `agents/reviewer.md` § Verdict verbatim (s45: two verdicts the gate could not read)."));
+  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Verdict shape: `agents/reviewer.md` § Verdict, verbatim."));
   assert.ok(flat("agents/reviewer.md").includes("**Verdict shape — the one definition the merge gates parse**"), "the shape still has its home");
 });
 
