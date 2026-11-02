@@ -34,3 +34,12 @@ over each region, start → end → back, close and reopen. Check each item of t
 or name it in the link message. When the operator sends a recording, run the same walk beside the frame read and say which
 of his issues it confirms, corrects or adds to. Method and drive scripts: vault
 `references/portfolio/2026-10-18-notes-r16-live-walk/` (confirmed 3 of 4 recording issues, corrected 1, found 4 more).
+
+## Link checks
+
+Run all four before a look link goes out (`SKILL.md` § Before the link goes out).
+
+- **The `preview/*` build, not a `claude/*` badge.** A green build on a `claude/*` branch is not the preview: its log says it skips the upload (not a `preview/*` branch). Read that log line, never the "Deployment successful" badge, and name the `preview/*` build id before sending a link or releasing the next build (s46, s47).
+- **The link opens in the state to review.** Open it cold, as the operator will, before sending. A state a cold load cannot reach (a toggle hidden on that page, a mode, a panel) gets a preview-only URL flag that opens it (`?time-circuits=on`, `?mode=holding`) and the link carries the flag (s45, DISC-231).
+- **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks (s47: a preview cut before a merged fix showed the old behaviour).
+- **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link; a local pass is not that proof (s46: a fix green locally failed on the deployed Worker).

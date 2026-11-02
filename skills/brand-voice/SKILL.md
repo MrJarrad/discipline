@@ -1,6 +1,6 @@
 ---
 name: brand-voice
-description: How to write user-facing copy in one consistent brand voice — the universal "how" beneath every project's own voice guide. Derive the voice once from the brand's definition, apply it to every surface, verify by reading aloud. Use when writing or reviewing App Store copy, marketing, onboarding, microcopy, error messages, changelogs, or any words a user reads. Not visual/layout (design-craft), task prompts (prompt-craft), SEO keyword strategy (seo-*), or legal wording (legal).
+description: How to write user-facing copy in one consistent brand voice — the universal "how" beneath every project's own voice guide. Derive the voice once from the brand's definition, apply it to every surface, verify by reading aloud. Use when writing or reviewing App Store copy, marketing, onboarding, microcopy, error messages, changelogs, page titles and meta descriptions, or any words a user reads. Not visual/layout (design-craft), task prompts (prompt-craft), keyword strategy or ranking, or legal wording (legal).
 ---
 
 # Brand Voice
@@ -47,6 +47,23 @@ Match the surface's job **without changing who the brand is.** A brand that's wa
 - **The reader's words, not ours** — the audience's vocabulary, not internal jargon or feature codenames.
 - **Plain and inclusive** — no idioms that don't translate, no ableist metaphors; readable at the audience's level.
 
+## Drafting method — research, three directions, the bank, a fact pass
+Every new piece of copy runs these steps in order; each ends on its criterion.
+
+0. **Know the client.** Read the project's copy brief (`projects/<p>/copy/<p>-copy-brief.md` in the vault). None yet: read the client's own site and about page and how others describe them (`capture-website`, copy angle: their words, product names, what they are known for) and file the brief ([references/COPY-BRIEF-AND-BANK.md](references/COPY-BRIEF-AND-BANK.md)). Their words make the copy specific; facts about the work come from the spec; a fact from the web is checked before use. *Done when the brief exists and names its sources.*
+1. **State the page's job and its reader**, one line each. *Done when both lines are written above the drafts.*
+2. **Write three distinct directions**: different openings and structures, never one sentence with words swapped. *Done when the three differ in shape, not only wording.*
+3. **Compare against the exemplar bank** (`projects/<p>/copy/<p>-exemplar-bank.md`): pick the direction closest to the lines the operator approved and name the bank line it is closest to. *Done when the pick names that line.*
+4. **Polish and read aloud** (§ Verify before done). *Done when it passes.*
+5. **Fact pass, separate from the writing**: check every claim against the spec and change the fewest words that make it true. *Done when each change names the fact behind it.*
+
+Branches:
+- **Copy the operator supplied** (ChatGPT or anywhere else): the default is his copy with facts checked, step 5 only, never a merge back toward an older draft or spec (s45).
+- **Second miss**: after a second "not quite" on the same set, offer to park it, or ask him for two or three lines of his own, instead of another set (s46).
+- **An approved line** goes into the exemplar bank with his words, the same turn.
+- **A clean-up pass** removes only working material he named (drafts, questions, history); a field that holds a version of copy is kept and labelled, never dropped on an older ruling (s47).
+- **Page titles and meta descriptions**: also [references/METADATA.md](references/METADATA.md).
+
 ## Verify before done — the read-aloud test (voice-truth)
 Read the copy **aloud**. If it sounds like a generic assistant, like a *different* brand, or mechanical and not nice to hear, it fails. Then check it **trait by trait**: for each key line, name which voice trait it delivers — and cut any line that delivers none. Don't approve copy from a silent skim. (Parallel to design-craft's "render at real viewports" — copy has its own verification, and it's the ear.)
 
@@ -55,11 +72,11 @@ This skill owns how published copy *sounds* (sites, apps, case studies, App Stor
 - **Operator-facing chat and agent output styles** → out of scope; the house voice never applies there.
 - **Visual / layout / typography** → `design-craft`.
 - **The task prompt / brief** you write to another agent → `prompt-craft`.
-- **SEO keyword strategy, metadata, ranking** → the `seo-*` skills.
+- **Keyword strategy and ranking** → not owned here. Page titles and meta descriptions are copy and are owned here ([references/METADATA.md](references/METADATA.md)); the tags and head hygiene are `markup-standard`'s.
 - **Legal / compliance wording** (privacy, ToS, disclaimers) → the `legal` skill.
 - **Information architecture** — *what* sections exist and in what order (that's structure; voice is how each reads).
 
-If the ask is "how should this *sound*," it's brand-voice. If it's "what should this *say structurally*," "how should it *look*," or "which *keywords*," route to the owner above.
+If the ask is "how should this *sound*," it's brand-voice. If it's "what should this *say structurally*" or "how should it *look*," route to the owner above.
 
 ## Relationship to sibling skills
 - **`quality`** — the bar every piece of copy is held to: best-in-class, with evidence, or the gap named. Brand-voice sits under it.

@@ -101,6 +101,8 @@ How movers relate in time is **defined by the loaded motion law** when one exist
 
 **iOS WebKit presents no frames while the main thread is busy — that holds even for compositor-driven CSS animations.** Smoothness during a heavy load phase (asset decode, hydration, a build step) needs every main-thread task kept under ~16ms across the animation's whole run: split the build phase, move decode/parse work to a Worker, pre-bake textures, and code-split rather than trusting "it's CSS, it's off the main thread" alone (hoverboard, 2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27` item 2).
 
+**Text morph: WebKit does not kern across inline element edges.** Letters split into spans (per-character morphs, glows) shift in WebKit where Chromium keeps them still: an r7 letter twitch measured 0.44 px in Chromium and up to 1.95 px in WebKit (s46). Measure a text morph on WebKit (iPhone Chrome is WebKit) before calling it still (`diagnosing-bugs`).
+
 **Bake textures on the same GL backend the renderer ships with.** Canvas2D `lighter`/additive compositing is not bit-reproducible across rasterizers, and alpha-tested detail (fur, particles) amplifies the drift — a texture baked on one GL backend can visibly mismatch on another (hoverboard, 2026-09-27 — item 6).
 
 ## Accessibility

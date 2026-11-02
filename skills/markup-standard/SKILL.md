@@ -118,8 +118,8 @@ URL (**[Audit #11]**). Page-level content rules: next section.
 
 ## Meta content (SEO and share surfaces)
 
-Every web build is checked for these — part of done. Wording is `brand-voice`'s; this
-skill checks presence, uniqueness and consistency.
+Every web build is checked for these — part of done. Wording is `brand-voice`'s
+(`references/METADATA.md`); this skill checks presence, uniqueness and consistency.
 
 - **Title**: one per route, unique, one site-wide pattern, about 60 characters max.
 - **Description**: one per route, unique, from real page content, about 70–160 characters.

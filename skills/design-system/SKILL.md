@@ -87,7 +87,7 @@ component theme rules keep winning regardless of import order (hoverboard,
 2. **Pair foreground with background** — verify WCAG 2.x AA per pair in both themes.
 3. **One source per axis** — one radius root, one spacing scale, one type ramp.
 4. **Theme by swapping values behind stable names.**
-5. **Extend the system, never inline around it.**
+5. **Extend the system, never inline around it.** A question about a system value raised on one screen (a dim colour, an icon stroke weight) is offered as the global fix first: the token changes in the system, with its gate (s46: PF-1034, PF-1037).
 
 Generic token-tier theory and citations: [foundations.md](references/foundations.md). Do/don't summary: [DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
 

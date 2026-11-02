@@ -17,6 +17,8 @@
 | Vary how each line in a set opens and moves | Rule 6: one repeated shape reads as a template |
 | Say what a thing is for, not only what it is | Rule 7: purpose is what the reader came for |
 | Tie a set of items together with one line where it helps | General guidance, never a required intro; one-item-at-a-time pages get none |
+| Write three directions of different shape, then pick against the exemplar bank | § Drafting method: one draft per round reads as one formula |
+| Take the operator's supplied copy as the base and only fact-check it | § Drafting method: his copy, facts checked, fewest words changed |
 
 ## Don't
 
@@ -28,6 +30,7 @@
 | Claim a superlative or "#1" you cannot back | Every claim true and specific |
 | Use vibe words in place of the specific | "Powerful" and "next-level" show nothing |
 | Stack three verbs or three abstract nouns in a row | Rule 2: it reads mechanical |
+| Draft from the spec alone, or follow a sentence formula a brief gave | § Drafting method: research the client first; a brief gives job, reader and exemplars |
 | Open every line in a set with the same shape | Rule 6: it reads mechanical |
 | Hang one of a set of equals off the end in a trailing clause | Rule 8: it reads as an afterthought |
 | Use workplace words: align, iterate, steer, production, deliver | Rule 5: they sound like a status report |

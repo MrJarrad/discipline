@@ -185,7 +185,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
   a production build or the deployed preview, never only the dev server, loads hydrated with no error — then the
   link goes to the operator. **Pixel proof at rest** at his framing, **build-vs-export audits**, **scenario sweeps**, **headless deployed probes**
   and his input profile (real GPU via a Mac job only for visual 3D) run **after his yes**, sized to what merge needs;
-  never a new review round, review still trails the yes. Supersedes the before-the-link checks of `one-shot-defect-rounds-2026-10-07`.
+  never a new review round, review still trails the yes. Supersedes the before-the-link checks of `one-shot-defect-rounds-2026-10-07`. **A deploy is read from the build log, never the badge**: a `claude/*` build shows "Deployment successful" while its log says it skips the upload; only `preview/*` publishes (s47).
 - **A full suite over the tool's foreground timeout runs in a gate-run lane, never the parent
   shell.** The Bash tool caps a command at its timeout; `run_in_background` and `nohup … &
   disown` both die with the tool shell that spawned them. A long suite (25–60 min) is its own
@@ -238,7 +238,7 @@ inventing a shape per dispatch.
 | 4 | **Open gaps** | what is unmet, unverified, or operator-deferred; "none" when none |
 | 5 | **Next owner** | `next: reviewer` \| `next: engineer` \| `next: operator` \| `next: parent`. **Engineer return for a UI change is `next: operator`, never `next: reviewer`** — the reviewer is solicited only after the operator's yes on that build (operator ruling 2026-09-19, `review-after-sign-off`); mechanism-only changes (generator, plugin, probes, gates, refactors with nothing to look at) keep `next: reviewer`. |
 
-**The `Open gaps` field is "none" or a list — never "nothing blocking."**
+**The `Open gaps` field is "none" or a list — never "nothing blocking."** **A helper waiting on an event sends one message, when the event lands** (a build, a review, a merge), never an interim "still waiting" message (s47).
 
 **"Already satisfied / already true" on an operator-raised row is a claim, not a result.**
 The parent reproduces it at the operator's own framing (route, gesture, device/viewport)

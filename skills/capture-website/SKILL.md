@@ -162,7 +162,8 @@ Plus the two soft layers, as data not vibes:
 - **Copy voice** (per page type): NN/g four tone continua scored 1–5 (funny↔serious,
   formal↔casual, respectful↔irreverent, enthusiastic↔matter-of-fact), register notes
   (who's talking to whom, written-like vs speech-like), case register, and 2–3 verbatim
-  exemplar lines.
+  exemplar lines. For a copy job (`brand-voice` § Drafting method step 0) this layer, read on the
+  client's own site and about page, feeds the project's copy brief.
 
 **Stage 3 — verify:** every claim in `<slug>-analysis.md` cites an artifact (screenshot name,
 geometry rect, token row, CSS line). Mark each value `observed` or `inferred`; never
