@@ -86,7 +86,11 @@ and queued the chat as the doer — that hatch is deleted.
    (a) **verifying the deployed surface** or presenting it for review — the only
    operator-facing surface is the deployed URL, and cloud egress 403s `*.workers.dev`;
    (b) **machine-bound stacks** — `:4411` capture listener, Capture.app helper,
-   figma-daemon, interactive-auth MCPs; (c) **this machine's own state**.
+   figma-daemon, interactive-auth MCPs; (c) **this machine's own state**. A read-only task
+   (research, reading files, a search) needs none of the three, so it goes to cloud too: an `Agent`
+   call from the parent runs local (s46, DISC-232: *"I mean the general rule is if it can be cloud it should be"*).
+   A `local —` brief says which, on one line: `Local because: (a) …`, `(b) …` or `(c) …`;
+   `agent-dispatch-gate` refuses a local dispatch without it.
 
    **A cloud capability gap that is not machine-bound is a setup defect to close**, never a
    reason to route to the Mac queue (operator, 2026-10-03: "there shouldn't be anything a cloud

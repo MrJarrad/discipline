@@ -88,3 +88,15 @@ test("DISC-178: a hand-typed release-only row is not printed; a release row with
   assert.match(out, /PF-6/);
   assert.match(out, /PF-7/);
 });
+
+// DISC-230: on the Mac the vault is a container (~/JHD/vault/.bare + ~/JHD/vault/main), and Mac jobs
+// passed `--vault ~/JHD/vault`, so every prefix was "unknown". The container root resolves to main/.
+test("DISC-230: a vault container root resolves to its main/ checkout", () => {
+  const v = vault();
+  const box = mkdtempSync(join(tmpdir(), "nfy-box-"));
+  mkdirSync(join(box, ".bare"));
+  spawnSync("mv", [v, join(box, "main")]);
+  const r = spawnSync("node", [script, "--vault", box, "--projects", "HB"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /HB-5/);
+});

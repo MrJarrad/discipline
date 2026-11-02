@@ -41,6 +41,7 @@ cloud sessions; each repo's `CLAUDE.md` "Cloud sessions" holds its recipe.
   mirrors the runner's exit 97 (`repo:`), 98 (empty brief) and requires the next line.
   **Every job brief says "no background tasks, no subagents"** — a headless job that backgrounds
   long work is killed at the 600 s background-wait ceiling (2026-09-30, 2026-10-07).
+  **Review-first jobs and repo checkouts** follow [MAC-JOBS.md](references/MAC-JOBS.md) (s45, s46).
   Previews need no Mac: cloud cannot `upload` portfolio versions, but a `preview/*` push
   publishes the Workers Builds alias (`present-for-review`). **Every job brief
   opens "You ARE the job; the `running/` entry is your own claim"** — a job once saw its own claim

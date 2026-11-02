@@ -67,3 +67,38 @@ test("push_files: a full-size rewrite and an unread new file pass", () => {
   assert.equal(runPush([{ path: "projects/p/notes.md", content: "x".repeat(900) }], readOf("projects/p/notes.md", "y".repeat(1000))), null);
   assert.equal(runPush([{ path: "projects/p/new.md", content: "tiny" }]), null);
 });
+
+// DISC-227 (reviewer note 1 on #128): push_files failed open on an unreadable transcript and
+// passed any path the session never read. Now: an unreadable transcript denies; an unread path
+// is checked against the file on the local vault clone's origin (cwd), when there is one.
+const runPushIn = (files, { cwd, transcript = true } = {}) => {
+  const tp = join(mkdtempSync(join(tmpdir(), "vmwg-")), "t.jsonl");
+  if (transcript) writeFileSync(tp, "");
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name: "mcp__github__push_files", tool_input: { owner: "MrJarrad", repo: "jhd-vault", branch: "claude/x", message: "m", files }, transcript_path: tp, cwd }), encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : null;
+};
+const fakeVault = () => {
+  const d = mkdtempSync(join(tmpdir(), "vmwg-vault-"));
+  const g = (...a) => { const r = spawnSync("git", ["-C", d, ...a], { encoding: "utf8" }); assert.equal(r.status, 0, r.stderr); return r.stdout; };
+  g("init", "-q", "-b", "main"); g("config", "user.email", "t@t"); g("config", "user.name", "t");
+  g("remote", "add", "origin", "https://github.com/MrJarrad/jhd-vault");
+  spawnSync("mkdir", ["-p", join(d, "projects/p")]);
+  writeFileSync(join(d, "projects/p/notes.md"), "y".repeat(1000));
+  g("add", "-A"); g("commit", "-q", "-m", "seed");
+  g("update-ref", "refs/remotes/origin/main", "HEAD");
+  return d;
+};
+test("DISC-227: push_files with an unreadable transcript is denied (fails closed)", () => {
+  const d = runPushIn([{ path: "projects/p/new.md", content: "x".repeat(900) }], { transcript: false });
+  assert.equal(d?.permissionDecision, "deny");
+  assert.match(d.permissionDecisionReason, /transcript/);
+});
+test("DISC-227: push_files of an unread path that exists on the vault clone's origin is checked against it", () => {
+  const cwd = fakeVault();
+  const small = runPushIn([{ path: "projects/p/notes.md", content: "x".repeat(10) }], { cwd });
+  assert.equal(small?.permissionDecision, "deny");
+  assert.match(small.permissionDecisionReason, /1000 bytes/);
+  assert.equal(runPushIn([{ path: "projects/p/notes.md", content: "x".repeat(900) }], { cwd }), null);
+  assert.equal(runPushIn([{ path: "projects/p/new.md", content: "tiny" }], { cwd }), null, "a new file still passes");
+});

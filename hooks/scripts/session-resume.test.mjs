@@ -147,6 +147,14 @@ test("s44: an awaited or denied yes is not a yes", async () => {
   assert.equal(recordsOperatorYes("held until operator yes"), false);
 });
 
+test("DISC-228: a not-given word in the clause before does not cancel the yes", async () => {
+  const { recordsOperatorYes } = await import("./session-resume.mjs");
+  assert.equal(recordsOperatorYes("Pending build; operator yes on the glow"), true);
+  assert.equal(recordsOperatorYes('Build pending. Operator s48: "yes"'), true);
+  assert.equal(recordsOperatorYes("needs a look (operator yes 2026-11-01)"), true);
+  assert.equal(recordsOperatorYes("still waiting for the operator's yes"), false, "same clause still counts");
+});
+
 test("DISC-221 L3: an open row carrying the operator's yes and no lane id is approved, not started", () => {
   const v = yesVault([PF938, "| PF-1 | other | 2026-10-01 | open | no decision yet |"]);
   assert.deepEqual(approvedNotStarted(v).map((r) => r.id), ["PF-938"]);

@@ -54,6 +54,8 @@ job-shape call, not a two-case allowlist.
 | Design/UX **implementation** against a locked Figma/spec | `sonnet` |
 | Design/UX **taste / visual judgment** (no locked answer) | `sonnet` — grill for the lock instead of buying judgment with a bigger model; a job shape genuinely needing more judgment than grilling can supply justifies a higher tier in `## Interrogated` |
 | Research / competitive / cited facts | `sonnet` with tool access and a cited-retrieval evidence contract — never a "cheaper because cheaper" downgrade to haiku |
+| Surface (before the model) | cloud; local only with a `Local because: (a\|b\|c)` line (`routing` HARD-RULES 9, gate-enforced) |
+| Published copy (drafting or fact-checking words a user reads) | the strongest tier (`fable`, else `opus`); `## Interrogated`: "copy lane" (DISC-235) |
 | First slice of a new product or tool | `opus`, `## Interrogated`: "novel architecture, no contract to point at"; later slices return to `sonnet` (`2026-10-09-first-slice-of-a-new-product-is-opus`) |
 | Architecture / orchestration | `sonnet` by default; a higher tier for **novel architecture with no contract to point at**, justified in `## Interrogated` naming this case |
 | Adversarial review / refute | `sonnet`, at or above the implementer's tier; a higher tier for **adversarial review of a change with fleet-wide blast radius**, justified in `## Interrogated`; a sonnet build of trivial scope still takes a sonnet reviewer, never weaker |

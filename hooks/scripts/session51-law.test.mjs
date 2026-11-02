@@ -100,9 +100,8 @@ test("DISC-226: a paragraph follows the pattern first, the ruled-out openers aft
   assert.ok(flat("skills/prompt-craft/SKILL.md").includes("A copy brief points at `brand-voice` HOUSE-VOICE § Writing a paragraph — the pattern"));
 });
 
-test("release: 1.163.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.163.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.163.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.163.0 — s44 parent lessons 1–6."));
+test("release: 1.163.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.163.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.163.0 — s44 parent lessons 1–6."));
 });
