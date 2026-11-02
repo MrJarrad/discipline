@@ -16,7 +16,7 @@
    operator reads it to see that a local agent is running (operator,
    2026-10-01). Only agent launches are gated — never a dev server or watcher.
 
-   Eight checks, in order, first failure reported (the eighth, 1.140.0, is listed after the seventh):
+   Nine checks, in order, first failure reported (the eighth, 1.140.0, and ninth, 1.164.0, are listed last):
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -73,6 +73,9 @@
       with a template slot unfilled; one 2026-10-15 brief carried no house rules
       that way (DISC-170, session 25 lesson). Fenced, indented and inline code,
       `${X}` and `{{X}}` are ignored, as is any other brace text (`{DATE}`, `{N}`).
+   9. LOCAL NAMES ITS NEED — a `local —` dispatch carries a `Local because: (a|b|c) …`
+      line naming one of routing HARD-RULES 9's three local needs; anything else is
+      cloud (DISC-232, operator 2026-11-01: "if it can be cloud it should be").
 
    EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
    reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
@@ -96,6 +99,10 @@ export const EXEMPT_SUBAGENTS = new Set(["Explore", "Plan"]);
 // dispatch-brief both write; a hyphen here would pass a description the law
 // files do not describe.
 const DESCRIPTION_SHAPE = /^(cloud|local) — ([A-Za-z][A-Za-z0-9 -]*?) \(([^()]+)\): *\S/;
+
+// DISC-232: a local dispatch names one of routing HARD-RULES 9's three local needs, (a) deployed
+// surface, (b) machine-bound stack, (c) this machine's state, followed by its words.
+export const LOCAL_BECAUSE = /^\s*\**Local because\**:\s*\(([abc])\)\s*\S/im;
 
 /* Does this Bash command launch an agent? `claude` with `-p`/`--print`/`--cloud`,
    `workflow.mjs`, the Mac-queue runner, or a write of a Mac-queue job file — each
@@ -716,7 +723,7 @@ export function checkAgentDispatch(toolInput = {}) {
         `Dispatch blocked — description: expected \`cloud — persona (model): task\` or ` +
         `\`local — persona (model): task\`, got ${JSON.stringify(description)}. ` +
         `The surface prefix is routing rule 9; the parenthesised model is model-routing. ` +
-        `Local also needs its one-clause machine-bound justification in the brief.`,
+        `Local also needs its \`Local because: (a|b|c)\` line in the brief.`,
     };
   }
 
@@ -740,6 +747,18 @@ export function checkAgentDispatch(toolInput = {}) {
         `Dispatch blocked — prompt: ${count} words, cap is ${PROMPT_WORD_CAP} ` +
         `(markdown table rows already excluded). Point at the contract instead of restating it ` +
         `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
+    };
+  }
+
+  if (shape[1] === "local" && !LOCAL_BECAUSE.test(prompt)) {
+    return {
+      ok: false,
+      item: "local-justification",
+      reason:
+        `Dispatch blocked — local: a \`local —\` dispatch names which local need it has, on its own line: ` +
+        `\`Local because: (a) <verifying or presenting the deployed surface>\`, \`(b) <the machine-bound stack>\` or ` +
+        `\`(c) <this machine's own state>\` (routing HARD-RULES 9). Anything else goes to cloud: ` +
+        `"if it can be cloud it should be" (DISC-232).`,
     };
   }
 

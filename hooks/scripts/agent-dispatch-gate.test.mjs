@@ -96,7 +96,7 @@ test("the malformed fixture is blocked, and the message names the failing item",
 });
 
 test("local is a valid surface; anything else is not", () => {
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "local — reviewer (opus): check the build", model: "opus" }).ok);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "local — reviewer (opus): check the build", model: "opus", prompt: WELL_FORMED.prompt + "\nLocal because: (a) verifying the deployed preview." }).ok);
   for (const bad of [
     "remote — engineer (opus): x",
     "engineer (opus): x",
@@ -915,4 +915,20 @@ test("an unfilled {HOUSE} is still caught beside fenced or indented quotes of it
   const v = checkUnfilledPlaceholders("```\n{HOUSE}\n```\n\n{HOUSE}\n");
   assert.equal(v.item, "placeholder");
   assert.match(v.reason, /\{HOUSE\}/);
+});
+
+// DISC-232: the cloud default bites. A `local —` Agent dispatch names which of routing rule 9's three
+// local needs it has, on a `Local because: (a|b|c)` line; without one it is refused.
+test("DISC-232: a local dispatch with no Local because line is refused, naming the three needs", () => {
+  const v = checkAgentDispatch({ ...WELL_FORMED, description: "local — researcher (sonnet): read the docs", model: "sonnet" });
+  assert.equal(v.ok, false);
+  assert.equal(v.item, "local-justification");
+  assert.match(v.reason, /Local because: \(a\)/);
+  assert.match(v.reason, /HARD-RULES 9/);
+});
+test("DISC-232: each of the three needs passes; a cloud dispatch needs none", () => {
+  for (const c of ["(a) presenting the deployed preview", "(b) machine-bound: the :4411 capture listener", "(c) this machine's own state"])
+    assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "local — engineer (sonnet): x", model: "sonnet", prompt: `${WELL_FORMED.prompt}\nLocal because: ${c}` }).ok, c);
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer (sonnet): x", model: "sonnet" }).ok);
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "local — engineer (sonnet): x", model: "sonnet", prompt: `${WELL_FORMED.prompt}\nLocal because: it is quicker` }).ok, false, "a reason outside the three is refused");
 });

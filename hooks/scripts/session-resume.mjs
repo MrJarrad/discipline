@@ -250,9 +250,14 @@ const OPERATOR_YES = /\boperator\b[^|.]{0,40}?["“]?\byes\b/i;
 /* A yes that is awaited or denied is not a yes (s44 reviewer follow-up): "awaiting the operator's yes",
    "operator has not said yes", "until operator yes". */
 const YES_NOT_GIVEN = /\b(not|no|never|awaiting|await|waiting|until|once|pending|needs?|without|before|if)\b/i;
+/* The look-behind stays inside the yes's own clause (DISC-228, #128 reviewer note 2: "Pending build;
+   operator yes" read as not given because "Pending" sat in the clause before). */
 export function recordsOperatorYes(text) {
   const m = OPERATOR_YES.exec(text);
-  return !!m && !YES_NOT_GIVEN.test(text.slice(Math.max(0, m.index - 25), m.index + m[0].length));
+  if (!m) return false;
+  const before = text.slice(Math.max(0, m.index - 25), m.index);
+  const clause = before.slice(Math.max(...[".", ";", ":", "|", "—", "("].map((c) => before.lastIndexOf(c))) + 1);
+  return !YES_NOT_GIVEN.test(clause + m[0]);
 }
 const LANE_ID = /#\d+|\bclaude\/[\w.-]+|progress\.md/;
 export function approvedNotStarted(vault) {

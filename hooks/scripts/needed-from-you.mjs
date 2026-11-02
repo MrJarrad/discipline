@@ -22,9 +22,10 @@
 
    Usage: node needed-from-you.mjs --vault <root> --projects PF,HB
    Exit 0 printed (even when "none") · 1 refused.                          */
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { parseBacklog, parseStatus } from "./list-drift-check.mjs";
@@ -105,9 +106,10 @@ function main() {
   const get = (k) => { const i = a.indexOf(k); return i !== -1 ? a[i + 1] : undefined; };
   const vault = get("--vault");
   if (!vault) { console.error("usage: needed-from-you --vault <root> --projects PF,HB"); process.exit(1); }
-  const r = neededFromYou(resolve(vault), String(get("--projects") || "").split(","));
-  if (!r.ok) { console.error(`needed-from-you: ${r.reason}`); process.exit(1); }
-  const up = renderUpcoming(r, vaultBlobBase(resolve(vault)));
+  const root = resolveVaultRoot(vault);
+  const r = neededFromYou(root, String(get("--projects") || "").split(","));
+  if (!r.ok) { console.error(`needed-from-you: ${r.reason} (vault read: ${root})`); process.exit(1); }
+  const up = renderUpcoming(r, vaultBlobBase(root));
   console.log(up ? `${up}\n${render(r)}` : render(r));
 }
 

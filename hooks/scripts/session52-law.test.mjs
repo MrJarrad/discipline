@@ -139,3 +139,16 @@ test("release: 1.164.0 in both manifests and CHANGED.txt, with the encoded line"
   assert.ok(top.split("\n\n")[0].includes("encoded: 1.164.0 — DISC-235; s45 lessons 1–6, s46 lessons 1–7, s47 lessons 1–4."));
   assert.ok(existsSync(join(root, "skills/brand-voice/references/METADATA.md")));
 });
+
+test("DISC-229: every network git call in jhd-container-clone.sh runs with GIT_HARDEN", () => {
+  const calls = read("hooks/scripts/jhd-container-clone.sh").split("\n")
+    .filter((l) => !l.trim().startsWith("#") && !/\bconfig\b/.test(l) && /^\s*git\b.*\b(clone|fetch|pull)\b/.test(l));
+  assert.ok(calls.length >= 5, "clone, fetch and pull calls found");
+  for (const l of calls) assert.ok(l.includes('"${GIT_HARDEN[@]}"'), l.trim());
+});
+
+test("DISC-232: the cloud default bites — HARD-RULES 9 names the line, model-routing points, the gate refuses", () => {
+  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("A `local —` brief says which, on one line: `Local because: (a) …`, `(b) …` or `(c) …`; `agent-dispatch-gate` refuses a local dispatch without it."));
+  assert.ok(flat("skills/model-routing/SKILL.md").includes("| Surface (before the model) | cloud; local only with a `Local because: (a\\|b\\|c)` line"));
+  assert.ok(flat("hooks/bin/agent-dispatch-gate.mjs").includes("9. LOCAL NAMES ITS NEED"));
+});

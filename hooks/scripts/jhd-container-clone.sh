@@ -49,7 +49,7 @@ overlay_main() {
 if [ -d "$DEST/.bare" ] && { [ -f "$DEST/main/.git" ] || [ -d "$DEST/main/.git" ]; }; then
   echo "==> container exists: $DEST"
   git "${GIT_HARDEN[@]}" --git-dir="$DEST/.bare" fetch --prune origin 2>/dev/null || true
-  git -C "$DEST/main" pull --ff-only 2>/dev/null \
+  git "${GIT_HARDEN[@]}" -C "$DEST/main" pull --ff-only 2>/dev/null \
     || echo "    WARNING: could not fast-forward $DEST/main"
   exit 0
 fi
