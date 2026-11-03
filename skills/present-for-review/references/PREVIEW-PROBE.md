@@ -37,9 +37,10 @@ of his issues it confirms, corrects or adds to. Method and drive scripts: vault
 
 ## Link checks
 
-Run all four before a look link goes out (`SKILL.md` § Before the link goes out).
+Run all five before a look link goes out (`SKILL.md` § Before the link goes out).
 
 - **The `preview/*` build, not a `claude/*` badge.** A green build on a `claude/*` branch is not the preview: its log says it skips the upload (not a `preview/*` branch). Read that log line, never the "Deployment successful" badge, and name the `preview/*` build id before sending a link or releasing the next build (s46, s47).
 - **The link opens in the state to review.** Open it cold, as the operator will, before sending. A state a cold load cannot reach (a toggle hidden on that page, a mode, a panel) gets a preview-only URL flag that opens it (`?time-circuits=on`, `?mode=holding`) and the link carries the flag (s45, DISC-231).
+- **The change is visible (or audible) on the linked page.** Name what the operator will see or hear differ there; a measured value that moved is not that. Link the page that shows it (a dark-mode token change links the 404, the only dark page), or open it with a flag (check above). When no live page shows the change, say so in the message and send no link (DISC-248, PF-1125).
 - **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks (s47: a preview cut before a merged fix showed the old behaviour).
 - **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link; a local pass is not that proof (s46: a fix green locally failed on the deployed Worker).
