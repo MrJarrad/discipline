@@ -132,11 +132,10 @@ test("s47.4: a waiting helper sends one message when the event lands — doer-ru
   assert.ok(flat("doer-rules.md").includes("**A helper waiting on an event sends one message, when the event lands** (a build, a review, a merge), never an interim \"still waiting\" message (s47)."));
 });
 
-test("release: 1.164.0 in both manifests and CHANGED.txt, with the encoded line", () => {
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.164.0"'), p);
-  const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.164.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.164.0 — DISC-235; s45 lessons 1–6, s46 lessons 1–7, s47 lessons 1–4."));
+test("release: 1.164.0 has its CHANGED.txt entry with the encoded line", () => {
+  const entry = read("CHANGED.txt").split("\n\n").find((e) => e.startsWith("1.164.0 — "));
+  assert.ok(entry);
+  assert.ok(entry.includes("encoded: 1.164.0 — DISC-235; s45 lessons 1–6, s46 lessons 1–7, s47 lessons 1–4."));
   assert.ok(existsSync(join(root, "skills/brand-voice/references/METADATA.md")));
 });
 
