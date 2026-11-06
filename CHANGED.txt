@@ -1,3 +1,6 @@
+1.175.0 — backlog DISC-244 (lesson HB-223, 2026-11-02): `audit-build` gains § Swapping a panel onto a shared kit. A kit-swap before/after delta lists every visual property the kit draws (radius, border, shadow, colour, font, motion), not sizes alone, and checks every `var()` the kit reads resolves in the consumer (a Tailwind-only `--radius-full` is absent in a non-Tailwind consumer). Pinned in `session58-law.test.mjs`.
+encoded: 1.175.0 — backlog DISC-244.
+
 1.174.0 — backlog DISC-249: helpers no longer ask the operator for repo permissions mid-lane (operator s54: "why am i needing to grant permissions all of a sudden"). HELPER-SESSIONS § 1 and § 2 and `doer-rules.md` § Repo and safety: the brief lists every repo the lane touches with its access level, the helper attaches them all with `add_repo` as its first step, and a repo the brief did not list is `next: parent`, never a question to the operator. New `session58-law.test.mjs` pins the sentences.
 encoded: 1.174.0 — backlog DISC-249.
 
