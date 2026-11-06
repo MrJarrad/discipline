@@ -71,3 +71,12 @@ test("new-product does not name an overlay sync command it cannot run", () => {
   assert.doesNotMatch(newProduct, /bash [^\n]*sync-discipline-into-product\.sh/);
   assert.match(newProduct, /overlay payload has no home in this repo yet/);
 });
+
+// DISC-229 (#128 reviewer note 3): the container clone's `pull --ff-only` carries the same
+// `core.sshCommand=` hardening as its fetches and clones.
+test("DISC-229: every network git call (fetch, pull, clone) in the container clone script is hardened, the ff-only pull included", () => {
+  const script = read("hooks/scripts/jhd-container-clone.sh");
+  const gitCalls = script.split("\n").filter((l) => /^\s*git\b/.test(l) && /\b(fetch|pull|clone)\b/.test(l) && !/\sconfig\s/.test(l));
+  assert.ok(gitCalls.some((l) => /pull --ff-only/.test(l)), "the pull line exists");
+  for (const l of gitCalls) assert.match(l, /GIT_HARDEN/, `unhardened: ${l.trim()}`);
+});

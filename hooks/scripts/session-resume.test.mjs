@@ -153,6 +153,7 @@ test("DISC-228: a not-given word in the clause before does not cancel the yes", 
   assert.equal(recordsOperatorYes('Build pending. Operator s48: "yes"'), true);
   assert.equal(recordsOperatorYes("needs a look (operator yes 2026-11-01)"), true);
   assert.equal(recordsOperatorYes("still waiting for the operator's yes"), false, "same clause still counts");
+  assert.equal(recordsOperatorYes("operator yes … once the build lands"), true, "a trailing once does not cancel a yes already given");
 });
 
 test("DISC-221 L3: an open row carrying the operator's yes and no lane id is approved, not started", () => {
