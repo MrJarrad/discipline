@@ -1,3 +1,6 @@
+1.170.0 — backlog DISC-227, DISC-228, DISC-229, DISC-230, DISC-250: proofs only, no behaviour change. DISC-227/228/230/250 were fixed in 1.164.0 (tests already pin them; DISC-250 is DISC-230's defect and DISC-243 completed it in 1.167.0). Adds the missing pins: the container clone's `pull --ff-only` and every other network git call carry `core.sshCommand=` hardening (DISC-229, which 1.164.0 had already changed), and a trailing "once" does not cancel a yes already given (DISC-228).
+encoded: 1.170.0 — backlog DISC-229.
+
 1.169.0 — backlog DISC-252: `list-drift-check` no longer drops a repo whose `git log` is over 1 MiB (the `git()` helper now sets `maxBuffer`; portfolio and hoverboard had every citing PR read unknown) and reads `Merge #n: title` merge subjects as merged PRs that name their rows. The status guide in the script header now says `pf`/`hb` are not repo names (only `DS` is an alias) and lists the merge subjects it reads.
 encoded: 1.169.0 — backlog DISC-252.
 
