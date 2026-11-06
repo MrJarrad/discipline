@@ -30,6 +30,7 @@ import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
 import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { DRIFT_STAMP_MINUTES, driftStampFresh, writeMarker } from "./lib/row-marker.mjs";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 /* Write via a sibling temp file + rename so a reader never sees a truncated file. */
 const writeAtomic = (path, text) => { const tmp = `${path}.${process.pid}.tmp`; writeFileSync(tmp, text); renameSync(tmp, path); };
@@ -165,12 +166,12 @@ function main() {
     console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--merge-into ID | --distinct] [--offline]");
     process.exit(2);
   }
-  const res = rowAdd({ vault: resolve(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct) });
+  const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct) });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
   // DISC-179(1): tell the Stop hook a new ask was raised this turn.
   if (res.merged) { console.log(res.id); return; }
-  try { writeMarker(resolve(a.vault), { prefix: a.prefix, id: res.id, to: a.to }); } catch { /* the marker is a nudge, never a failure */ }
+  try { writeMarker(resolveVaultRoot(a.vault), { prefix: a.prefix, id: res.id, to: a.to }); } catch { /* the marker is a nudge, never a failure */ }
   console.log(res.id);
 }
 

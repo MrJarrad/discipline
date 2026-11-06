@@ -48,6 +48,7 @@ import { addRow, crossFileDupIds, setRowStatus } from "./list-drift-check.mjs";
 import { acquireVaultLock, highestUsed, remoteTexts } from "./lib/row-alloc.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
 import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 export function parseArgs(argv) {
   const out = {};
@@ -62,7 +63,7 @@ export function parseArgs(argv) {
   // `--vault`/`--repo` are filesystem roots other calls (git -C, cwd) depend
   // on — resolve to absolute here so a relative arg never depends on the
   // caller's cwd downstream.
-  if (typeof out.vault === "string") out.vault = resolve(out.vault);
+  if (typeof out.vault === "string") out.vault = resolveVaultRoot(out.vault);
   if (typeof out.repo === "string") out.repo = resolve(out.repo);
   return out;
 }

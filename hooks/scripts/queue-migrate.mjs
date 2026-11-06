@@ -21,6 +21,7 @@
    Usage: node queue-migrate.mjs --vault <root> [--apply]                     */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 export const PREFIX = {
   portfolio: "PF", hoverboard: "HB", "jhd-design-system": "DS", "jhd-discipline": "DISC", skillz: "SK",
@@ -173,7 +174,7 @@ function main() {
   const a = process.argv.slice(2);
   const vi = a.indexOf("--vault");
   if (vi === -1 || !a[vi + 1]) { console.error("usage: queue-migrate --vault <root> [--apply]"); process.exit(2); }
-  const vault = resolve(a[vi + 1]);
+  const vault = resolveVaultRoot(a[vi + 1]);
   const r = migrate(vault);
   console.log("project              backlog before->after   queue before->after");
   for (const [p, s] of Object.entries(r.projects)) console.log(`${p.padEnd(20)} ${String(s.backlogBefore).padStart(6)} -> ${String(s.backlogAfter).padEnd(6)}        ${String(s.queueBefore).padStart(5)} -> ${s.queueAfter}`);
