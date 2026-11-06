@@ -112,6 +112,10 @@ the next composition reused those rows, the encoded padding broke the compositio
 logic. **Record mechanism mismatches in the defect table** as "design mechanism · code mechanism
 · refactor target" — fixes are structural, not cosmetic.
 
+## Swapping a panel onto a shared kit
+
+A before/after delta for a kit swap lists every visual property the kit draws (radius, border, shadow, colour, font, motion), not sizes alone, and checks that every `var()` the kit reads resolves in the consumer: a variable defined only under another build (a Tailwind-only `--radius-full`) is absent in a consumer without it. **Real case (HB-223):** a delta measured sizes, and the look round then caught a square switch track, lost dividers and no shadow.
+
 ## Names are audited too
 
 Fidelity includes vocabulary — audit component names, prop/variant names, and token names
