@@ -15,6 +15,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 export const MAX_CHARS = 6000;
 
@@ -34,7 +35,7 @@ export function checkCockpit(text) {
 function main(argv) {
   const i = argv.indexOf("--vault");
   if (i < 0 || !argv[i + 1]) { console.error("usage: cockpit-check.mjs --vault <vault root>"); return 2; }
-  const problems = checkCockpit(readFileSync(join(argv[i + 1], "orchestrator", "cockpit.md"), "utf8"));
+  const problems = checkCockpit(readFileSync(join(resolveVaultRoot(argv[i + 1]), "orchestrator", "cockpit.md"), "utf8"));
   for (const p of problems) console.log(`cockpit-check: ${p}`);
   return problems.length ? 1 : 0;
 }

@@ -34,10 +34,10 @@ test("DISC-248: dispatch-brief Done-when and doer-rules look-lane done-when poin
   }
 });
 
-test("release: 1.166.0 in both manifests and CHANGED.txt, with the encoded line", () => {
+test("release: 1.167.0 in both manifests and CHANGED.txt, with the encoded line", () => {
   const read = (p) => readFileSync(join(root, p), "utf8");
-  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.166.0"'), p);
+  for (const p of [".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) assert.ok(read(p).includes('"version": "1.167.0"'), p);
   const top = read("CHANGED.txt");
-  assert.ok(top.startsWith("1.166.0 — "));
-  assert.ok(top.split("\n\n")[0].includes("encoded: 1.166.0 — backlog DISC-240."));
+  assert.ok(top.startsWith("1.167.0 — "));
+  assert.ok(top.split("\n\n")[0].includes("encoded: 1.167.0 — backlog DISC-243."));
 });

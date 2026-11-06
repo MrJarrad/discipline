@@ -17,6 +17,7 @@
    commit. merge-review-gate checks `origin` is MrJarrad/jhd-vault and reads this line
    from the Bash result in the session transcript.                                     */
 import { spawnSync } from "node:child_process";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 export function prFiles({ vault, pr, head }) {
   const git = (...a) => {
@@ -43,7 +44,7 @@ export function prFiles({ vault, pr, head }) {
 
 if (process.argv[1] && process.argv[1].endsWith("vault-pr-files.mjs")) {
   const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : undefined; };
-  const vault = arg("--vault"), pr = Number(arg("--pr")), head = arg("--head");
+  const vault = arg("--vault") && resolveVaultRoot(arg("--vault")), pr = Number(arg("--pr")), head = arg("--head");
   if (!vault || !Number.isInteger(pr) || pr <= 0) {
     console.error("usage: node vault-pr-files.mjs --vault <vault clone> --pr <n> [--head <sha>]");
     process.exit(2);

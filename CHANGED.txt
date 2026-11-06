@@ -1,3 +1,6 @@
+1.167.0 — backlog DISC-243 (and DISC-230's remaining code, DISC-250): `row-add`, `lane-end`, `list-drift-check`, `cockpit-check`, `queue-migrate`, `session-resume` and `vault-pr-files` now resolve a vault container root (`.bare` + `main/`) through `lib/vault-root.mjs` `resolveVaultRoot`, as `needed-from-you` already did, so a Mac job passing `~/JHD/vault` reads and writes the main checkout. `hooks/scripts/vault-root-cli.test.mjs` runs each script against a container root and against `main/` and requires identical behaviour.
+encoded: 1.167.0 — backlog DISC-243.
+
 1.166.0 — backlog DISC-240: the Stop hook `parent-return-stop.mjs` no longer names the helper's own session id as its parent. A marker holding the helper's own id (the hook's `session_id`) is refused and the block says `@parent`; `dispatch-brief` now says the helper writes the PARENT's session id, never its own (the cause: a brief said "write your session id").
 encoded: 1.166.0 — backlog DISC-240.
 

@@ -30,6 +30,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { FAILING, fixVault, parseBacklog, parseStatus } from "./list-drift-check.mjs";
+import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -369,6 +370,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     else if (args[i] === "--days") days = Number(args[++i]);
     else vault = args[i];
   }
+  if (vault) vault = resolveVaultRoot(vault);
   if (!vault || !existsSync(vault)) {
     console.error("usage: node session-resume.mjs <vault-root> [--repo name=path ...] [--days N]");
     process.exit(2);
