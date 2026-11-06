@@ -15,7 +15,7 @@ import { resolveVaultRoot } from "../scripts/lib/vault-root.mjs";
 const ROW_ID = /\b([A-Z]{2,4})-\d+[a-z]?\b/g;
 /* Tokens shaped like a row id that are not one (DISC-255 review amber: "UTF-8" and "SHA-256" let a PR through
    with no row). Used when the vault's project lists cannot be read; with the lists, only a known prefix counts. */
-const LOOK_ALIKES = new Set(["UTF", "SHA", "ISO", "RFC", "CVE", "MD", "TLS", "SSL", "AES", "RSA", "WCAG", "ARIA", "GMT", "UTC", "HTTP", "HTML", "CSS", "SVG", "PNG", "JPEG", "MP", "H", "X"]);
+const LOOK_ALIKES = new Set(["UTF", "SHA", "ISO", "RFC", "CVE", "MD", "TLS", "SSL", "AES", "RSA", "WCAG", "ARIA", "GMT", "UTC", "HTTP", "HTML", "CSS", "SVG", "PNG", "JPEG", "MP", "H", "X", "GPT", "GIF", "PDF", "ES", "PHP", "IPV", "UTF", "OAUTH", "ARM", "USB", "RGB", "HSL"]);
 
 /* The row-id prefixes the vault's project lists declare, or null when no vault is readable here.
    DISCIPLINE_VAULT_ROOT wins (any non-directory value, e.g. "none", means unreadable); else the usual clones. */

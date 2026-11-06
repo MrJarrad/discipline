@@ -70,3 +70,8 @@ test("DISC-258: reviewer.md names the `- `, `* ` and `> ` prefixes, and the gate
   const post = (line) => [{ author: { login: "MrJarrad" }, at: "2026-11-02T10:00:00Z", body: `## Review — head c7868b2\n\n${line}` }];
   for (const m of ["- ", "* ", "> "]) assert.equal(reviewVerdict(post(`${m}merge: yes`), "c7868b2aaaa", ["MrJarrad"])?.verdict, "yes", m);
 });
+
+// DISC-258 amber (review of #145): the trim that dropped this cloud-dispatch sentence is undone; words come out elsewhere.
+test("DISC-258: cloud-dispatch keeps 'Thresholds adjustable, reason in the handover.'", () => {
+  assert.ok(flat("skills/cloud-dispatch/SKILL.md").includes("Thresholds adjustable, reason in the handover."));
+});

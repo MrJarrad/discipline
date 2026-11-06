@@ -53,7 +53,7 @@ test("prRowProblem: a lowercase or one-letter prefix is not a row id", () => {
 
 // DISC-255 review amber (#144): "UTF-8" and "SHA-256" match [A-Z]{2,4}-<n> and let a PR through with no row.
 test("look-alikes (UTF-8, SHA-256, ISO-8601) are not row ids, with or without a vault to ask", () => {
-  for (const text of ["Switch to UTF-8 output", "Hash with SHA-256", "ISO-8601 dates", "WCAG-2 contrast"]) {
+  for (const text of ["Switch to UTF-8 output", "Hash with SHA-256", "ISO-8601 dates", "WCAG-2 contrast", "Use GPT-4 for drafts"]) {
     assert.equal(run(pr({ title: text, body: "" }))?.permissionDecision, "deny", text);
   }
   assert.equal(run(pr({ title: "PF-934 and UTF-8", body: "" })), null, "a real id beside a look-alike still passes");

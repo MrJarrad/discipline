@@ -20,7 +20,7 @@ it for the probe history; this skill states the procedure only.
 - Gates, machine-bound work (`:4411` capture listener, present-for-review, interactive-auth
   MCPs) → local `Agent`, per `routing` rule 9.
 - `Agent` `isolation:"remote"` — undocumented, no gating table, no fallback contract.
-  It silently runs **local** with no error. Do not build the way of working on it; re-probe only when Anthropic
+  It silently runs **local**, no error. Do not build on it; re-probe only when Anthropic
   documents a programmatic cloud `Agent` path.
 
 ## Cloud-first projects, Drop intake, the Mac bridge
@@ -154,7 +154,7 @@ live heavy lanes. Over capacity means any of: free disk, after subtracting the l
 lane-end sweep (`routing` HARD-RULES 13), re-read, and if still over send the heavy lane to
 a child cloud session (`create_session`) carrying the brief (`routing` HARD-RULES 19). Recipe: `references/HELPER-SESSIONS.md`. Repos and access: its §1. Do not queue it here; the
 operator is never asked to move sessions for disk or load. The shared DS root clone is never switched or
-regenerated in (`dispatch-brief` HOUSE-RULES).
+regenerated in (`dispatch-brief` HOUSE-RULES). Thresholds adjustable, reason in the handover.
 
 ## Concurrency law
 
