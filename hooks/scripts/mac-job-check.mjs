@@ -7,7 +7,9 @@
    Interface: macJobProblems(fileText) -> string[] (empty = clean).
    CLI: node mac-job-check.mjs <job file> — exit 0 clean · 1 problem (named on
    stderr) · 2 usage error or unreadable file.                              */
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 // The Mac user's home — run.sh requires `repo:` under $HOME; an absolute path is
 // accepted only below this (override with JHD_MAC_HOME), as is `~/…`; the bare home is refused.
@@ -40,13 +42,26 @@ export function macJobProblems(text) {
   return problems;
 }
 
+/* DISC-233: the runner claims `queue/mac/pending/` on origin/main AND every origin/claude/* branch, so a
+   job filed to pending/ from a review branch runs before its review PR merges. On any checkout that is
+   not main, a job belongs in `queue/mac/review/` until the PR merges (MAC-JOBS.md). */
+export function macJobPathProblems(file, branch) {
+  if (!/\/queue\/mac\/pending\/[^/]+$/.test(String(file).replace(/\\/g, "/"))) return [];
+  if (!branch || branch === "main" || branch === "HEAD") return [];
+  return [`filed in queue/mac/pending/ on branch '${branch}': the runner claims it before its review PR merges; file it in queue/mac/review/ until the merge moves it to pending/ (DISC-233)`];
+}
+
+function branchOf(file) {
+  try { return execFileSync("git", ["-C", dirname(file), "symbolic-ref", "--short", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; }
+}
+
 function main() {
   const file = process.argv[2];
   if (!file || !existsSync(file)) {
     console.error(`mac-job-check: cannot read ${file}`);
     process.exit(2);
   }
-  const problems = macJobProblems(readFileSync(file, "utf8"));
+  const problems = [...macJobProblems(readFileSync(file, "utf8")), ...macJobPathProblems(file, branchOf(file))];
   for (const p of problems) console.error(`mac-job-check: ${file}: ${p}`);
   process.exit(problems.length ? 1 : 0);
 }

@@ -53,3 +53,30 @@ test("CLI exits 0 clean, 1 on a missing repo:, 2 on an unreadable file", () => {
   assert.equal(spawnSync("node", [script, bad]).status, 1);
   assert.equal(spawnSync("node", [script, join(d, "nope.md")]).status, 2);
 });
+
+// DISC-233: the runner claims pending/ on origin/main AND every claude/* branch, so a job filed to
+// pending/ from a review branch runs before its review PR merges. A job under a review branch's
+// checkout belongs in queue/mac/review/ until the PR merges.
+import { macJobPathProblems } from "./mac-job-check.mjs";
+
+test("DISC-233: a pending/ job on a checkout that is not main is refused; on main, or in review/, it is clean", () => {
+  const p = "/v/queue/mac/pending/job.md";
+  assert.match(macJobPathProblems(p, "claude/foo")[0], /queue\/mac\/review\//);
+  assert.deepEqual(macJobPathProblems(p, "main"), []);
+  assert.deepEqual(macJobPathProblems("/v/queue/mac/review/job.md", "claude/foo"), []);
+  assert.deepEqual(macJobPathProblems("/elsewhere/job.md", "claude/foo"), []);
+});
+
+test("DISC-233: the CLI applies the path check using the file's git branch", () => {
+  const execFileSync = execFileSyncImpl;
+  const dir = mkdtempSync(join(tmpdir(), "macjob-"));
+  execFileSync("git", ["init", "-q", "-b", "claude/review-x", dir]);
+  const pending = join(dir, "queue/mac/pending");
+  execFileSync("mkdir", ["-p", pending]);
+  const f = join(pending, "j.md");
+  writeFileSync(f, job("repo: ~/a/b"));
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL("./mac-job-check.mjs", import.meta.url)), f], { encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /review\//);
+});
+import { execFileSync as execFileSyncImpl } from "node:child_process";

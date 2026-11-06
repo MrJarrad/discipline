@@ -1,3 +1,6 @@
+1.172.0 — backlog DISC-233: `mac-job-check.mjs` now refuses a job file under `queue/mac/pending/` on any checkout that is not on main (the runner claims `pending/` on every `claude/*` branch, so the job ran before its review PR merged); it must sit in `queue/mac/review/` until the merge moves it. `doer-rules.md` § Repo and safety and HELPER-SESSIONS § 2 say so (the folder rule itself was in `MAC-JOBS.md` since 1.164.0).
+encoded: 1.172.0 — backlog DISC-233.
+
 1.171.0 — backlog DISC-253: a row closed by a merged PR that never cites it no longer stays open unseen (PF-934 and HB-301). `list-drift-check`'s `named-by` finding now also reads ids named in a merged PR's commit body, marked `(body)` (still non-failing and never auto-struck: a PR can name a row it only started, decision 2026-10-18-orderly-backlogs). `lane-end` prints "also named by merged PRs (flip or say why not): <ids>" for the lane's project after its drift run. With #135 (large logs and `Merge #n:` subjects now indexed) this covers the four causes found.
 encoded: 1.171.0 — backlog DISC-253.
 
