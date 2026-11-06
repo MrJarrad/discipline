@@ -37,7 +37,7 @@
    done/moot row is struck in place; a `Next free number` below the highest used
    is raised. Rows are never deleted and numbers never reused. bad-status,
    dup-id, suspect, unknown and named-by stay for a person: `named-by` (non-failing)
-   is an open row whose ID a merged PR's title names. A title can name a row it
+   is an open row whose ID a merged PR's title names, or (marked `(body)`, DISC-253) its commit body names. A title can name a row it
    does not finish ("part 1 of 3", a prototype, a follow-up), so it is never
    struck on that alone; Revert titles are ignored (#107 review, red).
    --stale [--days 30] adds a `stale` line (non-failing) for each open row whose
@@ -144,7 +144,12 @@ export function mergedIndex(repos) {
           if (!shaOf.has(n)) shaOf.set(n, sha);
           const title = m[2] ? (body.split("\n").find((l) => l.trim()) || "") : subj; // `Merge #n: title` and squash subjects carry the title themselves
           if (/^revert\b/i.test(title.trim())) continue;
-          for (const id of title.match(/\b[A-Z]{2,4}-\d+[a-z]?\b/g) || []) named.push({ id, num: n, sha });
+          const ID = /\b[A-Z]{2,4}-\d+[a-z]?\b/g;
+          const inTitle = new Set(title.match(ID) || []);
+          for (const id of inTitle) named.push({ id, num: n, sha });
+          // DISC-253: ids named only in the commit body count too, marked (body); report-only like a title mention.
+          const rest = m[2] ? body.split("\n").filter((l) => l.trim()).slice(1).join("\n") : body;
+          for (const id of new Set(rest.match(ID) || [])) if (!inTitle.has(id)) named.push({ id, num: n, sha, body: true });
         }
       }
       let slug = "";
@@ -177,7 +182,7 @@ export function mergedIndex(repos) {
     },
     // `<repo> #n <sha>` for each merged PR whose title names this row ID (DISC-189; reported, never struck).
     namedBy(id) {
-      return list.flatMap((r) => r.named.filter((x) => x.id === id).map((x) => `${r.name} #${x.num} ${x.sha}`));
+      return list.flatMap((r) => r.named.filter((x) => x.id === id).map((x) => `${r.name} #${x.num} ${x.sha}${x.body ? " (body)" : ""}`));
     },
     // `<repo> #n <sha>` for a merged PR ref, or null.
     mergeOf(ref, project) {

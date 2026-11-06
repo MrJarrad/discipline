@@ -259,9 +259,9 @@ test("--then-merge without --repo fails loud, naming the missing flag", () => {
 // flips in the same action as its event; a drift finding fails the exit code but
 // never loses the lane's own record.
 
-const BACKLOG_TEXT = "---\nname: p-backlog\nkind: backlog\nprefix: TP\n---\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| TP-101 | thing | d | in flight (#7) |\n| TP-102 | other | d | in flight (#7) |\n\n## Done\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
+const BACKLOG_TEXT = "---\nname: p-backlog\nkind: backlog\nprefix: TP\n---\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| TP-101 | thing | d | in flight (#7) |\n| TP-102 | other | d | in flight (#7) |\n| TP-103 | never cites a pr | d | open |\n\n## Done\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
 
-function laneEndWithBacklog(extra) {
+function laneEndWithBacklog(extra, { bodyCommit = false } = {}) {
   const vault = makeVaultWithQueue();
   mkdirSync(join(vault, "projects", "p"), { recursive: true });
   writeFileSync(join(vault, "projects", "p", "p-backlog.md"), BACKLOG_TEXT);
@@ -270,6 +270,7 @@ function laneEndWithBacklog(extra) {
   execFileSync("git", ["-C", vault, "push", "-q"]);
   const repo = makeTargetRepoWithPr("p"); // named for the backlog project: a bare #n maps by name
   execFileSync("git", ["-C", repo, "commit", "-q", "--allow-empty", "-m", "thing (#7)"]);
+  if (bodyCommit) execFileSync("git", ["-C", repo, "commit", "-q", "--allow-empty", "-m", "bigger change (#8)", "-m", "Closes TP-103."]);
   const sha = execFileSync("git", ["-C", repo, "rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
   const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
   const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |",
@@ -476,4 +477,18 @@ test("DISC-168: an unrowed idea sheet in the vault does not stop lane-end writin
   assert.doesNotMatch(r.stderr, /duplicate row number after write/);
   assert.match(r.stderr + r.stdout, /idea-unrowed/);
   rmSync(vault, { recursive: true, force: true });
+});
+
+// DISC-253: after the lane's own row, lane-end lists every other open row a merged PR names, so a row
+// closed by a PR that never cites it is flipped or explained, not left open for weeks. Report-only.
+test("DISC-253: lane-end prints 'also named by merged PRs' for an open row only a PR body names", () => {
+  const { r } = laneEndWithBacklog([], { bodyCommit: true });
+  const out = r.stdout + r.stderr;
+  assert.match(out, /also named by merged PRs.*TP-103/);
+  assert.match(out, /flip or say why not/);
+});
+
+test("DISC-253: no named rows, no 'also named' line", () => {
+  const { r } = laneEndWithBacklog([]);
+  assert.doesNotMatch(r.stdout + r.stderr, /also named by merged PRs/);
 });

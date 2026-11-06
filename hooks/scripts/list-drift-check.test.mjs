@@ -439,3 +439,27 @@ test("DISC-252: a `Merge #n: title` subject is a merged PR and its title names t
   assert.ok(idx.merged("#368"));
   assert.ok(idx.namedBy("PF-1105").some((x) => x.includes("#368")));
 });
+
+// DISC-253 (s58): PF-934 and HB-301 were merged but stayed open because the PR named them only in the
+// commit body (a squash body, a `Closes X-n` line) and the index read titles only. A body mention is
+// reported too, marked as a body mention; still report-only and non-failing (a PR can name a row it only started).
+test("DISC-253: an open row named only in a merged PR's body is a named-by finding marked (body)", () => {
+  const { repo } = makeRepo("alpha");
+  git(repo, "commit", "-q", "--allow-empty", "-m", "ship the thing (#50)", "-m", "Closes AL-9. Also part of AL-12.");
+  const idx = mergedIndex([repo]);
+  assert.deepEqual(idx.namedBy("AL-9").map((s) => s.endsWith("(body)")), [true]);
+  const f = checkBacklog("alpha", BACKLOG("| AL-9 | never cites a pr | d | open |"), idx);
+  const n = f.filter((x) => x.kind === "named-by");
+  assert.equal(n.length, 1, JSON.stringify(f));
+  assert.match(n[0].msg, /#50.*\(body\)/);
+  assert.ok(!FAILING.has("named-by"));
+});
+
+test("DISC-253: a title mention is not marked (body), and a Revert body names nothing", () => {
+  const { repo } = makeRepo("alpha");
+  git(repo, "commit", "-q", "--allow-empty", "-m", "AL-3 done (#51)");
+  git(repo, "commit", "-q", "--allow-empty", "-m", "Revert \"AL-4 thing (#52)\"", "-m", "Reverts AL-4.");
+  const idx = mergedIndex([repo]);
+  assert.equal(idx.namedBy("AL-3").some((s) => s.endsWith("(body)")), false);
+  assert.deepEqual(idx.namedBy("AL-4"), []);
+});
