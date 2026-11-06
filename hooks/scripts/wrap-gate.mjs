@@ -6,19 +6,28 @@
    nothing has closed or explained. Run it after `list-drift-check --fix`, which clears what needs no
    judgement; what is left needs a person: flip the row, or say why the PR did not finish it.
 
-   Usage: node wrap-gate.mjs --vault <root> --projects PF,HB --repo <path>[,<path>]... (required)
+   Usage: node wrap-gate.mjs --vault <root> --projects PF,HB (--repo <path>[,<path>]... | --vault-only)
    Exit 0 clean · 1 lines to resolve (printed) · 2 usage error or unknown prefix.                  */
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkVault, formatFinding, FAILING } from "./list-drift-check.mjs";
+import { existsSync } from "node:fs";
+import { checkVault, formatFinding, FAILING, repoHasPrHistory } from "./list-drift-check.mjs";
 import { discoverFiles } from "./lib/queue-ids.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
-export function wrapGate(vault, prefixes, repos = []) {
+export function wrapGate(vault, prefixes, repos = [], { vaultOnly = false } = {}) {
   const want = [...new Set(prefixes.map((p) => String(p).trim()).filter(Boolean))];
   if (!want.length) return { ok: false, reason: "name at least one project prefix (--projects PF,HB)" };
-  // named-by reads the product repos' merged history; with no --repo it cannot run, and "clean" would be a false clear.
-  if (!repos.length) return { ok: false, reason: "pass --repo <path> for each product repo this session touched (the vault itself if none): without their history the named-by check cannot run, so the gate will not report clean" };
+  // named-by reads the product repos' merged history. With no usable --repo it cannot run, and "clean" would be a
+  // false clear (#146 review): every --repo must exist, be a git repo with merged-PR history, and not be the vault
+  // itself unless the session's projects are vault-only (--vault-only, which then reads the vault's own history).
+  if (vaultOnly && !repos.length) repos = [vault];
+  if (!repos.length) return { ok: false, reason: "pass --repo <path> for each product repo this session touched, or --vault-only when its projects live only in the vault: without merged-PR history the named-by check cannot run, so the gate will not report clean" };
+  for (const r of repos) {
+    if (!existsSync(r)) return { ok: false, reason: `--repo ${r} does not exist` };
+    if (resolve(r) === resolve(vault) && !vaultOnly) return { ok: false, reason: `--repo ${r} is the vault itself, which cannot stand in for a product repo (use --vault-only if this session's projects live only in the vault)` };
+    if (!repoHasPrHistory(r)) return { ok: false, reason: `--repo ${r} is not a git repo, or has no merged-PR history to read (named-by would never fire)` };
+  }
   const reg = discoverFiles(vault);
   const unknown = want.filter((p) => !reg.byPrefix.has(p));
   if (unknown.length) return { ok: false, reason: `unknown project prefix: ${unknown.join(", ")} (known: ${[...reg.byPrefix.keys()].sort().join(", ")})` };
@@ -31,9 +40,9 @@ export function wrapGate(vault, prefixes, repos = []) {
 function main(argv) {
   const get = (k) => { const i = argv.indexOf(k); return i === -1 ? undefined : argv[i + 1]; };
   const vault = get("--vault"), projects = get("--projects");
-  if (!vault || !projects) { console.error("usage: wrap-gate --vault <root> --projects PF,HB --repo <path>[,<path>]... (--repo is required)"); return 2; }
+  if (!vault || !projects) { console.error("usage: wrap-gate --vault <root> --projects PF,HB (--repo <path>[,<path>]... | --vault-only)"); return 2; }
   const repos = argv.flatMap((a, i) => (a === "--repo" ? String(argv[i + 1] || "").split(",").filter(Boolean).map((p) => resolve(p)) : []));
-  const g = wrapGate(resolveVaultRoot(vault), projects.split(","), repos);
+  const g = wrapGate(resolveVaultRoot(vault), projects.split(","), repos, { vaultOnly: argv.includes("--vault-only") });
   if (g.reason) { console.error(`wrap-gate: ${g.reason}`); return 2; }
   if (g.ok) { console.log(`wrap-gate: clean for ${projects}`); return 0; }
   for (const l of g.lines) console.log(l);
