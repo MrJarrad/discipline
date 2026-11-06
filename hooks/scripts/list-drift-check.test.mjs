@@ -419,3 +419,23 @@ test("DISC-247: a merged tree where two branches each took AL-1105 fails with du
   });
   assert.ok(checkVault(across, []).some((x) => x.kind === "dup-id"));
 });
+
+// DISC-252 (s56): a repo whose `git log` passed execFileSync's 1 MiB default maxBuffer was dropped from
+// the index (every PR citing it read unknown); and `Merge #n: title` merge subjects were not read.
+test("DISC-252: a repo whose git log is over 1 MiB is still indexed", () => {
+  const { repo } = makeRepo();
+  const msg = join(mkdtempSync(join(tmpdir(), "big-")), "m.txt");
+  writeFileSync(msg, "Big body (#41)\n\n" + "x".repeat(79) + "\n".repeat(1) + ("y".repeat(99) + "\n").repeat(12000));
+  git(repo, "commit", "-q", "--allow-empty", "-F", msg);
+  const idx = mergedIndex([repo]);
+  assert.ok(idx.merged("#41"), "the #41 squash in a >1 MiB log");
+  assert.ok(idx.merged("#7"), "history before it");
+});
+
+test("DISC-252: a `Merge #n: title` subject is a merged PR and its title names the rows it cites", () => {
+  const { repo } = makeRepo();
+  git(repo, "commit", "-q", "--allow-empty", "-m", "Merge #368: PF-1105 text entry");
+  const idx = mergedIndex([repo]);
+  assert.ok(idx.merged("#368"));
+  assert.ok(idx.namedBy("PF-1105").some((x) => x.includes("#368")));
+});

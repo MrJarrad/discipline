@@ -17,6 +17,9 @@
    done (<PR> <sha>[, <PR> <sha>]...) · moot (<reason>). <PR> is `#n`,
    `owner/repo#n` or `<name> #n`; a bare name resolves against the --repo
    basenames (`hoverboard` = jhd-hoverboard; alias `DS` = jhd-design-system).
+   `pf`, `hb` and other short forms are NOT repo names (only `DS` is an alias): write
+   `portfolio #n`, `hoverboard #n` or `owner/repo#n`, or the PR reads unknown. History is read
+   from `(#n)` squash subjects, `Merge pull request #n` and `Merge #n: title` merge subjects.
 
    Backlog shape (as rebuilt in the vault, 2026-10-08): tables headed
    `| # | Item | Raised | Status | Notes |` — the Status column is found from the
@@ -113,7 +116,8 @@ export function parseBacklog(text) {
   return rows;
 }
 
-const git = (repo, ...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+// maxBuffer: execFileSync defaults to 1 MiB and throws past it; a big repo's log was silently dropped (DISC-252).
+const git = (repo, ...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1024 * 1024 * 1024 });
 
 /* Merged means on the default branch: origin/HEAD, else main, else master, else origin/main, else origin/master, else HEAD. */
 function defaultRef(path) {
@@ -134,11 +138,11 @@ export function mergedIndex(repos) {
       const shaOf = new Map();
       const named = [];
       for (const [sha, subj, body = ""] of commits) {
-        for (const m of subj.matchAll(/\(#(\d+)\)\s*$|^Merge pull request #(\d+)/g)) {
-          const n = m[1] || m[2];
+        for (const m of subj.matchAll(/\(#(\d+)\)\s*$|^Merge pull request #(\d+)|^Merge #(\d+):/g)) {
+          const n = m[1] || m[2] || m[3];
           nums.add(n);
           if (!shaOf.has(n)) shaOf.set(n, sha);
-          const title = m[2] ? (body.split("\n").find((l) => l.trim()) || "") : subj;
+          const title = m[2] ? (body.split("\n").find((l) => l.trim()) || "") : subj; // `Merge #n: title` and squash subjects carry the title themselves
           if (/^revert\b/i.test(title.trim())) continue;
           for (const id of title.match(/\b[A-Z]{2,4}-\d+[a-z]?\b/g) || []) named.push({ id, num: n, sha });
         }
