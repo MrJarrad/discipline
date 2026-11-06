@@ -10,10 +10,16 @@
    Exit 0 clean · 1 lines to resolve (printed) · 2 usage error or unknown prefix.                  */
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { checkVault, formatFinding, FAILING, repoHasPrHistory } from "./list-drift-check.mjs";
 import { discoverFiles } from "./lib/queue-ids.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
+
+/* `git rev-parse --is-shallow-repository` is "true" for a depth-limited clone (the cloud default). */
+function isShallow(path) {
+  try { return execFileSync("git", ["-C", path, "rev-parse", "--is-shallow-repository"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() === "true"; } catch { return false; }
+}
 
 export function wrapGate(vault, prefixes, repos = [], { vaultOnly = false } = {}) {
   const want = [...new Set(prefixes.map((p) => String(p).trim()).filter(Boolean))];
@@ -26,6 +32,7 @@ export function wrapGate(vault, prefixes, repos = [], { vaultOnly = false } = {}
   for (const r of repos) {
     if (!existsSync(r)) return { ok: false, reason: `--repo ${r} does not exist` };
     if (resolve(r) === resolve(vault) && !vaultOnly) return { ok: false, reason: `--repo ${r} is the vault itself, which cannot stand in for a product repo (use --vault-only if this session's projects live only in the vault)` };
+    if (isShallow(r)) return { ok: false, reason: `--repo ${r} is a shallow clone: it holds only the newest commits, so named-by would miss older merged PRs and report clean wrongly. Fetch history first, e.g. git fetch --depth=1000 (run inside ${r})` };
     if (!repoHasPrHistory(r)) return { ok: false, reason: `--repo ${r} is not a git repo, or has no merged-PR history to read (named-by would never fire)` };
   }
   const reg = discoverFiles(vault);

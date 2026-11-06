@@ -132,3 +132,23 @@ test("the vault itself is refused as a product repo; --vault-only allows it for 
   const cli = spawnSync(process.execPath, [script, "--vault", v, "--projects", "AL", "--vault-only"], { encoding: "utf8" });
   assert.notEqual(cli.status, 2, "--vault-only needs no --repo: " + cli.stderr);
 });
+
+// DISC-258 (parent, after #146): a shallow clone holds only the newest commits, so named-by would miss every
+// older merged PR and "clean" would be a false clear. The gate refuses it and says how to fetch history.
+test("a shallow --repo is refused with the fetch command, never clean", () => {
+  const v = two();
+  const full = repo("alpha", "ship the thing (#9)", "Closes AL-1.");
+  const shallow = join(mkdtempSync(join(tmpdir(), "wg-shallow-")), "alpha");
+  execFileSync("git", ["clone", "-q", "--depth", "1", `file://${full}`, shallow]);
+  assert.equal(git(shallow, "rev-parse", "--is-shallow-repository"), "true");
+  const g = wrapGate(v, ["AL"], [shallow]);
+  assert.equal(g.ok, false);
+  assert.match(g.reason, /shallow/);
+  assert.match(g.reason, /git fetch --depth=1000/);
+  const r = spawnSync(process.execPath, [script, "--vault", v, "--projects", "AL", "--repo", shallow], { encoding: "utf8" });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /git fetch --depth=1000/);
+  assert.doesNotMatch(r.stdout, /clean/);
+  // a full repo is still read normally
+  assert.equal(wrapGate(v, ["AL"], [full]).ok, false, "the full repo reaches the named-by check (AL-1)");
+});
