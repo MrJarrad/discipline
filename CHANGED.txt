@@ -1,3 +1,6 @@
+1.176.0 — backlog DISC-246 (s50/s51, DS #152, pf #423, #442): a reviewer's verdict no longer needs re-posting for the merge gate. `agents/reviewer.md` § Verdict told reviewers to end on "n red, n amber — merge condition met / not met", which `reviewVerdict()` cannot read (it needs a `merge: yes|no` line); it now ends on `merge: yes — n red, n amber.` (or `merge: no — …`), the shape the gate parses. `reviewVerdict()` also accepts a list marker or quote before the verdict line (`- merge: yes`, `> **merge: no**`). A post with no verdict line, or on another head, is still refused. Pinned in `session58-law.test.mjs`.
+encoded: 1.176.0 — backlog DISC-246.
+
 1.175.0 — backlog DISC-244 (lesson HB-223, 2026-11-02): `audit-build` gains § Swapping a panel onto a shared kit. A kit-swap before/after delta lists every visual property the kit draws (radius, border, shadow, colour, font, motion), not sizes alone, and checks every `var()` the kit reads resolves in the consumer (a Tailwind-only `--radius-full` is absent in a non-Tailwind consumer). Pinned in `session58-law.test.mjs`.
 encoded: 1.175.0 — backlog DISC-244.
 
