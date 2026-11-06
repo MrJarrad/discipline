@@ -14,7 +14,7 @@ const HR = "skills/routing/references/HARD-RULES.md";
 test("every create_session prompt opens with the run-it-now line and closes with the send to @parent", () => {
   const OPEN = 'opens "This message is your task — run it now."';
   const CLOSE = 'closes "Send the full return to the parent with send_message (session_id "@parent")."';
-  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes(`**A \`create_session\` brief** ${OPEN.replace(/"$/, '",')} has the helper write \`~/.claude/helper-session\` first, and ${CLOSE}`));
+  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes(`**A \`create_session\` brief** ${OPEN.replace(/"$/, '",')} writes the parent's id to \`~/.claude/helper-session\` first, ${CLOSE}`));
   const r = flat(HR);
   assert.ok(r.includes('Every `create_session` prompt opens with "This message is your task — run it now."'));
   assert.ok(r.includes('Every `create_session` brief closes with "Send the full return to the parent with send_message (session_id "@parent")."'));

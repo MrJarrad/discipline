@@ -1,3 +1,6 @@
+1.166.0 — backlog DISC-240: the Stop hook `parent-return-stop.mjs` no longer names the helper's own session id as its parent. A marker holding the helper's own id (the hook's `session_id`) is refused and the block says `@parent`; `dispatch-brief` now says the helper writes the PARENT's session id, never its own (the cause: a brief said "write your session id").
+encoded: 1.166.0 — backlog DISC-240.
+
 1.165.0 — `2026-11-03-disc-248-visible-link`: backlog DISC-248 (operator s54, on PF-1125: "we need to sort this in discipline, i keep getting links to review thing where the thing needing reviewing cant be reviewed in the link"; follow-up: "we do use dark mode on media in some places but that's not the easiest place to review the work"). A look or listen link goes to the easiest place to review the change, naming the difference to look for; a page where only a measured value moved is not that, and when no live page shows the change the message says so and sends no link. The rule lives once in `skills/present-for-review/references/PREVIEW-PROBE.md` § Link checks; `dispatch-brief` Done-when and the `doer-rules.md` look-lane done-when point at it. Tests: new `session53-law.test.mjs` (PR #130, merge eee42bd); the 1.164.0 release check in `session52-law.test.mjs` now finds its entry by prefix. Ceilings unchanged.
 encoded: 1.165.0 — backlog DISC-248.
 
