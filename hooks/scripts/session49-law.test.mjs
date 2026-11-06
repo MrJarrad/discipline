@@ -25,7 +25,7 @@ test("0.12.1: references/export-set.md carries the vendoring section and the sta
 });
 
 test("the mirror pins the handoff-css commit that carries this copy", () => {
-  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "103db037721ffaf06191a1b7dceabdc7783db8aa"/);
+  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "cf4c99b4ab4ffa9b7bdb9d29f8b3a62838531c79"/);
 });
 
 test("release: 1.160.0 has its CHANGED.txt entry with the encoded line", () => {

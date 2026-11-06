@@ -1,3 +1,6 @@
+1.173.0 — backlog DISC-241: `skills/handoff-to-code/SKILL.md` is a byte copy of handoff-css v0.14.0 (cf4c99b, `dist/claude-plugin/SKILL.md`): split design systems (every file's export listed in `paths.input`, joined by key, `MERGE_*` errors), every command takes the plugin's `.zip`, and step 5b (the brief's `## Asks` statuses, the assumed-ask deviation row) with its two new law sentences. The mirror test now pins cf4c99b (strict run against the v0.14.0 checkout passes: 3 tests) and the handoff-to-code word ceiling is raised 2360 -> 2600 (measured 2586; a mirror cannot be trimmed here).
+encoded: 1.173.0 — backlog DISC-241.
+
 1.172.0 — backlog DISC-233: `mac-job-check.mjs` now refuses a job file under `queue/mac/pending/` on any checkout that is not on main (the runner claims `pending/` on every `claude/*` branch, so the job ran before its review PR merged); it must sit in `queue/mac/review/` until the merge moves it. `doer-rules.md` § Repo and safety and HELPER-SESSIONS § 2 say so (the folder rule itself was in `MAC-JOBS.md` since 1.164.0).
 encoded: 1.172.0 — backlog DISC-233.
 
