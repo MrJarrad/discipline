@@ -108,7 +108,12 @@ config declares, and every listed spec's file is read.
 ### 2. Regenerate, then read every warning
 
 `handoff-css --config handoff.config.mjs --check` exits 1 on drift — red means stale tokens,
-regenerate and commit first. Read the responsive/aliases report, one warning per row:
+regenerate and commit first. A design system split across Figma files generates as one:
+`paths.input` lists every file's Design System Handoff export (or pass `--input` once per file),
+joined by variable key, so a library alias stays `var()`. A `MERGE_*` error names the two files
+that disagree — re-export them from one state; never drop one to get green. Every command takes
+the plugin's `.zip` in place of the `.json` and `.md` inside it. Read the responsive/aliases
+report, one warning per row:
 
 | Code | Your move |
 | --- | --- |
@@ -184,6 +189,17 @@ The **Content Outline** is the copy inventory; node lines carry each string verb
   current copy — read the changelog, build current strings.
 - **A copy section with zero findings still exists and says so.** Silence is not a report.
 
+### 5b. The brief's asks — each line says what to build
+
+A brief from `design-handoff-script` ends with `## Asks`: the questions a build would otherwise
+guess, answered in chat and never a reason to stop. The agent records each answer in the
+answers ledger the script reads (`--answers`, keyed by the ask's key) and exports again; each line
+then carries a status. **answered** — build the answer. **waiting on Figma** — build the answer,
+relay the note the line gives for the person to add in Figma. **assumed** — build the suggestion.
+**open** — no answer and no suggestion. **An open ask is a reported item, never a guess.** Name
+it and ask; build nothing in its place. Every waiting, assumed or open ask is one row in the
+deviation table. Ledger shape and statuses: the script's README.
+
 ### 6. Check the built CSS back against the pair
 
 Before running it, enumerate every rendering of the export's nodes — grep for the style
@@ -219,6 +235,8 @@ One row per node whose value did not come straight from the pair, plus one per l
   missing signal filed against the design file.
 - **hand-authored-override** — the stylesheet declares the property, the generator reported
   rather than overwrote it.
+- **assumed-ask** — built from an ask's suggestion, or from an answer still waiting on Figma;
+  `ruling ref` is the ask's key. An open ask is the same row with nothing built.
 
 `ruling ref` cites the lock row or ruling that authorised a non-match. An empty `ruling ref`
 on a non-match row is an unauthorised deviation.
