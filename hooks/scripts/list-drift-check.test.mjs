@@ -463,3 +463,34 @@ test("DISC-253: a title mention is not marked (body), and a Revert body names no
   assert.equal(idx.namedBy("AL-3").some((s) => s.endsWith("(body)")), false);
   assert.deepEqual(idx.namedBy("AL-4"), []);
 });
+
+// DISC-255 part 3 (vault CI): fail a PR only on failing findings it ADDS. The vault already carries legacy
+// findings, so a plain "any failing finding" check would be red on arrival.
+import { newFailingFindings } from "./list-drift-check.mjs";
+
+test("DISC-255: newFailingFindings keeps only failing findings the head adds over the base", () => {
+  const base = makeVault({
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy junk | d | gibberish |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL"),
+    "orchestrator/operator-queue.md": "# index\n",
+  });
+  const head = makeVault({
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy junk | d | gibberish |\n| AL-2 | new junk | d | also gibberish |\n| AL-3 | dup | d | open |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-3 | same id in the queue | | | |"),
+    "orchestrator/operator-queue.md": "# index\n",
+  });
+  const added = newFailingFindings(head, base, []).map((f) => `${f.kind} ${f.row}`).sort();
+  assert.deepEqual(added, ["bad-status AL-2", "dup-id AL-3"]);
+  assert.deepEqual(newFailingFindings(base, base, []), [], "no change adds nothing");
+});
+
+test("DISC-255: the CLI --new-vs exits 1 listing only the added failing findings", () => {
+  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
+  const head = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |\n| AL-2 | new | d | nonsense |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
+  const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
+  const r = spawnSync(process.execPath, [script, "--vault", head, "--new-vs", base], { encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /bad-status .*row AL-2/);
+  assert.doesNotMatch(r.stdout, /row AL-1:/);
+  assert.equal(spawnSync(process.execPath, [script, "--vault", base, "--new-vs", base], { encoding: "utf8" }).status, 0);
+});

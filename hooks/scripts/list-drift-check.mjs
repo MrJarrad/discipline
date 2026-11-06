@@ -48,7 +48,8 @@
    `disc-open` line for every row still under `## Open` in the DISC backlog: a session that
    touched discipline ends with that section empty (each row done with its PR, or moot).
 
-   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty]
+   Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty] [--new-vs <base vault>]
+   --new-vs <base>: print and fail (exit 1) only on failing findings this vault adds over <base> (vault CI, DISC-255).
    Also exports the row editors lane-end uses (setRowStatus, addRow).        */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -348,6 +349,14 @@ export function crossFileDupIds(vault) {
 }
 
 export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "next-free-stale", "rows-in-index", "idea-unrowed", "disc-open"]);
+/* DISC-255 (vault CI): failing findings in `head` that `base` does not already have, keyed by kind, file and
+   row (a row-less finding by its message). A PR is judged only on what it adds; legacy findings stay a cleanup. */
+export function newFailingFindings(head, base, repos = []) {
+  const key = (f) => `${f.kind}|${f.file || f.project}|${f.row || ""}|${f.row ? "" : f.msg}`;
+  const had = new Set(checkVault(base, repos).filter((f) => FAILING.has(f.kind)).map(key));
+  return checkVault(head, repos).filter((f) => FAILING.has(f.kind) && !had.has(key(f)));
+}
+
 export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? ` row ${f.row}` : ""}: ${f.msg}`;
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */
@@ -594,6 +603,14 @@ function main() {
   const vi = argv.indexOf("--vault");
   if (vi === -1 || !argv[vi + 1]) { console.error("usage: list-drift-check --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty]"); process.exit(2); }
   const vault = resolveVaultRoot(argv[vi + 1]);
+  const nv = argv.indexOf("--new-vs");
+  if (nv !== -1 && argv[nv + 1]) {
+    const repos0 = argv.flatMap((a, k) => (a === "--repo" ? String(argv[k + 1] || "").split(",").filter(Boolean).map((p) => resolve(p)) : []));
+    const added = newFailingFindings(vault, resolveVaultRoot(argv[nv + 1]), repos0);
+    for (const f of added) console.log(formatFinding(f));
+    console.log(`list-drift-check: ${added.length} failing finding(s) added over ${argv[nv + 1]}.`);
+    process.exit(added.length ? 1 : 0);
+  }
   const repos = argv.flatMap((a, i) => (a === "--repo" && argv[i + 1] ? argv[i + 1].split(",") : [])).map((p) => resolve(p));
   try { writeDriftStamp(vault, undefined, repos); } catch { /* the stamp is row-add's gate input, never this check's failure */ }
   let findings;
