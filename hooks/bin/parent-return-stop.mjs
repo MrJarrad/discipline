@@ -47,10 +47,11 @@ export function lastTurn(transcriptText) {
   return { text, sent };
 }
 
-export function check({ text, sent, parent }) {
+export function check({ text, sent, parent, self }) {
   if (sent || !text) return null;
   if (text.trim().length < ACK_MAX && !NEXT_PARENT.test(text)) return null;
-  const to = /^session_\w+$/.test(parent) ? `"${parent}"` : `"@parent"`;
+  // DISC-240: a marker holding the helper's own id is not a parent; fall back to @parent.
+  const to = /^session_\w+$/.test(parent) && parent !== self ? `"${parent}"` : `"@parent"`;
   return `Stop check (DISC-216): this is a helper session and this turn's return has not reached the parent. Send the full return with send_message (claude-code-remote; session_id ${to}), then end the turn.`;
 }
 
@@ -59,7 +60,7 @@ function main() {
   let parent; try { parent = readFileSync(join(homedir(), HELPER_MARKER), "utf8").trim(); } catch { return; }
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;
-  let reason; try { reason = check({ ...lastTurn(readFileSync(input.transcript_path, "utf8")), parent }); } catch { return; }
+  let reason; try { reason = check({ ...lastTurn(readFileSync(input.transcript_path, "utf8")), parent, self: input.session_id }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 

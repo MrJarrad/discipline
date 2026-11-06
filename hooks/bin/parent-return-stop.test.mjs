@@ -21,7 +21,7 @@ const result = () => ({ type: "user", message: { content: [{ type: "tool_result"
 const ORCHESTRATOR_ENV = { CLAUDE_CODE_CHILD_SESSION: "1", CLAUDE_CODE_ENTRYPOINT: "remote_desktop", CLAUDE_CODE_SESSION_ATTENDED: "1", CLAUDE_CODE_HOSTED_DESKTOP: "1", CLAUDE_CODE_REMOTE: "true" };
 const PARENT = "session_019vvsL25nhA75yyQzy7YKuY";
 
-function run(entries, { marker = PARENT, stopActive = false, path, remote = "true" } = {}) {
+function run(entries, { marker = PARENT, stopActive = false, path, remote = "true", self = "s" } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "prs-"));
   const transcript = path ?? join(dir, "t.jsonl");
   if (!path) writeFileSync(transcript, entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
@@ -29,7 +29,7 @@ function run(entries, { marker = PARENT, stopActive = false, path, remote = "tru
   if (marker !== null) { mkdirSync(join(home, ".claude"), { recursive: true }); writeFileSync(join(home, ".claude", "helper-session"), marker + "\n"); }
   const env = { ...process.env, ...ORCHESTRATOR_ENV, HOME: home, CLAUDE_CODE_REMOTE: remote };
   const r = spawnSync(process.execPath, [hook], {
-    input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: "s" }),
+    input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: self }),
     env, encoding: "utf8",
   });
   assert.equal(r.status, 0, r.stderr);
@@ -87,4 +87,12 @@ test("no loop, and quiet on errors", () => {
   const bad = spawnSync(process.execPath, [hook], { input: "not json", env: { ...process.env, HOME: home }, encoding: "utf8" });
   assert.equal(bad.status, 0);
   assert.equal(bad.stdout, "");
+});
+
+test("a marker holding the helper's own session id is refused: the block names @parent, never itself (DISC-240)", () => {
+  const SELF = "session_019vvsL1vmDhfftZ5CxJaQvR";
+  const out = run([user("This message is your task — run it now."), said(LONG)], { marker: SELF, self: SELF });
+  assert.equal(out.decision, "block");
+  assert.ok(out.reason.includes('session_id "@parent"'), out.reason);
+  assert.ok(!out.reason.includes(SELF), out.reason);
 });
