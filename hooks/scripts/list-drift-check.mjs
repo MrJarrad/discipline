@@ -128,6 +128,14 @@ function defaultRef(path) {
   return "HEAD";
 }
 
+/* True when the path is a git repo whose default branch carries merged-PR history (a `(#n)` squash, a
+   `Merge pull request #n` or a `Merge #n:` subject). wrap-gate uses it so a typo'd or empty --repo cannot read "clean". */
+export function repoHasPrHistory(path) {
+  try {
+    return git(path, "log", defaultRef(path), "-1", "-E", "--grep", "\\(#[0-9]+\\)|^Merge pull request #[0-9]+|^Merge #[0-9]+:", "--format=%h").trim() !== "";
+  } catch { return false; }
+}
+
 /* History the caller supplied: which PR numbers are merged, which shas exist. */
 export function mergedIndex(repos) {
   const list = [];

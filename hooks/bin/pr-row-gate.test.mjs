@@ -4,12 +4,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { prRowProblem } from "./pr-row-gate.mjs";
 
 const hook = fileURLToPath(new URL("./pr-row-gate.mjs", import.meta.url));
-const run = (tool_input, raw) => {
-  const r = spawnSync(process.execPath, [hook], { input: raw ?? JSON.stringify({ tool_name: "mcp__github__create_pull_request", tool_input }), encoding: "utf8" });
+const run = (tool_input, raw, env = {}) => {
+  const r = spawnSync(process.execPath, [hook], { input: raw ?? JSON.stringify({ tool_name: "mcp__github__create_pull_request", tool_input }), encoding: "utf8", env: { ...process.env, DISCIPLINE_VAULT_ROOT: "none", ...env } });
   assert.equal(r.status, 0, r.stderr);
   return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : null;
 };
@@ -46,4 +49,23 @@ test("it fails open: unparseable input never blocks a PR", () => {
 test("prRowProblem: a lowercase or one-letter prefix is not a row id", () => {
   assert.ok(prRowProblem({ owner: "o", repo: "r", title: "pf-1 thing", body: "A-1 B-2" }));
   assert.equal(prRowProblem({ owner: "o", repo: "r", title: "thing (HB-301b)", body: "" }), null);
+});
+
+// DISC-255 review amber (#144): "UTF-8" and "SHA-256" match [A-Z]{2,4}-<n> and let a PR through with no row.
+test("look-alikes (UTF-8, SHA-256, ISO-8601) are not row ids, with or without a vault to ask", () => {
+  for (const text of ["Switch to UTF-8 output", "Hash with SHA-256", "ISO-8601 dates", "WCAG-2 contrast", "Use GPT-4 for drafts"]) {
+    assert.equal(run(pr({ title: text, body: "" }))?.permissionDecision, "deny", text);
+  }
+  assert.equal(run(pr({ title: "PF-934 and UTF-8", body: "" })), null, "a real id beside a look-alike still passes");
+});
+
+test("with the vault's project lists readable, only a known prefix counts", () => {
+  const v = mkdtempSync(join(tmpdir(), "prg-vault-"));
+  mkdirSync(join(v, "projects/portfolio"), { recursive: true });
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), "---\nname: b\nkind: backlog\nprefix: PF\n---\n");
+  writeFileSync(join(v, "projects/portfolio/portfolio-queue.md"), "---\nname: q\nkind: queue\nprefix: PF\n---\n");
+  const env = { DISCIPLINE_VAULT_ROOT: v };
+  assert.equal(run(pr({ title: "PF-934 fix", body: "" }), undefined, env), null);
+  assert.equal(run(pr({ title: "ZZ-12 fix", body: "" }), undefined, env)?.permissionDecision, "deny", "unknown prefix");
+  assert.equal(run(pr({ title: "ZZ-12 fix", body: "" })), null, "no vault: any non-look-alike id passes");
 });
