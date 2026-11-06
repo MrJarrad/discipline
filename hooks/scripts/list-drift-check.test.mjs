@@ -4,11 +4,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseStatus, parseBacklog, mergedIndex, checkBacklog, checkVault, FAILING } from "./list-drift-check.mjs";
+import { parseStatus, parseBacklog, mergedIndex, checkBacklog, checkVault, fixVault, FAILING } from "./list-drift-check.mjs";
 
 const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
 const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" }).trim();
@@ -385,4 +385,37 @@ test("addRow in a prefixed backlog writes a prefixed ID and returns it", () => {
   const r = addRow(PBACKLOG("PP", "| PP-1 | a | d | open |"), "new finding", "2026-10-12");
   assert.equal(r.id, "PP-2");
   assert.ok(parseBacklog(r.text).some((x) => x.id === "PP-2" && x.section === "open"));
+});
+
+// DISC-247 (s51): a merged branch that adds a backlog row left the shared `Next free number` behind
+// (main read 1109 after PF-1109 landed), and two branches could each take the same number. The merged
+// tree is checked: a stale marker is a finding, --fix raises it, and one id on two rows fails.
+test("DISC-247: a Next free number at or below the highest used id is a failing next-free-stale finding, and --fix raises it", () => {
+  const v = makeVault({
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1109 | landed on a merged branch | d | open |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-3 | q | | | |\n\n**Next free number: 1109** (highest used 1108).\n"),
+    "orchestrator/operator-queue.md": "# index\n",
+  });
+  const f = checkVault(v, []);
+  const stale = f.filter((x) => x.kind === "next-free-stale");
+  assert.equal(stale.length, 1, JSON.stringify(f));
+  assert.ok(FAILING.has("next-free-stale"));
+  const fixed = fixVault(v, []);
+  assert.deepEqual(fixed.findings.filter((x) => x.kind === "next-free-stale"), []);
+  assert.match(readFileSync(join(v, "projects/alpha/alpha-queue.md"), "utf8"), /Next free number: 1110/);
+});
+
+test("DISC-247: a merged tree where two branches each took AL-1105 fails with dup-id (same file and across queue/backlog)", () => {
+  const same = makeVault({
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1105 | one branch | d | open |\n| AL-1105 | other branch | d | open |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL"),
+    "orchestrator/operator-queue.md": "# index\n",
+  });
+  assert.ok(checkVault(same, []).some((x) => x.kind === "dup-id"));
+  const across = makeVault({
+    "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1105 | one branch | d | open |"),
+    "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-1105 | other branch | | | |"),
+    "orchestrator/operator-queue.md": "# index\n",
+  });
+  assert.ok(checkVault(across, []).some((x) => x.kind === "dup-id"));
 });

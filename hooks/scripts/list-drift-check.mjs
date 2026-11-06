@@ -289,6 +289,7 @@ export function checkVault(vault, repos) {
     }
   }
   out.push(...crossFileDupIds(vault));
+  out.push(...staleNextFree(vault));
   const reg = discoverFiles(vault);
   for (const f of reg.missing) out.push({ kind: "no-prefix", project: f, file: f, msg: "frontmatter has no valid `prefix: <2-4 capitals>`" });
   for (const c of reg.collisions) out.push({ kind: "prefix-collision", project: c.prefix, file: `projects/${c.projects[0]}`, msg: `prefix ${c.prefix} is claimed by ${c.projects.join(" and ")}` });
@@ -306,6 +307,23 @@ export function checkVault(vault, repos) {
   return out;
 }
 
+/* DISC-247: a `**Next free number: N**` at or below the highest row number used across the project's
+   queue and backlog is stale (a merged branch added rows without bumping it). `--fix` raises it. */
+export function staleNextFree(vault) {
+  const out = [];
+  const marker = /\*\*Next free number:\s*(\d+)/;
+  for (const [prefix, e] of discoverFiles(vault).byPrefix) {
+    const files = [e.queue, e.backlog].filter(Boolean);
+    const texts = files.map((f) => readFileSync(join(vault, f), "utf8"));
+    const top = highestUsed(texts.map((t) => t.replace(marker, "")));
+    files.forEach((f, i) => {
+      const m = marker.exec(texts[i]);
+      if (m && parseInt(m[1], 10) <= top) out.push({ kind: "next-free-stale", project: prefix, file: f, msg: `Next free number is ${m[1]} but ${prefix}-${top} is used; --fix raises it to ${top + 1}` });
+    });
+  }
+  return out;
+}
+
 /* One ID, one row, across a project's queue AND backlog (backlog DISC-167). */
 export function crossFileDupIds(vault) {
   const out = [];
@@ -320,7 +338,7 @@ export function crossFileDupIds(vault) {
   return out;
 }
 
-export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "rows-in-index", "idea-unrowed", "disc-open"]);
+export const FAILING = new Set(["drift", "bad-status", "misplaced", "no-backlog", "duplicate", "no-queue", "no-prefix", "prefix-collision", "bare-id", "foreign-id", "dup-id", "next-free-stale", "rows-in-index", "idea-unrowed", "disc-open"]);
 export const formatFinding = (f) => `${f.kind} ${f.file || f.project}${f.row ? ` row ${f.row}` : ""}: ${f.msg}`;
 
 /* --- row editors (lane-end flips a row in the same action as its event) --- */

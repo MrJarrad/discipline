@@ -1,3 +1,6 @@
+1.168.0 — backlog DISC-247: `list-drift-check` reports a stale `**Next free number: N**` (at or below the highest id used across the project's queue and backlog) as a failing `next-free-stale` finding, and `--fix` raises it, so a merged branch that adds rows can no longer leave the shared marker behind unseen. Tests also pin that a merged tree where two branches each took one id fails as `dup-id`, in one file and across queue/backlog. `queue-migrate` no longer writes a queue marker at or below a backlog row number. `row-add` already derived the number from the highest id in both files plus origin/main (tests unchanged).
+encoded: 1.168.0 — backlog DISC-247.
+
 1.167.0 — backlog DISC-243 (and DISC-230's remaining code, DISC-250): `row-add`, `lane-end`, `list-drift-check`, `cockpit-check`, `queue-migrate`, `session-resume` and `vault-pr-files` now resolve a vault container root (`.bare` + `main/`) through `lib/vault-root.mjs` `resolveVaultRoot`, as `needed-from-you` already did, so a Mac job passing `~/JHD/vault` reads and writes the main checkout. `hooks/scripts/vault-root-cli.test.mjs` runs each script against a container root and against `main/` and requires identical behaviour.
 encoded: 1.167.0 — backlog DISC-243.
 

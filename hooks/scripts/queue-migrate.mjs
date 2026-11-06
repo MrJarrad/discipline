@@ -45,6 +45,7 @@ export function migrate(vault) {
   const projectsDir = join(vault, "projects");
   const dirs = readdirSync(projectsDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
   const backlogNext = {};
+  const backlogMax = {}; // highest row number actually used in each project's backlog
   const stat = (p) => (report.projects[p] ||= { backlogBefore: 0, backlogAfter: 0, queueBefore: 0, queueAfter: 0 });
 
   // 1. Backlogs.
@@ -74,6 +75,7 @@ export function migrate(vault) {
       return withId(l, `${px}-${n}`);
     });
     backlogNext[p] = next;
+    backlogMax[p] = Math.max(0, ...out.map((l) => parseInt((new RegExp(`^\\|\\s*(?:~~)?${px}-(\\d+)`).exec(l) || [])[1], 10) || 0));
     if (nf !== -1) out[nf] = out[nf].replace(/Next free number: \d+/, `Next free number: ${next}`);
     const fmEnd = out.findIndex((l, i) => i > 0 && l === "---");
     if (out[0] !== "---" || fmEnd < 0) { report.errors.push(`${file}: no frontmatter`); continue; }
@@ -126,7 +128,7 @@ export function migrate(vault) {
     stat(p).queueBefore = mine.length;
     const maxN = Math.max(0, ...mine.map((r) => parseInt(r.n, 10)));
     // A project with no queue history starts past its backlog numbers, so a queue ID never repeats a backlog ID.
-    const next = Math.max(nextFree[p] || (mine.length ? 1 : backlogNext[p] || 1), maxN + 1);
+    const next = Math.max(nextFree[p] || (mine.length ? 1 : backlogNext[p] || 1), maxN + 1, (backlogMax[p] || 0) + 1); // DISC-247: never at or below a backlog row number
     const head = heads[p] || heads.portfolio || ["| # | Needed | Where | Why | Recommended |", "| - | - | - | - | - |"];
     const body = [
       "---", `name: ${p}-queue`, "kind: queue", `prefix: ${px}`,
