@@ -1,3 +1,6 @@
+1.171.0 — backlog DISC-253: a row closed by a merged PR that never cites it no longer stays open unseen (PF-934 and HB-301). `list-drift-check`'s `named-by` finding now also reads ids named in a merged PR's commit body, marked `(body)` (still non-failing and never auto-struck: a PR can name a row it only started, decision 2026-10-18-orderly-backlogs). `lane-end` prints "also named by merged PRs (flip or say why not): <ids>" for the lane's project after its drift run. With #135 (large logs and `Merge #n:` subjects now indexed) this covers the four causes found.
+encoded: 1.171.0 — backlog DISC-253.
+
 1.170.0 — backlog DISC-227, DISC-228, DISC-229, DISC-230, DISC-250: proofs only, no behaviour change. DISC-227/228/230/250 were fixed in 1.164.0 (tests already pin them; DISC-250 is DISC-230's defect and DISC-243 completed it in 1.167.0). Adds the missing pins: the container clone's `pull --ff-only` and every other network git call carry `core.sshCommand=` hardening (DISC-229, which 1.164.0 had already changed), and a trailing "once" does not cancel a yes already given (DISC-228).
 encoded: 1.170.0 — backlog DISC-229.
 

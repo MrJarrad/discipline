@@ -101,6 +101,14 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: "utf8", ...opts });
 }
 
+/* DISC-253: other open rows of this lane's project that a merged PR names (title or body) but nothing
+   cites: listed so each is flipped or explained. Report-only: a PR can name a row it only started. */
+function alsoNamed(driftOutput, laneId) {
+  const prefix = String(laneId || "").split("-")[0];
+  const rows = [...new Set([...driftOutput.matchAll(/^named-by \S+ row ([A-Z]{2,4}-\d+[a-z]?):/gm)].map((m) => m[1]).filter((id) => id.startsWith(`${prefix}-`)))];
+  if (rows.length) console.log(`lane-end: also named by merged PRs (flip or say why not): ${rows.join(", ")}`);
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.row || args.section) {
@@ -284,9 +292,12 @@ function main() {
   try {
     const driftArgs = [join(scriptDir, "list-drift-check.mjs"), "--vault", args.vault];
     if (args["drift-repo"]) driftArgs.push("--repo", String(args["drift-repo"]));
-    console.log(run("node", driftArgs));
+    const drift = run("node", driftArgs);
+    console.log(drift);
+    alsoNamed(drift, args.id);
   } catch (err) {
     failures.push(`list drift:\n${err.stdout || err.message}`);
+    alsoNamed(String(err.stdout || ""), args.id);
   }
 
   // 5. PR status, if named.
