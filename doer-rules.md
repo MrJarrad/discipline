@@ -130,7 +130,7 @@ stop only their own pids** — the parent sweeps verification servers at every l
 - **Never author text that claims to be the operator's words** (DISC-173: a drafted `Operator ruling` line was refused
   by the safety check). A ruling, quote or `operator said` line holds only words the operator wrote this session or
   a banked file records. Where his words are needed and absent, offer the wording in chat for him to paste.
-- Work in the branch and cwd the brief names; stay inside the named bounds. A Mac job filed from a review branch goes in `queue/mac/review/`, never `pending/` (DISC-233; `MAC-JOBS.md`).
+- Work in the branch and cwd the brief names; stay inside the named bounds. A repo the brief did not list: `next: parent`, never an `add_repo` of your own and never a question to the operator (DISC-249). A Mac job filed from a review branch goes in `queue/mac/review/`, never `pending/` (DISC-233; `MAC-JOBS.md`).
 - **Automation touches only what the lane launched** (`2026-10-08-agent-automation-touches-only-its-own-processes`): target a pid, your own
   `--user-data-dir` or the product bundle id, never an unscoped `tell application "<browser>"`/"front window"; kill an exact owned pid or
   anchored profile path read back first, never a prefix; a quit step names one app.
