@@ -19,6 +19,7 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 3. Builds on the branch the brief names. It pushes to that branch only, never main, and opens one draft PR. A review link it sends meets `present-for-review` § Before the link goes out: opened cold first, in the state to review.
 4. **Posts its return on the PR** as a comment (PR link, head sha, the ledger the brief asked for, the suite tail) **and sends the same return to the parent with `send_message`**. The PR comment is the banked result; the message is what tells the parent it is ready. If a turn ends with a return and no `send_message`, the Stop hook `parent-return-stop.mjs` holds it once and asks for the send (a one-line ack under 200 characters with no `next: parent` is let through).
 5. **A reviewer helper sends its verdict block to the parent verbatim** (DISC-221, s43: three reviewer helpers were refused `add_repo … push`). The block keeps the heading `agents/reviewer.md` § Verdict defines and adds, under it, `reviewer: <its own session id>` (from `get_session`); the parent posts the block on the PR unchanged, and the merge gates read that line. This is the default in every reviewer brief; the reviewer posts on the PR itself only when the brief says it has push.
+6. A Mac job it files from its branch goes in `queue/mac/review/`, never `pending/` (`MAC-JOBS.md`, DISC-233).
 
 ## 3. How the parent sweeps it
 
