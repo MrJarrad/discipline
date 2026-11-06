@@ -91,25 +91,25 @@ kinds only, quote plus its source, banned mechanism content, gate-enforced:
   doer). Default `<lane evidence dir>/progress.md` in the vault; name it explicitly when the
   lane's evidence dir differs. **line** lanes omit this field.
 
-**A `create_session` brief** opens "This message is your task — run it now.", writes the parent's id to `~/.claude/helper-session` first, closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216; verdicts, vault branch: HELPER-SESSIONS).
+**A `create_session` brief** opens "This message is your task — run it now.", writes the parent's id to `~/.claude/helper-session` first, closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216; verdicts, vault branch: HELPER-SESSIONS). Repos and access: HELPER-SESSIONS §1.
 
 **Target brief length: under 250 words**, lock table excluded.
 
 ## What the parent does not add
 
-One batch, not phases; the scenario row's "verified by", not matrices; skill **names**,
+One batch; the scenario row's "verified by", not matrices; skill **names**,
 never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed return.
 
 ## Reviewer brief
 
-Four parts; done-when: **diff the build against the contract**. Carries the locked table, the lock's live path and the tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge = gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim.
+Done-when: **diff the build against the contract**. Carries the locked table, the lock's live path and the tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge = gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim.
 
 ## Persona + model
 
-Label: `persona-(model)` from `model-routing`; `description` leads with surface — `cloud —
+Label: `persona-(model)`; `description` leads with surface — `cloud —
 persona (model): task` or `local`. Effort tier: `routine | contested | high-stakes`.
 Bash that launches an agent carries the same label (gate-enforced). `sonnet` is the default, not a ceiling; `haiku` for mechanical; any tier runs as a child
-when the job shape calls for it, justified in `## Interrogated` (`model-routing`).
+when the job calls for it, justified in `## Interrogated` (`model-routing`).
 
 ## State (untrusted draft; verify)
 
