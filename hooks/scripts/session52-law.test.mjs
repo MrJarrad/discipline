@@ -53,7 +53,7 @@ test("DISC-235 A4: metadata has an owner, grounded in Google Search Central; no 
   const s = flat(BV);
   assert.ok(!s.includes("`seo-*`"), "brand-voice no longer routes to seo-* skills, which are not installed");
   assert.ok(s.includes("Page titles and meta descriptions are copy and are owned here ([references/METADATA.md](references/METADATA.md))"));
-  assert.ok(read(BV).split("\n").find((l) => l.startsWith("description:")).includes("page titles and meta descriptions"), "the description triggers on metadata");
+  assert.ok(read(BV).split("\n").find((l) => l.startsWith("description:")).match(/meta descriptions[\s\S]*page titles|page titles and meta descriptions/), "the description triggers on metadata (DISC-242 reordered it: meta descriptions first)");
   const m = flat("skills/brand-voice/references/METADATA.md");
   for (const url of [
     "https://developers.google.com/search/docs/appearance/snippet",

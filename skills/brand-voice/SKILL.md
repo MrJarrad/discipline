@@ -1,6 +1,6 @@
 ---
 name: brand-voice
-description: How to write user-facing copy in one consistent brand voice — the universal "how" beneath every project's own voice guide. Derive the voice once from the brand's definition, apply it to every surface, verify by reading aloud. Use when writing or reviewing App Store copy, marketing, onboarding, microcopy, error messages, changelogs, page titles and meta descriptions, or any words a user reads. Not visual/layout (design-craft), task prompts (prompt-craft), keyword strategy or ranking, or legal wording (legal).
+description: Use when writing, rewriting or reviewing any words a user reads — meta descriptions and search snippets, page titles, App Store copy, marketing, onboarding, microcopy, error messages, changelogs. How to write user-facing copy in one consistent brand voice, the universal "how" beneath every project's own voice guide: derive the voice once from the brand's definition, apply it to every surface, verify by reading aloud. Not visual/layout (design-craft), task prompts (prompt-craft), keyword strategy or ranking, or legal wording (legal).
 ---
 
 # Brand Voice
