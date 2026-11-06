@@ -31,3 +31,25 @@ test("DISC-244: a kit-swap delta lists every visual property the kit draws and c
   assert.ok(a.includes("every `var()` the kit reads resolves in the consumer"));
   assert.ok(a.includes("HB-223"));
 });
+
+// DISC-246 (s50/s51, DS #152, pf #423, #442): reviewer verdicts the merge-review-gate did not accept were
+// re-posted before merges. The reviewer's § Verdict ended on "merge condition met / not met" while the gate
+// reads a `merge: yes|no` line; and a bulleted `- merge: yes` was refused.
+import { reviewVerdict } from "./merge-after-review.mjs";
+
+test("DISC-246: the verdict block reviewer.md § Verdict asks for is the one reviewVerdict accepts", () => {
+  const r = flat("agents/reviewer.md");
+  assert.ok(r.includes("end on the verdict line **`merge: yes — n red, n amber.`** (or `merge: no — …`)"));
+  assert.ok(!r.includes("merge condition met / not met"), "the old bottom line, which the gate cannot read, is gone");
+  const post = (body) => [{ author: { login: "MrJarrad" }, at: "2026-11-02T10:00:00Z", body }];
+  const head = "c7868b2aaaa";
+  // a post built exactly as § Verdict says
+  assert.equal(reviewVerdict(post("## Review — round 1 of 2, tier LIGHT — head c7868b2\n\nfindings…\n\n**merge: yes — 0 red, 2 amber.**"), head, ["MrJarrad"]).verdict, "yes");
+  assert.equal(reviewVerdict(post("## Review — round 1 of 2 — head c7868b2\n\n**merge: no — 1 red, 0 amber.**"), head, ["MrJarrad"]).verdict, "no");
+  // a markdown list marker or quote before the verdict line is still the verdict line
+  assert.equal(reviewVerdict(post("## Review — head c7868b2\n\n- merge: yes"), head, ["MrJarrad"]).verdict, "yes");
+  assert.equal(reviewVerdict(post("## Review — head c7868b2\n\n> **merge: no**"), head, ["MrJarrad"]).verdict, "no");
+  // still refused: no verdict line, or a wrong-head post
+  assert.equal(reviewVerdict(post("## Review — head c7868b2\n\n0 red, 2 amber — merge condition met."), head, ["MrJarrad"]), null);
+  assert.equal(reviewVerdict(post("## Review — head deadbee\n\nmerge: yes"), head, ["MrJarrad"]), null);
+});

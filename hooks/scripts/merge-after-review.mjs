@@ -84,7 +84,8 @@ export function reviewVerdict(items, headSha, trusted = []) {
     const h = /^##\s.*review/i.test(first) && first.match(/\bhead:?\s*`?([0-9a-f]{7,40})`?/i);
     if (!h || !head.startsWith(h[1].toLowerCase())) continue;
     const lines = rest.map((l) => l.trim());
-    const line = lines.find((l) => /^\**merge: (yes|no)\b/i.test(l)) ?? lines.find((l) => /^\*\*.*\bmerge: (yes|no)\b.*\*\*$/i.test(l));
+    // DISC-246: a list marker or quote before the verdict line (`- merge: yes`, `> **merge: no**`) is still the verdict line.
+    const line = lines.find((l) => /^(?:[-*>]\s+)*\**merge: (yes|no)\b/i.test(l)) ?? lines.find((l) => /^(?:[-*>]\s+)*\*\*.*\bmerge: (yes|no)\b.*\*\*$/i.test(l));
     if (!line) continue;
     /* DISC-221 L5: a verdict the parent posts for a reviewer helper names it on a `reviewer: session_<id>`
        line; a reviewer: line that is not a session id does not count. Same login either way, so this
