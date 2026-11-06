@@ -6,15 +6,43 @@
    (`<PREFIX>-<n>`, 2-4 capitals) or a line `No backlog row: <reason>` for work with no row.
    The vault is exempt: its PRs are the lists themselves. Fails OPEN: unreadable input or a crash
    lets the PR through (a gate that blocks every PR when it breaks is worse than a missed check).  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { discoverFiles } from "../scripts/lib/queue-ids.mjs";
+import { resolveVaultRoot } from "../scripts/lib/vault-root.mjs";
 
-const ROW_ID = /\b[A-Z]{2,4}-\d+[a-z]?\b/;
+const ROW_ID = /\b([A-Z]{2,4})-\d+[a-z]?\b/g;
+/* Tokens shaped like a row id that are not one (DISC-255 review amber: "UTF-8" and "SHA-256" let a PR through
+   with no row). Used when the vault's project lists cannot be read; with the lists, only a known prefix counts. */
+const LOOK_ALIKES = new Set(["UTF", "SHA", "ISO", "RFC", "CVE", "MD", "TLS", "SSL", "AES", "RSA", "WCAG", "ARIA", "GMT", "UTC", "HTTP", "HTML", "CSS", "SVG", "PNG", "JPEG", "MP", "H", "X"]);
+
+/* The row-id prefixes the vault's project lists declare, or null when no vault is readable here.
+   DISCIPLINE_VAULT_ROOT wins (any non-directory value, e.g. "none", means unreadable); else the usual clones. */
+function knownPrefixes() {
+  const env = process.env.DISCIPLINE_VAULT_ROOT;
+  const roots = env !== undefined ? [env] : [join(homedir(), "JHD", "vault"), "/home/user/jhd-vault"];
+  for (const r of roots) {
+    try {
+      if (!r || !existsSync(r)) continue;
+      const set = new Set(discoverFiles(resolveVaultRoot(r)).byPrefix.keys());
+      if (set.size) return set;
+    } catch { /* unreadable: fall back */ }
+  }
+  return null;
+}
+
+function namesRow(text) {
+  const known = knownPrefixes();
+  for (const m of text.matchAll(ROW_ID)) if (known ? known.has(m[1]) : !LOOK_ALIKES.has(m[1])) return true;
+  return false;
+}
 const NO_ROW = /^\s*No backlog row:\s*\S+/im;
 
 export function prRowProblem({ owner, repo, title, body }) {
   if (!repo || /^jhd-vault$/i.test(String(repo))) return null;
   const text = `${title ?? ""}\n${body ?? ""}`;
-  if (ROW_ID.test(text) || NO_ROW.test(String(body ?? ""))) return null;
+  if (namesRow(text) || NO_ROW.test(String(body ?? ""))) return null;
   return `pr-row-gate: ${owner || "?"}/${repo} PR names no backlog row id (DISC-255). Put the row id the PR closes or advances in the title or body (for example "PF-934"), or add a line "No backlog row: <reason>" for work with no row. A row no PR names stays open after the work merges.`;
 }
 

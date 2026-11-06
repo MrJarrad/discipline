@@ -55,24 +55,25 @@ test("other projects' findings are not this session's: a clean session project w
     "projects/beta/beta-backlog.md": BACKLOG("BE", "| BE-1 | junk | d | gibberish |"),
     "projects/beta/beta-queue.md": QUEUE("BE"),
   });
-  assert.deepEqual(wrapGate(v, ["AL"], []), { ok: true, lines: [] });
-  assert.equal(wrapGate(v, ["BE"], []).ok, false);
+  const none = repo("alpha", "init-only", "");
+  assert.deepEqual(wrapGate(v, ["AL"], [none]), { ok: true, lines: [] });
+  assert.equal(wrapGate(v, ["BE"], [none]).ok, false);
 });
 
 test("an unknown prefix is refused, not passed", () => {
-  const g = wrapGate(two(), ["ZZ"], []);
+  const g = wrapGate(two(), ["ZZ"], [repo("alpha", "x", "")]);
   assert.equal(g.ok, false);
   assert.match(g.reason, /unknown project prefix: ZZ/);
 });
 
 test("CLI: exit 1 listing the lines when the gate fails, 0 and one line when clean", () => {
   const v = two();
-  const bad = spawnSync(process.execPath, [script, "--vault", v, "--projects", "AL"], { encoding: "utf8" });
+  const bad = spawnSync(process.execPath, [script, "--vault", v, "--projects", "AL", "--repo", repo("alpha", "x", "")], { encoding: "utf8" });
   assert.equal(bad.status, 1);
   assert.match(bad.stdout, /bad-status/);
   assert.match(bad.stdout, /do not wrap/i);
   const clean = vault({ "projects/alpha/alpha-backlog.md": BACKLOG("AL", "| AL-1 | fine | d | open |"), "projects/alpha/alpha-queue.md": QUEUE("AL") });
-  const ok = spawnSync(process.execPath, [script, "--vault", clean, "--projects", "AL"], { encoding: "utf8" });
+  const ok = spawnSync(process.execPath, [script, "--vault", clean, "--projects", "AL", "--repo", repo("alpha", "x", "")], { encoding: "utf8" });
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
   assert.match(ok.stdout, /wrap-gate: clean/);
 });
@@ -82,6 +83,19 @@ test("CLI: a container vault root works and a missing --projects is a usage erro
   const box = mkdtempSync(join(tmpdir(), "wg-box-"));
   mkdirSync(join(box, ".bare"));
   spawnSync("mv", [v, join(box, "main")]);
-  assert.equal(spawnSync(process.execPath, [script, "--vault", box, "--projects", "AL"], { encoding: "utf8" }).status, 1);
+  assert.equal(spawnSync(process.execPath, [script, "--vault", box, "--projects", "AL", "--repo", repo("alpha", "x", "")], { encoding: "utf8" }).status, 1);
   assert.equal(spawnSync(process.execPath, [script, "--vault", box], { encoding: "utf8" }).status, 2);
+});
+
+// DISC-255 review amber (#144): named-by cannot run without the product repos' history, so "clean" with
+// no --repo is a false clear. The gate refuses instead.
+test("no --repo: the gate refuses (exit 2) rather than print clean", () => {
+  const clean = vault({ "projects/alpha/alpha-backlog.md": BACKLOG("AL", "| AL-1 | fine | d | open |"), "projects/alpha/alpha-queue.md": QUEUE("AL") });
+  const g = wrapGate(clean, ["AL"], []);
+  assert.equal(g.ok, false);
+  assert.match(g.reason, /--repo/);
+  const r = spawnSync(process.execPath, [script, "--vault", clean, "--projects", "AL"], { encoding: "utf8" });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /--repo/);
+  assert.doesNotMatch(r.stdout, /clean/);
 });
