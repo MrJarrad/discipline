@@ -1,3 +1,6 @@
+1.174.0 — backlog DISC-249: helpers no longer ask the operator for repo permissions mid-lane (operator s54: "why am i needing to grant permissions all of a sudden"). HELPER-SESSIONS § 1 and § 2 and `doer-rules.md` § Repo and safety: the brief lists every repo the lane touches with its access level, the helper attaches them all with `add_repo` as its first step, and a repo the brief did not list is `next: parent`, never a question to the operator. New `session58-law.test.mjs` pins the sentences.
+encoded: 1.174.0 — backlog DISC-249.
+
 1.173.0 — backlog DISC-241: `skills/handoff-to-code/SKILL.md` is a byte copy of handoff-css v0.14.0 (cf4c99b, `dist/claude-plugin/SKILL.md`): split design systems (every file's export listed in `paths.input`, joined by key, `MERGE_*` errors), every command takes the plugin's `.zip`, and step 5b (the brief's `## Asks` statuses, the assumed-ask deviation row) with its two new law sentences. The mirror test now pins cf4c99b (strict run against the v0.14.0 checkout passes: 3 tests) and the handoff-to-code word ceiling is raised 2360 -> 2600 (measured 2586; a mirror cannot be trimmed here).
 encoded: 1.173.0 — backlog DISC-241.
 
