@@ -80,3 +80,26 @@ test("DISC-233: the CLI applies the path check using the file's git branch", () 
   assert.match(r.stderr, /review\//);
 });
 import { execFileSync as execFileSyncImpl } from "node:child_process";
+
+// DISC-258 amber 1 (review of #138): the path check skipped a relative path (no leading slash) and
+// let an unreadable branch (detached HEAD, no git) through. Both are refused now; only a readable main passes.
+test("DISC-258: a relative pending/ path is checked, and a detached or unreadable branch is refused", () => {
+  assert.match(macJobPathProblems("queue/mac/pending/j.md", "claude/foo")[0], /review\//, "relative path");
+  assert.match(macJobPathProblems("/v/queue/mac/pending/j.md", "")[0], /unreadable|detached/i, "unknown branch");
+  assert.match(macJobPathProblems("/v/queue/mac/pending/j.md", "HEAD")[0], /unreadable|detached/i, "detached HEAD");
+  assert.deepEqual(macJobPathProblems("queue/mac/pending/j.md", "main"), []);
+  assert.deepEqual(macJobPathProblems("queue/mac/review/j.md", ""), [], "review/ is always fine");
+});
+
+test("DISC-258: the CLI refuses a pending/ job in a detached-HEAD checkout", () => {
+  const dir = mkdtempSync(join(tmpdir(), "macjob-det-"));
+  execFileSyncImpl("git", ["init", "-q", "-b", "main", dir]);
+  execFileSyncImpl("git", ["-C", dir, "-c", "user.email=t@e.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "i"]);
+  execFileSyncImpl("git", ["-C", dir, "checkout", "-q", "--detach"]);
+  execFileSyncImpl("mkdir", ["-p", join(dir, "queue/mac/pending")]);
+  const f = join(dir, "queue/mac/pending/j.md");
+  writeFileSync(f, job("repo: ~/a/b"));
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL("./mac-job-check.mjs", import.meta.url)), f], { encoding: "utf8" });
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stderr, /detached|unreadable/i);
+});

@@ -9,7 +9,7 @@
    stderr) · 2 usage error or unreadable file.                              */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 // The Mac user's home — run.sh requires `repo:` under $HOME; an absolute path is
 // accepted only below this (override with JHD_MAC_HOME), as is `~/…`; the bare home is refused.
@@ -46,9 +46,13 @@ export function macJobProblems(text) {
    job filed to pending/ from a review branch runs before its review PR merges. On any checkout that is
    not main, a job belongs in `queue/mac/review/` until the PR merges (MAC-JOBS.md). */
 export function macJobPathProblems(file, branch) {
-  if (!/\/queue\/mac\/pending\/[^/]+$/.test(String(file).replace(/\\/g, "/"))) return [];
-  if (!branch || branch === "main" || branch === "HEAD") return [];
-  return [`filed in queue/mac/pending/ on branch '${branch}': the runner claims it before its review PR merges; file it in queue/mac/review/ until the merge moves it to pending/ (DISC-233)`];
+  // Absolute first: a relative `queue/mac/pending/j.md` has no leading slash and used to be skipped (DISC-258).
+  const abs = resolve(String(file)).replace(/\\/g, "/");
+  if (!/\/queue\/mac\/pending\/[^/]+$/.test(abs)) return [];
+  if (branch === "main") return [];
+  // Only a readable main passes: a detached HEAD or an unreadable checkout counts as not-main.
+  const where = !branch || branch === "HEAD" ? "a checkout whose branch is unreadable (detached HEAD or not a git checkout)" : `branch '${branch}'`;
+  return [`filed in queue/mac/pending/ on ${where}: the runner claims it before its review PR merges; file it in queue/mac/review/ until the merge moves it to pending/ (DISC-233)`];
 }
 
 function branchOf(file) {

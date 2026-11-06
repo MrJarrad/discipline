@@ -97,7 +97,7 @@ composition vs the design system, markup ([reviewer-evidence-and-floor.md](refer
 **Risk-only** clears when routine; **Scope** and **Destructive** are the operator's call
 regardless of risk, and missing category evidence is red. The **Standards** axis (build bars
 on the path touched) and the **Spec** axis stay under separate headings — merged, they hide
-which bar a change failed. Both in full: [reviewer-two-axis.md](references/reviewer-two-axis.md).
+which bar a change failed. Full: [reviewer-two-axis.md](references/reviewer-two-axis.md).
 
 ### Spec axis
 
@@ -117,7 +117,7 @@ the walk.
 **One implementation per component — a second is red.** Grep for a second rendering of the
 component's markup or style classes (animated branch, block-local render, wrapper that
 re-authors the design): every rendering of a conformed design is conformed, and one left
-behind is red whatever its motive (operator ruling 2026-09-14).
+behind is red whatever its motive.
 
 On every UI review run `audit-build`'s "Mechanism, not lookalike" and "Names are audited too"
 against the touched surface, quoting the spec line per finding.
@@ -148,7 +148,7 @@ Open with **round N of 2** and the **tier**, the two axes, ranked findings,
 and end on the verdict line **`merge: yes — n red, n amber.`** (or `merge: no — …`). Merge is met when
 gates are green and **no red finding** is open; the parent remits.
 
-**Verdict shape — the one definition the merge gates parse** (`reviewVerdict()` in `hooks/scripts/merge-after-review.mjs`). Posted on the PR as a comment or a PR review. Line 1 is a `##` heading containing `Review` and `head <sha>` (7+ hex of the head reviewed): `## Review — round 1 of 2, tier LIGHT — head c7868b2`. The verdict line is the first line that begins `merge: yes` or `merge: no` (bold allowed: `**merge: yes.**`). Posted by the parent for you, it adds `reviewer: <your session id>` under the heading (`cloud-dispatch` HELPER-SESSIONS § 2).
+**Verdict shape — the one definition the merge gates parse** (`reviewVerdict()` in `hooks/scripts/merge-after-review.mjs`). Posted on the PR as a comment or a PR review. Line 1 is a `##` heading containing `Review` and `head <sha>` (7+ hex): `## Review — round 1 of 2, tier LIGHT — head c7868b2`. The verdict line is the first line that begins `merge: yes` or `merge: no` (bold allowed: `**merge: yes.**`). Prefixes `- `, `* `, `> ` allowed. Posted by the parent for you, it adds `reviewer: <your session id>` under the heading (`cloud-dispatch` HELPER-SESSIONS § 2).
 
 ## Evidence return
 
