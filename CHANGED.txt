@@ -1,3 +1,6 @@
+1.183.0 — backlog DISC-259 and DISC-260 (from #147's review and s58): (1) `row-add.mjs` raises the "Next free number" marker of BOTH the project's queue and backlog in the same write (a backlog add left the queue's marker stale, so each add failed the vault lists CI until list-drift-check --fix ran). (2) `wrap-gate.mjs`'s shallow refusal names `git fetch --unshallow` (with `git fetch --depth=N`, N above the commit count, where the git proxy blocks that) instead of `--depth=1000`, which left a repo past 1000 commits still shallow; the wrap skill's REPORT-AND-LEARN says the same. Tests: row-add.test.mjs, wrap-gate.test.mjs, disc262-law.test.mjs.
+encoded: 1.183.0 — backlog DISC-259, DISC-260.
+
 1.181.0 — backlog DISC-258: `wrap-gate` refuses a shallow `--repo` (`git rev-parse --is-shallow-repository` is true), with "Fetch history first, e.g. git fetch --depth=1000": a depth-limited clone (the cloud default) holds only the newest commits, so `named-by` would miss older merged PRs and report clean wrongly. The wrap skill's reference says so. Test red first.
 encoded: 1.181.0 — backlog DISC-258.
 

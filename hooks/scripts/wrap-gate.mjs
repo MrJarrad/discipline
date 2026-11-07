@@ -32,7 +32,7 @@ export function wrapGate(vault, prefixes, repos = [], { vaultOnly = false } = {}
   for (const r of repos) {
     if (!existsSync(r)) return { ok: false, reason: `--repo ${r} does not exist` };
     if (resolve(r) === resolve(vault) && !vaultOnly) return { ok: false, reason: `--repo ${r} is the vault itself, which cannot stand in for a product repo (use --vault-only if this session's projects live only in the vault)` };
-    if (isShallow(r)) return { ok: false, reason: `--repo ${r} is a shallow clone: it holds only the newest commits, so named-by would miss older merged PRs and report clean wrongly. Fetch history first, e.g. git fetch --depth=1000 (run inside ${r})` };
+    if (isShallow(r)) return { ok: false, reason: `--repo ${r} is a shallow clone: it holds only the newest commits, so named-by would miss older merged PRs and report clean wrongly. Fetch the full history first: git fetch --unshallow (run inside ${r}); where that is blocked by the git proxy, git fetch --depth=N with N above the repo's commit count (git rev-list --count origin/main on a full clone) -- a depth below the count leaves it shallow and this gate refuses again` };
     if (!repoHasPrHistory(r)) return { ok: false, reason: `--repo ${r} is not a git repo, or has no merged-PR history to read (named-by would never fire)` };
   }
   const reg = discoverFiles(vault);

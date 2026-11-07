@@ -247,3 +247,21 @@ test("DISC-221 L1: the list-drift-check CLI leaves the stamp row-add reads", () 
   const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
   assert.equal(r.ok, true, r.reason);
 });
+
+// DISC-259: the project's other file's "Next free number" marker rose in the same write, so list-drift-check
+// has no next-free-stale finding after a row-add.
+const marker = (v, f) => parseInt(/Next free number:\s*(\d+)/.exec(readFileSync(join(v, `projects/zz/zz-${f}.md`), "utf8"))[1], 10);
+test("a backlog add raises the QUEUE's marker too (DISC-259)", () => {
+  const v = mkVault();
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "new thing", offline: true });
+  assert.equal(r.id, "ZZ-601");
+  assert.equal(marker(v, "queue"), 602);
+  assert.equal(marker(v, "backlog"), 602);
+  assert.match(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), /\(highest used 601\)/);
+});
+test("a queue add raises the BACKLOG's marker too (DISC-259)", () => {
+  const v = mkVault();
+  rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "need X", where: "w", why: "y", recommended: "r", offline: true });
+  assert.equal(marker(v, "backlog"), 602);
+  assert.equal(marker(v, "queue"), 602);
+});
