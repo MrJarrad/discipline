@@ -5,6 +5,7 @@
    carrying that id with a "Helper ·" title AND a parent_session_id. Anything else, a wrapped parent included,
    is denied with the step to take. Fails closed: unreadable input or transcript denies.                       */
 import { readFileSync } from "node:fs";
+import { extractJson } from "../scripts/lib/extract-json.mjs";
 
 const deny = (reason) => {
   console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason } }));
@@ -31,7 +32,8 @@ export function shownSession(lines, id) {
       if (part?.type !== "tool_result" || !calls.has(part.tool_use_id)) continue;
       const c = part.content;
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
-      let parsed; try { parsed = JSON.parse(text); } catch { continue; }
+      const parsed = extractJson(text);
+      if (parsed === undefined) continue;
       for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null };
     }
   }
