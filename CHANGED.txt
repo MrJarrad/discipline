@@ -1,3 +1,6 @@
+1.182.0 — backlog DISC-262 (operator 2026-11-07: "just archive the helpers we don't archive parent sessions, there was meant to be something in discipline that handles all this"): the helper sweep and the never-archive-a-parent rule become hooks. New PreToolUse hook `archive-guard.mjs` on `mcp__claude-code-remote__archive_session`: denied unless this session's transcript showed that id (get_session or list_sessions result) with a "Helper ·" title and a parent_session_id; fails closed. New `helper-sweep-stop.mjs`: at SessionStart it seeds the start-sweep step; at Stop it blocks an orchestrator session (one that read orchestrator/cockpit.md) once until helper-sweep.mjs has run, and after the wrap skill the sweep must come after it. HARD-RULES 19 names both; `disc262-law.test.mjs` pins the registration. The release-version law in session53-law now reads the version from the manifests instead of carrying a copy.
+encoded: 1.182.0 — backlog DISC-262.
+
 1.181.0 — backlog DISC-258: `wrap-gate` refuses a shallow `--repo` (`git rev-parse --is-shallow-repository` is true), with "Fetch history first, e.g. git fetch --depth=1000": a depth-limited clone (the cloud default) holds only the newest commits, so `named-by` would miss older merged PRs and report clean wrongly. The wrap skill's reference says so. Test red first.
 encoded: 1.181.0 — backlog DISC-258.
 
