@@ -47,7 +47,7 @@
         ]
       },
       {
-        "matcher": "mcp__claude-code-remote__archive_session",
+        "matcher": "mcp__.*__archive_session",
         "hooks": [
           {
             "type": "command",
@@ -142,15 +142,6 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-sweep-stop.mjs\" start"
           }
         ]
       }
