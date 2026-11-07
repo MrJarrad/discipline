@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* PreToolUse (mcp__claude-code-remote__archive_session) — DISC-262 (operator 2026-11-07: "just archive the
+/* PreToolUse (mcp__.*__archive_session, whatever the MCP server is called) — DISC-262 (operator 2026-11-07: "just archive the
    helpers we don't archive parent sessions"; s61 archived three wrapped parents by hand). A session may be
    archived only when this session's transcript has shown it as a helper: a get_session / list_sessions result
    carrying that id with a "Helper ·" title AND a parent_session_id. Anything else, a wrapped parent included,
