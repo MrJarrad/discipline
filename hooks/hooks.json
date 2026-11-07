@@ -45,6 +45,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/vault-mcp-write-guard.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__claude-code-remote__archive_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/archive-guard.mjs\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -135,6 +144,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
           }
         ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-sweep-stop.mjs\" start"
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -173,6 +191,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/parent-return-stop.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-sweep-stop.mjs\""
           }
         ]
       }
