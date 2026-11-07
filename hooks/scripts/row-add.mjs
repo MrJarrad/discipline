@@ -52,6 +52,18 @@ export function addQueueRow(text, prefix, n, cells) {
   return { ok: true, text: lines.join("\n") };
 }
 
+/* DISC-259: after a write, every file of the project carries a "Next free number" marker above the highest
+   number used across both, so the add leaves no next-free-stale finding behind. */
+function raiseMarkers(vault, rels) {
+  const texts = rels.map((r) => readFileSync(join(vault, r), "utf8"));
+  const next = highestUsed(texts) + 1;
+  rels.forEach((r, i) => {
+    const m = /\*\*Next free number:\s*(\d+)/.exec(texts[i]);
+    if (!m || parseInt(m[1], 10) >= next) return;
+    writeAtomic(join(vault, r), texts[i].replace(/(\*\*Next free number:\s*)\d+/, `$1${next}`).replace(/(Next free number:[^\n]*\(highest used )\d+/, `$1${next - 1}`));
+  });
+}
+
 /* Content words: lowercased runs of 4+ letters/digits, minus filler. */
 const FILLER = new Set("with from that this then than into when what which have been also only just more some each them they their there should would could after before again about".split(" "));
 const words = (s) => new Set((String(s).toLowerCase().match(/[a-z0-9]{4,}/g) || []).filter((w) => !FILLER.has(w)).map((w) => w.replace(/s$/, "")));
@@ -150,6 +162,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
       writeAtomic(path, before);
       return fail(`${edit.id} would appear ${seen} times across ${rels.join(" and ")}; the write was rolled back`);
     }
+    raiseMarkers(vault, rels);
     return { ok: true, id: edit.id, file: target, warnings };
   });
 }

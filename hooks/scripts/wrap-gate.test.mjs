@@ -144,10 +144,11 @@ test("a shallow --repo is refused with the fetch command, never clean", () => {
   const g = wrapGate(v, ["AL"], [shallow]);
   assert.equal(g.ok, false);
   assert.match(g.reason, /shallow/);
-  assert.match(g.reason, /git fetch --depth=1000/);
+  assert.match(g.reason, /git fetch --unshallow/);
+  assert.match(g.reason, /where that is blocked.*git fetch --depth=N/);
   const r = spawnSync(process.execPath, [script, "--vault", v, "--projects", "AL", "--repo", shallow], { encoding: "utf8" });
   assert.equal(r.status, 2);
-  assert.match(r.stderr, /git fetch --depth=1000/);
+  assert.match(r.stderr, /git fetch --unshallow/);
   assert.doesNotMatch(r.stdout, /clean/);
   // a full repo is still read normally
   assert.equal(wrapGate(v, ["AL"], [full]).ok, false, "the full repo reaches the named-by check (AL-1)");
