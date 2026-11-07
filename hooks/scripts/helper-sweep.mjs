@@ -16,6 +16,7 @@
    archived, each with `message`: the one send_message text that points it at `self`.                                                              */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { extractJson } from "./lib/extract-json.mjs";
 
 const WRAPPED = /\(wrapped\)\s*$/; // the end marker wrap sets, not the word anywhere in a title
 const isArchived = (x) => /ARCHIVED/.test(x.session_status || "");
@@ -59,7 +60,8 @@ export function classify({ sessions, self, now, keep = [], merged = [], staleHou
 
 function readPages(paths) {
   return paths.flatMap((p) => {
-    const j = JSON.parse(readFileSync(p, "utf8"));
+    const j = extractJson(readFileSync(p, "utf8")); // a saved result may keep the <other-session> wrapper
+    if (j === undefined) throw new Error(`${p}: no JSON in the saved session result`);
     if (Array.isArray(j)) return j;
     if (j.ccr?.id) return [j.ccr]; // one saved get_session result (DISC-224: the start sweep reads only the helpers wrap named)
     return j.ccr?.data ?? j.data ?? [];
