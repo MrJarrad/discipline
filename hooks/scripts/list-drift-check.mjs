@@ -14,7 +14,7 @@
      duplicate   a project has more than one `*-backlog.md`
      idea-unrowed an idea sheet in evidence whose ideas lack backlog rows (lib/idea-sheets.mjs; DISC-168)
    Fixed status set: open · waiting on operator · in flight (<PR>) ·
-   done (<PR> <sha>[, <PR> <sha>]...) · moot (<reason>). <PR> is `#n`,
+   done (<PR> <sha>[, <PR> <sha>]...) or done (<sha>) when no PR exists (DISC-263) · moot (<reason>). <PR> is `#n`,
    `owner/repo#n` or `<name> #n`; a bare name resolves against the --repo
    basenames (`hoverboard` = jhd-hoverboard; alias `DS` = jhd-design-system).
    `pf`, `hb` and other short forms are NOT repo names (only `DS` is an alias): write
@@ -67,7 +67,9 @@ const repoName = (p) => (/^(main|master)$/.test(basename(p)) ? basename(dirname(
 const PR = String.raw`(?:[\w.-]+\/[\w.-]+)?#\d+`;
 // In a status cell a PR may also carry a bare repo name: `hoverboard #10`, `DS #91`.
 const PRN = String.raw`(?:[\w.-]+\/[\w.-]+#\d+|(?:[\w.-]+ )?#\d+)`;
-const PAIR = `${PRN} [0-9a-f]{7,40}`;
+const SHA = "[0-9a-f]{7,40}";
+// DISC-263: a finished row with no PR number records the commit alone: `done (32ecb72)`.
+const PAIR = `(?:${PRN} )?${SHA}`;
 const STATUS = [
   ["open", /^open$/],
   ["waiting", /^waiting on operator$/],
@@ -83,7 +85,7 @@ export function parseStatus(text) {
     if (!m) continue;
     if (kind === "in-flight") return { kind, pr: m[1] };
     if (kind === "done") {
-      const pairs = m[1].split(", ").map((p) => { const i = p.lastIndexOf(" "); return { pr: p.slice(0, i), sha: p.slice(i + 1) }; });
+      const pairs = m[1].split(", ").map((p) => { const i = p.lastIndexOf(" "); return { pr: i < 0 ? null : p.slice(0, i), sha: p.slice(i + 1) }; });
       return { kind, pairs };
     }
     return { kind };
@@ -220,8 +222,8 @@ export function checkBacklog(project, text, idx) {
     if (r.section === "done" && !finished) add("misplaced", r.id, `${st.kind} row under ## Done`);
     if (st.kind === "done") {
       for (const { pr, sha } of st.pairs) {
-        if (!idx.merged(pr, project)) add("unknown", r.id, `${pr} not found as merged in the supplied repos`);
-        else if (!idx.hasSha(sha, pr, project)) add("unknown", r.id, `sha ${sha} not found in the supplied repos`);
+        if (pr && !idx.merged(pr, project)) add("unknown", r.id, `${pr} not found as merged in the supplied repos`);
+        else if (!idx.hasSha(sha, pr ?? undefined, project)) add("unknown", r.id, `sha ${sha} not found in the supplied repos`);
       }
       continue;
     }

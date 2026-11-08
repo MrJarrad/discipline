@@ -45,6 +45,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, crossFileDupIds, setRowStatus } from "./list-drift-check.mjs";
+import { raiseMarkers } from "./row-add.mjs";
 import { acquireVaultLock, highestUsed, remoteTexts } from "./lib/row-alloc.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
 import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
@@ -246,6 +247,9 @@ function main() {
     writeFileSync(queuePath, queueText, "utf8");
     if (backlog) writeFileSync(backlog.path, backlog.before, "utf8");
   };
+
+  // DISC-266: a new backlog row raises both files' "Next free number" markers, as row-add does (DISC-259).
+  if (args["backlog-add"]) raiseMarkers(args.vault, [owner.queue, owner.backlog].filter(Boolean));
 
   // 3. Grep the write back.
   try {

@@ -492,3 +492,16 @@ test("DISC-253: no named rows, no 'also named' line", () => {
   const { r } = laneEndWithBacklog([]);
   assert.doesNotMatch(r.stdout + r.stderr, /also named by merged PRs/);
 });
+
+test("DISC-266: --backlog-add raises the queue's and backlog's Next free number markers above the new row", () => {
+  const vault = makeVaultWithQueue();
+  const qpath = join(vault, "projects", "p", "p-queue.md"), bpath = join(vault, "projects", "p", "p-backlog.md");
+  writeFileSync(qpath, "---\nname: p-queue\nkind: queue\nprefix: TP\n---\n**Next free number: 501** (highest used 500).\n\n| # | Needed |\n| - | - |\n| TP-500 | old row |\n");
+  writeFileSync(bpath, BACKLOG_TEXT);
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-500", "--text", "| TP-500 | landed |",
+    "--backlog", "projects/p/p-backlog.md", "--backlog-add", "a new finding", "--offline"], { encoding: "utf8" });
+  assert.match(readFileSync(bpath, "utf8"), /\| TP-501 \| a new finding \|/, r.stderr);
+  assert.match(readFileSync(qpath, "utf8"), /\*\*Next free number: 502\*\* \(highest used 501\)/);
+  rmSync(vault, { recursive: true, force: true });
+});

@@ -38,6 +38,18 @@ test("parseStatus accepts exactly the five statuses", () => {
   assert.equal(parseStatus("moot (superseded by 48)").kind, "moot");
 });
 
+test("DISC-263: parseStatus accepts a done form that records only a commit sha", () => {
+  assert.deepEqual(parseStatus("done (32ecb72)"), { kind: "done", pairs: [{ pr: null, sha: "32ecb72" }] });
+  assert.deepEqual(parseStatus("done (#7 abc1234, 32ecb72)"), { kind: "done", pairs: [{ pr: "#7", sha: "abc1234" }, { pr: null, sha: "32ecb72" }] });
+});
+
+test("DISC-263: a sha-only done row is clean when the commit exists in a supplied repo, unknown when it does not", () => {
+  const { repo, sha } = makeRepo();
+  const idx = mergedIndex([repo]);
+  assert.deepEqual(checkBacklog("p", BACKLOG("", `| 1 | a | d | done (${sha}) |`), idx), []);
+  assert.equal(checkBacklog("p", BACKLOG("", "| 1 | a | d | done (deadbee) |"), idx)[0].kind, "unknown");
+});
+
 test("parseStatus rejects free text, bare in-flight, and done without a sha", () => {
   for (const s of ["DONE 2026-10-02", "open — rides 3", "in flight", "done (#7)", "unsure", "PARTLY DONE (sweep 2)", ""]) {
     assert.equal(parseStatus(s), null, s);

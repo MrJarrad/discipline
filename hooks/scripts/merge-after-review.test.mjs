@@ -338,3 +338,17 @@ test("DISC-221 L5: a reviewer: line that is not a session id makes the comment n
 test("DISC-221 L5: a verdict with no reviewer: line still counts (reviewer posted it itself)", () => {
   assert.deepEqual(reviewVerdict([l5("")], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: null });
 });
+
+// DISC-265 (s62, handoff-css #55): a verdict the parent relays may open with a line of its own
+// before the `## Review … head <sha>` heading; the heading, not line 1 of the comment, starts the verdict.
+test("DISC-265: a relayed verdict with a preamble line above the Review heading counts", () => {
+  const relay = { ...l5(""), body: "Relaying reviewer session_01AbC9's verdict:\n\n## Review r1 (LIGHT), head c7868b2\nreviewer: session_01AbC9\nmerge: yes\n0 red" };
+  assert.deepEqual(reviewVerdict([relay], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: "session_01AbC9" });
+});
+
+test("DISC-265: a preamble does not stand in for the heading, and a verdict above the heading is not read", () => {
+  const noHeading = { ...l5(""), body: "Relaying a verdict, head c7868b2\nmerge: yes" };
+  assert.equal(reviewVerdict([noHeading], L5_HEAD, ["MrJarrad"]), null);
+  const early = { ...l5(""), body: "merge: yes\n## Review r1, head c7868b2\nmerge: no" };
+  assert.equal(reviewVerdict([early], L5_HEAD, ["MrJarrad"])?.verdict, "no");
+});

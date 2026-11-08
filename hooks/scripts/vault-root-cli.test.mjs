@@ -41,7 +41,8 @@ for (const [name, argsFor] of [
     // a fresh vault per run: session-resume and list-drift-check may fix files in place
     const a = container(), b = container();
     const viaBox = run(name, argsFor(a.box)), viaMain = run(name, argsFor(b.main));
-    const norm = (r, c) => (r.stdout + r.stderr).split(c.main).join("<V>").split(c.box).join("<V>");
+    // DISC-264: session-resume heads its digest with a minute-resolution clock; two runs may straddle a minute.
+    const norm = (r, c) => (r.stdout + r.stderr).split(c.main).join("<V>").split(c.box).join("<V>").replace(/\d{4}-\d\d-\d\dT\d\d:\d\dZ/g, "<T>");
     assert.equal(viaBox.status, viaMain.status, norm(viaBox, a));
     assert.equal(norm(viaBox, a), norm(viaMain, b));
     assert.doesNotMatch(viaBox.stdout + viaBox.stderr, /ENOENT|no such file/i);
