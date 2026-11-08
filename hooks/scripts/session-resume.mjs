@@ -40,8 +40,8 @@ export function runCmd(cmd, args, { cwd, timeout = 15000 } = {}) {
   return { ok: r.status === 0, stdout: r.stdout || "", stderr: (r.stderr || "").trim().split("\n")[0] };
 }
 
-/* The first (newest) `## Next` / `### Next` section of a handover -> lane records. */
-export function parseNextBlock(text) {
+/* The body lines of the first (newest) `## Next` / `### Next` section of a handover. */
+function newestNextBody(text) {
   const lines = String(text).split(/\r?\n/);
   const start = lines.findIndex((l) => /^#{2,3}\s+Next\b/.test(l));
   if (start < 0) return [];
@@ -52,6 +52,20 @@ export function parseNextBlock(text) {
     if (h && h[1].length <= level) break;
     body.push(l);
   }
+  return body;
+}
+
+/* DISC-267: `- standing plan: <goal> | next wave: <what>` in the newest Next block -> [{ goal, next }]. */
+export function parseStandingPlans(text) {
+  return newestNextBody(text).flatMap((l) => {
+    const m = /^\s*-\s+standing plan:\s*(.*?)\s+\|\s+next wave:\s*(.*?)\s*$/i.exec(l);
+    return m ? [{ goal: m[1], next: m[2] }] : [];
+  });
+}
+
+/* The first (newest) `## Next` / `### Next` section of a handover -> lane records. */
+export function parseNextBlock(text) {
+  const body = newestNextBody(text);
   // join indented continuation lines onto their `- lane:` item
   const items = [];
   for (const l of body) {
@@ -324,6 +338,10 @@ export function buildDigest(opts = {}) {
     handovers = readdirSync(join(vault, "projects"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(vault, "projects", e.name, `${e.name}-handover.md`)).filter(existsSync);
   } catch { /* no projects dir */ }
   for (const h of handovers) {
+    for (const plan of parseStandingPlans(readFileSync(h, "utf8"))) {
+      text.push(`STANDING PLAN  ${plan.goal} — next wave: ${plan.next}  (from ${relative(vault, h)}; name it in the first status reply and dispatch that wave)`);
+      text.push("");
+    }
     for (const lane of parseNextBlock(readFileSync(h, "utf8"))) {
       lanes.push({ ...lane, handover: relative(vault, h) });
       if (lane.progress) seenProgress.add(resolve(vault, lane.progress));

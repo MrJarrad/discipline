@@ -11,10 +11,10 @@ import { sweepDue } from "./helper-sweep-stop.mjs";
 
 const hook = fileURLToPath(new URL("./helper-sweep-stop.mjs", import.meta.url));
 let n = 0;
-const use = (name, input, result) => {
+const use = (name, input, result, content = "x") => {
   const id = `t${++n}`;
   const out = [{ message: { content: [{ type: "tool_use", id, name, input }] } }];
-  if (result) out.push({ message: { content: [{ type: "tool_result", tool_use_id: id, is_error: result === "error", content: "x" }] } });
+  if (result) out.push({ message: { content: [{ type: "tool_result", tool_use_id: id, is_error: result === "error", content }] } });
   return out;
 };
 const cockpit = use("Read", { file_path: "/home/user/jhd-vault/orchestrator/cockpit.md" }, "ok");
@@ -44,6 +44,22 @@ test("at wrap a sweep from before the wrap does not count; one after does", () =
   assert.equal(due.phase, "wrap");
   assert.match(due.reason, /wrap/i);
   assert.equal(sweepDue(lines(cockpit, wrap, sweep)), null);
+});
+
+// DISC-268(1): a sweep that lists helpers to re-point is not finished until each one has been messaged.
+const repointOut = "## Archive (0)\n\n## Re-point (2)\n- session_h1 | Your parent session session_old has wrapped; session_a is your parent now.\n- session_h2 | Your parent session session_old has wrapped; session_a is your parent now.\n";
+const sweepWithRepoint = use("Bash", sweepCmd, "ok", repointOut);
+const sendTo = (id) => use("mcp__claude-code-remote__send_message", { session_id: id, message: "re-pointed" }, "ok");
+test("DISC-268: a sweep with helpers to re-point is due until each is sent a message after it", () => {
+  const due = sweepDue(lines(cockpit, sweepWithRepoint));
+  assert.equal(due.phase, "repoint");
+  assert.match(due.reason, /session_h1/);
+  assert.match(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"))).reason, /session_h2/);
+  assert.doesNotMatch(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"))).reason, /session_h1/);
+  assert.equal(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null);
+});
+test("DISC-268: a message sent before the sweep does not count as the re-point", () => {
+  assert.equal(sweepDue(lines(cockpit, sendTo("session_h1"), sendTo("session_h2"), sweepWithRepoint))?.phase, "repoint");
 });
 
 const stop = (home, session_id, transcriptLines) => {

@@ -16,10 +16,18 @@ import { basename, join } from "node:path";
 const blocks = (e) => (Array.isArray(e?.message?.content) ? e.message.content : []);
 const SWEEP = "node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id> --sessions <saved get_session/list_sessions files>";
 
+/* Session ids listed under the sweep output's "## Re-point" heading (the tool_result content is text or text parts). */
+function repointIds(content) {
+  const text = Array.isArray(content) ? content.map((c) => (typeof c === "string" ? c : c?.text || "")).join("\n") : String(content ?? "");
+  const at = text.indexOf("## Re-point");
+  return at < 0 ? [] : [...text.slice(at).matchAll(/^- (session_\w+) \|/gm)].map((m) => m[1]);
+}
+
 /* null when no sweep is due, else { phase: "start"|"wrap", reason }. Lines are transcript JSONL. */
 export function sweepDue(lines) {
-  let cockpit = false, wrapAt = -1, sweepAt = -1, i = 0;
+  let cockpit = false, wrapAt = -1, sweepAt = -1, i = 0, repoint = [];
   const sweeps = new Map(); // tool_use id -> position
+  const sent = []; // { id, at }: send_message targets (DISC-268: the re-point messages)
   for (const line of lines) {
     i++;
     let e; try { e = JSON.parse(line); } catch { continue; }
@@ -29,12 +37,21 @@ export function sweepDue(lines) {
         if (p.name === "Read" && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) cockpit = true;
         if (p.name === "Skill" && /(^|:)wrap$/.test(inp.skill || "")) wrapAt = i;
         if (p.name === "Bash" && /helper-sweep\.mjs/.test(inp.command || "")) sweeps.set(p.id, i);
-      } else if (p?.type === "tool_result" && sweeps.has(p.tool_use_id) && !p.is_error) sweepAt = Math.max(sweepAt, sweeps.get(p.tool_use_id));
+        if (/send_message$/.test(p.name || "") && inp.session_id) sent.push({ id: String(inp.session_id), at: i });
+      } else if (p?.type === "tool_result" && sweeps.has(p.tool_use_id) && !p.is_error) {
+        if (sweeps.get(p.tool_use_id) >= sweepAt) repoint = repointIds(p.content);
+        sweepAt = Math.max(sweepAt, sweeps.get(p.tool_use_id));
+      }
     }
   }
   if (!cockpit && wrapAt < 0) return null;
   if (wrapAt >= 0) return sweepAt > wrapAt ? null : { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} --keep <…> --merged <…>, call archive_session on each Archive row, and put the Keep and Surface ids on the cockpit wrap block's Helpers: line (HARD-RULES 19).` };
-  return sweepAt >= 0 ? null : { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Call get_session on the ids in the cockpit's Helpers: line, save each result, run ${SWEEP}, and call archive_session on each Archive row (HARD-RULES 19).` };
+  if (sweepAt >= 0) {
+    // DISC-268: a sweep that lists helpers to re-point is finished only when each has been sent its message.
+    const pending = repoint.filter((id) => !sent.some((s) => s.id === id && s.at > sweepAt));
+    return pending.length ? { phase: "repoint", reason: `Stop check (DISC-268): the helper sweep lists helpers still pointed at a wrapped parent. Send each its re-point message with send_message (the \`message\` text under "## Re-point" in the sweep output) — still unsent: ${pending.join(", ")}.` } : null;
+  }
+  return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Call get_session on the ids in the cockpit's Helpers: line, save each result, run ${SWEEP}, and call archive_session on each Archive row (HARD-RULES 19).` };
 }
 
 function isHelper() {

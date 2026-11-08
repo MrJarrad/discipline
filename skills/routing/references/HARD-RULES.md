@@ -246,6 +246,7 @@ and queued the chat as the doer — that hatch is deleted.
    the wrapped s42 parent): the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped,
    naming the new parent's id; send it once, that turn. DO: send the row's message as printed. DON'T: wait for the helper to
    write to the old parent and re-point it by hand.
+   **Both are checked and fed by script** (DISC-268, operator 2026-11-08): the Stop hook holds the turn until every Re-point row has a `send_message` after the sweep; `lane-end --helper <session id>` records a helper whose work landed in `<session-dir>/landed-helpers`, and `helper-sweep.mjs --landed <that file>` archives it, so finished helpers do not idle across sessions.
    **A parent session is never archived** (operator 2026-10-31: *"it's important the we don't archive the parent sessions though,
    i'm a bit nervous about that"*): a helper is a session with a parent and a title starting "Helper ·"; every other session,
    wrapped, "← talk here" or otherwise, is a parent, lands in no list, and is never passed to `archive_session` by any session.

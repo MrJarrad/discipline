@@ -505,3 +505,12 @@ test("DISC-266: --backlog-add raises the queue's and backlog's Next free number 
   assert.match(readFileSync(qpath, "utf8"), /\*\*Next free number: 502\*\* \(highest used 501\)/);
   rmSync(vault, { recursive: true, force: true });
 });
+
+test("DISC-268: --helper <session id> records the landed helper in <session-dir>/landed-helpers for the sweep", () => {
+  const vault = makeVaultWithQueue();
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |", "--helper", "session_h9"], { encoding: "utf8" });
+  assert.match(readFileSync(join(sessionDir, "landed-helpers"), "utf8"), /^session_h9$/m, r.stderr);
+  assert.match(r.stdout, /session_h9/);
+  rmSync(vault, { recursive: true, force: true });
+});
