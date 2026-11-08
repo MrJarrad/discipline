@@ -265,3 +265,43 @@ test("a queue add raises the BACKLOG's marker too (DISC-259)", () => {
   assert.equal(marker(v, "backlog"), 602);
   assert.equal(marker(v, "queue"), 602);
 });
+
+// DISC-272 (operator 2026-11-08: "we can't be loosing track of these things"): a queue row that asks
+// for a link, file or node is refused until the vault has been searched.
+test("DISC-272: a link-ask queue row is refused without --searched, and added with it", () => {
+  const v = mkVault();
+  const ask = { vault: v, prefix: "ZZ", to: "queue", text: "Send the Figma link for the Yardsale case study", where: "chat", why: "needed to build", recommended: "paste it", offline: true };
+  const no = rowAdd(ask);
+  assert.equal(no.ok, false);
+  assert.match(no.reason, /--searched/);
+  assert.match(no.reason, /references\//);
+  assert.equal(rowAdd({ ...ask, searched: "grep references/ + projects/zz/ for yardsale figma: nothing" }).ok, true);
+});
+
+test("DISC-272: an ask that is not for a link, file or node needs no --searched", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Pick the footer blur strength", where: "preview", why: "look call", recommended: "medium", offline: true }).ok, true);
+});
+
+// DISC-272 review round 1 (#152): only an ask directed at the operator counts; a row that mentions a link does not.
+test("DISC-272: asks for a link, file, media or ID are caught; rows that only mention a link are not", async () => {
+  const { isLinkAsk } = await import("./lib/link-ask.mjs");
+  for (const t of [
+    "Send the links to your case-study Figma files: one per project", // PF-795
+    "Re-export the design system handoff from Figma", // HB-304
+    "One Figma tick, then re-export (HB-301 404 round 3)", // HB-317
+    "Share the Notion 'Portfolio Site WIKI' with the connected Notion", // PF-848
+    "run Plugins, then drop the zip in Drop", // HT-54
+    "Drop the Sakara media in Drop media/projects/sakara/",
+    "Create the Umami account and give me the Website ID",
+    "Send a Figma link to the Yardsale spec block", // PF-1375
+  ]) assert.equal(isLinkAsk(t), true, t);
+  for (const t of [
+    "Check the link to the case study opens in the same tab",
+    "Review the case-study links for Wild — open the preview link and say yes",
+    "we need the share image to be 1200x630 — confirm the files follow that",
+    "Pressed look: what should a button do while it's held down? Alternative: give pressed its own fill, which you'd define in Figma", // PF-699
+    "Recommended: drop it from Figma for now", // PF-1334
+    "Export: the lighter stroke you approved is already in Figma", // PF-1171 label
+  ]) assert.equal(isLinkAsk(t), false, t);
+});

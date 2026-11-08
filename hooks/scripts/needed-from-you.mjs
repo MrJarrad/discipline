@@ -68,13 +68,32 @@ export function neededFromYou(vault, prefixes) {
   return { ok: true, projects: out };
 }
 
+/* DISC-273 (operator 2026-11-08 s67: "always a sentence a bullets with a status"): a row whose item cell
+   lists several items as `<br>- item — status` prints as one sentence, then one bullet per item. Returns
+   the lines, or null for a single-item row (it keeps its table form). */
+export function multiItemBlock(line) {
+  const cells = line.split("|").slice(1, -1).map((x) => x.trim());
+  const parts = (cells[1] || "").split("<br>");
+  const first = parts.findIndex((x) => x.startsWith("- "));
+  if (first < 1) return null;
+  const items = []; let tail = "";
+  for (const [i, x] of parts.slice(first).entries()) { if (x.startsWith("- ")) items.push(x); else { tail = parts.slice(first + i).filter(Boolean).join(" "); break; } }
+  const rest = [tail, ...cells.slice(2)].filter(Boolean).join(" · ");
+  return [`**${cells[0]}** — ${parts.slice(0, first).join(" ").trim()}`, ...items, ...(rest ? ["", rest] : []), ""];
+}
+
+const rowLines = (head, rows) => {
+  const single = rows.filter((r) => !multiItemBlock(r.line));
+  return [...(single.length ? [...head, ...single.map((r) => r.line), ""] : []), ...rows.flatMap((r) => multiItemBlock(r.line) || [])];
+};
+
 export function render(result) {
   const lines = ["## Needed from you", ""];
   for (const p of result.projects) {
     lines.push(`### ${p.prefix} — ${p.project}`, "");
     if (!p.queue.rows.length && !p.backlog.rows.length) lines.push("Nothing needed from you.", "");
-    if (p.queue.rows.length) lines.push(...p.queue.head, ...p.queue.rows.map((r) => r.line), "");
-    if (p.backlog.rows.length) lines.push("Waiting on you (backlog):", "", ...p.backlog.head, ...p.backlog.rows.map((r) => r.line), "");
+    if (p.queue.rows.length) lines.push(...rowLines(p.queue.head, p.queue.rows));
+    if (p.backlog.rows.length) lines.push("Waiting on you (backlog):", "", ...rowLines(p.backlog.head, p.backlog.rows));
   }
   return lines.join("\n");
 }

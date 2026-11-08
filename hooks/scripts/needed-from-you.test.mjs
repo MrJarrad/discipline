@@ -100,3 +100,24 @@ test("DISC-230: a vault container root resolves to its main/ checkout", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /HB-5/);
 });
+
+// DISC-273 (operator 2026-11-08 s67): "always a sentence a bullets with a status".
+const MULTI = "| PF-65 | Project media per case study. Per project:<br>- Yardsale — done (pf #551)<br>- Oliver Cabell — waiting on you<br>- Sakara — waiting on you<br><br>Earlier wording kept. | operator | waiting on operator | a note |";
+function multiVault() {
+  const v = mkdtempSync(join(tmpdir(), "nfy-multi-"));
+  mkdirSync(join(v, "projects", "p"), { recursive: true });
+  writeFileSync(join(v, "projects", "p", "p-queue.md"), QUEUE("PF", "| PF-5 | single ask | | | |"));
+  writeFileSync(join(v, "projects", "p", "p-backlog.md"), BACKLOG("PF", MULTI));
+  return v;
+}
+
+test("DISC-273: a row that tracks several items prints one sentence, then one bullet per item with its status", () => {
+  const out = render(neededFromYou(multiVault(), ["PF"]));
+  const block = out.split("\n").filter((l) => !/^\|/.test(l));
+  const at = block.findIndex((l) => l.includes("PF-65"));
+  assert.match(block[at], /^\*\*PF-65\*\* — Project media per case study\. Per project:$/);
+  assert.deepEqual(block.slice(at + 1, at + 4), ["- Yardsale — done (pf #551)", "- Oliver Cabell — waiting on you", "- Sakara — waiting on you"]);
+  assert.doesNotMatch(out, /<br>/, "no raw <br> reaches the operator");
+  assert.match(out, /Earlier wording kept\./);
+  assert.match(out, /\| PF-5 \| single ask/, "a single-item row keeps its table form");
+});

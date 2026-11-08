@@ -7,6 +7,7 @@
             [--status "waiting on operator"]  (backlog; an idea is added so)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
             [--merge-into <ID>]  fold the text into that open row instead (dated; backlog Notes, queue Needed)
+            [--searched "<what you searched>"] a queue row asking the operator for a link, file or node needs this (DISC-272)
             [--distinct]     add the row even though it resembles an open one
             [--offline]      skip the origin/main check (tests, no network)
    A new row that resembles an open backlog row or unstruck queue row (shared
@@ -28,6 +29,7 @@ import { join, resolve } from "node:path";
 import { addRow, parseBacklog, parseStatus } from "./list-drift-check.mjs";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
+import { LINK_ASK_REFUSAL, isLinkAsk } from "./lib/link-ask.mjs";
 import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { DRIFT_STAMP_MINUTES, driftStampFresh, writeMarker } from "./lib/row-marker.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -98,7 +100,7 @@ export function citedIds(text, prefix) {
   return [...new Set(String(text).match(new RegExp(`\\b${prefix}-\\d+\\b`, "g")) || [])];
 }
 
-export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct }) {
+export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct, searched }) {
   const warnings = [];
   const fail = (reason) => ({ ok: false, reason, warnings });
   if (!/^[A-Z]{2,4}$/.test(String(prefix || ""))) return fail(`--prefix must be a project prefix like PF, got "${prefix ?? ""}"`);
@@ -107,6 +109,8 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   if (status !== undefined && (to !== "backlog" || !["open", "waiting on operator"].includes(status))) return fail("--status applies to a backlog row and is `open` or `waiting on operator` (an idea is `waiting on operator`)");
   // DISC-178: an ask the operator can act on is a row; "release?" is not (ruling 2026-10-15-release-follows-merge).
   if ((to === "queue" || status === "waiting on operator") && isReleaseOnlyAsk(clean(text), [where, why, recommended].map(clean).join(" "))) return fail(`release-only ask refused — ${RELEASE_REFUSAL}`);
+  // DISC-272: a link/file/node ask is raised only after the vault was searched.
+  if ((to === "queue" || status === "waiting on operator") && isLinkAsk(clean(text)) && !clean(searched)) return fail(`link-ask refused — ${LINK_ASK_REFUSAL}`);
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");
   return withVaultLock(vault, () => {
     // Resolved inside the lock: a concurrent writer's file is never read half-written.
@@ -176,10 +180,10 @@ function main() {
     a[k] = k === "offline" || k === "distinct" ? true : argv[++i];
   }
   if (!a.vault || !a.prefix || !a.to || !a.text) {
-    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--merge-into ID | --distinct] [--offline]");
+    console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--merge-into ID | --distinct] [--searched \"…\"] [--offline]");
     process.exit(2);
   }
-  const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct) });
+  const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct), searched: a.searched });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
   // DISC-179(1): tell the Stop hook a new ask was raised this turn.
