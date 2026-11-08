@@ -265,3 +265,20 @@ test("a queue add raises the BACKLOG's marker too (DISC-259)", () => {
   assert.equal(marker(v, "backlog"), 602);
   assert.equal(marker(v, "queue"), 602);
 });
+
+// DISC-272 (operator 2026-11-08: "we can't be loosing track of these things"): a queue row that asks
+// for a link, file or node is refused until the vault has been searched.
+test("DISC-272: a link-ask queue row is refused without --searched, and added with it", () => {
+  const v = mkVault();
+  const ask = { vault: v, prefix: "ZZ", to: "queue", text: "Send the Figma link for the Yardsale case study", where: "chat", why: "needed to build", recommended: "paste it", offline: true };
+  const no = rowAdd(ask);
+  assert.equal(no.ok, false);
+  assert.match(no.reason, /--searched/);
+  assert.match(no.reason, /references\//);
+  assert.equal(rowAdd({ ...ask, searched: "grep references/ + projects/zz/ for yardsale figma: nothing" }).ok, true);
+});
+
+test("DISC-272: an ask that is not for a link, file or node needs no --searched", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Pick the footer blur strength", where: "preview", why: "look call", recommended: "medium", offline: true }).ok, true);
+});
