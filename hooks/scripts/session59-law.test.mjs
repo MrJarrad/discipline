@@ -10,12 +10,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("DISC-271: the reviewer: line takes get_session's own id, never ~/.claude/helper-session", () => {
-  const rule = "The `reviewer:` line is the id `get_session` returns for your own session, never the id in `~/.claude/helper-session` (that file holds the parent's).";
-  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes(rule));
+  // one owner: HELPER-SESSIONS points at the charter instead of restating the rule
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("the `reviewer:` line rule in `agents/reviewer.md` § Verdict shape"));
   assert.ok(flat("agents/reviewer.md").includes("the id `get_session` returns for your own session, never the parent's id in `~/.claude/helper-session`"));
 });
 
 test("DISC-271: an in-session reviewer subagent has no session id and omits the reviewer: line", () => {
-  const rule = "A reviewer subagent has no session id and omits the line; the merge gate ignores a `reviewer:` value that is not a session id.";
+  const rule = "A reviewer subagent has no session id and omits the line; a verdict whose `reviewer:` line is not a session id is not counted at all (`merge-after-review.mjs`).";
   assert.ok(flat("agents/reviewer.md").includes(rule));
 });
