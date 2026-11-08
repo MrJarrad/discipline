@@ -11,10 +11,10 @@ import { sweepDue } from "./helper-sweep-stop.mjs";
 
 const hook = fileURLToPath(new URL("./helper-sweep-stop.mjs", import.meta.url));
 let n = 0;
-const use = (name, input, result) => {
+const use = (name, input, result, content = "x") => {
   const id = `t${++n}`;
   const out = [{ message: { content: [{ type: "tool_use", id, name, input }] } }];
-  if (result) out.push({ message: { content: [{ type: "tool_result", tool_use_id: id, is_error: result === "error", content: "x" }] } });
+  if (result) out.push({ message: { content: [{ type: "tool_result", tool_use_id: id, is_error: result === "error", content }] } });
   return out;
 };
 const cockpit = use("Read", { file_path: "/home/user/jhd-vault/orchestrator/cockpit.md" }, "ok");
@@ -46,6 +46,22 @@ test("at wrap a sweep from before the wrap does not count; one after does", () =
   assert.equal(sweepDue(lines(cockpit, wrap, sweep)), null);
 });
 
+// DISC-268(1): a sweep that lists helpers to re-point is not finished until each one has been messaged.
+const repointOut = "## Archive (0)\n\n## Re-point (2)\n- session_h1 | Your parent session session_old has wrapped; session_a is your parent now.\n- session_h2 | Your parent session session_old has wrapped; session_a is your parent now.\n";
+const sweepWithRepoint = use("Bash", sweepCmd, "ok", repointOut);
+const sendTo = (id) => use("mcp__claude-code-remote__send_message", { session_id: id, message: "re-pointed" }, "ok");
+test("DISC-268: a sweep with helpers to re-point is due until each is sent a message after it", () => {
+  const due = sweepDue(lines(cockpit, sweepWithRepoint));
+  assert.equal(due.phase, "repoint");
+  assert.match(due.reason, /session_h1/);
+  assert.match(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"))).reason, /session_h2/);
+  assert.doesNotMatch(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"))).reason, /session_h1/);
+  assert.equal(sweepDue(lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null);
+});
+test("DISC-268: a message sent before the sweep does not count as the re-point", () => {
+  assert.equal(sweepDue(lines(cockpit, sendTo("session_h1"), sendTo("session_h2"), sweepWithRepoint))?.phase, "repoint");
+});
+
 const stop = (home, session_id, transcriptLines) => {
   const t = join(mkdtempSync(join(tmpdir(), "hss-")), "t.jsonl");
   writeFileSync(t, transcriptLines.join("\n"));
@@ -71,4 +87,29 @@ test("a helper session (marker file) is never checked", () => {
 test("there is no SessionStart seed: a helper must never be told to archive", () => {
   const r = spawnSync(process.execPath, [hook, "start"], { input: "{}", encoding: "utf8" });
   assert.equal(r.stdout.trim(), "");
+});
+
+// Review of #150 A1: the sweep the hook asks for must read the landed list, or lane-end --helper does nothing.
+test("DISC-268 A1: the start and wrap sweep commands pass --landed, and that command archives a landed helper", () => {
+  const dir = mkdtempSync(join(tmpdir(), "landed-"));
+  writeFileSync(join(dir, "landed-helpers"), "h_done\n");
+  const sessions = join(dir, "s.json");
+  const s = (id, title, extra = {}) => ({ id, title, status_bucket: "SESSION_STATUS_BUCKET_COMPLETED", created_at: "2026-11-08T09:00:00Z", updated_at: "2026-11-08T09:30:00Z", ...extra });
+  writeFileSync(sessions, JSON.stringify({ data: [s("p_live", "Discipline · 8 Nov ← talk here"), s("h_done", "Helper · x — no action needed", { parent_session_id: "p_live" })] }));
+  for (const due of [sweepDue(lines(cockpit)), sweepDue(lines(cockpit, wrap))]) {
+    assert.match(due.reason, /--landed <session-dir>\/landed-helpers/);
+  }
+  const bin = fileURLToPath(new URL("../scripts/helper-sweep.mjs", import.meta.url));
+  const r = spawnSync(process.execPath, [bin, "--self", "me", "--sessions", sessions, "--landed", join(dir, "landed-helpers")], { encoding: "utf8" });
+  assert.match(r.stdout.slice(r.stdout.indexOf("## Archive"), r.stdout.indexOf("## Keep")), /h_done/);
+});
+
+// Review of #150 A2: the re-point hold blocks every turn while rows are unsent (capped, so an unreachable helper cannot trap the session).
+test("DISC-268 A2: the re-point hold re-blocks while rows are unsent, ends when they are sent, and is capped at 3", () => {
+  const home = mkdtempSync(join(tmpdir(), "home-"));
+  const pending = lines(cockpit, sweepWithRepoint);
+  for (let i = 0; i < 3; i++) assert.equal(stop(home, "r1", pending)?.decision, "block", `turn ${i + 1}`);
+  assert.equal(stop(home, "r1", pending), null, "capped after 3 holds");
+  assert.equal(stop(home, "r2", pending)?.decision, "block");
+  assert.equal(stop(home, "r2", lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null, "all sent: passes");
 });

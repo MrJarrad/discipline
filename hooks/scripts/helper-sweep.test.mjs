@@ -210,3 +210,23 @@ test("the sweep reads a saved result that still has the <other-session> wrapper"
   const out = execFileSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--self", "me", "--sessions", f], { encoding: "utf8" });
   assert.match(out, /## Archive \(1\)\n- h1 /);
 });
+
+// DISC-268(2): finished helpers lingered idle under a live parent because only --merged ids were archived.
+test("DISC-268: --landed <file> (ids lane-end recorded) archives a completed helper under a live parent; a missing file is ignored", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { spawnSync } = await import("node:child_process");
+  const dir = mkdtempSync(join(tmpdir(), "helper-sweep-"));
+  const p = join(dir, "s.json"), landed = join(dir, "landed-helpers");
+  writeFileSync(p, JSON.stringify({ data: [LIVE, h("h_done", "p_live"), h("h_other", "p_live")] }));
+  writeFileSync(landed, "h_done\n");
+  const bin = new URL("./helper-sweep.mjs", import.meta.url).pathname;
+  const r = spawnSync(process.execPath, [bin, "--self", "me", "--now", NOW, "--sessions", p, "--landed", landed], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const [arch, keep] = ["## Archive", "## Keep"].map((hd) => r.stdout.indexOf(hd));
+  assert.ok(r.stdout.slice(arch, keep).includes("h_done"), r.stdout);
+  assert.ok(!r.stdout.slice(arch, keep).includes("h_other"), r.stdout);
+  const none = spawnSync(process.execPath, [bin, "--self", "me", "--now", NOW, "--sessions", p, "--landed", join(dir, "absent")], { encoding: "utf8" });
+  assert.equal(none.status, 0, none.stderr);
+});

@@ -37,14 +37,15 @@
    Usage:
      node lane-end.mjs --session-dir <path> --vault <root> --id <PREFIX-n>
        --text "<full replacement row text>"
-       [--evidence <dir>] [--pr <owner/repo#n>] [--dry-run]
+       [--evidence <dir>] [--pr <owner/repo#n>] [--helper <session id>] [--dry-run]
        [--then-merge <owner/repo#n> --repo <path> [--then-build]]
 */
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, crossFileDupIds, setRowStatus } from "./list-drift-check.mjs";
+import { raiseMarkers } from "./row-add.mjs";
 import { acquireVaultLock, highestUsed, remoteTexts } from "./lib/row-alloc.mjs";
 import { isStruckRow } from "./queue-write-check.mjs";
 import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
@@ -247,6 +248,9 @@ function main() {
     if (backlog) writeFileSync(backlog.path, backlog.before, "utf8");
   };
 
+  // DISC-266: a new backlog row raises both files' "Next free number" markers, as row-add does (DISC-259).
+  if (args["backlog-add"]) raiseMarkers(args.vault, [owner.queue, owner.backlog].filter(Boolean));
+
   // 3. Grep the write back.
   try {
     run("node", [join(scriptDir, "queue-write-check.mjs"), queuePath, args.text]);
@@ -275,6 +279,12 @@ function main() {
 
   // The files are written and checked; the lock guards only that window, not git.
   releaseLock();
+
+  // DISC-268: a helper whose work this call lands is recorded for the helper sweep (--landed), which archives it.
+  if (args.helper && args.helper !== true) {
+    appendFileSync(join(args["session-dir"], "landed-helpers"), `${args.helper}\n`);
+    console.log(`lane-end: helper ${args.helper} landed — archive_session it (the sweep reads ${join(args["session-dir"], "landed-helpers")} with --landed)`);
+  }
 
   // 4. Commit + push (queue file + evidence dir only, never a broad add).
   try {

@@ -62,8 +62,8 @@ export function gateRunTail(comments, headSha, trusted = []) {
 
 /* Reviewer verdict (`2026-10-09-every-merge-reviewed`; #361 merged without one,
    lesson `2026-10-18-helper-waits-for-go`). The shape is defined once, in
-   `agents/reviewer.md` § Verdict: a PR comment or review whose line 1 is a `##`
-   heading containing `Review` and `head <sha>`, and whose verdict line is the
+   `agents/reviewer.md` § Verdict: a PR comment or review whose first `##`
+   heading (line 1, or below a relay's preamble: DISC-265) contains `Review` and `head <sha>`, and whose verdict line is the
    first line beginning `merge: yes|no` (bold allowed). A bold line that carries
    `merge: yes|no` mid-sentence (#107 round 3, before the shape was defined) is
    read when no line begins with it. `items` are `{ body, author: { login }, at? }`
@@ -80,9 +80,14 @@ export function reviewVerdict(items, headSha, trusted = []) {
   let found = null;
   for (const { c } of timed) {
     if (!ok.includes(String(c.author?.login || "").toLowerCase())) continue;
-    const [first, ...rest] = String(c.body || "").split("\n");
-    const h = /^##\s.*review/i.test(first) && first.match(/\bhead:?\s*`?([0-9a-f]{7,40})`?/i);
-    if (!h || !head.startsWith(h[1].toLowerCase())) continue;
+    /* DISC-265: the verdict starts at the first `##` Review heading; a relay's own preamble above it is skipped. */
+    const all = String(c.body || "").split("\n");
+    const HEAD_SHA = /\bhead:?\s*`?([0-9a-f]{7,40})`?/i;
+    const at = all.findIndex((l) => /^##\s.*review/i.test(l) && HEAD_SHA.test(l)); // a sha-less Review heading is passed over
+    if (at < 0) continue;
+    const h = all[at].match(HEAD_SHA);
+    if (!head.startsWith(h[1].toLowerCase())) continue;
+    const rest = all.slice(at + 1);
     const lines = rest.map((l) => l.trim());
     // DISC-246: a list marker or quote before the verdict line (`- merge: yes`, `> **merge: no**`) is still the verdict line.
     const line = lines.find((l) => /^(?:[-*>]\s+)*\**merge: (yes|no)\b/i.test(l)) ?? lines.find((l) => /^(?:[-*>]\s+)*\*\*.*\bmerge: (yes|no)\b.*\*\*$/i.test(l));

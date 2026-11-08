@@ -54,7 +54,7 @@ export function addQueueRow(text, prefix, n, cells) {
 
 /* DISC-259: after a write, every file of the project carries a "Next free number" marker above the highest
    number used across both, so the add leaves no next-free-stale finding behind. */
-function raiseMarkers(vault, rels) {
+export function raiseMarkers(vault, rels) {
   const texts = rels.map((r) => readFileSync(join(vault, r), "utf8"));
   const next = highestUsed(texts) + 1;
   rels.forEach((r, i) => {

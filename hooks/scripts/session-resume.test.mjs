@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildDigest, countOpenLookLanes, countOpenQueueRows, lastProgressLine, parseNextBlock, runCmd } from "./session-resume.mjs";
+import { buildDigest, countOpenLookLanes, countOpenQueueRows, lastProgressLine, parseNextBlock, parseStandingPlans, runCmd } from "./session-resume.mjs";
 
 const git = (cwd, ...a) => { const r = spawnSync("git", a, { cwd, encoding: "utf8" }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
 const ID = ["-c", "user.email=t@t", "-c", "user.name=t"];
@@ -172,3 +172,19 @@ test("DISC-221 L3: a yes row whose Notes name a branch or PR, or whose status is
   const { text } = buildDigest({ vault: v, exec: noGh, env: {}, pluginRoot: "/x", installedPath: "/x", home: v });
   assert.doesNotMatch(text, /approved, not started/);
 });
+
+// DISC-267 (s64: s63's "clear all the backlogs" plan left no trace once no lane was in flight).
+test("DISC-267: a standing plan in the newest Next block is printed above the lanes; an older block's plan is not", () => {
+  const w = world();
+  writeFileSync(join(w.vault, "projects", "p", "p-handover.md"), [
+    "## Wrapped 2026-11-07", "### Next",
+    "- standing plan: clear all the backlogs | next wave: the PF rows, then HB",
+    `- lane: lane-x | repo: shallow | branch: lane-x | pr: #7 | head: ${w.head.slice(0, 7)} | owner: reviewer`, "",
+    "## Older", "### Next", "- standing plan: an old plan | next wave: stale", ""].join("\n"));
+  assert.deepEqual(parseStandingPlans(require_text(w)), [{ goal: "clear all the backlogs", next: "the PF rows, then HB" }]);
+  const { text } = buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: noGh, env: {}, pluginRoot: "/x", installedPath: "/x", home: w.root });
+  assert.match(text, /STANDING PLAN\s+clear all the backlogs[^\n]*next wave: the PF rows, then HB[^\n]*projects\/p\/p-handover\.md/);
+  assert.ok(text.indexOf("STANDING PLAN") < text.indexOf("LANE lane-x"), "plan comes before the lanes");
+  assert.doesNotMatch(text, /an old plan/);
+});
+const require_text = (w) => readFileSync(join(w.vault, "projects", "p", "p-handover.md"), "utf8");

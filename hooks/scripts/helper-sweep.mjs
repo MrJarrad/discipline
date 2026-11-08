@@ -6,6 +6,7 @@
    node helper-sweep.mjs --self <session id> --sessions <list_sessions.json> [--sessions <page2.json>]
      [--keep <id,...>]    helpers whose PR still waits on a look or review
      [--merged <id,...>]  helpers whose PR is merged
+     [--landed <file>]    ids lane-end --helper recorded as landed (DISC-268), counted as merged
      [--now <ISO>]
    Input files are saved list_sessions results (raw {"ccr":{"data":[…]}}, {data:[…]} or an array)
    or saved get_session results ({"ccr":{…one session…}}).
@@ -78,9 +79,11 @@ function main(argv) {
     else opt[k] = v;
   }
   if (opt.bad || !opt.self || !opt.sessions.length) {
-    console.error("usage: helper-sweep.mjs --self <id> --sessions <file> [--sessions <file>] [--keep ids] [--merged ids] [--now ISO]");
+    console.error("usage: helper-sweep.mjs --self <id> --sessions <file> [--sessions <file>] [--keep ids] [--merged ids] [--landed file] [--now ISO]");
     return 2;
   }
+  // DISC-268: ids lane-end recorded as landed (one per line) count as merged; a missing file adds none.
+  if (opt.landed) { try { opt.merged.push(...readFileSync(opt.landed, "utf8").split(/\s+/).filter(Boolean)); } catch { /* none landed yet */ } }
   const r = classify({ sessions: readPages(opt.sessions), self: opt.self, now: opt.now || new Date().toISOString(), keep: opt.keep, merged: opt.merged });
   const block = (hd, rows) => [`## ${hd} (${rows.length})`, ...rows.map((x) => `- ${x.id} | ${x.title} | ${x.reason}`), ""].join("\n");
   const repoint = [`## Re-point (${r.repoint.length})`, ...r.repoint.map((x) => `- ${x.id} | ${x.message}`), ""].join("\n");

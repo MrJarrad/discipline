@@ -66,6 +66,7 @@ On wrap:
   the branch stands now (check `git ls-remote` first), not as the progress file last said.
   Add `look: yes` to a try-out waiting on or heading to the operator's eyes (`routing` rule 17 counts them).
   `session-resume.mjs` is the reader and the format's home.
+  A plan that outlives the session (a goal worked in waves, e.g. clearing the backlogs) adds `- standing plan: <goal> | next wave: <what>` above the lanes (DISC-267); the resume digest prints it as STANDING PLAN, and the next session's first status reply names it and dispatches that wave.
 
 If `projects/<name>/` does not exist for a live product (jhd-discipline), create the
 new-project trio in the same wrap (`vault-write`).
