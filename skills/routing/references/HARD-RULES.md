@@ -235,7 +235,7 @@ and queued the chat as the doer — that hatch is deleted.
    **The helper sweep runs at session start and at wrap** (DISC-211; DISC-212, operator 2026-10-28: *"archive it when it's task is
    complete or if another session takes over"*; 2026-10-31: *"aren't being archived when completed or possibly worse aren't being
    completed"*). **At wrap** save `list_sessions` (every page) to files and run `node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id>
-   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged>`; wrap writes the Keep and
+   --sessions <file>… --keep <helpers whose PR waits on a look or review> --merged <helpers whose PR merged> --landed <session-dir>/landed-helpers`; wrap writes the Keep and
    Surface ids, and its own id, on the cockpit wrap block's `Helpers:` line. **At session start** call `get_session` only on the ids in
    that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages
    `list_sessions` (DISC-224, s44: 25.3k chars). It sorts every
@@ -246,7 +246,7 @@ and queued the chat as the doer — that hatch is deleted.
    the wrapped s42 parent): the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped,
    naming the new parent's id; send it once, that turn. DO: send the row's message as printed. DON'T: wait for the helper to
    write to the old parent and re-point it by hand.
-   **Both are checked and fed by script** (DISC-268, operator 2026-11-08): the Stop hook holds the turn until every Re-point row has a `send_message` after the sweep; `lane-end --helper <session id>` records a helper whose work landed in `<session-dir>/landed-helpers`, and `helper-sweep.mjs --landed <that file>` archives it, so finished helpers do not idle across sessions.
+   **Both are checked and fed by script** (DISC-268, operator 2026-11-08): the Stop hook holds the turn (up to 3 times) until every Re-point row has a `send_message` after the sweep; `lane-end --helper <session id>` records a helper whose work landed in `<session-dir>/landed-helpers`, and `helper-sweep.mjs --landed <that file>` archives it, so finished helpers do not idle across sessions.
    **A parent session is never archived** (operator 2026-10-31: *"it's important the we don't archive the parent sessions though,
    i'm a bit nervous about that"*): a helper is a session with a parent and a title starting "Helper ·"; every other session,
    wrapped, "← talk here" or otherwise, is a parent, lands in no list, and is never passed to `archive_session` by any session.

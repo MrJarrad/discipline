@@ -14,7 +14,8 @@ import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
 const blocks = (e) => (Array.isArray(e?.message?.content) ? e.message.content : []);
-const SWEEP = "node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id> --sessions <saved get_session/list_sessions files>";
+const REPOINT_HOLDS = 3;
+const SWEEP = "node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id> --sessions <saved get_session/list_sessions files> --landed <session-dir>/landed-helpers";
 
 /* Session ids listed under the sweep output's "## Re-point" heading (the tool_result content is text or text parts). */
 function repointIds(content) {
@@ -67,8 +68,15 @@ function main() {
   if (!due) return;
   const key = String(input.session_id || basename(input.transcript_path)).replace(/[^\w.-]/g, "_");
   const state = join(homedir(), ".claude", "helper-sweep-stop", `${key}.${due.phase}`);
-  if (existsSync(state)) return; // already told once this session
-  try { mkdirSync(join(homedir(), ".claude", "helper-sweep-stop"), { recursive: true }); writeFileSync(state, new Date().toISOString()); } catch { return; }
+  /* start and wrap are told once per session. The re-point hold repeats while rows stay unsent, at most
+     REPOINT_HOLDS times, so a helper that cannot be reached cannot trap the session (review of #150, A2). */
+  let held = 0;
+  if (existsSync(state)) {
+    if (due.phase !== "repoint") return;
+    held = parseInt(readFileSync(state, "utf8"), 10) || 0;
+    if (held >= REPOINT_HOLDS) return;
+  }
+  try { mkdirSync(join(homedir(), ".claude", "helper-sweep-stop"), { recursive: true }); writeFileSync(state, due.phase === "repoint" ? String(held + 1) : new Date().toISOString()); } catch { return; }
   process.stdout.write(JSON.stringify({ decision: "block", reason: due.reason }));
 }
 

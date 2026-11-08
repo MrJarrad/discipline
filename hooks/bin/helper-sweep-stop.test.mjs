@@ -88,3 +88,28 @@ test("there is no SessionStart seed: a helper must never be told to archive", ()
   const r = spawnSync(process.execPath, [hook, "start"], { input: "{}", encoding: "utf8" });
   assert.equal(r.stdout.trim(), "");
 });
+
+// Review of #150 A1: the sweep the hook asks for must read the landed list, or lane-end --helper does nothing.
+test("DISC-268 A1: the start and wrap sweep commands pass --landed, and that command archives a landed helper", () => {
+  const dir = mkdtempSync(join(tmpdir(), "landed-"));
+  writeFileSync(join(dir, "landed-helpers"), "h_done\n");
+  const sessions = join(dir, "s.json");
+  const s = (id, title, extra = {}) => ({ id, title, status_bucket: "SESSION_STATUS_BUCKET_COMPLETED", created_at: "2026-11-08T09:00:00Z", updated_at: "2026-11-08T09:30:00Z", ...extra });
+  writeFileSync(sessions, JSON.stringify({ data: [s("p_live", "Discipline · 8 Nov ← talk here"), s("h_done", "Helper · x — no action needed", { parent_session_id: "p_live" })] }));
+  for (const due of [sweepDue(lines(cockpit)), sweepDue(lines(cockpit, wrap))]) {
+    assert.match(due.reason, /--landed <session-dir>\/landed-helpers/);
+  }
+  const bin = fileURLToPath(new URL("../scripts/helper-sweep.mjs", import.meta.url));
+  const r = spawnSync(process.execPath, [bin, "--self", "me", "--sessions", sessions, "--landed", join(dir, "landed-helpers")], { encoding: "utf8" });
+  assert.match(r.stdout.slice(r.stdout.indexOf("## Archive"), r.stdout.indexOf("## Keep")), /h_done/);
+});
+
+// Review of #150 A2: the re-point hold blocks every turn while rows are unsent (capped, so an unreachable helper cannot trap the session).
+test("DISC-268 A2: the re-point hold re-blocks while rows are unsent, ends when they are sent, and is capped at 3", () => {
+  const home = mkdtempSync(join(tmpdir(), "home-"));
+  const pending = lines(cockpit, sweepWithRepoint);
+  for (let i = 0; i < 3; i++) assert.equal(stop(home, "r1", pending)?.decision, "block", `turn ${i + 1}`);
+  assert.equal(stop(home, "r1", pending), null, "capped after 3 holds");
+  assert.equal(stop(home, "r2", pending)?.decision, "block");
+  assert.equal(stop(home, "r2", lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null, "all sent: passes");
+});

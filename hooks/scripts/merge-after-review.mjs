@@ -82,10 +82,11 @@ export function reviewVerdict(items, headSha, trusted = []) {
     if (!ok.includes(String(c.author?.login || "").toLowerCase())) continue;
     /* DISC-265: the verdict starts at the first `##` Review heading; a relay's own preamble above it is skipped. */
     const all = String(c.body || "").split("\n");
-    const at = all.findIndex((l) => /^##\s.*review/i.test(l));
+    const HEAD_SHA = /\bhead:?\s*`?([0-9a-f]{7,40})`?/i;
+    const at = all.findIndex((l) => /^##\s.*review/i.test(l) && HEAD_SHA.test(l)); // a sha-less Review heading is passed over
     if (at < 0) continue;
-    const h = all[at].match(/\bhead:?\s*`?([0-9a-f]{7,40})`?/i);
-    if (!h || !head.startsWith(h[1].toLowerCase())) continue;
+    const h = all[at].match(HEAD_SHA);
+    if (!head.startsWith(h[1].toLowerCase())) continue;
     const rest = all.slice(at + 1);
     const lines = rest.map((l) => l.trim());
     // DISC-246: a list marker or quote before the verdict line (`- merge: yes`, `> **merge: no**`) is still the verdict line.

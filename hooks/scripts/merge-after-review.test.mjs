@@ -352,3 +352,10 @@ test("DISC-265: a preamble does not stand in for the heading, and a verdict abov
   const early = { ...l5(""), body: "merge: yes\n## Review r1, head c7868b2\nmerge: no" };
   assert.equal(reviewVerdict([early], L5_HEAD, ["MrJarrad"])?.verdict, "no");
 });
+
+test("DISC-265 N2: a Review heading with no head sha above the real one is passed over", () => {
+  const relay = { ...l5(""), body: "## Review relay from session_01AbC9\n\n## Review r1 (LIGHT), head c7868b2\nmerge: yes\n0 red" };
+  assert.equal(reviewVerdict([relay], L5_HEAD, ["MrJarrad"])?.verdict, "yes");
+  const none = { ...l5(""), body: "## Review relay from session_01AbC9\nmerge: yes" };
+  assert.equal(reviewVerdict([none], L5_HEAD, ["MrJarrad"]), null);
+});
