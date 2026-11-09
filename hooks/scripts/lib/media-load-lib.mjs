@@ -177,6 +177,34 @@ export function clippedVisibleRect(state, viewport) {
   return visible;
 }
 
+// DISC-276: a clip frame lying wholly outside the viewport means none of the
+// element can be seen, whatever its raw (unclipped) box does — a parallax
+// picture's hidden overhang crossing the viewport while its frame has scrolled
+// above it, or a header whose frame is still below the fold. Such an element
+// is not judged. A frame that IS in view (even a zero-size one) and still
+// leaves the element no visible area stays the hard defect (`clippedVisibleRect`
+// null, frame in view). Only a frame wholly outside counts; no side is special.
+export function isClippedOutOfView(state, viewport) {
+  return (state.clipRects ?? []).some(
+    (c) => c.right <= 0 || c.bottom <= 0 || c.left >= viewport.width || c.top >= viewport.height,
+  );
+}
+
+// The rect an element actually covers on screen, or null (frame out of view,
+// or nothing left after clipping). The gap scan and the on-screen gate use this
+// instead of the raw box.
+export function coveringRect(state, viewport) {
+  if (isClippedOutOfView(state, viewport)) return null;
+  return clippedVisibleRect(state, viewport);
+}
+
+// One frame's covering rects for the gap scan: every media element AND every
+// text block (`tag: "text"`) that has a visible area. A text block between two
+// media covers that span, so it is not a hole.
+export function frameCoveringRects(states, viewport) {
+  return states.map((s) => coveringRect(s, viewport)).filter(Boolean);
+}
+
 export function isVisibilityHidden(state) {
   return state.visibility === "hidden";
 }
@@ -312,10 +340,12 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
   framesOfStates.forEach((states, frameIndex) => {
     const seen = new Set();
     states.forEach((state, i) => {
+      if (state.tag === "text") return; // covering only, never judged for paint
       const id = state.id ?? mediaIdentity(state, i);
       seen.add(id);
       const prev = tracked.get(id);
-      const onScreen = isVisible(state.rect, viewport);
+      // DISC-276: on screen means the clipped frame shows it, not the raw box.
+      const onScreen = isVisible(state.rect, viewport) && !isClippedOutOfView(state, viewport);
       const sliver = isTrivialSliver(state, viewport, minVisibleAreaFraction);
       // Only exempt a sliver that's actually IN MOTION (moved since the last
       // frame it was seen in) — a static tile at rest, on load or otherwise,

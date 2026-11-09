@@ -45,10 +45,10 @@
     background: #eeeeee; z-index: 2;
   }
 
-  /* Case: clipped tile — a zero-size overflow:hidden ancestor removes the
+  /* Case: clipped tile — a zero-size overflow:hidden ancestor, inside the viewport, removes the
      WHOLE element regardless of the element's own (larger) natural rect. */
   .clip-ancestor {
-    position: absolute; left: 500px; top: 300px; width: 0; height: 0;
+    position: absolute; left: 300px; top: 300px; width: 0; height: 0;
     overflow: hidden;
   }
   .clip-ancestor img { position: absolute; left: 0; top: 0; width: 100px; height: 100px; }

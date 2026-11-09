@@ -98,7 +98,7 @@ import { join } from "node:path";
 import {
   totalEmptyMediaAcrossFrames,
   totalColumnGapsAcrossFrames,
-  isVisible,
+  frameCoveringRects,
   isVisibilityHidden,
   clippedVisibleRect,
   scaleRect,
@@ -286,6 +286,35 @@ export function sampleMediaStateInPage() {
     };
   });
 
+  // DISC-276: visible text blocks travel as `tag: "text"` entries so the gap
+  // scan counts them as covering (a FeatureText block between two media is
+  // not a hole). Covering only — never judged for paint. A text block is the
+  // nearest non-inline element holding a non-blank text node; wrappers that
+  // contain media are skipped (they are layout, not a text block).
+  const textBlocks = new Set();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!n.nodeValue || !n.nodeValue.trim()) continue;
+    let el = n.parentElement;
+    while (el && el !== document.body && getComputedStyle(el).display.startsWith("inline")) el = el.parentElement;
+    if (!el || el === document.body || ["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName)) continue;
+    if (el.querySelector("img,video")) continue;
+    textBlocks.add(el);
+  }
+  for (const el of textBlocks) {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    if (r.width <= 0 || r.height <= 0 || cs.visibility === "hidden" || Number(cs.opacity) === 0) continue;
+    elements.push({
+      tag: "text",
+      rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+      src: null,
+      opacity: Number(cs.opacity),
+      visibility: cs.visibility,
+      clipRects: elementClipRects(el),
+    });
+  }
+
   return { elements, backgroundColor: getComputedStyle(document.body).backgroundColor };
 }
 
@@ -454,7 +483,7 @@ async function run(opts) {
     const image = decodePng(screenshotBuffer);
     const scale = image.width / viewport.width;
     return elements.map((el) => {
-      const clipped = isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
+      const clipped = el.tag === "text" || isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
       const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
       return { ...el, pixels };
     });
@@ -489,9 +518,10 @@ async function run(opts) {
     arrivalWindowMs,
     frameIntervalMs,
   });
-  const visibleRectsPerFrame = frames.map((states) =>
-    states.filter((s) => isVisible(s.rect, viewport)).map((s) => s.rect),
-  );
+  // DISC-276: the gap scan uses each element's clipped (visible) rect, media
+  // and text blocks alike; an element whose clip frame is out of view covers
+  // nothing.
+  const visibleRectsPerFrame = frames.map((states) => frameCoveringRects(states, viewport));
   const gaps = totalColumnGapsAcrossFrames(visibleRectsPerFrame, viewport, {
     tolerancePx: opts.gapTolerance,
     widthRatio: opts.gapWidthRatio,
