@@ -36,3 +36,8 @@ test("s71 lesson 4: a line-size or reviewer brief needs no block", () => {
   assert.equal(withMode("Size: line\n## Constraints\n- x\n"), null);
   assert.equal(withMode("Reviewer brief. Size: line"), null);
 });
+test("s71 lesson 4 (review R1): a reviewer-persona brief quoting a lane's size needs no block", () => {
+  assert.equal(withMode("Persona: reviewer (sonnet)\n## Contract\nSize: component\nthe lane under review\n"), null);
+  assert.equal(withMode("- **Persona**: reviewer\nSize: system\n"), null);
+  assert.equal(withMode("Persona: engineer (sonnet)\nSize: component\n")?.permissionDecision, "deny");
+});

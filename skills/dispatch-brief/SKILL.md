@@ -10,8 +10,7 @@ description: >-
 
 ## The one rule
 
-**The brief points at the contract; it never restates it.** A paraphrasing brief is
-malformed. Doer law: `doer-rules.md`.
+**The brief points at the contract; it never restates it.** Doer law: `doer-rules.md`.
 
 **The brief carries the operator's words, never the parent's guesses**: the operator's
 words and images are the contract, quoted verbatim; no invented numbers; outcomes and
@@ -102,7 +101,7 @@ never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed 
 
 ## Reviewer brief
 
-Done-when: **diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell it: plain `merge: …` last line, `reviewer: <get_session id>` under the heading (s71).
+**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell: `merge:` last line, `reviewer: <get_session id>`.
 
 ## Persona + model
 

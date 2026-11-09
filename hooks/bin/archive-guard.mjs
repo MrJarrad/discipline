@@ -5,9 +5,9 @@
    carrying that id with a "Helper ·" title AND a parent_session_id. Anything else, a wrapped parent included,
    is denied with the step to take. Fails closed: unreadable input or transcript denies.
    DISC-280 (s71: archiving the Safari helper closed its open draft PR two seconds later): a helper is also
-   refused while any PR it opened is unmerged. Its PRs are the pull/<n> urls in the transcript's list_events
-   reads of that helper (get_session carries none); each needs a pull_request_read in the transcript showing
-   merged. No list_events read of the helper at all is a refusal, never an allow.                               */
+   refused while any PR it opened is unmerged. Its PRs are the pull/<n> urls in the create_pull_request results in the
+   transcript's list_events reads of that helper (get_session carries none); each needs a pull_request_read (method get)
+   in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.                               */
 import { readFileSync } from "node:fs";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
 
@@ -58,17 +58,39 @@ function* results(lines, nameRe) {
   }
 }
 
-/* PRs the helper opened that the transcript has not shown merged: "owner/repo#n" strings, or null when the
-   helper's events were never read. */
+/* PRs the helper itself opened: pull urls in the tool_result of its create_pull_request calls or `gh pr create`
+   Bash output, found by walking the list_events JSON. A URL anywhere else (a PR it only reviewed or quoted) is not
+   its PR (DISC-280 review round 1). null when no list_events read of the helper parsed. */
+function* walk(v) {
+  if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
+  if (!v || typeof v !== "object") return;
+  yield v;
+  for (const x of Object.values(v)) yield* walk(x);
+}
+const PULL = /github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/g;
+const creates = (u) => /(^|__)create_pull_request$/.test(u.name || "") || /\bgh\s+pr\s+create\b/.test(u.input?.command || "");
+
+/* A pull_request_read result clears its PR when it is a `get` showing merged, or closed (archiving cannot close
+   what is already closed). The result is parsed: a string quoted inside a diff or comment clears nothing. */
+const clears = (input, text) => {
+  if (input.method !== "get") return false;
+  const j = extractJson(text);
+  return !!j && typeof j === "object" && (j.merged === true || (typeof j.merged_at === "string" && j.merged_at !== "") || j.state === "closed");
+};
+
 export function unmergedPrs(lines, id) {
   const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id);
-  if (!reads.length) return null;
+  const parsed = reads.map((r) => extractJson(r.text)).filter((j) => j !== undefined);
+  if (!parsed.length) return null;
   const opened = new Set();
-  for (const r of reads) for (const m of r.text.matchAll(/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/g)) opened.add(`${m[1]}/${m[2]}#${m[3]}`.toLowerCase());
-  for (const r of results(lines, /__pull_request_read$/)) {
-    if (!/"merged"\s*:\s*true|"merged_at"\s*:\s*"/.test(r.text)) continue;
-    opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());
+  for (const j of parsed) {
+    const ids = new Set();
+    for (const o of walk(j)) if (o.type === "tool_use" && creates(o)) ids.add(o.id);
+    for (const o of walk(j)) if (o.type === "tool_result" && ids.has(o.tool_use_id))
+      for (const m of JSON.stringify(o.content ?? "").matchAll(PULL)) opened.add(`${m[1]}/${m[2]}#${m[3]}`.toLowerCase());
   }
+  for (const r of results(lines, /__pull_request_read$/))
+    if (clears(r.input, r.text)) opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());
   return [...opened];
 }
 
@@ -78,7 +100,7 @@ export function verdict(lines, id) {
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
   const open = unmergedPrs(lines, id);
   if (open === null) return `archive_session refused (DISC-280): read the helper's events first (list_events on ${id}); archiving closes any open PR it opened, and this session has not seen which PRs those are.`;
-  if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read to show it) before archiving.`;
+  if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged or closed; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read to show it) before archiving.`;
   return null;
 }
 
