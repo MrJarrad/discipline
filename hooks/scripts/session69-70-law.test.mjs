@@ -52,6 +52,7 @@ test("s70 2 (covered 1.188.0): the merge gate trusts the session's own get_me lo
 
 test("s70 3: every reviewer brief says to post the verdict on the PR", () => {
   has(HS, "**Every reviewer brief says to post the verdict on the PR; never \"do not post on the PR\"**");
+  has("skills/dispatch-brief/SKILL.md", "Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR.");
 });
 
 test("s70 4: list rows are flipped by tool, the status grammar is fixed, and the check runs before push", () => {
