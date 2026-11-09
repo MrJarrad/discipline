@@ -65,7 +65,7 @@ own**: a capture, site, Figma frame or recording he gave or named, never an anal
 question asks him for one. Scope questions (which text, mid-wipe
 behaviour) do not substitute. Feel that words cannot answer ("how dramatic", "too uniform")
 goes to a rough slider test, rung 3 (`prototype`), not another full round
-(`2026-10-18-feel-questions-with-references`). The cap is on the feel round only; the assumption gate still applies to non-feel properties. On any motion feature the first question asks for the reference behaviour itself: "what should this feel like, show me something that does it" (`2026-10-18-text-wrap-reproduce-the-real-gesture`: six rounds tuned fades and slides before his window-resize reference showed the target was plain re-layout). Non-look work is unchanged.
+(`2026-10-18-feel-questions-with-references`). The cap is on the feel round only; the assumption gate still applies to non-feel properties. On any motion feature the first question asks for the reference behaviour itself: "what should this feel like, show me something that does it" (`2026-10-18-text-wrap-reproduce-the-real-gesture`: six rounds tuned fades and slides before his window-resize reference showed the target was plain re-layout). Non-look work is unchanged. **A feel or regression report is restated first**: say it back in his own words and ask "is that it?" before any diagnosis brief (s72: "whole site drained" was re-scoped twice, once read as a moment, once as a delta).
 
 ## Behaviour spec (interactive or scrolling views)
 

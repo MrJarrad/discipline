@@ -13,7 +13,7 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 
 test("s71 3: a reviewer brief spells the verdict shape the merge gate parses", () => {
-  has("skills/dispatch-brief/SKILL.md", "Spell: `merge:` last line, `reviewer: <get_session id>`.");
+  has("skills/dispatch-brief/SKILL.md", "Spell: `merge:` last line, `reviewer: session_<id>` verbatim.");
 });
 
 test("s71 4: the house-rules block is pasted, never a token for it", () => {
