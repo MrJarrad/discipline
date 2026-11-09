@@ -36,7 +36,13 @@ Two independent counts, both must be **0**:
      `load`, or an unchanged rect — is never exempted: a genuinely blank tile
      sitting at the fold at load would be silently hidden by it. An element with **zero** visible area
      (fully clipped by an ancestor, or `visibility:hidden`) is never exempted
-     by this either way — that's still a hard defect.
+     by this either way — that's still a hard defect, **when its clip frame
+     is in view**. An element whose clip frame is wholly outside the viewport
+     (a parallax picture whose frame scrolled above it while the hidden
+     overhang still crosses it; a header rising from below the fold) shows
+     nothing and is not judged (`isClippedOutOfView`, DISC-276). The gap scan
+     likewise uses each element's clipped rect and counts visible text blocks
+     as covering, so a text block between two media is not a gap.
   4. Crop that rect (scaled to the screenshot's own pixel size) out of the
      decoded image (`cropRegionPixels`).
   5. Classify the crop painted once EITHER (a) more than

@@ -301,6 +301,12 @@ test("sampleMediaStateInPage carries no canvas/getImageData — DOM rects, clip 
   assert.match(src, /getComputedStyle\(node\)/);
 });
 
+test("DISC-276: the sampler sends visible text blocks as covering-only entries, and the gap scan uses clipped covering rects", () => {
+  const src = readFileSync(script, "utf8");
+  assert.match(src, /tag: "text"/);
+  assert.match(src, /frameCoveringRects/);
+});
+
 test("the paint signal is a page screenshot, decoded and cropped per slot", () => {
   const src = readFileSync(script, "utf8");
   assert.match(src, /page\.screenshot|p\.screenshot/);

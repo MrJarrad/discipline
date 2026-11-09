@@ -30,6 +30,9 @@ import {
   columnInternalGaps,
   scanFrameForColumnGaps,
   totalColumnGapsAcrossFrames,
+  isClippedOutOfView,
+  coveringRect,
+  frameCoveringRects,
 } from "./media-load-lib.mjs";
 
 const VIEWPORT = { width: 390, height: 844 };
@@ -236,7 +239,7 @@ test("fixture: covered tile — an opaque sibling paints its own placeholder swa
 });
 
 test("fixture: clipped tile — an overflow:hidden ancestor leaves no visible area to sample", () => {
-  const state = { rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }], visibility: "visible" };
+  const state = { rect: onscreen(), clipRects: [{ left: 300, top: 300, right: 300, bottom: 300 }], visibility: "visible" };
   const clipped = clippedVisibleRect(state, VIEWPORT);
   assert.equal(clipped, null);
   // No pixels were ever cropped (clipped away) — the probe passes null/[].
@@ -299,7 +302,7 @@ test("mediaIdentity combines tag, src, and index — the fallback when a state c
 });
 
 test("isTrivialSliver is true only for a nonzero but small visible-area share — zero is a hard defect, not a sliver", () => {
-  const zeroArea = { rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }] };
+  const zeroArea = { rect: onscreen(), clipRects: [{ left: 300, top: 300, right: 300, bottom: 300 }] };
   const sliver = { rect: { left: 0, top: -95, right: 100, bottom: 5, width: 100, height: 100 }, clipRects: [] };
   const mostly = { rect: { left: 0, top: -20, right: 100, bottom: 80, width: 100, height: 100 }, clipRects: [] };
   assert.equal(isTrivialSliver(zeroArea, VIEWPORT, 0.15), false);
@@ -351,7 +354,7 @@ test("a substantially on-screen tile (well past the sliver floor) that's genuine
 });
 
 test("a fully ancestor-clipped element (zero visible area — the round-1 fixture) is never exempted as a 'sliver' — it's still caught", () => {
-  const fullyClipped = { id: "a", rect: onscreen(), clipRects: [{ left: 500, top: 500, right: 600, bottom: 600 }], visibility: "visible", pixels: [] };
+  const fullyClipped = { id: "a", rect: onscreen(), clipRects: [{ left: 300, top: 300, right: 300, bottom: 300 }], visibility: "visible", pixels: [] };
   assert.equal(totalEmptyMediaAcrossFrames([[fullyClipped]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1);
 });
 
@@ -530,4 +533,80 @@ test("totalColumnGapsAcrossFrames sums every sampled frame, the probe's second h
     totalColumnGapsAcrossFrames(frames, { width: 428, height: 800 }),
     withGap + clean,
   );
+});
+
+// --- DISC-276: judge the clipped (visible) rect, not the raw box -----------
+// A clip frame (an overflow:hidden/clip/auto/scroll ancestor) wholly outside
+// the viewport means nothing of the element can be seen, so it is not judged
+// — whatever its raw, unclipped box does (a parallax picture's hidden
+// overhang, a header rising from below the fold). A frame that IS in view and
+// still leaves the element with no visible area is the hard defect.
+
+const rectOf = (left, top, right, bottom) => ({ left, top, right, bottom, width: right - left, height: bottom - top });
+const BLANK = (over) => ({ id: "a", clipRects: [], visibility: "visible", pixels: pixelsOf(WHITE), ...over });
+
+test("DISC-276 (a): a parallax picture whose frame scrolled fully above the viewport, hidden overhang still crossing it, is not judged blank", () => {
+  const overhang = BLANK({
+    rect: rectOf(0, -40, 390, 200), // raw box crosses the top edge
+    clipRects: [rectOf(0, -300, 390, -60)], // the frame is wholly above the viewport
+    pixels: [],
+  });
+  assert.equal(isClippedOutOfView(overhang, VIEWPORT), true);
+  assert.equal(totalEmptyMediaAcrossFrames([[overhang]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
+});
+
+test("DISC-276 (b): a fully clipped img whose raw rect is inside the viewport, frame below the fold (header rising), is judged by its frame: not counted", () => {
+  const rising = BLANK({
+    rect: rectOf(0, 100, 390, 300), // raw box inside the viewport
+    clipRects: [rectOf(0, 900, 390, 1100)], // frame still below the fold
+    pixels: [],
+  });
+  assert.equal(totalEmptyMediaAcrossFrames([[rising]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
+});
+
+test("DISC-276 invariant: a frame that is in view but leaves the element no visible area is still a defect (zero-size frame inside the viewport)", () => {
+  const hidden = BLANK({ rect: onscreen(), clipRects: [rectOf(300, 300, 300, 300)], pixels: [] });
+  assert.equal(isClippedOutOfView(hidden, VIEWPORT), false);
+  assert.equal(totalEmptyMediaAcrossFrames([[hidden]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1);
+});
+
+test("DISC-276 invariant: a genuinely blank visible element, frame in view, is still reported", () => {
+  const blank = BLANK({ rect: onscreen(), clipRects: [rectOf(0, 0, 390, 844)] });
+  assert.equal(totalEmptyMediaAcrossFrames([[blank]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 1);
+});
+
+test("DISC-276 invariant: a half-painted visible element (a shimmer skeleton: spread, no real edge) is still reported", () => {
+  const skeleton = BLANK({ rect: onscreen(), pixels: gradientPixels() });
+  assert.equal(totalEmptyMediaAcrossFrames([[skeleton]], VIEWPORT, [{ r: 240, g: 240, b: 240 }], { arrivalWindowMs: 0, tolerance: 30 }), 1);
+});
+
+test("DISC-276 invariant: visibility:hidden and an opaque cover with the frame in view are still counted", () => {
+  const hiddenVis = BLANK({ rect: onscreen(), clipRects: [rectOf(0, 0, 390, 844)], visibility: "hidden", pixels: pixelsOf(PHOTO) });
+  const covered = BLANK({ id: "b", rect: onscreen(), clipRects: [rectOf(0, 0, 390, 844)], pixels: pixelsOf(GREY_SKELETON) });
+  assert.equal(totalEmptyMediaAcrossFrames([[hiddenVis, covered]], VIEWPORT, [WHITE, GREY_SKELETON], { arrivalWindowMs: 0 }), 2);
+});
+
+test("coveringRect is the clipped rect, or null when the frame is out of view or nothing is left", () => {
+  assert.deepEqual(coveringRect({ rect: rectOf(0, 0, 100, 100), clipRects: [rectOf(0, 0, 50, 50)] }, VIEWPORT), rectOf(0, 0, 50, 50));
+  assert.equal(coveringRect({ rect: rectOf(0, 100, 390, 300), clipRects: [rectOf(0, 900, 390, 1100)] }, VIEWPORT), null);
+});
+
+test("DISC-276 (c): a text block between two media in a column covers the span — no gap; without it the same span is a gap", () => {
+  const media = (id, l, t, r, b) => ({ tag: "img", id, rect: rectOf(l, t, r, b), clipRects: [] });
+  const text = { tag: "text", id: "t", rect: rectOf(164, 420, 264, 580), clipRects: [] };
+  const states = [
+    media("a1", 0, 0, 100, 300), media("a2", 0, 364, 100, 800),
+    media("b1", 164, 0, 264, 200), media("b2", 164, 264, 264, 400), media("b3", 164, 600, 264, 800),
+    media("c1", 328, 0, 428, 400), media("c2", 328, 464, 428, 800),
+  ];
+  const vp = { width: 428, height: 800 };
+  const withText = scanFrameForColumnGaps(frameCoveringRects([...states, text], vp), vp);
+  const without = scanFrameForColumnGaps(frameCoveringRects(states, vp), vp);
+  assert.equal(without.length, 1, "the 200px span is a real hole when nothing covers it");
+  assert.equal(withText.length, 0, "a text block in that span covers it");
+});
+
+test("text entries are covering only — never judged for paint", () => {
+  const text = { tag: "text", id: "t", rect: onscreen(), clipRects: [], visibility: "visible", pixels: [] };
+  assert.equal(totalEmptyMediaAcrossFrames([[text]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
 });
