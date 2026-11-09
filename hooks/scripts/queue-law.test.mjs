@@ -574,6 +574,29 @@ test("handoff-to-code's house overlay carries the node ledger, the mode rule and
   assert.match(overlay, /carries a row per mode — or a mode column with every mode filled/);
 });
 
+test("DISC-270: the overlay puts exposed nested-instance properties and placed-instance settings in the ledger", () => {
+  const overlay = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
+  assert.match(overlay, /\*\*Exception: the properties of exposed nested instances and the settings of placed instances are in scope\*\*/);
+  assert.match(overlay, /a property the Figma panel shows is never outside the boundary/);
+  const oneB = overlay.slice(overlay.indexOf("## 1b."), overlay.indexOf("## 2."));
+  assert.match(oneB, /exposed nested-instance property gets its own row, with its nesting path/);
+  assert.match(oneB, /placed-instance setting the layout changes gets a row keyed by instance node id and property/);
+  assert.match(oneB, /missing row is red/);
+});
+
+test("DISC-270: the mirrored SKILL.md carries the schema-17 and schema-18 ledger rules", () => {
+  const skill = flat(read("skills/handoff-to-code/SKILL.md"));
+  assert.match(skill, /\*\*Every property the Figma panel shows is a ledger row, nested exposed ones included\.\*\*/);
+  assert.match(skill, /\*\*A placed instance's settings are ledger rows/);
+  assert.match(skill, /PROPERTY_ROW_MISSING/);
+  assert.match(skill, /PLACED_ROW_MISSING/);
+});
+
+test("DISC-270: props-by-default and the reviewer carry nested properties", () => {
+  assert.match(flat(read("skills/dispatch-brief/references/HOUSE-RULES.md")), /Exposed nested-instance properties are assessed the same way/);
+  assert.match(flat(read("agents/reviewer.md")), /nested exposed properties/);
+});
+
 test("the mirrored handoff-to-code SKILL.md is not the place the house law was written", () => {
   // the skill file is a byte mirror of handoff-css; house law lives in the overlay
   const skill = read("skills/handoff-to-code/SKILL.md");

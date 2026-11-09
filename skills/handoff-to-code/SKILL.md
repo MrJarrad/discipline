@@ -39,8 +39,11 @@ when the pair is silent — not instead of it.
 
 The Design Handoff export is made by **`design-handoff-script`** from a Figma link (the
 plugin's in-Figma export is superseded); you may run it yourself when you hold a link and a
-token. It joins one Design System Handoff export per source file — this file and each library
-the layer uses, by key. That **set** is the contract: the pair below means the brief plus every
+token. What belongs to the layer and REST cannot read (annotations in full, line caps, measurements,
+a section's radius, instance property order) comes from a **live read** of the layer that you make
+first, through Figma MCP — never from the Design System Handoff export. It joins one Design System
+Handoff export per source file — this file and each library the layer uses, by key, for the
+variables and styles only. That **set** is the contract: the pair below means the brief plus every
 export it names. Command, joins, `linkRun` codes, spec index: `references/export-set.md`.
 
 ## Brownfield — existing code, no Design System Handoff export
@@ -65,7 +68,7 @@ each variable to its ruled name. Output shape, confidence rules and the table:
 
 | Input | What it is |
 | --- | --- |
-| `design-handoff-*.md` + `.json` | Layer brief: node tree, sizing chains, props, Build standards, changelog, **Link-run findings** (`linkRun`). |
+| `design-handoff-*.md` + `.json` | Layer brief: node tree, sizing chains, props, Build standards, changelog. Made by `design-handoff-script` it is exactly the plugin's; the script's own notes (**findings**, sources, asks) are beside it in `design-handoff-*.link-run.json` and `.md`, which `validate` finds on its own. A brief made before 0.16.0 holds them inside (`linkRun`). |
 | `*-design-system-handoff.json` | Companion, one per source the brief lists: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
 | `handoff.config.mjs` | Consumer policy — schema versions, viewport units, aliases, paths. |
 | Generated tokens + theme | The CSS the JSON produced — the only place a value is stated. |
@@ -98,8 +101,9 @@ version. **The one thing to ask a person for is a Design System Handoff plugin r
 `references/export-set.md`. **A link-run finding is a reported item, never a reason to inline
 a value.**
 
-**Specs are read from the spec index, never from the design tool.** The export lists each spec
-without its text; `validate --spec-index` prints the file that holds it — read it as part of the
+**Spec text comes from the live read when it carries it, else from the spec index.** A version 3
+live read carries each spec's text and the brief prints it; otherwise the export lists each spec
+without its text, and `validate --spec-index` prints the file that holds it — read it as part of the
 pair. `SPEC_NOT_INDEXED` is a finding: name the spec and ask; never build from a guess of it.
 
 **Done when** all three hashes reconcile for every set member, `schemaVersion` is one the
@@ -176,6 +180,30 @@ wrong mechanism is a defect.
    a note that lists a property's options or states its value is a defect, and code-only
    concepts (parallax, per-asset settings) are notes, never a requested Figma property.
 10. A locked `aspectRatio` builds the ratio, never the fixed height — `schema-v9-hints.md` § Aspect lock.
+11. **Every property the Figma panel shows is a ledger row, nested exposed ones included.** A schema-17
+    brief opens its Design Summary with **Component Properties** (and `componentProperties[]` in the
+    JSON): the component's own properties, then those of each instance it exposes, each with its value,
+    the nested component's own default and its options. Every row is a property the Figma panel shows:
+    being in the table, with its `source` (`own`, or `exposed` from a nested instance), is what says so —
+    there is no separate "shown in the panel" column. One row of the table is one row of the return,
+    keyed by node id and property; a table row with no return row is red, and `validate` refuses a table
+    that leaves out a property the tree has (`PROPERTY_ROW_MISSING`). The table's **Build class** and
+    **Follows to CMS** columns are proposals, never rulings: build on them, and every row marked
+    `(open)` is an ask (`PROPERTY_CLASS_OPEN`) answered in chat — one question per property, with the
+    proposal as its recommendation, never a reason to stop.
+12. **A placed instance's settings are ledger rows, and what it changes is layout config the build carries.**
+    A schema-18 brief adds **Placed Instances** to the Design Summary (and `placedInstances[]` in the JSON):
+    every setting of every instance placed in the layout, at any depth, with the value here and the value the
+    component ships at the same place. A setting not listed in the brief uses the component's own, so build the
+    component's default for it and nothing more. Each listed row — a setting the layout changed — is a ledger
+    row keyed by instance node id and property, built as the value here; a changed row with no ledger row is red,
+    and `validate` refuses a JSON that leaves out a setting a placed instance has (`PLACED_ROW_MISSING`). The
+    compare is against what the component ships, not the nested component's own default, so a value the
+    component itself ships is not a change. `swappedHere` means a different component sits there: build it.
+    A setting marked as not comparable (a library component) is a reported item, never a guess.
+
+**Keyframes.** A brief made from a link has the layer's prototype transitions but not its keyframe
+timelines. For a layer that has keyframes, read them from Figma's motion reader: `references/motion.md`.
 
 **Done when** every node in scope is built and each standard applied or deviation-noted.
 
@@ -199,6 +227,9 @@ relay the note the line gives for the person to add in Figma. **assumed** — bu
 **open** — no answer and no suggestion. **An open ask is a reported item, never a guess.** Name
 it and ask; build nothing in its place. Every waiting, assumed or open ask is one row in the
 deviation table. Ledger shape and statuses: the script's README.
+
+When the person agrees to have the note put in the file, the agent writes it, and reads it back:
+`references/write-back.md`.
 
 ### 6. Check the built CSS back against the pair
 

@@ -25,7 +25,7 @@ test("HT-15: the script is the export path and the export is a set", () => {
 
 test("HT-10: specs are read from the spec index; one with no entry is flagged", () => {
   const s = flat(SKILL);
-  assert.ok(s.includes("**Specs are read from the spec index, never from the design tool.**"));
+  assert.ok(s.includes("**Spec text comes from the live read when it carries it, else from the spec index.**"));
   assert.ok(s.includes("`SPEC_NOT_INDEXED` is a finding: name the spec and ask"));
 });
 

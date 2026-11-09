@@ -21,7 +21,7 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   (a same-named code prop, same values), **state** (hover/pressed/focus: CSS or interaction
   state), **responsive** (device/breakpoint variant: built as breakpoints) or **Figma-only**
   (authoring/showcase convenience: not built). Any class but build prop needs a one-line reason;
-  an unclear class goes to the operator as a question. Beyond Figma, any value or behaviour a
+  an unclear class goes to the operator as a question. Exposed nested-instance properties are assessed the same way, one row each. Beyond Figma, any value or behaviour a
   designer could plausibly change per use (spacing, durations, on/off treatments, layout
   choices) is a prop or setting with a token default; hard-coding needs a reason. An operator
   "off" or "change" ruling sets a prop value and never deletes the implementation unless the
