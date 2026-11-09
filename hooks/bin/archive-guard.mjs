@@ -5,9 +5,9 @@
    carrying that id with a "Helper ·" title AND a parent_session_id. Anything else, a wrapped parent included,
    is denied with the step to take. Fails closed: unreadable input or transcript denies.
    DISC-280 (s71: archiving the Safari helper closed its open draft PR two seconds later): a helper is also
-   refused while any PR it opened is unmerged. Its PRs are the pull/<n> urls in the create_pull_request results in the
-   transcript's list_events reads of that helper (get_session carries none); each needs a pull_request_read (method get)
-   in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.                               */
+   refused while any PR it opened is unmerged. Its PRs are the create-record tool_results (JSON {url} or a bare PR url) in the transcript's
+   list_events reads of that helper (get_session carries none), paged to has_more: false; each needs a pull_request_read
+   (method get) in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.                               */
 import { readFileSync } from "node:fs";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
 
@@ -58,17 +58,33 @@ function* results(lines, nameRe) {
   }
 }
 
-/* PRs the helper itself opened: pull urls in the tool_result of its create_pull_request calls or `gh pr create`
-   Bash output, found by walking the list_events JSON. A URL anywhere else (a PR it only reviewed or quoted) is not
-   its PR (DISC-280 review round 1). null when no list_events read of the helper parsed. */
+/* PRs the helper itself opened, read from the REAL list_events shape (DISC-281): events are
+   { user: { internal_anthropic_catchall: { message: { content: [{ type: "tool_result", tool_use_id, content:
+   [{ type: "text", text }] }] } } } }, user-kind pages carry no tool_use. A tool_result is the helper's own PR when
+   its text parses to JSON with a top-level `url` that is exactly a PR url (create_pull_request prints
+   {"id","url"}), or its WHOLE trimmed text is one PR url (what `gh pr create` prints). A url embedded in other text
+   never counts, nor does the JSON of a PR read (it carries number/state/head: a PR the helper only reviewed). */
 function* walk(v) {
   if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
   if (!v || typeof v !== "object") return;
   yield v;
   for (const x of Object.values(v)) yield* walk(x);
 }
-const PULL = /github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)/g;
-const creates = (u) => /(^|__)create_pull_request$/.test(u.name || "") || /\bgh\s+pr\s+create\b/.test(u.input?.command || "");
+const PR_URL = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)$/;
+const PR_READ_KEYS = ["number", "state", "head", "base", "merged", "title"];
+const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "");
+
+function createdPr(text) {
+  const t = text.trim();
+  let url = t;
+  if (t.startsWith("{")) {
+    let j; try { j = JSON.parse(t); } catch { return null; }
+    if (!j || typeof j !== "object" || typeof j.url !== "string" || PR_READ_KEYS.some((k) => k in j)) return null;
+    url = j.url;
+  }
+  const m = PR_URL.exec(url);
+  return m ? `${m[1]}/${m[2]}#${m[3]}`.toLowerCase() : null;
+}
 
 /* A pull_request_read result clears its PR when it is a `get` showing merged, or closed (archiving cannot close
    what is already closed). The result is parsed: a string quoted inside a diff or comment clears nothing. */
@@ -78,29 +94,30 @@ const clears = (input, text) => {
   return !!j && typeof j === "object" && (j.merged === true || (typeof j.merged_at === "string" && j.merged_at !== "") || j.state === "closed");
 };
 
+/* { read, complete, open }: read = a list_events page of the helper parsed; complete = some page reached the end of
+   its history (has_more false), i.e. the helper's events were paged to the oldest; open = PRs not shown merged/closed. */
 export function unmergedPrs(lines, id) {
-  const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id);
-  const parsed = reads.map((r) => extractJson(r.text)).filter((j) => j !== undefined);
-  if (!parsed.length) return null;
+  const pages = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => extractJson(r.text)).filter((j) => j !== undefined);
+  if (!pages.length) return { read: false, complete: false, open: [] };
   const opened = new Set();
-  for (const j of parsed) {
-    const ids = new Set();
-    for (const o of walk(j)) if (o.type === "tool_use" && creates(o)) ids.add(o.id);
-    for (const o of walk(j)) if (o.type === "tool_result" && ids.has(o.tool_use_id))
-      for (const m of JSON.stringify(o.content ?? "").matchAll(PULL)) opened.add(`${m[1]}/${m[2]}#${m[3]}`.toLowerCase());
+  let complete = false;
+  for (const j of pages) {
+    if ((j.ccr ?? j).has_more === false) complete = true;
+    for (const o of walk(j)) if (o.type === "tool_result") { const pr = createdPr(textOf(o.content)); if (pr) opened.add(pr); }
   }
   for (const r of results(lines, /__pull_request_read$/))
     if (clears(r.input, r.text)) opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());
-  return [...opened];
+  return { read: true, complete, open: [...opened] };
 }
 
 export function verdict(lines, id) {
   const s = shownSession(lines, id);
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
-  const open = unmergedPrs(lines, id);
-  if (open === null) return `archive_session refused (DISC-280): read the helper's events first (list_events on ${id}); archiving closes any open PR it opened, and this session has not seen which PRs those are.`;
-  if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged or closed; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read to show it) before archiving.`;
+  const { read, complete, open } = unmergedPrs(lines, id);
+  if (!read) return `archive_session refused (DISC-280): read the helper's events first (list_events on ${id}); archiving closes any open PR it opened, and this session has not seen which PRs those are.`;
+  if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged or closed; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read, method get, to show it) before archiving.`;
+  if (!complete) return `archive_session refused (DISC-281): read the helper's remaining events first (list_events on ${id} reports has_more: true; page back with before_id until it reports false); an unread page may hold a PR it opened.`;
   return null;
 }
 
