@@ -7,3 +7,4 @@
   portfolio worktree's `file:../../jhd-design-system/main` pin resolves to. DS edits happen in the lane's own DS worktree under
   `/home/user/wt/`, never by checking a branch out in the root; before any portfolio gate or screenshot the doer states
   `git -C /home/user/jhd-design-system/main rev-parse HEAD`; the root is left detached at `origin/main`.
+- **Identify a credential by a read before asking the operator to change anything** (s71 lesson 5: the parent said which Cloudflare token was the Mac's from timing alone and it was likely wrong). The next step after "not confirmed" is a read-only identification job (e.g. a Mac job that reads the token's verify endpoint or its name), not an operator edit.

@@ -21,3 +21,23 @@ test("create_session without permission_mode is denied with the fix", () => {
 test("create_session with an explicit permission_mode passes", () => {
   assert.equal(run({ prompt: "x", permission_mode: "auto" }), null);
 });
+
+const withMode = (prompt) => run({ prompt, permission_mode: "auto" });
+test("s71 lesson 4: a brief carrying the bare HOUSE_RULES token is denied", () => {
+  const out = withMode("## Constraints\nHOUSE_RULES\n");
+  assert.equal(out.permissionDecision, "deny");
+  assert.match(out.permissionDecisionReason, /HOUSE_RULES/);
+});
+test("s71 lesson 4: a component- or system-size brief without the block is denied; with it, allowed", () => {
+  for (const size of ["component", "system"]) assert.equal(withMode(`Size: ${size}\n## Constraints\n- x\n`)?.permissionDecision, "deny");
+  assert.equal(withMode("Size: component\n## House rules\n- **Design system** — x\n"), null);
+});
+test("s71 lesson 4: a line-size or reviewer brief needs no block", () => {
+  assert.equal(withMode("Size: line\n## Constraints\n- x\n"), null);
+  assert.equal(withMode("Reviewer brief. Size: line"), null);
+});
+test("s71 lesson 4 (review R1): a reviewer-persona brief quoting a lane's size needs no block", () => {
+  assert.equal(withMode("Persona: reviewer (sonnet)\n## Contract\nSize: component\nthe lane under review\n"), null);
+  assert.equal(withMode("- **Persona**: reviewer\nSize: system\n"), null);
+  assert.equal(withMode("Persona: engineer (sonnet)\nSize: component\n")?.permissionDecision, "deny");
+});

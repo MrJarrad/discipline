@@ -14,6 +14,9 @@ import { dirname, resolve } from "node:path";
 // The Mac user's home — run.sh requires `repo:` under $HOME; an absolute path is
 // accepted only below this (override with JHD_MAC_HOME), as is `~/…`; the bare home is refused.
 const MAC_HOME = (process.env.JHD_MAC_HOME || "/Users/jarrad.harvey").replace(/\/+$/, "");
+/* DISC-279 (s71: `xcodebuild -version` in a VoiceOver job started Xcode's one-time component install and left
+   the iOS 27.0 runtime unusable on the operator's Mac). A job reads versions without side effects. */
+export const XCODE_TOOLS = /\b(xcodebuild|softwareupdate)\b/i;
 export const NO_BACKGROUND = /no background tasks,? no subagents/i;
 
 export function macJobProblems(text) {
@@ -39,6 +42,11 @@ export function macJobProblems(text) {
   if (!body.trim()) problems.push("empty brief (runner exit 98)");
   else if (!NO_BACKGROUND.test(body))
     problems.push('brief lacks "no background tasks, no subagents" (a headless job that backgrounds work is killed at the 600 s ceiling)');
+  // purpose: xcode in the frontmatter marks a job that is for Xcode or system updates; any other job may not name them.
+  const forXcode = head.some((l) => /^purpose:[ ]*xcode\s*$/i.test(l));
+  const tool = body.match(XCODE_TOOLS);
+  if (tool && !forXcode)
+    problems.push(`brief runs ${tool[1]}: it changes the machine (s71: xcodebuild -version started Xcode's component install and broke the iOS 27.0 runtime). Read versions with plutil/defaults on the app's Info.plist or xcrun simctl list runtimes, or add "purpose: xcode" to the frontmatter if the job is for that (DISC-279)`);
   return problems;
 }
 

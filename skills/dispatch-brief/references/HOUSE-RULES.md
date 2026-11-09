@@ -47,5 +47,7 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   lineage; the lane's own lock file for this round's rows.
 ```
 
+**Paste the block, never a token for it** (s71 lesson 4: a brief went out with `HOUSE_RULES` where the block belongs). `hooks/bin/helper-create-gate.mjs` refuses a bare `HOUSE_RULES` token, and a `Size: component` or `Size: system` brief with no `## House rules` block.
+
 This block is a pointer set, not a tutorial — a doer unclear on any line loads the named skill
 or file, it does not ask the parent to re-explain it.
