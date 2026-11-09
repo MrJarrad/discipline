@@ -79,6 +79,8 @@ than guessing a single folder — the folder is determined by thing-then-aspect,
 
 **Before re-capturing an external source**, check `references/` for what we already hold.
 
+**Before telling the operator something has not been done or run**, grep the project's backlog and `evidence/` for it (s69: "nobody has run that route" when HT-21 and its evidence held the run). DO: cite the row or say the grep found nothing. DON'T: assert a negative from memory.
+
 **Before any queue row asks the operator for a change to a Figma component or a ruled convention**, grep `fleet/rulings` for the property or convention — a banked ruling answers it (figma-defaults-show-everything, 2026-10-01: component defaults are all-on; audits check names and value sets, not defaults).
 
 **Before any phone or tablet question about a desktop component**, check whether that surface has its own phone layout (phones have their own Home layout; queue 301, props rulings "GridFeed and HomeCarousel are layout"). If it does, the question belongs to that layout's handoff, not the desktop component.
