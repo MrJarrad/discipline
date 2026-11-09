@@ -123,7 +123,7 @@ markdown hyperlink — no new Browser tab or window spawned as the present step.
 - **Probe the served preview for the new code before relaying** — the check run reads success 5–15 minutes before the build lands. Recipe: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
 - **The parent confirms the link opens hydrated with no error before sending it**; evidence is read after the yes (`link-first-look-rounds`; checks in `doer-rules.md` § Repo and safety), and an "unverified" the doer could have checked is sent back, not relayed.
 - **Cloud portfolio previews:** a `preview/*` push publishes `https://preview-<branch>-jhd-preview-staging.jh-229.workers.dev`.
-- **Before any look link, run the five link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47).
+- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47, s65).
 - Agent-internal Browser for reviewer/ux-designer evidence is separate — not the operator packet.
 - Do not dump a screenshot as the review packet.
 

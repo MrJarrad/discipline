@@ -36,7 +36,7 @@ If category and state seem to conflict (e.g., a "bug" that's really a feature re
 
 1. **Check for redundancy.** Search the codebase for an existing implementation of the same concept — not just a keyword match on the task title. If it's already built, that's `wontfix` (already implemented), not a fresh ready-for-agent.
 2. **Check the out-of-scope knowledge base** (below) for a prior rejection of the same request. Don't re-litigate a decision that's already been made and recorded.
-3. **Verify the claim.** For a bug, reproduce it or say plainly you couldn't. For an enhancement, confirm it's feasible in this codebase. An unverified bug claim is `needs-info`, never `ready-for-agent` — a strong brief needs a confirmed reproduction or feasibility note, not a hopeful restatement of the report.
+3. **Verify the claim.** For a bug, reproduce it or say plainly you couldn't. For an enhancement, confirm it's feasible in this codebase. An unverified bug claim is `needs-info`, never `ready-for-agent` — a strong brief needs a confirmed reproduction or feasibility note, not a hopeful restatement of the report. **A symptom named without its trigger** ("snap", "jump") gets one question first: which action produces it — page change, resize or scroll (s66: "snap" read as a page change when he meant resizing; pf #546 was built on the misread and parked).
 4. **State your recommendation with reasoning**, including what you found in the codebase, and wait for confirmation before writing the final brief when the call is non-obvious. Skip the wait only when the task is already unambiguous or someone has explicitly told you the target state.
 ## Writing the agent brief
 

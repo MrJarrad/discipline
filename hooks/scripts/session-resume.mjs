@@ -2,7 +2,7 @@
 /* session-resume — one-screen digest per lane for a resuming session (backlog 161,
    decision 2026-10-10-session-start-wrap-efficiency-ask). Replaces ~25 hand-run
    reads (cockpit -> handovers -> progress files -> branch heads -> PRs) with one
-   command:  node session-resume.mjs <vault-root> [--repo name=path ...] [--days N]
+   command:  node session-resume.mjs <vault-root> [--repo name=path ...] [--days N] [--released X.Y.Z]
 
    Lanes come from the newest `## Next` block of each projects/<p>/<p>-handover.md
    (wrap writes it; format below). Recent progress files no `## Next` block names
@@ -136,7 +136,7 @@ function repoPath(name, repos, home) {
   return null;
 }
 
-function pluginLine({ env, installedPath, pluginRoot }) {
+function pluginLine({ env, installedPath, pluginRoot, released }) {
   const readVer = (p) => { try { return JSON.parse(readFileSync(p, "utf8")).version; } catch { return null; } };
   const root = pluginRoot ?? env.CLAUDE_PLUGIN_ROOT ?? resolve(HERE, "..", "..");
   const loaded = readVer(join(root, ".claude-plugin", "plugin.json"));
@@ -148,6 +148,12 @@ function pluginLine({ env, installedPath, pluginRoot }) {
   } catch { /* unreadable: said below */ }
   if (!loaded || !installed) {
     return { stale: false, line: `plugin: loaded ${loaded ?? "unreadable"}, installed ${installed ?? "unreadable"} (could not compare)` };
+  }
+  /* s64 lesson 2: a cloud container can hold loaded = installed and both behind the release;
+     the parent passes --released <version> read from discipline main's plugin.json. */
+  const older = (a, b) => { const [x, y] = [a, b].map((v) => v.split(".").map(Number)); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
+  if (loaded && released && older(loaded, released)) {
+    return { stale: true, line: `!! plugin: discipline ${loaded} loaded; ${released} is released. Name the gap in the first status; rules added since ${loaded} are not loaded here.` };
   }
   if (loaded !== installed) {
     return { stale: true, line: `!! plugin: this session loaded discipline ${loaded}; ${installed} is installed. The session keeps the OLD cached rules until /reload-plugins or a restart.` };
@@ -299,7 +305,7 @@ export function buildDigest(opts = {}) {
   const days = opts.days ?? 3;
   const ctx = { exec, repos: opts.repos ?? {}, home, vault, now };
   const text = [];
-  const plugin = pluginLine({ env: opts.env ?? process.env, installedPath: opts.installedPath ?? join(home, ".claude", "plugins", "installed_plugins.json"), pluginRoot: opts.pluginRoot });
+  const plugin = pluginLine({ env: opts.env ?? process.env, installedPath: opts.installedPath ?? join(home, ".claude", "plugins", "installed_plugins.json"), pluginRoot: opts.pluginRoot, released: opts.released });
   text.push(`SESSION RESUME  ${new Date(now * 1000).toISOString().slice(0, 16)}Z  vault ${vault}`);
   text.push(plugin.line);
 
@@ -382,16 +388,18 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const args = process.argv.slice(2);
   const repos = {};
   let days;
+  let released;
   let vault;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--repo") { const [k, ...v] = (args[++i] ?? "").split("="); repos[k] = v.join("="); }
     else if (args[i] === "--days") days = Number(args[++i]);
+    else if (args[i] === "--released") released = args[++i];
     else vault = args[i];
   }
   if (vault) vault = resolveVaultRoot(vault);
   if (!vault || !existsSync(vault)) {
-    console.error("usage: node session-resume.mjs <vault-root> [--repo name=path ...] [--days N]");
+    console.error("usage: node session-resume.mjs <vault-root> [--repo name=path ...] [--days N] [--released X.Y.Z]");
     process.exit(2);
   }
-  process.stdout.write(buildDigest({ vault, repos, days }).text);
+  process.stdout.write(buildDigest({ vault, repos, days, released }).text);
 }
