@@ -105,7 +105,7 @@ The write model, the per-kind templates, prose guidance and worked examples:
 Records of operator words are verbatim and complete — a truncated quote made a reviewer flag the
 correct, complete one in a PR as fabricated. A pasted image may not reach the session's disk:
 match it to its file (view it, or compare timestamps against the message) before banking; if no
-file exists, file a description and say so — never the newest file in `images/`.
+file exists, file a description and say so — never the newest file in `images/`. **An operator image goes to its own reviewed PR, or to R2 vault-media, the same turn** (s69: refused from a notes-only PR, left unbanked).
 
 ## Create properly — graph wiring is the write
 

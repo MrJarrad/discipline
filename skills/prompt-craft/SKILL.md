@@ -54,6 +54,8 @@ first: which parts, joined how. "Using the beginning of both together" meant the
 sentence of each draft; the parent took one phrase and drafted the wrong thing (s44). Restate,
 then draft; a one-line mismatch costs less than a redraft.
 
+**Before a research or build lane on an operator idea, restate the outcome in one sentence and get his yes.** A researcher answering the parent's framing is not the operator confirming it (s70: "users who just have a coded design system" meant mapping raw values to a coded system's tokens; it was framed as reading Figma variables without the plugin, confirmed by a researcher and built, then parked).
+
 ## Mechanism named
 
 A brief states how each locked value is produced, not only what it measures. Must be named whenever present: a grid — `display: grid` container and children placed

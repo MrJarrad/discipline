@@ -138,6 +138,7 @@ When replacing an older note, follow this exact sequence:
 - **Merge a vault PR only after its checks complete** (its `check_suite.completed` event), never straight after opening it (s62: a merge before the `lists` check finished turned main red for every open notes PR).
 - **Never reset a branch while one of its PRs is open**: merge the PR first (s63: a shallow clone hit "unrelated histories", and a reset to origin/main left the branch diverged from its PR).
 - **While a reviewed vault PR is open, new notes go on a branch that touches none of its files, or wait for its merge** (s68: #918 and #919 merged under #917, costing two conflict rounds and a third review). DO: a fresh branch from main for unrelated notes. DON'T: merge a second PR into files a reviewed PR changes.
+- **Flip a list row with `lane-end.mjs --backlog`, and run `list-drift-check.mjs` locally before pushing** (s70: three `lists` failures from hand edits). The grammar is `STATUS` in that script: `done` carries a `(repo #N sha)` pair; a row that needed no change is `moot (…)`, never `done (no change needed)`; done rows move to `## Done archive`. DO: `lane-end.mjs --backlog`. DON'T: type a status by hand and push.
 
 ### Hub files — link into them in the same write
 
