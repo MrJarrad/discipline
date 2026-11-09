@@ -102,7 +102,7 @@ never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed 
 
 ## Reviewer brief
 
-Done-when: **diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR.
+Done-when: **diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell it: plain `merge: …` last line, `reviewer: <get_session id>` under the heading (s71).
 
 ## Persona + model
 

@@ -43,6 +43,18 @@ test("a brief must say no background tasks, no subagents (600 s ceiling)", () =>
   assert.match(macJobProblems(job("repo: ~/x", "You ARE the job.\n"))[0], /no background tasks/);
 });
 
+test("DISC-279: xcodebuild or softwareupdate in a job is named unless the job is purpose: xcode", () => {
+  const body = "No background tasks, no subagents.\nRun `xcodebuild -version` and report.\n";
+  assert.match(macJobProblems(job("repo: ~/x", body))[0], /xcodebuild.*DISC-279/);
+  assert.match(macJobProblems(job("repo: ~/x", "No background tasks, no subagents.\nsudo softwareupdate -l\n"))[0], /softwareupdate/);
+  assert.deepEqual(macJobProblems(job("repo: ~/x\npurpose: xcode", body)), []);
+});
+
+test("DISC-279: a read-only version read is clean", () => {
+  const body = "No background tasks, no subagents.\nplutil -extract CFBundleShortVersionString raw /Applications/Xcode.app/Contents/Info.plist\nxcrun simctl list runtimes\n";
+  assert.deepEqual(macJobProblems(job("repo: ~/x", body)), []);
+});
+
 test("CLI exits 0 clean, 1 on a missing repo:, 2 on an unreadable file", () => {
   const script = join(dirname(fileURLToPath(import.meta.url)), "mac-job-check.mjs");
   const d = mkdtempSync(join(tmpdir(), "macjob-"));
