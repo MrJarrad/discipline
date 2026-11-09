@@ -131,6 +131,8 @@ one grep.
 harness, profiler, query plan), then bisect. Measure first, fix second — logs are
 usually wrong about where the time goes.
 
+**A regression's known-good is the last tuning window, not the last merge.** Take it from the vault (handover or progress notes for when the operator last worked on the feel), and put that date or commit in the brief. Today's base is not known-good until the operator says so (s72: "go back to when we were working on it").
+
 ---
 
 ## Fix, regression-test, clean up
