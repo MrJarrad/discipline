@@ -97,6 +97,19 @@ test("plugin loaded older than installed is flagged as needing a reload", () => 
   assert.match(r.text, /loaded discipline 1\.110\.0; 1\.126\.0 is installed\. The session keeps the OLD cached rules until \/reload-plugins/);
 });
 
+test("s64 lesson 2: loaded = installed but behind the released version is flagged with the gap", () => {
+  const w = world();
+  mkdirSync(join(w.root, "cache", ".claude-plugin"), { recursive: true });
+  writeFileSync(join(w.root, "cache", ".claude-plugin", "plugin.json"), JSON.stringify({ version: "1.184.0" }));
+  writeFileSync(join(w.root, "inst.json"), JSON.stringify({ plugins: { "discipline@discipline": [{ version: "1.184.0" }] } }));
+  const at = (released) => buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: noGh, env: {}, pluginRoot: join(w.root, "cache"), installedPath: join(w.root, "inst.json"), home: w.root, released });
+  const behind = at("1.185.0");
+  assert.equal(behind.pluginStale, true);
+  assert.match(behind.text, /!! plugin: discipline 1\.184\.0 loaded; 1\.185\.0 is released/);
+  assert.equal(at("1.184.0").pluginStale, false);
+  assert.equal(at("1.99.0").pluginStale, false); // numeric compare, not string
+});
+
 test("untracked recent progress is listed; done lines are not; nothing throws on an empty vault", () => {
   const w = world();
   mkdirSync(join(w.vault, "projects", "q", "evidence", "z"), { recursive: true });

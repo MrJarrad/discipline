@@ -335,6 +335,10 @@ test("DISC-221 L5: a reviewer: line that is not a session id makes the comment n
   assert.equal(reviewVerdict([l5("reviewer: the reviewer\n")], L5_HEAD, ["MrJarrad"]), null);
 });
 
+test("s65 lesson 2: text after the session id on the reviewer: line still names the reviewer", () => {
+  assert.deepEqual(reviewVerdict([l5("reviewer: session_01AbC9 (R-SF, reviewer helper)\n")], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: "session_01AbC9" });
+});
+
 test("DISC-221 L5: a verdict with no reviewer: line still counts (reviewer posted it itself)", () => {
   assert.deepEqual(reviewVerdict([l5("")], L5_HEAD, ["MrJarrad"]), { verdict: "yes", sha: "c7868b2", reviewer: null });
 });

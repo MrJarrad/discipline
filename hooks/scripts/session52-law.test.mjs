@@ -74,14 +74,14 @@ test("DISC-235 A6: copy lanes run on the strongest tier — model-routing", () =
   assert.ok(flat("skills/model-routing/SKILL.md").includes("| Published copy (drafting or fact-checking words a user reads) | the strongest tier (`fable`, else `opus`); `## Interrogated`: \"copy lane\" (DISC-235) |"));
 });
 
-test("s45.1, s46.3, s46.4, s47.2, s47.3: the five link checks live once in PREVIEW-PROBE; the skill and helpers point", () => {
+test("s45.1, s46.3, s46.4, s47.2, s47.3: the link checks live once in PREVIEW-PROBE; the skill and helpers point", () => {
   const r = flat("skills/present-for-review/references/PREVIEW-PROBE.md");
   assert.ok(r.includes("- **The `preview/*` build, not a `claude/*` badge.** A green build on a `claude/*` branch is not the preview: its log says it skips the upload"));
   assert.ok(r.includes("- **The link opens in the state to review.** Open it cold, as the operator will, before sending."));
   assert.ok(r.includes("gets a preview-only URL flag that opens it (`?time-circuits=on`, `?mode=holding`) and the link carries the flag"));
   assert.ok(r.includes("- **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks"));
   assert.ok(r.includes("- **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link"));
-  assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the five link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47)."));
+  assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47)."));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("A review link it sends meets `present-for-review` § Before the link goes out: opened cold first, in the state to review."));
   assert.ok(flat("doer-rules.md").includes("**A deploy is read from the build log, never the badge**: a `claude/*` build shows \"Deployment successful\" while its log says it skips the upload; only `preview/*` publishes (s47)."));
 });

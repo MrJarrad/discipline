@@ -131,6 +131,14 @@ When replacing an older note, follow this exact sequence:
 2. Create the **new note** with `status: current` + `supersedes: "[[old-slug]]"` in its frontmatter
 3. **Never edit the old note body** — only frontmatter status + link are permitted to change
 
+**History files keep what was true then** (s66: a helper was told to "correct" node 834:4378 in history files; it was real at the time, and was reverted). A new id or link goes only into current-pointer files (`references/`, `projects/<p>/site/`). DO: update the site file. DON'T: rewrite a dated evidence note.
+
+### Vault PR order
+
+- **Merge a vault PR only after its checks complete** (its `check_suite.completed` event), never straight after opening it (s62: a merge before the `lists` check finished turned main red for every open notes PR).
+- **Never reset a branch while one of its PRs is open**: merge the PR first (s63: a shallow clone hit "unrelated histories", and a reset to origin/main left the branch diverged from its PR).
+- **While a reviewed vault PR is open, new notes go on a branch that touches none of its files, or wait for its merge** (s68: #918 and #919 merged under #917, costing two conflict rounds and a third review). DO: a fresh branch from main for unrelated notes. DON'T: merge a second PR into files a reviewed PR changes.
+
 ### Hub files — link into them in the same write
 
 Project hubs are `projects/<name>/<name>.md` (e.g. `projects/portfolio/portfolio.md`).
@@ -236,5 +244,7 @@ Regenerate `references/reference-database.md` after any reference write.
 **A new queue or backlog row gets its number from the tool, never from your head** (backlog DISC-167): `node <plugin>/hooks/scripts/row-add.mjs --vault <vault> --prefix <PFX> --to backlog|queue --text "…"` prints the new ID (`PF-682`). It numbers above every ID in that project's queue and backlog, local and origin/main, under a lock, and refuses a duplicate. Do not type a new `<PREFIX>-<n>`, and do not edit a `Next free number` line by hand; `lane-end.mjs --backlog-add` allocates the same way. `list-drift-check` fails any ID found twice across the two files. It also refuses a row that resembles an open one (shared content words) and names the rows: fold it in with `--merge-into <ID>` (dated, into that row's last cell, no new number) or add it with `--distinct` (DISC-189).
 
 **An idea is a backlog row in the same action** (DISC-168): the operator's idea (his words verbatim) or one on an evidence idea sheet gets its own row, `row-add.mjs --to backlog --status "waiting on operator" --text "…"`, so it prints under Needed from you until he picks, parks or drops it. The sheet cites each ID under `## Idea rows`; `list-drift-check.mjs` fails `idea-unrowed` otherwise.
+
+**On a row-number collision, the branch that merges second renumbers**, after pulling the other branch's merge from main; the parent never renumbers to dodge one (s67: parent and helper renumbered the same rows at once, vault #888 and #890).
 
 **A numbered ruling in a decisions log (`G18`) is grepped for its number in that file before banking; a used number takes the next free one** (`2026-10-17-cloud-subagents-figma-and-link-first` item 5: G18 was reused once in one session).

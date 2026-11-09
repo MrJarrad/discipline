@@ -47,6 +47,15 @@
         ]
       },
       {
+        "matcher": "mcp__claude-code-remote__create_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-create-gate.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__archive_session",
         "hooks": [
           {

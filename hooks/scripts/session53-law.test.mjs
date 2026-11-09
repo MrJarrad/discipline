@@ -22,8 +22,8 @@ test("DISC-248: the visible-change link check lives verbatim in § Link checks, 
   const at = s.indexOf("## Link checks");
   assert.ok(at > 0);
   assert.ok(s.indexOf(RULE) > at, "rule sits under § Link checks");
-  assert.ok(s.includes("Run all five before a look link goes out"));
-  assert.ok(flat("skills/present-for-review/SKILL.md").includes("run the five link checks"));
+  assert.ok(s.includes("Run all six before a look link goes out"));
+  assert.ok(flat("skills/present-for-review/SKILL.md").includes("run the six link checks"));
 });
 
 test("DISC-248: dispatch-brief Done-when and doer-rules look-lane done-when point, never restate", () => {
