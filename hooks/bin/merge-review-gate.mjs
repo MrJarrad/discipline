@@ -19,7 +19,8 @@
    (absolute path, one plain command) for this PR whose JSON line is complete, names the
    pinned head, a MrJarrad/jhd-vault origin and only notes; it lists names from GitHub's
    merge ref for the PR, bound to that sha, instead of every patch.
-   Limits: trusted means the repo owner, and every fleet agent posts as that
+   DISC-277: trusted means the repo owner and the login in this session's own \`get_me\` result (an
+   org-owned repo's owner never posts); a commenter cannot write a tool result. Limits: every fleet agent posts as that
    login, so the gate proves a verdict-shaped comment exists, not who wrote it.
    A subagent's own reads are not in the parent's transcript.
    Fails closed: unreadable input, any crash, or a failure to load
@@ -55,9 +56,9 @@ function deny(reason) {
    could not be read. */
 export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
-  const calls = new Map(), bash = new Map();
+  const calls = new Map(), bash = new Map(), meCalls = new Set();
   const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
-  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [] };
+  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [] };
   const pages = new Map();
   for (const line of lines) {
     let e;
@@ -65,8 +66,15 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
     const content = Array.isArray(e?.message?.content) ? e.message.content : [];
     for (const part of content) {
       if (part?.type === "tool_use" && /__(pull_request_read|issue_read)$/.test(part.name || "")) calls.set(part.id, part.input || {});
+      if (part?.type === "tool_use" && /^mcp__github__get_me$/.test(part.name || "")) meCalls.add(part.id);
       if (part?.type === "tool_use" && part.name === "Bash") bash.set(part.id, String(part.input?.command || ""));
       if (part?.type !== "tool_result") continue;
+      if (meCalls.has(part.tool_use_id)) {
+        /* DISC-277: the session's own authenticated login, from the result of its own get_me call. */
+        const t = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
+        try { const l = JSON.parse(t).login; if (typeof l === "string" && l) out.me.push(l); } catch {}
+        continue;
+      }
       if (bash.has(part.tool_use_id)) {
         /* vault-pr-files.mjs (DISC-224): its one JSON line, from a command that runs the script for
            this PR. A stamp echoed by hand or printed for another PR is not proof. */
@@ -152,11 +160,14 @@ function check(input, { notesOnly, reviewVerdict }) {
   if (!pinned) {
     deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head the reviewer verdict names) so the merge lands only the reviewed head.`);
   }
-  const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner]);
+  /* DISC-277: on an org-owned repo the owner is the org, which never posts; the verdicts come from the
+     session's own authenticated account, read from its get_me result (not from any comment body). */
+  const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...reads.me]);
   if (review?.verdict === "yes") process.exit(0);
   const head = t.expectedHeadSha.slice(0, 7);
   const lacks = reads.truncated ? "the verdict read was truncated; re-read the comments and reviews with a smaller perPage —" : "no reviewer verdict";
-  deny(`merge-review-gate: ${pr} — ${review ? `the latest reviewer verdict on head ${head} says merge: no` : `${lacks} with merge: yes on head ${head} in this session`} (every merge needs merge: yes on the head it pins, \`2026-10-09-every-merge-reviewed\`). Dispatch the reviewer; once its verdict (shape: agents/reviewer.md § Verdict) is on the PR as a comment or review, read it with pull_request_read get_comments / get_reviews, then merge.`);
+  const meHint = reads.me.length ? "" : " This session has not read get_me, so only the repo owner's login counts; on an org-owned repo call get_me first, then merge.";
+  deny(`merge-review-gate: ${pr} — ${review ? `the latest reviewer verdict on head ${head} says merge: no` : `${lacks} with merge: yes on head ${head} in this session`} (every merge needs merge: yes on the head it pins, \`2026-10-09-every-merge-reviewed\`). Dispatch the reviewer; once its verdict (shape: agents/reviewer.md § Verdict) is on the PR as a comment or review, read it with pull_request_read get_comments / get_reviews, then merge.${meHint}`);
 }
 
 if (process.argv[1] && process.argv[1].endsWith("merge-review-gate.mjs")) {
