@@ -53,7 +53,7 @@ until every item is ruled.
 ```md
 | kind | figma | ruling | code | note |
 | --- | --- | --- | --- | --- |
-| token | grid/gap | use | --grid-gap | operator 30 Oct |
+| token | grid/gap | use | --grid-gap | ruled 30 Oct |
 | token | opacity/opacity-full | new |  |  |
 | component | .ColOffset | skip |  | private; layout only |
 ```

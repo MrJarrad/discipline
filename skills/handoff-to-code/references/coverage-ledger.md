@@ -24,6 +24,9 @@ A component-property row also carries a **class** column — see § 1b.
   export node ids the brief names, expanded to every descendant the export states.
 - **Scope stops at an `◆instance of` boundary** — the instance is one row (its own props and
   bindings); the instanced component's insides are that component's own lane.
+  **Exception: the properties of exposed nested instances and the settings of placed instances are in scope** —
+  each is a ledger row (§ 1b); a property the Figma panel shows is never outside the boundary
+  (operator, 2026-11-08: *"it's really important that this stuff is bulletproof in handoff"*).
 - **Rows exist before the build.** The first four columns are filled from the export (`built at`
   as the file you will write); `measured value` and `status` are filled from the running build.
 - **Deviation is a status value, not a second table.** `status` is the skill's own enum —
@@ -73,6 +76,12 @@ The rule and the four class definitions live once, in `dispatch-brief/references
 with a missing or renamed code prop (name or values) is a defect (`not-built`, red). Every
 other class carries its one-line reason; an unclear class is a question to the operator, not a
 guess. A property with no row is red, as for any node.
+
+**Nested and placed properties are rows too.** Each exposed nested-instance property gets its own row, with its
+nesting path in the node id column (a Media block's `.ControlMedia` state / has-audio is a row, not a note on the
+Media row). Each placed-instance setting the layout changes gets a row keyed by instance node id and property
+(`handoff-to-code` rules 11 and 12, schema 17 and 18). A table row of the brief's Component Properties or Placed
+Instances with no ledger row, or the reverse, is a red finding; a missing row is red.
 
 ## 2. Variance never collapses into one literal
 
