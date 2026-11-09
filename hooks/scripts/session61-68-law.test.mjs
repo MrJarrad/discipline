@@ -55,8 +55,12 @@ test("s67 2: on a row-number collision the branch that merges second renumbers",
 });
 
 test("s65 1, 4: a fixed look link cites before/after by URL and the widths measured", () => {
-  has("skills/present-for-review/references/PREVIEW-PROBE.md", '**A "fixed" look link cites its before and after by URL, and the widths measured**');
+  has("skills/present-for-review/references/PREVIEW-PROBE.md", '**A "fixed" look link cites its before and after by URL, and names the widths measured, and the operator\'s band is among them**');
   has("skills/present-for-review/references/PREVIEW-PROBE.md", "A local production-build number counts only with that build's own startup line shown.");
+});
+
+test("s65 2: a reviewer: line with text after the session id counts; the text is a label", () => {
+  has("agents/reviewer.md", "a `reviewer:` line must start with a session id (text after is a label) or the verdict is not counted (`merge-after-review.mjs`).");
 });
 
 test("s66 2: a symptom without its trigger gets one question first", () => {

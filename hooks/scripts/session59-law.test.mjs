@@ -16,6 +16,6 @@ test("DISC-271: the reviewer: line takes get_session's own id, never ~/.claude/h
 });
 
 test("DISC-271: an in-session reviewer subagent has no session id and omits the reviewer: line", () => {
-  const rule = "A reviewer subagent has no session id and omits the line; a verdict whose `reviewer:` line is not a session id is not counted at all (`merge-after-review.mjs`).";
+  const rule = "A reviewer subagent has no session id and omits the line; a `reviewer:` line must start with a session id (text after is a label) or the verdict is not counted (`merge-after-review.mjs`).";
   assert.ok(flat("agents/reviewer.md").includes(rule));
 });

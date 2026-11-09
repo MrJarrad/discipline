@@ -81,7 +81,7 @@ test("s45.1, s46.3, s46.4, s47.2, s47.3: the link checks live once in PREVIEW-PR
   assert.ok(r.includes("gets a preview-only URL flag that opens it (`?time-circuits=on`, `?mode=holding`) and the link carries the flag"));
   assert.ok(r.includes("- **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks"));
   assert.ok(r.includes("- **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link"));
-  assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47)."));
+  assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47, s65)."));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("A review link it sends meets `present-for-review` § Before the link goes out: opened cold first, in the state to review."));
   assert.ok(flat("doer-rules.md").includes("**A deploy is read from the build log, never the badge**: a `claude/*` build shows \"Deployment successful\" while its log says it skips the upload; only `preview/*` publishes (s47)."));
 });
