@@ -60,3 +60,9 @@ test("user-owned repo: a non-owner, non-get_me commenter is refused", () => {
   const U = ["MrJarrad", "jhd-vault2"];
   assert.equal(run([...getMe("MrJarrad"), ...comments(...U, [["drive-by", yes]])], ...U).permissionDecision, "deny");
 });
+
+test("s75 7: a vault merge with no notes-only proof is refused and the message says to run the proof plain", () => {
+  const r = run([], "MrJarrad", "jhd-vault");
+  assert.equal(r.permissionDecision, "deny");
+  assert.match(r.permissionDecisionReason, /run plain, exactly as printed: no pipe/);
+});

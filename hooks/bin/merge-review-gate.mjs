@@ -147,7 +147,7 @@ function check(input, { notesOnly, reviewVerdict }) {
     if (cleared && (!reads.files || !reads.filesComplete)) process.exit(0);
     /* A vault-pr-files result on the pinned head proves notes-only without get_files (DISC-224). */
     if (pinned && reads.stamps.some((v) => v.complete === true && v.head === t.expectedHeadSha && Array.isArray(v.files) && notesOnly(v.files))) process.exit(0);
-    if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; prove it with \`node ${OWN_SCRIPT} --vault <vault> --pr ${t.pullNumber}\` (that absolute path, one plain command; names only, at the head you pin), or read its files with pull_request_read get_files, or get a reviewer verdict.`);
+    if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; prove it with \`node ${OWN_SCRIPT} --vault <vault> --pr ${t.pullNumber}\` (that absolute path, run plain, exactly as printed: no pipe, no redirect; names only, at the head you pin), or read its files with pull_request_read get_files, or get a reviewer verdict.`);
     if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {
       if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you are merging) so the merge lands only that head.`);

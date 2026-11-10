@@ -156,7 +156,7 @@ function pluginLine({ env, installedPath, pluginRoot, released }) {
     return { stale: true, line: `!! plugin: discipline ${loaded} loaded; ${released} is released. Name the gap in the first status; rules added since ${loaded} are not loaded here. If installed_plugins.json points past the loaded version, ask the operator for /reload-plugins now, not at the first org-repo merge.` };
   }
   if (loaded !== installed) {
-    return { stale: true, line: `!! plugin: this session loaded discipline ${loaded}; ${installed} is installed. The session keeps the OLD cached rules until /reload-plugins or a restart. Ask the operator for /reload-plugins now, at session start; a gate older than 1.188 cannot read verdicts on org-owned repos, and finding that out at the first org-repo merge costs a round.` };
+    return { stale: true, line: `!! plugin: this session loaded discipline ${loaded}; ${installed} is installed. The session keeps the OLD cached rules until /reload-plugins or a restart. Ask the operator for /reload-plugins now, at session start, and carry the /reload-plugins ask as a queue row in the first status reply, before any lane opens; a gate older than 1.188 cannot read verdicts on org-owned repos, and finding that out at the first org-repo merge costs a round.` };
   }
   return { stale: false, line: `plugin: discipline ${loaded} loaded = installed` };
 }

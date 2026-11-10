@@ -48,3 +48,5 @@ of `accuracy-before-the-link`): the lane's done-when is the preview opening hydr
 the link sent; this proof, the build-vs-export audit and scenario sweeps run **after the operator's yes**,
 sized to what merge needs. The proof never delays the link and it never reviews how the region looks. The operator remains the visual gate
 (`doer-rules.md` § Fixed evidence return; `present-for-review`).
+
+Figma-contract reviewer: helper session only; check the persona's tool list first. An in-session reviewer has no Figma tools and no ToolSearch, returns "contract unverified", and the pass is redone (s75, pf #580: two rounds).

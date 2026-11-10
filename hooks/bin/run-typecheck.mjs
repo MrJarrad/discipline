@@ -63,12 +63,9 @@ export function typecheckTimeoutMs() {
 export function runTypecheckSync(cwd) {
   const command = pickTypecheckCommand(cwd);
   if (!command) {
-    return writeMarker(cwd, {
-      status: "skipped",
-      ts: new Date().toISOString(),
-      command: null,
-      tail: "no typecheck script or tsconfig.json found",
-    });
+    /* Nothing to check: return the marker without writing it. A file rewritten on every dispatch keeps a
+       tracked tree dirty (DISC-283: the vault had no typecheck and the stop hook asked for a commit each time). */
+    return { status: "skipped", ts: new Date().toISOString(), command: null, tail: "no typecheck script or tsconfig.json found" };
   }
 
   const timeoutMs = typecheckTimeoutMs();
