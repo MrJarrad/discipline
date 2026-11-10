@@ -303,3 +303,11 @@ Figma contracts need Figma tools (s75): a brief that says "read the Figma live" 
 Load sheds heavy lanes (s75): at the first load warning the next heavy lane (suite, build, browser) goes to a helper session; reviewers that only read git stay in-session. DON'T: read the warning and override it (seven lanes in one 4-core container, load 17: a ten-minute probe took 54). Text only: a hook sees no container load.
 
 Run the proof command plain (s75): run the proof command plain, exactly as the gate prints it, never piped through `cut`, `head` or `grep` (`vault-pr-files.mjs` through `cut` was not counted and the merge was refused). Checked: `merge-review-gate.mjs` counts only a plain run and its refusal says so.
+
+Helpers never merge (s77): a helper brief ends at "PR open, review-ready" and never asks for a merge; the parent merges reviewed PRs itself, after `add_repo` with `access: "push"`. DO: end the brief at the PR rung and merge from the parent. DON'T: message a helper "now merge it" (G1 pf #579 and H1 discipline #176 both refused, correctly: a session message is not the operator's go).
+
+Newest plugin copy runs the scripts (s77): in a cloud session run list and gate scripts from the newest plugin copy on disk, or name the version that ran. DO: `ls` the plugin cache and pick the highest version. DON'T: file a row for a bug the newest copy already fixed (DISC-286 was filed from 1.181.0 and fixed in 1.183.0).
+
+Session start banks the checklist's unread answers (s78): before the first status, read the pinned checklist doc's comment threads addressed to Claude, answered or not, since the last wrap, and bank each (`vault-write`, `lane-end.mjs --id`). DO: bank first, then report. DON'T: report a row open that the operator answered on the doc after the wrap (PF-1566 "4" and PF-1507 "chrome and safari" were missed).
+
+A list built from the backlog is checked before it is shown (s78): `list-drift-check.mjs --repo <paths>` with the product repo attached for each row's cited PRs, and grep the decisions for "dropped" and "parked". DO: check, then present. DON'T: show a Go-live list carrying rows already merged or dropped (PF-1338 merged 8 Nov, PF-1322 dropped).

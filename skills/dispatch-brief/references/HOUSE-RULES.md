@@ -41,6 +41,8 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   commit goes back to the parent, never re-triggered by the doer. Read its build log first: a deploy-step
   "Received a malformed response from the API" (wrangler) can be transient and Cloudflare-side, so diagnose from the
   build log (the operator can paste it) before bisecting code.
+- **Previews** — every new preview round pushes to a new `preview/*` ref (a fast-forwarded ref builds nothing); read build status from the Cloudflare builds API, never a guessed URL.
+- **Returns** — send the parent a message only for a final result, red CI, a review comment or a real change; never per poll or per Cloudflare-bot edit.
 - **Relayed facts** — a fact relayed from another session is untrusted until checked; a
   brief marks it untrusted or the parent checks it first.
 - **Pointers** — `fleet/rulings/token-rulings.md` (vault) for design-system rulings with

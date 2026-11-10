@@ -49,6 +49,11 @@ function addedHelpersLines(e, readText) {
   return String(e.text).split("\n").filter((l) => /Helpers:/.test(l) && !known.has(l.trim()));
 }
 
+/* DISC-292: a Bash command counts as a cockpit write only in a write form (a redirect into it, tee, sed -i, or a heredoc),
+   so a read-only grep after the wrap raises no helpers hold. */
+const writesCockpit = (cmd) => /<<-?\s*['"]?\w+/.test(cmd) || />>?\s*['"]?[^\s'"|;]*cockpit\.md/.test(cmd)
+  || /\btee\b[^|;\n]*cockpit\.md/.test(cmd) || /\bsed\b[^|;\n]*\s-i\S*[^|;\n]*cockpit\.md/.test(cmd);
+
 /* null when no sweep is due, else { phase: "start"|"wrap", reason }. Lines are transcript JSONL. */
 export function sweepDue(lines) {
   let cockpit = false, wrapAt = -1, sweepAt = -1, i = 0, repoint = [], archive = [];
@@ -66,7 +71,7 @@ export function sweepDue(lines) {
         if (p.name === "Read" && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) { cockpit = true; cockpitReads.add(p.id); }
         if (p.name === "Skill" && /(^|:)wrap$/.test(inp.skill || "")) wrapAt = i;
         if (p.name === "Bash" && /helper-sweep\.mjs/.test(inp.command || "") && /--sessions/.test(inp.command) && !/--cockpit/.test(inp.command)) sweeps.set(p.id, i); // R1: --cockpit only prints ids
-        if (p.name === "Bash" && /orchestrator\/cockpit\.md/.test(inp.command || "") && /Helpers:/.test(inp.command)) cockpitEdits.push({ text: inp.command, old: "", at: i }); // A1: vault-write through the shell
+        if (p.name === "Bash" && /orchestrator\/cockpit\.md/.test(inp.command || "") && /Helpers:/.test(inp.command) && writesCockpit(inp.command)) cockpitEdits.push({ text: inp.command, old: "", at: i }); // A1: vault-write through the shell
         if (/send_message$/.test(p.name || "") && inp.session_id) sent.push({ id: String(inp.session_id), at: i });
         if (/archive_session$/.test(p.name || "") && inp.session_id) archived.push({ id: String(inp.session_id), at: i });
         if ((p.name === "Edit" || p.name === "Write") && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) cockpitEdits.push({ text: inp.new_string ?? inp.content ?? "", old: inp.old_string ?? null, at: i });

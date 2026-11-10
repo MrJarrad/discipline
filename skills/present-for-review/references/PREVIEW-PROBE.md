@@ -45,3 +45,7 @@ Run all six before a look link goes out (`SKILL.md` § Before the link goes out)
 - **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks (s47: a preview cut before a merged fix showed the old behaviour).
 - **A "fixed" look link cites its before and after by URL, and names the widths measured, and the operator's band is among them** (s65: PF-1329 went out on dev-server numbers because the production build's port was taken; a footer fix measured at 800px failed at lg+): the before on the unfixed production site, the after on the deployed preview. A local production-build number counts only with that build's own startup line shown. The full breakpoint sweep still follows the yes.
 - **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link; a local pass is not that proof (s46: a fix green locally failed on the deployed Worker).
+
+## A fresh preview ref per round (s78)
+
+Fast-forwarding an existing `preview/*` ref triggers no Workers build; only a new ref does (PF-1562 waited about 25 minutes on a guessed URL). DO: push every new preview round to a new `preview/*` ref and read build status from the Cloudflare builds API (`builds-check.mjs`, credential injected). DON'T: poll a guessed URL.

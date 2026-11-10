@@ -251,3 +251,5 @@ Regenerate `references/reference-database.md` after any reference write.
 **On a row-number collision, the branch that merges second renumbers**, after pulling the other branch's merge from main; the parent never renumbers to dodge one (s67: parent and helper renumbered the same rows at once, vault #888 and #890).
 
 **A numbered ruling in a decisions log (`G18`) is grepped for its number in that file before banking; a used number takes the next free one** (`2026-10-17-cloud-subagents-figma-and-link-first` item 5: G18 was reused once in one session).
+
+**Run `list-drift-check.mjs` locally before every vault push that touches a list** (s77): status cells come from the fixed set, and a done row leaves `## Open` in the same edit. DO: run it, fix, then push. DON'T: let the vault lists check fail on the PR (it failed three times in s77 for hand-written statuses and done rows left under Open).

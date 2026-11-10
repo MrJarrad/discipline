@@ -11,7 +11,8 @@
      running  every unticked "Running now" item with the helper session ids it names; a session
               checks each with get_session before trusting it (landed -> tick, live -> re-point,
               no id -> name the helper or drop it). Run at session start and again at wrap.
-     clearAtWrap every ticked "Done this session" item: at wrap the session deletes each, so the
+     clearAtWrap every ticked "Done this session" item and every ticked "Waiting on you" item whose row is
+              no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
               at each sessions end").
    Usage: node queue-page-sync.mjs --vault <root> --projects PF,HB [--doc <file with the doc text>] */
@@ -47,6 +48,7 @@ export function syncPlan({ vault, prefixes, docText }) {
     listed.add(id);
     if (section.startsWith("waiting")) {
       if (!ticked && !open.has(id)) plan.toTick.push(id);
+      if (ticked && !open.has(id)) plan.clearAtWrap.push(line.trim());
       if (ticked && open.has(id)) plan.answered.push(id);
     }
   }
