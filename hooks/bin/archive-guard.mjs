@@ -7,8 +7,10 @@
    DISC-280 (s71: archiving the Safari helper closed its open draft PR two seconds later): a helper is also
    refused while any PR it opened is unmerged. Its PRs are the create-record tool_results (JSON {url} or a bare PR url) in the transcript's
    list_events reads of that helper (get_session carries none), paged to has_more: false; each needs a pull_request_read
-   (method get) in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.                               */
-import { readFileSync } from "node:fs";
+   (method get) in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.
+   DISC-284 (s76): reads made by a subagent of this same session count (subagentLines).                               */
+import { readFileSync, readdirSync } from "node:fs";
+import { join, dirname, basename } from "node:path";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
 
 const deny = (reason) => {
@@ -110,11 +112,22 @@ export function unmergedPrs(lines, id) {
   return { read: true, complete, open: [...opened] };
 }
 
-export function verdict(lines, id) {
+/* DISC-284: transcripts of this session's subagents, at <transcript dir>/<transcript name>/subagents/agent-*.jsonl.
+   Their list_events pages and pull_request_read results count as reads; who a session is (the helper title) is only
+   ever taken from the parent's own sight. */
+export function subagentLines(transcriptPath) {
+  const dir = join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "subagents");
+  let files; try { files = readdirSync(dir).filter((f) => /^agent-.*\.jsonl$/.test(f)).sort(); } catch { return []; }
+  const out = [];
+  for (const f of files) { try { out.push(...readFileSync(join(dir, f), "utf8").split("\n").filter(Boolean)); } catch { /* an unreadable subagent file adds nothing, so it can only keep a refusal */ } }
+  return out;
+}
+
+export function verdict(lines, id, subLines = []) {
   const s = shownSession(lines, id);
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
-  const { read, complete, open } = unmergedPrs(lines, id);
+  const { read, complete, open } = unmergedPrs([...lines, ...subLines], id);
   if (!read) return `archive_session refused (DISC-280): read the helper's events first (list_events on ${id}); archiving closes any open PR it opened, and this session has not seen which PRs those are.`;
   if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged or closed; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read, method get, to show it) before archiving.`;
   if (!complete) return `archive_session refused (DISC-281): read the helper's remaining events first (list_events on ${id} reports has_more: true; page back with before_id until it reports false); an unread page may hold a PR it opened.`;
@@ -126,7 +139,7 @@ function main() {
   const id = input?.tool_input?.session_id;
   if (!id || !input.transcript_path) return deny("archive_session refused (DISC-262): no session id or transcript to check it against.");
   let lines; try { lines = readFileSync(input.transcript_path, "utf8").split("\n").filter(Boolean); } catch { return deny("archive_session refused (DISC-262): transcript unreadable."); }
-  const why = verdict(lines, id);
+  const why = verdict(lines, id, subagentLines(input.transcript_path));
   if (why) deny(why);
 }
 

@@ -153,6 +153,20 @@ test("indented table rows are excluded too", () => {
   assert.equal(promptWords("one two\n   | a | b |\n| c | d |"), 2);
 });
 
+// s76 lesson 4: the fixed House rules block (about 450 words, copied whole from
+// dispatch-brief/references/HOUSE-RULES.md) left 150 words for a look-lane brief.
+test("the House rules block does not count against the cap", () => {
+  const block = ["## House rules", ...Array.from({ length: 100 }, () => "- word ".repeat(5).trim())].join("\n");
+  const prompt = ["Short brief. Skills: quality.", "## Constraints", block, "## Done-when", "Two words."].join("\n");
+  assert.equal(promptWords(prompt), 10, "the House rules heading and its bullets are excluded; the other sections count");
+  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
+});
+
+test("the House rules exclusion stops at the next heading", () => {
+  const prompt = ["## House rules", "- one two three", "## Goal", ...Array(PROMPT_WORD_CAP).fill("word")].join("\n");
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok, false, "prose after the block still hits the cap");
+});
+
 // --- Exemptions -----------------------------------------------------------
 
 test("Explore and Plan are exempt — parent reconnaissance, not a dispatch", () => {

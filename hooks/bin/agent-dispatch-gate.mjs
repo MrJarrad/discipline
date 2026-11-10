@@ -25,7 +25,8 @@
    2. MODEL SET EXPLICITLY — `model` present and non-empty on the tool input.
       A dispatch with no model inherits the parent's, which is the failure
       `model-routing` exists to stop.
-   3. PROMPT UNDER 600 WORDS — markdown table rows excluded from the count. A
+   3. PROMPT UNDER 600 WORDS — markdown table rows and the fixed `## House rules`
+      block (heading to next heading) excluded from the count. A
       locked table is the spec and must be copied whole
       (`review-the-lock-not-the-slice`), so counting its rows against the brief
       would push the parent to slice the lock to fit the cap — exactly the
@@ -487,11 +488,17 @@ const MECHANISM_IDENTIFIER = new RegExp(
 
 /* Words in the brief, NOT counting markdown table rows. A row is a line whose
    first non-space character is a pipe — that covers the header, the separator
-   and every data row of a locked table. */
+   and every data row of a locked table. The fixed `## House rules` block (about
+   450 words, copied whole from dispatch-brief/references/HOUSE-RULES.md) is not
+   counted either: from its heading to the next heading (s76 lesson 4). */
 export function promptWords(prompt) {
+  let inHouse = false;
   return String(prompt || "")
     .split(/\r?\n/)
-    .filter((line) => !/^\s*\|/.test(line))
+    .filter((line) => {
+      if (/^\s*#{1,6}\s/.test(line)) inHouse = /^\s*#{1,6}\s*House rules\s*$/i.test(line);
+      return !inHouse && !/^\s*\|/.test(line);
+    })
     .join("\n")
     .split(/\s+/)
     .filter(Boolean).length;
@@ -745,7 +752,7 @@ export function checkAgentDispatch(toolInput = {}) {
       item: "prompt",
       reason:
         `Dispatch blocked — prompt: ${count} words, cap is ${PROMPT_WORD_CAP} ` +
-        `(markdown table rows already excluded). Point at the contract instead of restating it ` +
+        `(markdown table rows and the House rules block already excluded). Point at the contract instead of restating it ` +
         `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
     };
   }

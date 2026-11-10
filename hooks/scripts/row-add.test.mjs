@@ -2,7 +2,7 @@
 // Run: node --test hooks/scripts/row-add.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, utimesSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -304,4 +304,14 @@ test("DISC-272: asks for a link, file, media or ID are caught; rows that only me
     "Recommended: drop it from Figma for now", // PF-1334
     "Export: the lighter stroke you approved is already in Figma", // PF-1171 label
   ]) assert.equal(isLinkAsk(t), false, t);
+});
+
+// s76 lesson 3: row-add raises the next-free marker in BOTH of the project's list files, so a commit that
+// stages only the file it added to fails the vault `lists` check. The CLI names both files to stage.
+test("s76 L3: the CLI names both of the project's list files to stage, on stderr; stdout stays the row id", () => {
+  const v = mkVault();
+  const r = spawnSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--offline"], { encoding: "utf8", env: { ...process.env, DISCIPLINE_MARKER_DIR: mkdtempSync(join(tmpdir(), "marker-")) } });
+  assert.match(r.stdout.trim(), /^ZZ-\d+$/);
+  assert.match(r.stderr, /row-add: stage projects\/zz\/zz-queue\.md projects\/zz\/zz-backlog\.md/);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "another distinct idea about colour", offline: true }).files.length, 2);
 });

@@ -146,3 +146,30 @@ test("DISC-280: a helper whose events were never read is denied, never allowed",
 test("DISC-280: events read for a different session do not count", () => {
   assert.equal(run("session_h11", [...helper("session_h11"), ...events("session_other")])?.permissionDecision, "deny");
 });
+
+// DISC-284 (s76): a subagent of this session paged the helper's events to the oldest and read each PR's state, and the
+// guard still refused: it read only the parent's transcript. Subagent transcripts of the same session sit at
+// <transcript dir>/<transcript name>/subagents/agent-*.jsonl and count; the helper title check stays on the parent's own sight.
+import { mkdirSync } from "node:fs";
+const runWithSub = (session_id, parentLines, subLines) => {
+  const dir = mkdtempSync(join(tmpdir(), "ag-"));
+  const t = join(dir, "t.jsonl");
+  writeFileSync(t, parentLines.map((l) => JSON.stringify(l)).join("\n"));
+  mkdirSync(join(dir, "t", "subagents"), { recursive: true });
+  writeFileSync(join(dir, "t", "subagents", "agent-a1.jsonl"), subLines.map((l) => JSON.stringify(l)).join("\n"));
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name: "mcp__claude-code-remote__archive_session", tool_input: { session_id }, transcript_path: t }), encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : null;
+};
+test("DISC-284: events a subagent of this session paged to the oldest, with the PR read merged, let the helper be archived", () => {
+  const sub = [...events("session_h20", [created(601)], {}, "se1"), ...prRead(601, { merged: true, state: "closed" }, "sr1")];
+  assert.equal(runWithSub("session_h20", helper("session_h20"), sub), null);
+});
+test("DISC-284: a subagent's read that shows the PR unmerged still denies, naming it", () => {
+  const sub = [...events("session_h21", [created(602)], {}, "se1")];
+  deniedNaming(runWithSub("session_h21", helper("session_h21"), sub), /#602/);
+});
+test("DISC-284: a subagent cannot make a parent session look like a helper", () => {
+  const sub = [...helper("session_h22"), ...events("session_h22", [], {}, "se1")];
+  assert.equal(runWithSub("session_h22", [], sub)?.permissionDecision, "deny");
+});
