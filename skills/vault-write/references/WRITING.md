@@ -110,11 +110,11 @@ same race one level up; the fix is the same shape, applied at the file level:
    remembered snapshot — a whole-file rewrite from a stale snapshot silently
    discards whatever a concurrent write added in between, with no error on
    either side.
-**Backlog and queue rows are edited through lane-end/row tooling or by column index, never by `rstrip(' |')` plus append** — that writes the note into the Status column and fails `list-drift-check` (s73: two rows).
-
 3. **If a full rewrite is unavoidable** (e.g. resequencing), diff the fresh
    read against your snapshot first and carry forward any entries that
    appeared since — never write back a version older than what's on disk.
+
+**Backlog and queue rows are edited through lane-end/row tooling or by column index, never by `rstrip(' |')` plus append** — that writes the note into the Status column and fails `list-drift-check` (s73: two rows).
 
 ### Scope, now implicit in placement
 

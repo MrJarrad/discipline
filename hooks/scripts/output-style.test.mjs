@@ -231,7 +231,7 @@ test("dispatch-brief forbids restating a skill's procedure and caps pasted rulin
 test("dispatch-brief states a target brief length and stays under its own ceiling", () => {
   assert.match(dispatchBrief, /target[^.\n]*brief[^.\n]*\d{3}|brief[^.\n]*under[^.\n]*\d{3} words/i);
   const count = dispatchBriefRaw.split(/\s+/).filter(Boolean).length;
-  assert.ok(count <= 1560, `dispatch-brief is ${count} words; the ceiling is 1560`);
+  assert.ok(count <= 1580, `dispatch-brief is ${count} words; the ceiling is 1580`);
 });
 
 test("the eighteen-item list gates the contract pointer, skill-names-only, and done-when", () => {

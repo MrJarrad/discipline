@@ -41,7 +41,7 @@ eight row classes). Screenshots and pixel diffs prove look, not function
 A built region's after-yes proof is a **headed screenshot at the operator's viewport and at each
 breakpoint family, with a pixel assertion on that region**. The screenshot is the operator's whole window, header included, never a crop of the edge or detail in question; the parent opens one before relaying "checked" (a pinned-grid round passed on 200px edge crops while the full window showed a 40%-of-screen white block). A `getComputedStyle` read proves a
 declaration exists, not that anything painted — a footer that never painted passed
-computed-style checks three rounds running.
+computed-style checks three rounds running. Inside a blend, filter or clip group, sample painted pixels at the operator's crop; computed style alone passed a slate box in s73.
 
 Look rounds are link-first (`link-first-look-rounds`, 2026-10-09, superseding the before-the-link half
 of `accuracy-before-the-link`): the lane's done-when is the preview opening hydrated with no error and

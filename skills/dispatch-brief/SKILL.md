@@ -101,7 +101,7 @@ never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed 
 
 ## Reviewer brief
 
-**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell: `merge:` last line, `reviewer: session_<id>` verbatim.
+**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell: `merge:` last line, `reviewer: session_<id>` verbatim. Helper sessions only; in-session (Agent) briefs say "no `reviewer:` line; `merge:` last" (s74).
 
 ## Persona + model
 
