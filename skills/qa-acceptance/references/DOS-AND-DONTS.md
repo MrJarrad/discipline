@@ -13,6 +13,7 @@
 | Name the **specific gap** when an AC fails — which one, what's missing | Turns a vague "not ready" into an actionable next step |
 | Get an explicit **defer** decision when shipping with a known gap | Silent gaps become invisible debt |
 | Report on **every AC**, not just the ones that passed | A partial report hides the real state |
+| Prove a **colour inside a blend, filter or clip group** by painted pixels sampled at the operator's crop, never computed style alone; a look-fix brief says so | s73: a glide "resolved to --background-action-primary" yet painted a slate box under the header's difference blend |
 
 ---
 
