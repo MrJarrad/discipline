@@ -64,3 +64,11 @@ test("CLI prints the plan as JSON and refuses an unknown project", () => {
   assert.deepEqual(JSON.parse(ok.stdout).toTick, ["PF-4"]);
   assert.equal(spawnSync("node", [script, "--vault", v, "--projects", "ZZ"], { encoding: "utf8" }).status, 1);
 });
+
+test("DISC-290 (operator s78: \"can we clear done at the end of each session too\"): a ticked Waiting on you item whose row is closed is cleared at wrap; a ticked one still open is banked first", () => {
+  const doc = DOC.replace("- [ ] **PF-4** old row, since answered", "- [x] **PF-4** old row, since answered");
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: doc });
+  assert.deepEqual(p.clearAtWrap, ["- [x] **PF-4** old row, since answered", "- [x] **PF-3** earlier"]);
+  assert.deepEqual(p.answered, ["PF-6"], "PF-6 is ticked but its row is open: bank it, never clear it unbanked");
+  assert.ok(!p.clearAtWrap.some((l) => l.includes("PF-6")));
+});

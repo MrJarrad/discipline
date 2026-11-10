@@ -73,7 +73,7 @@ new-project trio in the same wrap (`vault-write`).
 
 **Pinned checklist (DISC-288):** run `queue-page-sync.mjs --vault <vault> --projects <prefixes> --doc <doc text>`;
 check each "Running now" item with `get_session` (tick landed, re-point live), then delete every `clearAtWrap`
-line so "Done this session" starts empty next session (operator: "clear it at each sessions end"; the vault keeps the record).
+line so "Done this session" starts empty next session; `clearAtWrap` also holds ticked "Waiting on you" items whose row is closed (DISC-290), cleared the same way (operator: "clear it at each sessions end"; the vault keeps the record).
 
 A project handover is last-left, not still-true. Date it. After a long gap the next
 session must say the date, then trust git + the hub.

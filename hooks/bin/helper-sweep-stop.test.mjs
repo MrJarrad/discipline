@@ -196,3 +196,15 @@ test("A1: a cockpit written through Bash (vault-write, heredoc) is judged the sa
   assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh(BAD)))?.phase, "helpers");
   assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh("- Helpers: session_k"))), null);
 });
+
+test("DISC-292: a read-only Bash command naming cockpit.md and Helpers: after the wrap is not a cockpit write; a write form still is", () => {
+  const bad = "Helpers: orphans need the sidebar";
+  const read = use("Bash", { command: `grep -n "Helpers:" orchestrator/cockpit.md; echo '${bad}'` }, "ok");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, read)), null, "grep and echo to the terminal write nothing");
+  for (const command of [
+    `echo '${bad}' >> orchestrator/cockpit.md`,
+    `cat >> orchestrator/cockpit.md <<'EOF'\n${bad}\nEOF`,
+    `echo '${bad}' | tee -a orchestrator/cockpit.md`,
+    `sed -i 's/x/${bad}/' orchestrator/cockpit.md`,
+  ]) assert.equal(sweepDue(lines(cockpit, wrap, sweep, use("Bash", { command }, "ok")))?.phase, "helpers", command);
+});

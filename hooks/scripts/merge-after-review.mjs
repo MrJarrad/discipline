@@ -104,9 +104,10 @@ export function reviewVerdict(items, headSha, trusted = []) {
 }
 
 /* Notes-only vault PR (`2026-10-18-orchestrator-merges-own-vault-notes`): every
-   changed path is markdown, outside `.github/` and `.claude/` (CI, settings). */
+   changed path is markdown, outside `.github/` and `.claude/` (CI, settings) and outside `queue/mac/`
+   (DISC-289: a Mac job is markdown the runner executes once the PR merges, so it needs a verdict). */
 export function notesOnly(paths) {
-  return paths.length > 0 && paths.every((p) => /\.md$/i.test(p) && !/^\.(github|claude)\//.test(p));
+  return paths.length > 0 && paths.every((p) => /\.md$/i.test(p) && !/^\.(github|claude)\//.test(p) && !/^queue\/mac\//.test(p));
 }
 
 /* Logins whose gate-run tail counts: the repo owner and the authenticated

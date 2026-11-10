@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs, canMerge, gateRunTail } from "./merge-after-review.mjs";
+import { parseArgs, canMerge, gateRunTail, notesOnly } from "./merge-after-review.mjs";
 
 const scriptPath = fileURLToPath(new URL("./merge-after-review.mjs", import.meta.url));
 
@@ -362,4 +362,10 @@ test("DISC-265 N2: a Review heading with no head sha above the real one is passe
   assert.equal(reviewVerdict([relay], L5_HEAD, ["MrJarrad"])?.verdict, "yes");
   const none = { ...l5(""), body: "## Review relay from session_01AbC9\nmerge: yes" };
   assert.equal(reviewVerdict([none], L5_HEAD, ["MrJarrad"]), null);
+});
+
+test("DISC-289: a vault PR carrying a queue/mac job is not notes-only, so the wrap merge needs a reviewer verdict", () => {
+  assert.equal(notesOnly(["orchestrator/cockpit.md"]), true);
+  assert.equal(notesOnly(["orchestrator/cockpit.md", "queue/mac/review/20261110T185600Z-pf1507-glide-webkit.md"]), false);
+  assert.equal(notesOnly(["queue/mac/pending/j.md"]), false);
 });
