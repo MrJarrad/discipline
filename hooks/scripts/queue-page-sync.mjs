@@ -11,6 +11,9 @@
      running  every unticked "Running now" item with the helper session ids it names; a session
               checks each with get_session before trusting it (landed -> tick, live -> re-point,
               no id -> name the helper or drop it). Run at session start and again at wrap.
+     clearAtWrap every ticked "Done this session" item: at wrap the session deletes each, so the
+              section starts empty next session (the vault keeps the record; operator s77: "clear it
+              at each sessions end").
    Usage: node queue-page-sync.mjs --vault <root> --projects PF,HB [--doc <file with the doc text>] */
 import { readFileSync } from "node:fs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -24,13 +27,14 @@ export function syncPlan({ vault, prefixes, docText }) {
   if (!r.ok) throw new Error(r.reason);
   const open = new Map();
   for (const p of r.projects) for (const row of [...p.queue.rows, ...p.backlog.rows]) open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
-  const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [] };
+  const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [] };
   if (docText == null) return plan;
   let section = "";
   const listed = new Set();
   for (const line of docText.split(/\r?\n/)) {
     const h = /^##\s+(.*)$/.exec(line);
     if (h) { section = h[1].trim().toLowerCase(); continue; }
+    if (section.startsWith("done") && /^- \[x\]/i.test(line)) plan.clearAtWrap.push(line.trim());
     const it = /^- \[( |x)\]\s+(.*)$/i.exec(line);
     if (!it) continue;
     const ticked = it[1].toLowerCase() === "x", text = it[2].trim();

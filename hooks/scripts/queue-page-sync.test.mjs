@@ -53,6 +53,10 @@ test("every Running now item is listed for a helper check; a named session id is
     { text: "A lane with no helper named", sessions: [] },
   ]);
 });
+test("DISC-288 (operator s77: \"clear it at each sessions end\"): every Done this session item is listed so wrap can empty the section", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
+  assert.deepEqual(p.clearAtWrap, ["- [x] **PF-3** earlier"]);
+});
 test("CLI prints the plan as JSON and refuses an unknown project", () => {
   const v = vault(); const f = join(v, "doc.md"); writeFileSync(f, DOC);
   const ok = spawnSync("node", [script, "--vault", v, "--projects", "PF", "--doc", f], { encoding: "utf8" });
