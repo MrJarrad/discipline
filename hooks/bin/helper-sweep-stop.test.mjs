@@ -113,3 +113,48 @@ test("DISC-268 A2: the re-point hold re-blocks while rows are unsent, ends when 
   assert.equal(stop(home, "r2", pending)?.decision, "block");
   assert.equal(stop(home, "r2", lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null, "all sent: passes");
 });
+
+// DISC-291 (operator s78: "must be archived when completed"): the gate used to pass once the sweep ran, so Archive
+// rows nobody archived (s73–s76: nine) passed silently. Each Archive row now needs an archive_session call after the sweep
+// (a refused call still counts: the refusal is then one named line), held like the Re-point rows.
+const archiveOut = "## Archive (2)\n- session_h1 | Helper · a | completed; parent wrapped\n- session_h2 | Helper · b | completed; parent wrapped\n\n## Keep (0)\n\n## Surface (0)\n\n## Re-point (0)\n";
+const sweepWithArchive = use("Bash", sweepCmd, "ok", archiveOut);
+const archiveCall = (id) => use("mcp__claude-code-remote__archive_session", { session_id: id }, "ok");
+test("DISC-291: a sweep with Archive rows is due until each id has an archive_session call after it, at start and at wrap", () => {
+  for (const base of [[cockpit], [cockpit, wrap]]) {
+    const due = sweepDue(lines(...base, sweepWithArchive));
+    assert.equal(due.phase, "archive");
+    assert.match(due.reason, /session_h1/); assert.match(due.reason, /session_h2/);
+    const one = sweepDue(lines(...base, sweepWithArchive, archiveCall("session_h1")));
+    assert.match(one.reason, /session_h2/); assert.doesNotMatch(one.reason, /session_h1/);
+    assert.equal(sweepDue(lines(...base, sweepWithArchive, archiveCall("session_h1"), archiveCall("session_h2"))), null);
+  }
+});
+test("DISC-291: an archive_session call made before the sweep does not count", () => {
+  assert.equal(sweepDue(lines(cockpit, archiveCall("session_h1"), archiveCall("session_h2"), sweepWithArchive))?.phase, "archive");
+});
+test("DISC-291: a refused archive_session (tool error) still counts as attempted, so a guard refusal cannot trap the session", () => {
+  const refused = (id) => use("mcp__claude-code-remote__archive_session", { session_id: id }, "error");
+  assert.equal(sweepDue(lines(cockpit, sweepWithArchive, refused("session_h1"), refused("session_h2"))), null);
+});
+test("DISC-291: the archive hold re-blocks while rows are unarchived and is capped at 3", () => {
+  const home = mkdtempSync(join(tmpdir(), "home-"));
+  const pending = lines(cockpit, sweepWithArchive);
+  for (let i = 0; i < 3; i++) assert.equal(stop(home, "a1", pending)?.decision, "block", `turn ${i + 1}`);
+  assert.equal(stop(home, "a1", pending), null, "capped after 3 holds");
+});
+
+// DISC-291: s77's wrap wrote "Orphans from s73–s76 (9) need the operator's sidebar" on the Helpers: line, naming no ids,
+// so no later sweep could find them. A wrap that writes such a line to the cockpit is held until the line names ids.
+const cockpitEdit = (text) => use("Edit", { file_path: "/home/user/jhd-vault/orchestrator/cockpit.md", old_string: "x", new_string: text }, "ok");
+test("DISC-291: at wrap, a cockpit Helpers: line that counts orphans or sends them to the sidebar is held", () => {
+  const bad = cockpitEdit("- Helpers: (live) session_a1. Orphans from s73–s76 (9) need the operator's sidebar.");
+  const due = sweepDue(lines(cockpit, wrap, sweep, bad));
+  assert.equal(due?.phase, "helpers");
+  assert.match(due.reason, /ids/);
+});
+test("DISC-291: at wrap, a Helpers: line of ids, or 'none', passes; an edit before the wrap skill is not checked", () => {
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: session_a1, session_b2"))), null);
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: none"))), null);
+  assert.equal(sweepDue(lines(cockpit, cockpitEdit("- Helpers: Orphans (9) in the sidebar"), wrap, sweep)), null);
+});

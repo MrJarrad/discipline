@@ -33,4 +33,4 @@ A helper is a `create_session` child: a whole cloud session that does one lane w
 
 ## 4. Landing
 
-Read the PR comment, bank the result, then `archive_session` as HARD-RULES 19 says. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6). The helper sweep (HARD-RULES 19) catches any helper a parent missed, at the next session start or wrap.
+Read the PR comment, bank the result, then `archive_session` as HARD-RULES 19 says. At wrap, archive any helper whose work has landed (`wrap` CLOSING-CHECKS 6). The helper sweep (HARD-RULES 19) catches any helper a parent missed, at the next session start or wrap. A helper with an open PR or an unanswered operator ask is not archived; the next parent adopts it (HARD-RULES 19, rules 1 and 2, DISC-291). Paging an old helper's events for the archive guard is a subagent's job (its reads count, DISC-284): `list_events` with no `kinds`, `after_id` or `limit` cut, back to `has_more: false`, then `pull_request_read` (method get) on each PR it opened.

@@ -184,3 +184,32 @@ test("A1: a before_id page with has_more false after the newest page reaches the
   const older = call("list_events", { session_id: "session_h31", before_id: "f" }, page([], { hasMore: false }), "e2");
   assert.equal(run("session_h31", [...helper("session_h31"), ...events("session_h31", [], { hasMore: true }), ...older]), null);
 });
+
+// DISC-285 (#177 review r2): `complete` must mean the helper's WHOLE history was read. A before_id page that does not chain
+// to a page already read, a read with a kinds filter (has_more describes the unfiltered page and the filter can drop the
+// create-PR record), and a limit:1 read are partial reads and prove nothing.
+const withInput = (id, input, texts, opts, cid) => call("list_events", { session_id: id, ...input }, page(texts, opts), cid);
+test("DISC-285: a lone before_id page with has_more false, chained to no page this session read, is refused", () => {
+  deniedNaming(run("session_h40", [...helper("session_h40"), ...withInput("session_h40", { before_id: "zzz" }, [], { hasMore: false })]), /remaining events first/);
+});
+test("DISC-285: a read with a kinds filter never proves completeness, even with has_more false", () => {
+  deniedNaming(run("session_h41", [...helper("session_h41"), ...withInput("session_h41", { kinds: ["result"], limit: 100 }, [], { hasMore: false })]), /remaining events first/);
+});
+test("DISC-285: a kinds-filtered read still names a PR it shows, and a full read after it is accepted", () => {
+  const filtered = withInput("session_h42", { kinds: ["user"] }, [created(610)], { hasMore: true }, "e1");
+  deniedNaming(run("session_h42", [...helper("session_h42"), ...filtered]), /#610/);
+  const full = [...withInput("session_h42", {}, [], { hasMore: false }, "e2"), ...prRead(610, { merged: true })];
+  assert.equal(run("session_h42", [...helper("session_h42"), ...filtered, ...full]), null);
+});
+test("DISC-285: limit:1 on the newest page with has_more true, then a before_id page that does not chain, is refused", () => {
+  const newest = withInput("session_h43", { limit: 1 }, [], { hasMore: true }, "e1");
+  const stray = withInput("session_h43", { before_id: "not-the-first-id", limit: 1 }, [], { hasMore: false }, "e2");
+  deniedNaming(run("session_h43", [...helper("session_h43"), ...newest, ...stray]), /remaining events first/);
+});
+test("DISC-285: a before_id page whose id is the first_id of the page before it chains, and a two-hop chain is accepted", () => {
+  const p1 = call("list_events", { session_id: "session_h44" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h44", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "b", last_id: "y" } }), "e2");
+  const p3 = call("list_events", { session_id: "session_h44", before_id: "b" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "c", last_id: "x" } }), "e3");
+  assert.equal(run("session_h44", [...helper("session_h44"), ...p1, ...p2, ...p3]), null);
+  deniedNaming(run("session_h44", [...helper("session_h44"), ...p1, ...p3]), /remaining events first/);
+});

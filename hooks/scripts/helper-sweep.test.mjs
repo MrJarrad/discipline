@@ -230,3 +230,67 @@ test("DISC-268: --landed <file> (ids lane-end recorded) archives a completed hel
   const none = spawnSync(process.execPath, [bin, "--self", "me", "--now", NOW, "--sessions", p, "--landed", join(dir, "absent")], { encoding: "utf8" });
   assert.equal(none.status, 0, none.stderr);
 });
+
+// DISC-291 (operator s78): "the helper session must archive/must be archived when completed" and "helpers with work
+// continuing across parent sessions need to be continued by the parent session". s73–s76 left nine completed
+// helpers in the sidebar: under a live parent a completed helper was archived only when its id was in --merged/--landed,
+// so an answered or closed one waited for a flag nobody set, then its id fell off the cockpit Helpers: line.
+const LATER = "2026-11-01T02:00:00Z"; // 13h after the s() default updated_at (13:00Z on 31 Oct)
+test("DISC-291 (1): a completed helper under a live parent, quiet past 12h, is archived with no landed/merged flag", () => {
+  const r = classify({ now: LATER, self: "me", sessions: [LIVE, h("h_answered", "p_live")] });
+  assert.deepEqual(ids(r.archive), ["h_answered"]);
+  assert.match(r.archive[0].reason, /quiet 13h/);
+});
+test("DISC-291 (1): the same helper inside 12h stays with its live parent", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [LIVE, h("h_fresh", "p_live")] });
+  assert.deepEqual(ids(r.keep), ["h_fresh"]);
+  assert.deepEqual(r.archive, []);
+});
+test("DISC-291 (1): a quiet completed helper with an open PR (--keep) is kept, never archived (DISC-280: archiving closes its draft)", () => {
+  const r = classify({ now: LATER, self: "me", keep: ["h_pr"], sessions: [LIVE, h("h_pr", "p_live")] });
+  assert.deepEqual(ids(r.keep), ["h_pr"]);
+  assert.deepEqual(r.archive, []);
+});
+test("DISC-291 (1): a quiet completed helper waiting on an operator answer (--waiting) is kept; under a wrapped parent it is a Re-point, not an Archive", () => {
+  const live = classify({ now: LATER, self: "me", waiting: ["h_ask"], sessions: [LIVE, h("h_ask", "p_live")] });
+  assert.deepEqual(ids(live.keep), ["h_ask"]);
+  assert.match(live.keep[0].reason, /operator/);
+  const wrapped = classify({ now: LATER, self: "me", waiting: ["h_ask"], sessions: [WRAPPED_P, h("h_ask", "p_w")] });
+  assert.deepEqual(wrapped.archive, []);
+  assert.deepEqual(ids(wrapped.repoint), ["h_ask"]);
+});
+test("DISC-291 (2): helpers of a parent two or more sessions back are re-pointed to the current parent, one message each", () => {
+  const OLD = s("p_old", "Discipline · 3 Nov (wrapped)", { created_at: "2026-11-03T08:00:00Z" });
+  const r = classify({ now: NOW, self: "me", sessions: [OLD, h("h_old", "p_old", { status_bucket: "SESSION_STATUS_BUCKET_WORKING" }), h("h_gone", "p_never_listed", { status_bucket: "SESSION_STATUS_BUCKET_WORKING" })] });
+  assert.deepEqual(ids(r.repoint), ["h_gone", "h_old"]);
+  for (const x of r.repoint) assert.match(x.message, /me is your parent now/);
+});
+
+import { helpersLine, cockpitHelperIds } from "./helper-sweep.mjs";
+test("DISC-291 (2): the Helpers: line lists every helper still open (keep + surface), so the next parent inherits them by id", () => {
+  const r = classify({ now: NOW, self: "me", sessions: [LIVE, h("h_a", "p_live", { status_bucket: "SESSION_STATUS_BUCKET_WORKING" }), h("h_b", "p_gone", { status_bucket: "SESSION_STATUS_BUCKET_BLOCKED" }), h("h_c", "p_gone")] });
+  assert.equal(helpersLine(r), "Helpers: h_a, h_b");
+  assert.equal(helpersLine({ archive: [], keep: [], surface: [] }), "Helpers: none");
+});
+test("DISC-291 (2): cockpitHelperIds reads session ids from the last five Helpers: lines, so an older parent's helpers are not dropped", () => {
+  const cockpit = ["- Helpers: session_aaa1, session_bbb2", "x", ...[1, 2, 3, 4].map((n) => `- Helpers: session_c${n}`), "- Helpers: (none)"].join("\n");
+  const got = cockpitHelperIds(cockpit);
+  assert.ok(!got.includes("session_aaa1") && got.includes("session_c1") && got.includes("session_c4"), got.join());
+  assert.deepEqual(cockpitHelperIds("- Helpers: session_aaa1, session_bbb2\n- Helpers: session_aaa1"), ["session_aaa1", "session_bbb2"]);
+});
+test("DISC-291: the CLI prints a Helpers line after Re-point and accepts --waiting", async () => {
+  const { mkdtempSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+  const { spawnSync } = await import("node:child_process");
+  const dir = mkdtempSync(join(tmpdir(), "helper-sweep-"));
+  const p = join(dir, "s.json");
+  writeFileSync(p, JSON.stringify({ data: [WRAPPED_P, h("h_ask", "p_w"), h("h_done", "p_w")] }));
+  const r = spawnSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--self", "me", "--now", LATER, "--sessions", p, "--waiting", "h_ask"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^Helpers: h_ask$/m);
+  const cp = join(dir, "cockpit.md");
+  writeFileSync(cp, "- Helpers: session_x1, session_x2. Archived: H1\n");
+  const c = spawnSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--cockpit", cp], { encoding: "utf8" });
+  assert.equal(c.stdout.trim(), "session_x1\nsession_x2");
+});
