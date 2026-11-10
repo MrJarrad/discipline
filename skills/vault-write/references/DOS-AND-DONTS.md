@@ -30,3 +30,4 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
   a third description of the schema here.
 - **Don't call a vault write banked on a push.** DO: `git merge-base --is-ancestor <sha> origin/main` exits 0 — in cloud after the session branch's PR merge, locally after `git push origin HEAD:main` (with 2/4/8/16 s backoff on a GitHub 500). DON'T: `git push origin HEAD` and queue the Mac job.
 - **Don't push during a lease-guarded rewrite.** DO: stop the parent and the runner from preflight to DONE. DON'T: save a note mid-rewrite — three refusals of one rewrite came from exactly that.
+- **Bank operator images in their own small PR and dispatch a LIGHT reviewer with the byte-compare check at once.** A PR carrying images is not notes-only, so its merge gate needs a reviewer verdict; don't find that out at merge (s73).
