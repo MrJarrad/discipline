@@ -182,6 +182,7 @@ already blocks, applied to visuals instead of behavior.
 - Source: operator process rulings 2026-08-25, recorded in the orchestrator's memory and
   exercised in every S-slice review since.
 
+Read `references/DOS-AND-DONTS.md`.
 ## Anti-patterns
 
 - Marking an issue done because the branch exists or the diff looks plausible

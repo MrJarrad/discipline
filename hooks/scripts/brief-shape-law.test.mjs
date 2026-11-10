@@ -44,10 +44,10 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // facts live in references/BRIEF-CRAFT.md; only the pointers are here.
 // Ceiling raised 1520 -> 1560 at 1.155.0 (measured 1555): the create_session
 // open/marker/close lines (DISC-216), at the moment a helper brief is written.
-// Raised 1560 -> 1560 at s71 (measured 1573): the reviewer brief spells the verdict lines (lesson 3).
-test("the dispatch-brief skill stays under its 1560-word ceiling", () => {
+// Raised 1560 -> 1580 at s74: the reviewer brief says which reviewers sign `reviewer:` (s74 lesson 2).
+test("the dispatch-brief skill stays under its 1580-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1560, `dispatch-brief is ${count} words; the ceiling is 1560`);
+  assert.ok(count <= 1580, `dispatch-brief is ${count} words; the ceiling is 1580`);
 });
 
 test("the scenario table has exactly eight rows", () => {
