@@ -20,7 +20,7 @@
    and never hand-built. `## Needed from you` stays the last section of the
    output, as the Stop hook requires.
 
-   Usage: node needed-from-you.mjs --vault <root> --projects PF,HB
+   Usage: node needed-from-you.mjs --vault <root> --projects PF,HB [--short --new PF-9,PF-10]
    Exit 0 printed (even when "none") · 1 refused.                          */
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
 import { execFileSync } from "node:child_process";
@@ -29,6 +29,7 @@ import { join } from "node:path";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { parseBacklog, parseStatus } from "./list-drift-check.mjs";
+import { pinnedChecklistUrl } from "./lib/pinned-checklist.mjs";
 
 /* DISC-178: a hand-typed "release?" row is never printed as an operator ask
    (ruling 2026-10-15-release-follows-merge). what = the row's first text cell. */
@@ -98,6 +99,22 @@ export function render(result) {
   return lines.join("\n");
 }
 
+/* DISC-288 (operator s77: "so we don't need to keep filling up the thread"): the short form of the
+   block — only the rows named in `newIds` (this turn's new asks) plus one line linking the pinned
+   checklist, where every open row lives. No link (the vault has no pinned-checklist paragraph) ->
+   the full block, so a status reply is never left without the queue. */
+export function renderShort(result, newIds, url) {
+  if (!url) return render(result);
+  const want = new Set(newIds);
+  const lines = ["## Needed from you", ""];
+  for (const p of result.projects) {
+    const rows = [...p.queue.rows, ...p.backlog.rows].filter((r) => want.has(r.id));
+    if (rows.length) lines.push(...rowLines(p.queue.head, rows));
+  }
+  lines.push(`Full list: [Needed from you](${url})`);
+  return lines.join("\n");
+}
+
 /* `https://github.com/<owner>/<repo>/blob/main` from the vault's origin remote
    (https or ssh, credentials and `.git` stripped), or null when it has none. */
 export function vaultBlobBase(vault, run = (args) => execFileSync("git", ["-C", vault, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })) {
@@ -128,6 +145,10 @@ function main() {
   const root = resolveVaultRoot(vault);
   const r = neededFromYou(root, String(get("--projects") || "").split(","));
   if (!r.ok) { console.error(`needed-from-you: ${r.reason} (vault read: ${root})`); process.exit(1); }
+  if (a.includes("--short")) {
+    console.log(renderShort(r, String(get("--new") || "").split(",").map((x) => x.trim()).filter(Boolean), pinnedChecklistUrl(root)));
+    return;
+  }
   const up = renderUpcoming(r, vaultBlobBase(root));
   console.log(up ? `${up}\n${render(r)}` : render(r));
 }

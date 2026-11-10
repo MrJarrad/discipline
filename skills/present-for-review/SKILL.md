@@ -165,8 +165,8 @@ line so it matches everywhere. Ready to look. [jarrad.design](https://jarrad.des
 Example (feature, web): *Ready to look. The pricing table now sorts by plan tier.
 [jarrad.design](https://jarrad.design)*
 
-The message **ends with the `## Needed from you` queue in full** — the session's projects' open rows
-printed verbatim by `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, or *"Nothing needed from you."*
+The message **ends with the `## Needed from you` block**: new asks plus checklist link (the session's projects' open rows live there),
+from `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes> --short --new <ids>`
 (`output-styles/discipline.md`).
 
 ## Deploy commands stand alone (Change 6, 2026-09-22)

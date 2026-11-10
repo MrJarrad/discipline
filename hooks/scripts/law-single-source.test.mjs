@@ -80,7 +80,7 @@ const LAWS = [
   {
     law: "the operator queue printed in full on every status",
     home: "output-styles/discipline.md",
-    definition: '**Every status reply ends with "Needed from you" — the operator queue, in full, for this session\'s projects.**',
+    definition: '**Every status reply ends with "Needed from you" — this turn\'s new asks plus one link line to the pinned checklist, where the operator queue lives, in full, for this session\'s projects**',
     elsewhere: /every status reply ends with "Needed from you"/i,
     pointer: "needed-from-you.mjs --projects",
     pointedFrom: ["skills/wrap/SKILL.md", "skills/pause-resume/SKILL.md", "skills/present-for-review/SKILL.md", "skills/routing/SKILL.md"],

@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { neededFromYou, render } from "./needed-from-you.mjs";
+import { neededFromYou, render, renderShort } from "./needed-from-you.mjs";
 
 const script = fileURLToPath(new URL("./needed-from-you.mjs", import.meta.url));
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
@@ -120,4 +120,29 @@ test("DISC-273: a row that tracks several items prints one sentence, then one bu
   assert.doesNotMatch(out, /<br>/, "no raw <br> reaches the operator");
   assert.match(out, /Earlier wording kept\./);
   assert.match(out, /\| PF-5 \| single ask/, "a single-item row keeps its table form");
+});
+
+// DISC-288: the short form — this turn's new asks plus one line linking the pinned checklist.
+const LINK = "https://claude.ai/artifact/KjmpGR4zjVKB6WVfy8QsNa";
+test("DISC-288: renderShort prints only the named new rows and the one link line, last", () => {
+  const out = renderShort(neededFromYou(vault(), ["PF", "HB"]), ["PF-5"], LINK);
+  assert.match(out, /^## Needed from you/);
+  assert.match(out, /PF-5 \| pf look at the footer/);
+  assert.doesNotMatch(out, /HB-5|hb secret row|PF-8/, "old open rows stay on the checklist");
+  assert.match(out.trimEnd().split("\n").pop(), new RegExp(`^Full list: \\[Needed from you\\]\\(${LINK}\\)$`));
+});
+test("DISC-288: no new asks prints just the link line; no link prints the full block", () => {
+  const r = neededFromYou(vault(), ["PF"]);
+  assert.equal(renderShort(r, [], LINK), `## Needed from you\n\nFull list: [Needed from you](${LINK})`);
+  assert.equal(renderShort(r, ["PF-5"], null), render(r));
+});
+test("DISC-288: CLI --short reads the link from the vault paragraph and --new from the flag", () => {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `**Pinned checklist (x):** Doc ${LINK} (doc id y).\n`);
+  const ok = spawnSync("node", [script, "--vault", v, "--projects", "PF", "--short", "--new", "PF-5"], { encoding: "utf8" });
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /PF-5/);
+  assert.match(ok.stdout, new RegExp(LINK));
+  assert.doesNotMatch(ok.stdout, /PF-8/);
 });

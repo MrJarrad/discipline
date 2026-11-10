@@ -22,8 +22,8 @@ test("routing: rule 17 and the baton row point at it", () => {
   assert.match(t, /17\. \*\*Finish before opening:\*\* max 3 look-lanes open per session.*backlog row unless he says "now"/);
   assert.match(t, /Operator says yes to a try-out.*rule 17/);
 });
-test("output style: Build in Progress lists queued asks, pointing at rule 17", () => {
-  assert.match(flat("output-styles/discipline.md"), /asks queued for that lane's next round listed under it \(`routing` rule 17\)/);
+test("output style: the Plan panel task lists queued asks, pointing at rule 17", () => {
+  assert.match(flat("output-styles/discipline.md"), /asks queued for that lane's next round in its description \(`routing` rule 17\)/);
 });
 test("wrap SECTIONS: Next block carries look: yes", () => {
   assert.match(flat("skills/wrap/references/SECTIONS.md"), /Add `look: yes` to a try-out.*`routing` rule 17/);
