@@ -25,11 +25,10 @@ test("#168 amber 2: the row-edit rule sits outside the numbered list", () => {
   const t = flat("skills/vault-write/references/WRITING.md");
   assert.ok(t.indexOf("never by `rstrip(' |')` plus append") > t.indexOf("3. **If a full rewrite is unavoidable**"));
 });
-test("s74 3: a brief that reads the export names the branch worktree and expected version; the doer quotes the version it read", () => {
-  has("skills/dispatch-brief/SKILL.md", "the branch worktree path (never the design-system root clone) and the export version it expects");
-  has("skills/dispatch-brief/SKILL.md", "the doer quotes the version it read and returns a mismatch as a defect, then stops");
+test("s74 3: the Source contract template carries the worktree line; the doer quotes the companion it read", () => {
+  has("skills/dispatch-brief/SKILL.md", "- Worktree: <branch worktree abs path, never the design-system root clone> · the doer quotes the companion it read; a mismatch with the Export line is a defect, then stop");
 });
 test("s74 4: another ref is compared in a throwaway worktree, never checked out over the working tree", () => {
   has("skills/routing/references/HARD-RULES.md", "compare against another ref in a throwaway `git worktree add`");
-  has("skills/routing/references/HARD-RULES.md", "never `git checkout <ref> -- .` over the working tree");
+  has("skills/routing/references/HARD-RULES.md", "DON'T: check another ref's files out over the working tree (`git checkout <ref> -- .` overwrote 13 just-committed vault files)");
 });

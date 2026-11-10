@@ -51,11 +51,12 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 ```markdown
 ## Source contract
 - Export: <abs path> · nodes: <#id, #id> · companion: <schema N, generated <stamp>>
+- Worktree: <branch worktree abs path, never the design-system root clone> · the doer quotes the companion it read; a mismatch with the Export line is a defect, then stop
 - AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
 ```
 
 The doer loads **`handoff-to-code`** under a Source contract, plus the house ledger overlay
-`skills/handoff-to-code/references/coverage-ledger.md`. The brief names the branch worktree path (never the design-system root clone) and the export version it expects; the doer quotes the version it read and returns a mismatch as a defect, then stops (s74).
+`skills/handoff-to-code/references/coverage-ledger.md`.
 
 **One contract unit per lane, always** — one export `COMPONENT_SET`, one captured page, one
 component. A brief covering more than one is malformed at any model; the parent slices, one
