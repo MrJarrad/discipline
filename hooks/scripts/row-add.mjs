@@ -130,7 +130,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
       c[at] = c[at] ? `${c[at]} · ${note}` : note;
       lines[row.lineIndex] = `| ${c.join(" | ")} |`;
       writeAtomic(path, lines.join("\n"));
-      return { ok: true, id: row.id, file: row.file, merged: true, warnings };
+      return { ok: true, id: row.id, file: row.file, files: rels, merged: true, warnings };
     }
     if (to === "queue") {
       const cited = citedIds([text, where, why, recommended].map(clean).join(" "), prefix);
@@ -167,7 +167,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
       return fail(`${edit.id} would appear ${seen} times across ${rels.join(" and ")}; the write was rolled back`);
     }
     raiseMarkers(vault, rels);
-    return { ok: true, id: edit.id, file: target, warnings };
+    return { ok: true, id: edit.id, file: target, files: rels, warnings };
   });
 }
 
@@ -186,6 +186,8 @@ function main() {
   const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct), searched: a.searched });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
+  // s76 L3: the next-free marker is raised in both list files; a commit stages both.
+  console.error(`row-add: stage ${res.files.join(" ")}`);
   // DISC-179(1): tell the Stop hook a new ask was raised this turn.
   if (res.merged) { console.log(res.id); return; }
   try { writeMarker(resolveVaultRoot(a.vault), { prefix: a.prefix, id: res.id, to: a.to }); } catch { /* the marker is a nudge, never a failure */ }

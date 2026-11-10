@@ -93,7 +93,7 @@ kinds only, quote plus its source, banned mechanism content, gate-enforced:
 
 **A `create_session` brief** opens "This message is your task — run it now.", writes the parent's id to `~/.claude/helper-session` first, closes "Send the full return to the parent with send_message (session_id "@parent")." (`routing` HARD-RULES 19, DISC-216; verdicts, vault branch: HELPER-SESSIONS). Repos and access: HELPER-SESSIONS §1.
 
-**Target brief length: under 250 words**, lock table excluded.
+**Target brief length: under 250 words**, lock table and House rules block excluded.
 
 ## What the parent does not add
 
@@ -102,7 +102,7 @@ never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed 
 
 ## Reviewer brief
 
-**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. Spell: `merge:` last line, `reviewer: session_<id>` verbatim. Helper sessions only; in-session (Agent) briefs say "no `reviewer:` line; `merge:` last" (s74).
+**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. The brief says "invoke each skill with the Skill tool, for real" (s76); a Mac-job review also names the access question: which sign-in reaches each host (MAC-JOBS). Spell: `merge:` last line, `reviewer: session_<id>` verbatim. Helper sessions only; in-session (Agent) briefs say "no `reviewer:` line; `merge:` last" (s74).
 
 ## Persona + model
 
