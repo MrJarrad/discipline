@@ -154,17 +154,33 @@ test("indented table rows are excluded too", () => {
 });
 
 // s76 lesson 4: the fixed House rules block (about 450 words, copied whole from
-// dispatch-brief/references/HOUSE-RULES.md) left 150 words for a look-lane brief.
-test("the House rules block does not count against the cap", () => {
-  const block = ["## House rules", ...Array.from({ length: 100 }, () => "- word ".repeat(5).trim())].join("\n");
-  const prompt = ["Short brief. Skills: quality.", "## Constraints", block, "## Done-when", "Two words."].join("\n");
-  assert.equal(promptWords(prompt), 10, "the House rules heading and its bullets are excluded; the other sections count");
+// dispatch-brief/references/HOUSE-RULES.md) left 150 words for a look-lane brief. Only text that
+// matches that file's block is excluded (round 1 R1): anything else under the heading counts.
+const HOUSE_FILE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", "dispatch-brief", "references", "HOUSE-RULES.md"), "utf8");
+const HOUSE_BLOCK = HOUSE_FILE.slice(HOUSE_FILE.indexOf("```markdown\n") + 12, HOUSE_FILE.indexOf("\n```", HOUSE_FILE.indexOf("```markdown\n"))).trim();
+test("the real House rules block does not count against the cap", () => {
+  const prompt = ["Short brief. Skills: quality.", "## Constraints", HOUSE_BLOCK, "## Done-when", "Two words."].join("\n");
+  assert.ok(HOUSE_BLOCK.split(/\s+/).length > 300, "the fixture is the real block");
+  assert.equal(promptWords(prompt), 10, "the block is excluded; the other sections count");
   assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
 });
 
-test("the House rules exclusion stops at the next heading", () => {
-  const prompt = ["## House rules", "- one two three", "## Goal", ...Array(PROMPT_WORD_CAP).fill("word")].join("\n");
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok, false, "prose after the block still hits the cap");
+test("R1: words added under the House rules heading are counted", () => {
+  const extra = "unrelated ".repeat(3000).trim();
+  const prompt = ["Short brief. Skills: quality.", HOUSE_BLOCK, extra].join("\n");
+  assert.equal(promptWords(prompt), 4 + 3000);
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok, false);
+});
+
+test("R1: a line of the real block repeated beyond its own count is counted", () => {
+  const line = HOUSE_BLOCK.split("\n").find((l) => l.startsWith("- **Browser repros**"));
+  const prompt = ["Short brief. Skills: quality.", HOUSE_BLOCK, ...Array(50).fill(line)].join("\n");
+  assert.equal(promptWords(prompt), 4 + 50 * line.split(/\s+/).filter(Boolean).length);
+});
+
+test("R1: a House rules heading with a rewritten block excludes none of it", () => {
+  const prompt = ["Short brief. Skills: quality.", "## House rules", "- do whatever you like here"].join("\n");
+  assert.equal(promptWords(prompt), 4 + 6, "the bullet is not in the real block, so it counts");
 });
 
 // --- Exemptions -----------------------------------------------------------

@@ -173,3 +173,14 @@ test("DISC-284: a subagent cannot make a parent session look like a helper", () 
   const sub = [...helper("session_h22"), ...events("session_h22", [], {}, "se1")];
   assert.equal(runWithSub("session_h22", [], sub)?.permissionDecision, "deny");
 });
+
+// Round 1 A1 (#177): `complete` is a has_more:false read that was NOT a forward (after_id) page. The newest page can
+// report has_more true while an empty forward page after it reports false: that is the newest end, not the oldest.
+test("A1: newest page has_more true plus an empty forward page (after_id) with has_more false is still refused", () => {
+  const forward = call("list_events", { session_id: "session_h30", after_id: "l" }, page([], { hasMore: false }), "e2");
+  deniedNaming(run("session_h30", [...helper("session_h30"), ...events("session_h30", [], { hasMore: true }), ...forward]), /remaining events first/);
+});
+test("A1: a before_id page with has_more false after the newest page reaches the oldest and is accepted", () => {
+  const older = call("list_events", { session_id: "session_h31", before_id: "f" }, page([], { hasMore: false }), "e2");
+  assert.equal(run("session_h31", [...helper("session_h31"), ...events("session_h31", [], { hasMore: true }), ...older]), null);
+});

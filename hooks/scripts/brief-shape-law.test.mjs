@@ -45,7 +45,7 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1520 -> 1560 at 1.155.0 (measured 1555): the create_session
 // open/marker/close lines (DISC-216), at the moment a helper brief is written.
 // Raised 1560 -> 1580 at s74: the reviewer brief says which reviewers sign `reviewer:` (s74 lesson 2).
-// Raised 1580 -> 1634 (measured) at s74 lesson 3: the Source contract template carries the Worktree line.
+// Raised 1580 -> 1603 (measured) at s74 lesson 3: the Source contract template carries the Worktree line.
 // Raised 1603 -> 1634 (measured) at s76 lesson 7: the reviewer brief carries the invoke-for-real wording and the Mac access question.
 test("the dispatch-brief skill stays under its 1634-word ceiling", () => {
   const count = words(dispatchBrief);

@@ -26,7 +26,7 @@ test("s76 3: row-add names both list files to stage", () => {
   has("skills/routing/references/MECHANICAL-SCRIPTS.md", "`row-add: stage <both list files>`");
 });
 test("s76 4: the brief cap excludes the House rules block", () => {
-  has("hooks/bin/agent-dispatch-gate.mjs", "the House rules block already excluded");
+  has("hooks/bin/agent-dispatch-gate.mjs", "the House rules block, matched against HOUSE-RULES.md, already excluded");
   has("skills/dispatch-brief/SKILL.md", "lock table and House rules block excluded");
 });
 test("s76 7: the reviewer brief carries the invoke-for-real wording", () => {

@@ -99,12 +99,13 @@ const clears = (input, text) => {
 /* { read, complete, open }: read = a list_events page of the helper parsed; complete = some page reached the end of
    its history (has_more false), i.e. the helper's events were paged to the oldest; open = PRs not shown merged/closed. */
 export function unmergedPrs(lines, id) {
-  const pages = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => extractJson(r.text)).filter((j) => j !== undefined);
-  if (!pages.length) return { read: false, complete: false, open: [] };
+  const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => ({ forward: !!r.input.after_id, j: extractJson(r.text) })).filter((r) => r.j !== undefined);
+  if (!reads.length) return { read: false, complete: false, open: [] };
   const opened = new Set();
   let complete = false;
-  for (const j of pages) {
-    if ((j.ccr ?? j).has_more === false) complete = true;
+  for (const { forward, j } of reads) {
+    /* A forward page (after_id) reporting has_more false has reached the NEWEST end, not the oldest (#177 A1). */
+    if (!forward && (j.ccr ?? j).has_more === false) complete = true;
     for (const o of walk(j)) if (o.type === "tool_result") { const pr = createdPr(textOf(o.content)); if (pr) opened.add(pr); }
   }
   for (const r of results(lines, /__pull_request_read$/))

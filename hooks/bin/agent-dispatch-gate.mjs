@@ -26,7 +26,7 @@
       A dispatch with no model inherits the parent's, which is the failure
       `model-routing` exists to stop.
    3. PROMPT UNDER 600 WORDS — markdown table rows and the fixed `## House rules`
-      block (heading to next heading) excluded from the count. A
+      block (only text matching HOUSE-RULES.md) excluded from the count. A
       locked table is the spec and must be copied whole
       (`review-the-lock-not-the-slice`), so counting its rows against the brief
       would push the parent to slice the lock to fit the cap — exactly the
@@ -486,18 +486,35 @@ const MECHANISM_IDENTIFIER = new RegExp(
   "i",
 );
 
+/* The fixed House rules block, as a multiset of its normalised lines, read from dispatch-brief/references/HOUSE-RULES.md
+   (the file is the block's one source). Unreadable file: empty, so nothing is excluded. */
+const norm = (l) => l.replace(/\s+/g, " ").trim();
+function houseRulesCounts() {
+  const counts = new Map();
+  try {
+    const t = readFileSync(new URL("../../skills/dispatch-brief/references/HOUSE-RULES.md", import.meta.url), "utf8");
+    const start = t.indexOf("```markdown\n");
+    const body = t.slice(start + 12, t.indexOf("\n```", start));
+    for (const l of body.split("\n")) { const n = norm(l); if (n) counts.set(n, (counts.get(n) || 0) + 1); }
+  } catch { /* nothing excluded */ }
+  return counts;
+}
+
 /* Words in the brief, NOT counting markdown table rows. A row is a line whose
    first non-space character is a pipe — that covers the header, the separator
    and every data row of a locked table. The fixed `## House rules` block (about
-   450 words, copied whole from dispatch-brief/references/HOUSE-RULES.md) is not
-   counted either: from its heading to the next heading (s76 lesson 4). */
+   450 words) is not counted either, but only text that IS that block: each of
+   its lines is excluded as many times as the file has it, so anything else
+   under the heading, or a block line repeated, counts (s76 lesson 4, round 1 R1). */
 export function promptWords(prompt) {
-  let inHouse = false;
+  const house = houseRulesCounts();
   return String(prompt || "")
     .split(/\r?\n/)
     .filter((line) => {
-      if (/^\s*#{1,6}\s/.test(line)) inHouse = /^\s*#{1,6}\s*House rules\s*$/i.test(line);
-      return !inHouse && !/^\s*\|/.test(line);
+      if (/^\s*\|/.test(line)) return false;
+      const n = norm(line), left = house.get(n);
+      if (n && left) { house.set(n, left - 1); return false; }
+      return true;
     })
     .join("\n")
     .split(/\s+/)
@@ -752,7 +769,7 @@ export function checkAgentDispatch(toolInput = {}) {
       item: "prompt",
       reason:
         `Dispatch blocked — prompt: ${count} words, cap is ${PROMPT_WORD_CAP} ` +
-        `(markdown table rows and the House rules block already excluded). Point at the contract instead of restating it ` +
+        `(markdown table rows and the House rules block, matched against HOUSE-RULES.md, already excluded). Point at the contract instead of restating it ` +
         `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
     };
   }
