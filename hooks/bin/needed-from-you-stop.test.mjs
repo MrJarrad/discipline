@@ -96,3 +96,41 @@ test("a marker from another session does not force a block; the same session's d
     assert.match(check({ text: "I added a row.", userTs: T, vault: v, sessionId: "other" }), /no `## Needed from you` block/);
   } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
 });
+
+// DISC-288: status out of the thread — the short form (new asks + one link line to the pinned checklist).
+const URL_ = "https://claude.ai/artifact/KjmpGR4zjVKB6WVfy8QsNa";
+function vaultWithChecklist() {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id x).\n`);
+  return v;
+}
+const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Needed from you](${URL_})\n`;
+
+test("DISC-288: with the pinned checklist in the vault, the short form passes without reprinting old rows", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
+});
+test("DISC-288: a short block must still name every row added this turn, and be the last section", () => {
+  const v = vaultWithChecklist();
+  const dir = mkdtempSync(join(tmpdir(), "mk-"));
+  process.env.DISCIPLINE_MARKER_DIR = dir;
+  try {
+    writeMarker(v, { prefix: "PF", id: "PF-9", to: "queue", ts: "2026-10-16T10:05:00.000Z" });
+    assert.match(check({ text: SHORT(), userTs: T, vault: v }), /omits row\(s\) added this turn: PF-9/);
+    assert.equal(check({ text: SHORT("1. **New** PF-9 look.\n\n"), userTs: T, vault: v }), null);
+  } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
+  assert.match(check({ text: SHORT() + "\n## Later\nmore", userTs: T, vault: v }), /last section/);
+});
+test("DISC-288: no link line, or a link to another page, falls back to the full-block check", () => {
+  const v = vaultWithChecklist();
+  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /no `### <PFX>/);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /no `### <PFX>/);
+});
+test("DISC-288: a vault with no pinned-checklist paragraph never accepts the short form", () => {
+  assert.match(check({ text: SHORT(), userTs: T, vault: vault() }), /no `### <PFX>/);
+});
+test("DISC-288: a reply with a Build in Progress heading is still a status reply and needs the block", () => {
+  const v = vaultWithChecklist();
+  assert.match(check({ text: "## Build in Progress\n\n- a lane\n", userTs: T, vault: v }), /no `## Needed from you` block/);
+});

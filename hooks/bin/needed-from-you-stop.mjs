@@ -14,6 +14,9 @@
       `## Build in Progress` / `## Upcoming` heading (DISC-197; the script
       prints Upcoming above the block) means a status reply / new ask: the message
       must then carry the block, with a heading for each marker prefix.
+   c) DISC-288: when the block links the vault's pinned checklist, it need only
+      carry this turn's new asks (by row ID) plus that link line; old rows live on
+      the checklist, not in the thread.
    Otherwise (an automated wake with nothing new, a wrapped session) it allows.
    A failure blocks once (`stop_hook_active` set -> allow, no loop). No
    DISCIPLINE_VAULT_ROOT -> silent exit 0, like the commit gate.            */
@@ -21,6 +24,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
+import { pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
 const HEAD = /^## Needed from you\s*$/m;
 const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b?.type === "text").map((b) => b.text).join("\n") : "");
@@ -53,6 +57,13 @@ export function check({ text: raw, userTs, vault, sessionId }) {
   const idx = text.search(HEAD);
   const block = text.slice(idx);
   if (/^## (?!Needed from you)/m.test(block.slice(block.indexOf("\n") + 1))) return `Stop check (DISC-179): \`## Needed from you\` must be the last section of the reply. ${how}`;
+  /* DISC-288: the short form — only this turn's new asks plus one line linking the pinned
+     checklist (its URL read from the vault). Anything else is the full-block check below. */
+  const url = pinnedChecklistUrl(vault);
+  if (url && block.includes(url)) {
+    const unlisted = [...new Set(markers.map((m) => m.id).filter(Boolean))].filter((id) => !new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(block));
+    return unlisted.length ? `Stop check (DISC-288): the short Needed-from-you block omits row(s) added this turn: ${unlisted.join(", ")}. List each new ask, then the one link line to the pinned checklist.` : null;
+  }
   const prefixes = [...new Set([...block.matchAll(/^### ([A-Z]{2,4}) — /gm)].map((m) => m[1]).concat(mPrefixes))];
   if (!prefixes.length) return `Stop check (DISC-179): the Needed-from-you block has no \`### <PFX> — <project>\` heading, so it was not built by the script. ${how}`;
   const missingHeads = mPrefixes.filter((p) => !new RegExp(`^### ${p} — `, "m").test(block));

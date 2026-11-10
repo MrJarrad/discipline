@@ -128,6 +128,6 @@ test("(DISC-197) the Stop hook accepts Upcoming above the block, treats it as a 
   assert.equal(check({ text: `Status.\n\n## Build in Progress\n\n- lane\n\n${up}${block}`, userTs: T, vault: v }), null);
   assert.match(check({ text: `Status.\n\n${up}`, userTs: T, vault: v }), /no `## Needed from you` block/);
   assert.match(check({ text: `${block}\n${up}`, userTs: T, vault: v }), /last section/);
-  has("output-styles/discipline.md", "**`## Upcoming` sits between them**");
+  has("output-styles/discipline.md", "**`## Upcoming` sits above `## Needed from you` when a reply prints it**");
   has("output-styles/discipline.md", "never hand-build a link");
 });
