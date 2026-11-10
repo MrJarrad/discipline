@@ -113,3 +113,86 @@ test("DISC-268 A2: the re-point hold re-blocks while rows are unsent, ends when 
   assert.equal(stop(home, "r2", pending)?.decision, "block");
   assert.equal(stop(home, "r2", lines(cockpit, sweepWithRepoint, sendTo("session_h1"), sendTo("session_h2"))), null, "all sent: passes");
 });
+
+// DISC-291 (operator s78: "must be archived when completed"): the gate used to pass once the sweep ran, so Archive
+// rows nobody archived (s73–s76: nine) passed silently. Each Archive row now needs an archive_session call after the sweep
+// (a refused call still counts: the refusal is then one named line), held like the Re-point rows.
+const archiveOut = "## Archive (2)\n- session_h1 | Helper · a | completed; parent wrapped\n- session_h2 | Helper · b | completed; parent wrapped\n\n## Keep (0)\n\n## Surface (0)\n\n## Re-point (0)\n";
+const sweepWithArchive = use("Bash", sweepCmd, "ok", archiveOut);
+const archiveCall = (id) => use("mcp__claude-code-remote__archive_session", { session_id: id }, "ok");
+test("DISC-291: a sweep with Archive rows is due until each id has an archive_session call after it, at start and at wrap", () => {
+  for (const base of [[cockpit], [cockpit, wrap]]) {
+    const due = sweepDue(lines(...base, sweepWithArchive));
+    assert.equal(due.phase, "archive");
+    assert.match(due.reason, /session_h1/); assert.match(due.reason, /session_h2/);
+    const one = sweepDue(lines(...base, sweepWithArchive, archiveCall("session_h1")));
+    assert.match(one.reason, /session_h2/); assert.doesNotMatch(one.reason, /session_h1/);
+    assert.equal(sweepDue(lines(...base, sweepWithArchive, archiveCall("session_h1"), archiveCall("session_h2"))), null);
+  }
+});
+test("DISC-291: an archive_session call made before the sweep does not count", () => {
+  assert.equal(sweepDue(lines(cockpit, archiveCall("session_h1"), archiveCall("session_h2"), sweepWithArchive))?.phase, "archive");
+});
+test("DISC-291: a refused archive_session (tool error) still counts as attempted, so a guard refusal cannot trap the session", () => {
+  const refused = (id) => use("mcp__claude-code-remote__archive_session", { session_id: id }, "error");
+  assert.equal(sweepDue(lines(cockpit, sweepWithArchive, refused("session_h1"), refused("session_h2"))), null);
+});
+test("DISC-291: the archive hold re-blocks while rows are unarchived and is capped at 3", () => {
+  const home = mkdtempSync(join(tmpdir(), "home-"));
+  const pending = lines(cockpit, sweepWithArchive);
+  for (let i = 0; i < 3; i++) assert.equal(stop(home, "a1", pending)?.decision, "block", `turn ${i + 1}`);
+  assert.equal(stop(home, "a1", pending), null, "capped after 3 holds");
+});
+
+// DISC-291: s77's wrap wrote "Orphans from s73–s76 (9) need the operator's sidebar" on the Helpers: line, naming no ids,
+// so no later sweep could find them. A wrap that writes such a line to the cockpit is held until the line names ids.
+const cockpitEdit = (text) => use("Edit", { file_path: "/home/user/jhd-vault/orchestrator/cockpit.md", old_string: "x", new_string: text }, "ok");
+test("DISC-291: at wrap, a cockpit Helpers: line that counts orphans or sends them to the sidebar is held", () => {
+  const bad = cockpitEdit("- Helpers: (live) session_a1. Orphans from s73–s76 (9) need the operator's sidebar.");
+  const due = sweepDue(lines(cockpit, wrap, sweep, bad));
+  assert.equal(due?.phase, "helpers");
+  assert.match(due.reason, /ids/);
+});
+test("DISC-291: at wrap, a Helpers: line of ids, or 'none', passes; an edit before the wrap skill is not checked", () => {
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: session_a1, session_b2"))), null);
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: none"))), null);
+  assert.equal(sweepDue(lines(cockpit, cockpitEdit("- Helpers: Orphans (9) in the sidebar"), wrap, sweep)), null);
+});
+
+// DISC-291 round 1 review of #181.
+// R1: `helper-sweep.mjs --cockpit` only prints ids and exits 0; it must not satisfy the "sweep ran" gate, or the archive hold never fires.
+const cockpitCmd = use("Bash", { command: "node /p/hooks/scripts/helper-sweep.mjs --cockpit /v/orchestrator/cockpit.md" }, "ok", "session_x1\nsession_x2");
+test("R1: a --cockpit call does not count as the sweep, at start or at wrap", () => {
+  assert.equal(sweepDue(lines(cockpit, cockpitCmd))?.phase, "start");
+  assert.equal(sweepDue(lines(cockpit, wrap, cockpitCmd))?.phase, "wrap");
+  assert.equal(sweepDue(lines(cockpit, cockpitCmd, sweep)), null, "the real sweep after it still counts");
+});
+test("R1: a sweep command without --sessions does not count either", () => {
+  assert.equal(sweepDue(lines(cockpit, use("Bash", { command: "node /p/hooks/scripts/helper-sweep.mjs --self session_a" }, "ok")))?.phase, "start");
+});
+test("note 1: the start reason names --keep and --waiting so the parent passes them", () => {
+  const r = sweepDue(lines(cockpit)).reason;
+  assert.match(r, /--keep/); assert.match(r, /--waiting/); assert.match(r, /--cockpit/);
+});
+
+// A1: judge only the last cockpit write that carries a Helpers: line, and only the lines it adds.
+const BAD = "- Helpers: Orphans (9) need sidebar";
+test("A1: a bad Helpers: line followed by a good correction is not held", () => {
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit(BAD), cockpitEdit("- Helpers: session_k"))), null);
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: session_k"), cockpitEdit(BAD)))?.phase, "helpers", "the LAST one is judged");
+});
+test("A1: an Edit that keeps an old bad line in old_string and only adds a good one is not held", () => {
+  const edit = use("Edit", { file_path: "/v/orchestrator/cockpit.md", old_string: `${BAD}\nnext`, new_string: `${BAD}\n- Helpers: session_k\nnext` }, "ok");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, edit)), null);
+});
+test("A1: a Write that re-emits a Helpers: line the session read from the cockpit is not held; a new bad one is", () => {
+  const read = use("Read", { file_path: "/v/orchestrator/cockpit.md" }, "ok", `intro\n${BAD}\n`);
+  const write = (c) => use("Write", { file_path: "/v/orchestrator/cockpit.md", content: c }, "ok");
+  assert.equal(sweepDue(lines(read, wrap, sweep, write(`${BAD}\n- Helpers: session_k\n`))), null);
+  assert.equal(sweepDue(lines(read, wrap, sweep, write("- Helpers: 3 left in the sidebar\n")))?.phase, "helpers");
+});
+test("A1: a cockpit written through Bash (vault-write, heredoc) is judged the same way", () => {
+  const sh = (c) => use("Bash", { command: `cat >> /v/orchestrator/cockpit.md <<'EOF'\n${c}\nEOF` }, "ok");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh(BAD)))?.phase, "helpers");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh("- Helpers: session_k"))), null);
+});

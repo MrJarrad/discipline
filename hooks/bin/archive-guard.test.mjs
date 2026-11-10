@@ -184,3 +184,52 @@ test("A1: a before_id page with has_more false after the newest page reaches the
   const older = call("list_events", { session_id: "session_h31", before_id: "f" }, page([], { hasMore: false }), "e2");
   assert.equal(run("session_h31", [...helper("session_h31"), ...events("session_h31", [], { hasMore: true }), ...older]), null);
 });
+
+// DISC-285 (#177 review r2): `complete` must mean the helper's WHOLE history was read. A before_id page that does not chain
+// to a page already read, a read with a kinds filter (has_more describes the unfiltered page and the filter can drop the
+// create-PR record), and a limit:1 read are partial reads and prove nothing.
+const withInput = (id, input, texts, opts, cid) => call("list_events", { session_id: id, ...input }, page(texts, opts), cid);
+test("DISC-285: a lone before_id page with has_more false, chained to no page this session read, is refused", () => {
+  deniedNaming(run("session_h40", [...helper("session_h40"), ...withInput("session_h40", { before_id: "zzz" }, [], { hasMore: false })]), /remaining events first/);
+});
+test("DISC-285: a read with a kinds filter never proves completeness, even with has_more false", () => {
+  deniedNaming(run("session_h41", [...helper("session_h41"), ...withInput("session_h41", { kinds: ["result"], limit: 100 }, [], { hasMore: false })]), /remaining events first/);
+});
+test("DISC-285: a kinds-filtered read still names a PR it shows, and a full read after it is accepted", () => {
+  const filtered = withInput("session_h42", { kinds: ["user"] }, [created(610)], { hasMore: true }, "e1");
+  deniedNaming(run("session_h42", [...helper("session_h42"), ...filtered]), /#610/);
+  const full = [...withInput("session_h42", {}, [], { hasMore: false }, "e2"), ...prRead(610, { merged: true })];
+  assert.equal(run("session_h42", [...helper("session_h42"), ...filtered, ...full]), null);
+});
+test("DISC-285: limit:1 on the newest page with has_more true, then a before_id page that does not chain, is refused", () => {
+  const newest = withInput("session_h43", { limit: 1 }, [], { hasMore: true }, "e1");
+  const stray = withInput("session_h43", { before_id: "not-the-first-id", limit: 1 }, [], { hasMore: false }, "e2");
+  deniedNaming(run("session_h43", [...helper("session_h43"), ...newest, ...stray]), /remaining events first/);
+});
+test("DISC-285: a before_id page whose id is the first_id of the page before it chains, and a two-hop chain is accepted", () => {
+  const p1 = call("list_events", { session_id: "session_h44" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h44", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "b", last_id: "y" } }), "e2");
+  const p3 = call("list_events", { session_id: "session_h44", before_id: "b" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "c", last_id: "x" } }), "e3");
+  assert.equal(run("session_h44", [...helper("session_h44"), ...p1, ...p2, ...p3]), null);
+  deniedNaming(run("session_h44", [...helper("session_h44"), ...p1, ...p3]), /remaining events first/);
+});
+
+// DISC-291 round 1 A2: the chain is resolved from all pages, not in transcript order, so a subagent that read the older
+// pages and sorts first (agent-a < agent-b) does not leave a newest-then-oldest chain unsatisfiable.
+test("A2: the oldest page read BEFORE the newest page still chains to complete", () => {
+  const p1 = call("list_events", { session_id: "session_h50" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h50", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "b", last_id: "y" } }), "e2");
+  assert.equal(run("session_h50", [...helper("session_h50"), ...p2, ...p1]), null, "reverse order");
+  assert.equal(run("session_h50", [...helper("session_h50"), ...p1, ...p2]), null, "forward order");
+});
+test("A2: across two subagents, the older pages in the alphabetically-first file", () => {
+  const p1 = call("list_events", { session_id: "session_h51" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h51", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "b", last_id: "y" } }), "e2");
+  const dir = mkdtempSync(join(tmpdir(), "ag-")); const t = join(dir, "t.jsonl");
+  writeFileSync(t, helper("session_h51").map((l) => JSON.stringify(l)).join("\n"));
+  mkdirSync(join(dir, "t", "subagents"), { recursive: true });
+  writeFileSync(join(dir, "t", "subagents", "agent-a1.jsonl"), p2.map((l) => JSON.stringify(l)).join("\n"));
+  writeFileSync(join(dir, "t", "subagents", "agent-b1.jsonl"), p1.map((l) => JSON.stringify(l)).join("\n"));
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name: "mcp__claude-code-remote__archive_session", tool_input: { session_id: "session_h51" }, transcript_path: t }), encoding: "utf8" });
+  assert.equal(r.stdout.trim(), "");
+});

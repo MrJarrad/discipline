@@ -6,6 +6,8 @@
    node helper-sweep.mjs --self <session id> --sessions <list_sessions.json> [--sessions <page2.json>]
      [--keep <id,...>]    helpers whose PR still waits on a look or review
      [--merged <id,...>]  helpers whose PR is merged
+     [--waiting <id,...>] helpers waiting on an operator answer (DISC-291): kept, or re-pointed under a wrapped parent, never archived
+     --cockpit <file>     print the ids on the last five Helpers: lines (start sweep: get_session each), then exit
      [--landed <file>]    ids lane-end --helper recorded as landed (DISC-268), counted as merged
      [--now <ISO>]
    Input files are saved list_sessions results (raw {"ccr":{"data":[…]}}, {data:[…]} or an array)
@@ -27,7 +29,7 @@ const isHelper = (x) => Boolean(x.parent_session_id) && /^Helper ·/.test(x.titl
 /** Hours without an update after which a "working" helper under a wrapped parent is surfaced. */
 export const STALE_HOURS = 12;
 
-export function classify({ sessions, self, now, keep = [], merged = [], staleHours = STALE_HOURS }) {
+export function classify({ sessions, self, now, keep = [], merged = [], waiting = [], staleHours = STALE_HOURS }) {
   const out = { archive: [], keep: [], surface: [], repoint: [] };
   const byId = new Map(sessions.map((x) => [x.id, x]));
   for (const x of sessions) {
@@ -41,9 +43,14 @@ export function classify({ sessions, self, now, keep = [], merged = [], staleHou
         message: `Your parent session ${x.parent_session_id} has wrapped; ${self} is your parent now. Send every return, question and verdict with send_message (session_id "${self}"), not "@parent".` });
     };
     if (keep.includes(x.id)) { add("keep", "PR waits on a look or review"); continue; }
+    if (waiting.includes(x.id)) { add("keep", "waiting on an operator answer"); continue; } // DISC-291: a Re-point under a wrapped parent, never an Archive
     const bucket = String(x.status_bucket || "").replace("SESSION_STATUS_BUCKET_", "").toLowerCase();
     if (parentLive) {
+      const quietH = (Date.parse(now) - Date.parse(x.updated_at)) / 3.6e6;
       if (merged.includes(x.id) && bucket === "completed") add("archive", "PR merged and helper completed");
+      /* DISC-291 (1): a completed helper nobody flagged landed is archived once quiet past the stale line; --keep and --waiting
+         were handled above, so an open PR or an unanswered operator ask never reaches here. */
+      else if (bucket === "completed" && quietH > staleHours) add("archive", `completed, quiet ${Math.floor(quietH)}h`);
       else add("keep", "its parent is live and owns it");
       continue;
     }
@@ -59,6 +66,18 @@ export function classify({ sessions, self, now, keep = [], merged = [], staleHou
   return out;
 }
 
+/** DISC-291 (2): the cockpit Helpers: line the next parent inherits. Every helper still open (keep + surface), by id. */
+export function helpersLine({ keep = [], surface = [] }) {
+  const open = [...keep, ...surface].map((x) => x.id);
+  return `Helpers: ${open.length ? open.join(", ") : "none"}`;
+}
+
+/** DISC-291 (2): session ids on the last `last` Helpers: lines of a cockpit, so a helper whose id an intermediate wrap dropped is still looked up. */
+export function cockpitHelperIds(text, last = 5) {
+  const rows = String(text).split("\n").filter((l) => /Helpers:/.test(l)).slice(-last);
+  return [...new Set(rows.flatMap((l) => l.slice(l.indexOf("Helpers:")).match(/session_\w+/g) ?? []))];
+}
+
 function readPages(paths) {
   return paths.flatMap((p) => {
     const j = extractJson(readFileSync(p, "utf8")); // a saved result may keep the <other-session> wrapper
@@ -70,24 +89,25 @@ function readPages(paths) {
 }
 
 function main(argv) {
-  const opt = { sessions: [], keep: [], merged: [] };
+  const opt = { sessions: [], keep: [], merged: [], waiting: [] };
   for (let i = 0; i < argv.length; i += 2) {
     const k = argv[i].replace(/^--/, ""), v = argv[i + 1];
     if (v === undefined || v.startsWith("--")) { opt.bad = true; break; }
     if (k === "sessions") opt.sessions.push(v);
-    else if (k === "keep" || k === "merged") opt[k].push(...v.split(",").filter(Boolean));
+    else if (k === "keep" || k === "merged" || k === "waiting") opt[k].push(...v.split(",").filter(Boolean));
     else opt[k] = v;
   }
+  if (opt.cockpit && !opt.bad) { console.log(cockpitHelperIds(readFileSync(opt.cockpit, "utf8")).join("\n")); return 0; }
   if (opt.bad || !opt.self || !opt.sessions.length) {
-    console.error("usage: helper-sweep.mjs --self <id> --sessions <file> [--sessions <file>] [--keep ids] [--merged ids] [--landed file] [--now ISO]");
+    console.error("usage: helper-sweep.mjs --self <id> --sessions <file> [--sessions <file>] [--keep ids] [--waiting ids] [--merged ids] [--landed file] [--now ISO]\n       helper-sweep.mjs --cockpit <cockpit.md>   (ids to get_session at start)");
     return 2;
   }
   // DISC-268: ids lane-end recorded as landed (one per line) count as merged; a missing file adds none.
   if (opt.landed) { try { opt.merged.push(...readFileSync(opt.landed, "utf8").split(/\s+/).filter(Boolean)); } catch { /* none landed yet */ } }
-  const r = classify({ sessions: readPages(opt.sessions), self: opt.self, now: opt.now || new Date().toISOString(), keep: opt.keep, merged: opt.merged });
+  const r = classify({ sessions: readPages(opt.sessions), self: opt.self, now: opt.now || new Date().toISOString(), keep: opt.keep, merged: opt.merged, waiting: opt.waiting });
   const block = (hd, rows) => [`## ${hd} (${rows.length})`, ...rows.map((x) => `- ${x.id} | ${x.title} | ${x.reason}`), ""].join("\n");
   const repoint = [`## Re-point (${r.repoint.length})`, ...r.repoint.map((x) => `- ${x.id} | ${x.message}`), ""].join("\n");
-  console.log([block("Archive", r.archive), block("Keep", r.keep), block("Surface", r.surface), repoint].join("\n"));
+  console.log([block("Archive", r.archive), block("Keep", r.keep), block("Surface", r.surface), repoint, helpersLine(r), ""].join("\n"));
   return 0;
 }
 

@@ -8,7 +8,8 @@
    refused while any PR it opened is unmerged. Its PRs are the create-record tool_results (JSON {url} or a bare PR url) in the transcript's
    list_events reads of that helper (get_session carries none), paged to has_more: false; each needs a pull_request_read
    (method get) in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.
-   DISC-284 (s76): reads made by a subagent of this same session count (subagentLines).                               */
+   DISC-284 (s76): reads made by a subagent of this same session count (subagentLines).
+   DISC-285: "complete" comes only from an unfiltered backward read chained to the newest page (see unmergedPrs).   */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
@@ -99,14 +100,31 @@ const clears = (input, text) => {
 /* { read, complete, open }: read = a list_events page of the helper parsed; complete = some page reached the end of
    its history (has_more false), i.e. the helper's events were paged to the oldest; open = PRs not shown merged/closed. */
 export function unmergedPrs(lines, id) {
-  const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => ({ forward: !!r.input.after_id, j: extractJson(r.text) })).filter((r) => r.j !== undefined);
+  const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => ({ input: r.input, j: extractJson(r.text) })).filter((r) => r.j !== undefined);
   if (!reads.length) return { read: false, complete: false, open: [] };
   const opened = new Set();
-  let complete = false;
-  for (const { forward, j } of reads) {
-    /* A forward page (after_id) reporting has_more false has reached the NEWEST end, not the oldest (#177 A1). */
-    if (!forward && (j.ccr ?? j).has_more === false) complete = true;
+  /* DISC-285: complete means the whole history was read. Only an unfiltered backward read counts: no after_id (a forward page
+     reaches the NEWEST end, #177 A1) and no kinds filter (has_more describes the unfiltered page, and the filter can drop the
+     create-PR record). The newest page has no before_id; an older page counts only when its before_id is the first_id of a
+     page already in the chain, so a lone before_id read near the oldest end proves nothing. */
+  const eligible = [];
+  for (const { input, j } of reads) {
     for (const o of walk(j)) if (o.type === "tool_result") { const pr = createdPr(textOf(o.content)); if (pr) opened.add(pr); }
+    if (input.after_id || (Array.isArray(input.kinds) ? input.kinds.length : input.kinds)) continue;
+    eligible.push({ before: input.before_id ? String(input.before_id) : null, body: j.ccr ?? j });
+  }
+  /* A2: resolve the chain from ALL eligible pages, not in transcript order (two subagents' files sort by name): start from the
+     page with no before_id and keep adding pages whose before_id is a first_id already in the chain, until nothing is added. */
+  const chain = new Set(), used = new Set();
+  let complete = false, grew = true;
+  while (grew) {
+    grew = false;
+    eligible.forEach((e, k) => {
+      if (used.has(k) || (e.before !== null && !chain.has(e.before))) return;
+      used.add(k); grew = true;
+      if (e.body.first_id !== undefined) chain.add(String(e.body.first_id));
+      if (e.body.has_more === false) complete = true;
+    });
   }
   for (const r of results(lines, /__pull_request_read$/))
     if (clears(r.input, r.text)) opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());
