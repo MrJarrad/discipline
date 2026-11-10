@@ -29,8 +29,8 @@ test("s78 1: session start banks the checklist doc's unread answers before the f
   has(HARD, "before the first status, read the pinned checklist doc's comment threads addressed to Claude, answered or not, since the last wrap, and bank each");
 });
 test("s78 2 and DISC-289: a wrap PR carries no review/ Mac job without a verdict; the gate treats queue/mac as not notes-only", () => {
-  has("skills/cloud-dispatch/references/MAC-JOBS.md", "A wrap PR carries no `queue/mac/review/` job without a reviewer verdict on that PR");
-  has("skills/wrap/references/CLOSING-CHECKS.md", "A wrap PR that adds a `queue/mac/review/` job is merged only with a reviewer verdict on that PR");
+  has("skills/cloud-dispatch/references/MAC-JOBS.md", "A wrap PR carries no `queue/mac/` job without a reviewer verdict on that PR");
+  has("skills/wrap/references/CLOSING-CHECKS.md", "A wrap PR that adds a `queue/mac/` job is merged only with a reviewer verdict on that PR");
   has("hooks/scripts/merge-after-review.mjs", "!/^queue\\/mac\\//.test(p)");
 });
 test("s78 3: every preview round pushes a new preview/* ref; build status from the builds API", () => {
