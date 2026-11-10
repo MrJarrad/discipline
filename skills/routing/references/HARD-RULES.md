@@ -292,4 +292,4 @@ and queued the chat as the doer — that hatch is deleted.
    then merge and sweep. DON'T: read PR files and session lists before the operator has a status.
 
 Compare refs without touching the working tree (s74): to compare lint, tests or files against another ref, add a throwaway
-worktree (`git worktree add`) and read there. DO: compare against another ref in a throwaway `git worktree add`. DON'T: skip the worktree; never `git checkout <ref> -- .` over the working tree (it overwrote 13 just-committed vault files).
+worktree (`git worktree add`) and read there. DO: compare against another ref in a throwaway `git worktree add`. DON'T: check another ref's files out over the working tree (`git checkout <ref> -- .` overwrote 13 just-committed vault files).

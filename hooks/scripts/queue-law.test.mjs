@@ -1269,7 +1269,7 @@ test("dispatch-brief's checklist is eighteen items as of 1.92.0", () => {
 test("dispatch-brief skill stays under its 1.92.0 1450-word ceiling", () => {
   const count = read("skills/dispatch-brief/SKILL.md").split(/\s+/).filter(Boolean).length;
   // Ceiling raised 1500 -> 1520 at 1.102.0, 1520 -> 1560 at 1.155.0 (see brief-shape-law.test.mjs).
-  assert.ok(count <= 1608, `dispatch-brief is ${count} words; the ceiling is 1608 as of s74`);
+  assert.ok(count <= 1603, `dispatch-brief is ${count} words; the ceiling is 1603 as of s74`);
 });
 
 // --- INTERROGATE.md: ninth question -----------------------------------------

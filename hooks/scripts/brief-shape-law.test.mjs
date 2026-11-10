@@ -45,10 +45,10 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Ceiling raised 1520 -> 1560 at 1.155.0 (measured 1555): the create_session
 // open/marker/close lines (DISC-216), at the moment a helper brief is written.
 // Raised 1560 -> 1580 at s74: the reviewer brief says which reviewers sign `reviewer:` (s74 lesson 2).
-// Raised 1580 -> 1608 (measured) at s74 lesson 3: the Source contract names the branch worktree and expected export version.
-test("the dispatch-brief skill stays under its 1608-word ceiling", () => {
+// Raised 1580 -> 1603 (measured) at s74 lesson 3: the Source contract template carries the Worktree line.
+test("the dispatch-brief skill stays under its 1603-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1608, `dispatch-brief is ${count} words; the ceiling is 1608`);
+  assert.ok(count <= 1603, `dispatch-brief is ${count} words; the ceiling is 1603`);
 });
 
 test("the scenario table has exactly eight rows", () => {
