@@ -64,6 +64,26 @@ each variable to its ruled name. Output shape, confidence rules and the table:
 
 **Done when** `match` exits 0: every item ruled, none stale.
 
+**Raw values — a layer with no variables, or values not bound to one.** A design link run through
+`design-handoff-script` needs no Design System Handoff export when the layer binds no variables
+(link, live read and the project's code are enough), and its link-run file lists every value not
+bound to a variable (`unboundValues`). `handoff-css match --export <design-handoff>.json --src <code paths…>
+--rulings <ruling table>.md` matches each to the project's own token of the same kind, by value:
+
+- **Built with a token** — a colour you can't tell apart from the token (ΔE < 1, alpha equal), or a
+  number within half a pixel of one. If several tokens qualify, the closest (then lowest name) is built and
+  the report names the others (`tie-picked`). Build the token; the row is listed so the person can overrule
+  it with a `keep` row.
+- **Needs your call** — a slightly-off colour (token suggested), a number between two steps (both
+  neighbours named), beyond the scale, or no token of its kind. **Build the exact value and
+  write a deviation row (`assumed-ask`, `ruling ref` the raw row's `figma`) — never stop, never round
+  it to a neighbour.** Ask once, as one table, with the suggestions as the recommendation; a `use` or
+  `keep` row in the ruling table settles it on the next run.
+
+Listed raw values never fail `match` (exit 0): a listed value is a deviation row, not a stop. The
+Figma-variable rule above stays: for a variable, a value alone is never a proposal. Tolerances,
+output and rows: `references/brownfield.md` § Raw values.
+
 ## Inputs — four required, one optional
 
 | Input | What it is |
@@ -133,6 +153,18 @@ generated, naming it in your deviation table — is correct.
 
 **Done when** every warning code is irrelevant to your nodes or carries a deviation row.
 
+### 2b. Write down how the system is built, before you touch it
+
+Design systems are not all built alike: collections, name shapes, ramps and what a mode means are
+each system's own. Read them from the system, never from a habit.
+
+`handoff-css profile --export <design-system-handoff>.json --out <dir>` writes `system-profile.md` and
+`system-profile.json`: collection roles, how names are put together, ramps with their own steps, mode
+meaning, and every existing name. Keep both beside the work, and read the `.md` before judging anything
+missing. `profile --check` exits 1 when the export has moved on; run `profile` again.
+
+**Done when** `system-profile.md` sits beside the work and is read.
+
 ### 3. Map every binding to `codeSyntax.WEB` — an unmapped binding is a defect
 
 Walk every `$variable` per node, find it in the set member that owns it (the brief's Sources
@@ -146,9 +178,53 @@ write `var(<name>)`.
   consumed.
 - **No emitted token is a defect, not a guess.** If a binding maps to no custom property, stop
   and say which binding, which node, and why. Do not inline the value the export happens to
-  show, and do not invent a token name for it.
+  show, and do not invent a token name for it. A name comes to exist only through 3b.
 
 **Done when** every `$variable` has a `codeSyntax.WEB` name, or a deviation row saying why not.
+
+### 3b. A need with no name — reuse, then add
+
+A binding with no name (step 3), or a value the pair does not bind (step 4), is a need. **Reuse first;
+add only when nothing fits.** Write the needs as a list (`schema/resolve-need.v1.schema.json`) and run
+`handoff-css resolve --export <design-system-handoff>.json --need <needs.json> [--rulings <md>]`.
+Verdicts, ranking, rulings and exit codes: `references/reuse-or-add.md`.
+
+- `REUSE` closes the need: build that name. `RULED` closes it too: build the name in the ruling's `code`
+  (a `use` row); a `skip` row carries no name, and a `new` row carries the approved name when it has one (below).
+- `SIBLING`, `MISMATCH`, `NEW_NAME`, `RULING_STALE` are **one question** to the designer, with a
+  recommendation. A new name is never yours to pick. A need that is only a name (no colour wanted) ends
+  there: on the designer's yes, record a `new` row with the name in `code`. `resolve` then says `RULED`
+  and the build keeps the raw value until the name exists. Once the designer has written the name into the
+  file, take a new export, `vendor` it and run `resolve` again: it says `REUSE`, and you bind only then.
+  `ramp` does not make a semantic name, so a name-only need never goes to it.
+  A designer who declines the nearest name and wants a colour the system lacks goes to `ramp` too, and
+  you ask for the anchor colour then. Record no `new` row for a need that goes to `ramp` alone: a standing
+  row makes `resolve` answer `RULED`, with no name, before and after the write, and it would never say
+  `REUSE`.
+- `NEW_RAMP` means no colour in the system is near: add a **whole ramp**, never a single raw colour.
+  `handoff-css ramp --export <design-system-handoff>.json --anchor <#hex> --for <semantic variable>
+  --on <surface variable>` proposes the ramp in the system's own steps and the step each semantic colour
+  uses per mode, with its contrast. You are fitting to existing ramps when `system-profile.md` lists
+  colour ramps; with none, or when building a colour system from a brand palette, add `--from-scratch`.
+  `--for` takes a semantic variable the export already has. When none takes the colour, that is a new
+  name: it goes to the designer as one question with a recommendation, and meanwhile `ramp` runs without
+  `--for` and proposes the primitive ramp alone.
+- **Ask the name as one question:** generated name, or your own? Recommend keeping the generated one;
+  `nameSource` says which was used.
+- **Stop for a yes** on `ramp-proposal.md` (the name, the ramp, the step mapping) before any write.
+  After the yes, write the patch into the file with the host's Figma write tool, following that tool's
+  own instructions (worked case: `references/reuse-or-add.md`), read it back, then take a new export,
+  `vendor` it, regenerate and run `resolve` again. With no `new` row standing for the need it now says
+  `REUSE` and ranks the new name; bind only then. `RULED` instead means a row is still standing: remove it.
+  (A `new` row that names the variable is the exception: see above.)
+- Until a need is ruled, build the raw value as an `assumed-ask` row.
+
+`resolve` exits 2 when a need is open: the report is written, and it is a question, not a failure. `ramp`
+exits 2 when a semantic colour has no passing step: the report names it, so put that to the designer
+rather than choosing. With no
+Design System Handoff export (brownfield), `match` above is the path.
+
+**Done when** every need is `REUSE` or `RULED`, or is one open question with its fallback row.
 
 ### 4. Implement against tokens only, with the Build standards as the mechanism rules
 
@@ -267,12 +343,17 @@ One row per node whose value did not come straight from the pair, plus one per l
 - **hand-authored-override** — the stylesheet declares the property, the generator reported
   rather than overwrote it.
 - **assumed-ask** — built from an ask's suggestion, or from an answer still waiting on Figma;
-  `ruling ref` is the ask's key. An open ask is the same row with nothing built.
+  `ruling ref` is the ask's key (a need still open in 3b: its need id). An open ask is the same row with nothing built.
+- **not-built** — the pair names the item and the build could not make it (an asset the export
+  does not carry, geometry it does not state); nothing built, the cause in `value`.
+
+Every unbuilt item is a row here: a "could not complete" list beside an empty table is a
+missing table.
 
 `ruling ref` cites the lock row or ruling that authorised a non-match. An empty `ruling ref`
 on a non-match row is an unauthorised deviation.
 
-An empty table means you built the pair exactly — the expected outcome, not a suspicious one.
+An empty table means every item was built exactly — the expected outcome, not a suspicious one.
 
 ## Schema v9 node hints (export v11, 2026-09-12)
 

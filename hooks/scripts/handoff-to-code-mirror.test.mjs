@@ -16,7 +16,7 @@
 // 1.81.0 determinism fix (reviewer amber-1): the cross-repo comparison used to
 // read handoff-css's LIVE working tree, so the gate's answer depended on
 // whatever happened to be checked out there at run time — not deterministic.
-// It now pins to a fixed handoff-css ref (handoff-css main `cf4c99b4ab4ffa9b7bdb9d29f8b3a62838531c79`, the 0.12.1 release commit, by default since 1.160.0 — tag `v0.12.1` was not yet on the remote at the bump; overridable
+// It now pins to a fixed handoff-css ref (handoff-css main `c47bc24212e4b8507b4473c3c76c38cb70c1ec97`, the #79 merge commit, by default since H1 (previously cf4c99b, the 0.12.1 release commit); overridable
 // via `$HANDOFF_CSS_REF`) and reads both the dist file and the law-sentences
 // module through `git show <ref>:<path>` inside that checkout, so the gate's
 // result depends only on the ref, not on working-tree state.
@@ -47,7 +47,7 @@ const pluginSkillPath = join(repo, "skills", "handoff-to-code", "SKILL.md");
 
 const root =
   process.env.HANDOFF_CSS_ROOT || join(homedir(), "JHD", "handoff-css", "main");
-const ref = process.env.HANDOFF_CSS_REF || "cf4c99b4ab4ffa9b7bdb9d29f8b3a62838531c79";
+const ref = process.env.HANDOFF_CSS_REF || "c47bc24212e4b8507b4473c3c76c38cb70c1ec97";
 const strict = process.env.DISCIPLINE_MIRROR_STRICT === "1";
 const rootPresent = existsSync(root);
 

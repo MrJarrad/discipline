@@ -71,3 +71,46 @@ ruled item.
 
 A row with an empty `ruling` is still waiting and is not read. Keep the table in the project,
 beside its other rulings, so every later brief reuses it.
+
+## Raw values
+
+A value the layer states as a plain number — no Figma variable — has no name to match, so it is
+matched by value to the project's tokens of the same kind. The design-handoff script lists them in
+the link-run file beside the brief (`unboundValues`: `{ nodeId, node, kind, property, value }`); a
+layer that binds no variables runs without `--ds`.
+
+```sh
+handoff-css match --export <design-handoff>.json --src <code paths…> [--rulings <table>.md] [--json]
+```
+
+`--export` and `--handoff` can be given together (one report, two sections). A brief whose link-run
+file has no `unboundValues` is refused, naming the script run that writes it.
+
+**Tokens read:** every `--name: value` in a `.css` file (Tailwind v4 `@theme` included); an alias
+(`var(--x)`) is not a second token. A token's kind comes from its value (a colour) or its name's
+`-` segments, in this order: `leading`/`line`+`height` → line height, `tracking`/`letter` → letter
+spacing (so Tailwind v4's `--text-sm--line-height` is a line height), `font`+`size`/`text`/`fs` → font size, `weight` (unitless) → font weight, `radius`/`rounded` → radius,
+`border`/`stroke` → border, `space`/`spacing`/`gap`/`padding`/`inset`/`margin` → spacing,
+`size`/`width`/`height`/`container` → size. A length whose name says none of these is not matched.
+Colours read: hex, `rgb()`, `hsl()`, `oklch()`. A colour in another form (`lab()`, `lch()`, `oklab()`,
+`hwb()`, `color()`, `color-mix()`) is named under **Not read** in the report, never dropped. Not read:
+Tailwind v3 config, DTCG JSON, SCSS, JS theme objects.
+
+| Kind | The same (built with the token) | Listed |
+| --- | --- | --- |
+| colour | CIEDE2000 ΔE < 1 and alpha within 1/255 | ΔE < 5: `slightly-off`, nearest token suggested; else `no-match`, nearest two |
+| spacing, size, radius, border, type | within 0.5px, px against rem at a 16px root; font weight exact; a radius ≥ 999 is the full (pill) token | `between` (exact value kept, the step below and above), `outside` (nearest step) |
+| any | — | `tie` (two tokens are the same), `no-tokens` (the code has none of this kind) |
+
+One row per kind and value; `layers` keeps every layer that states it. `status` is `built`, `listed`
+or `ruled`. Listed values never fail the run.
+
+Ruling rows use `raw-<kind>` and the row's `figma` (`#RRGGBBAA`, `12px`, `fontSize 15px`):
+
+```md
+| raw-colour | #2F2F2FFF | use | --color-ink-soft | |
+| raw-spacing | 12px | keep | | the gap stays 12px |
+```
+
+`use` binds a token (one the code no longer declares is `RULING_STALE`); `keep` holds the exact
+value, overruling a built match too. Worked example: `fixtures/ht102-raw-values/`.
