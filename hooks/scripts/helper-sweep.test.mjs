@@ -294,3 +294,11 @@ test("DISC-291: the CLI prints a Helpers line after Re-point and accepts --waiti
   const c = spawnSync(process.execPath, [new URL("./helper-sweep.mjs", import.meta.url).pathname, "--cockpit", cp], { encoding: "utf8" });
   assert.equal(c.stdout.trim(), "session_x1\nsession_x2");
 });
+
+// DISC-291 round 1 note 2: under a WRAPPED parent a completed helper is archived at once (no 12h wait), but only after the
+// --keep / --waiting exclusions; this pins that order.
+test("note 2: a completed helper under a wrapped parent is archived at once, unless --keep or --waiting names it", () => {
+  const r = classify({ now: NOW, self: "me", keep: ["h_pr"], waiting: ["h_ask"], sessions: [WRAPPED_P, h("h_free", "p_w"), h("h_pr", "p_w"), h("h_ask", "p_w")] });
+  assert.deepEqual(ids(r.archive), ["h_free"]);
+  assert.deepEqual(ids(r.keep), ["h_ask", "h_pr"]);
+});

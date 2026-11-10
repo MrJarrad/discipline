@@ -107,16 +107,24 @@ export function unmergedPrs(lines, id) {
      reaches the NEWEST end, #177 A1) and no kinds filter (has_more describes the unfiltered page, and the filter can drop the
      create-PR record). The newest page has no before_id; an older page counts only when its before_id is the first_id of a
      page already in the chain, so a lone before_id read near the oldest end proves nothing. */
-  const chain = new Set();
-  let complete = false;
+  const eligible = [];
   for (const { input, j } of reads) {
     for (const o of walk(j)) if (o.type === "tool_result") { const pr = createdPr(textOf(o.content)); if (pr) opened.add(pr); }
     if (input.after_id || (Array.isArray(input.kinds) ? input.kinds.length : input.kinds)) continue;
-    const body = j.ccr ?? j;
-    const rooted = input.before_id ? chain.has(String(input.before_id)) : true;
-    if (!rooted) continue;
-    if (body.first_id !== undefined) chain.add(String(body.first_id));
-    if (body.has_more === false) complete = true;
+    eligible.push({ before: input.before_id ? String(input.before_id) : null, body: j.ccr ?? j });
+  }
+  /* A2: resolve the chain from ALL eligible pages, not in transcript order (two subagents' files sort by name): start from the
+     page with no before_id and keep adding pages whose before_id is a first_id already in the chain, until nothing is added. */
+  const chain = new Set(), used = new Set();
+  let complete = false, grew = true;
+  while (grew) {
+    grew = false;
+    eligible.forEach((e, k) => {
+      if (used.has(k) || (e.before !== null && !chain.has(e.before))) return;
+      used.add(k); grew = true;
+      if (e.body.first_id !== undefined) chain.add(String(e.body.first_id));
+      if (e.body.has_more === false) complete = true;
+    });
   }
   for (const r of results(lines, /__pull_request_read$/))
     if (clears(r.input, r.text)) opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());

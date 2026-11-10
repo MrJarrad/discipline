@@ -43,11 +43,18 @@ const badHelpersLine = (text) => String(text ?? "").split("\n").some((l) => {
   return /orphan|sidebar/i.test(rest) || (!/session_\w+/.test(rest) && !/\bnone\b/i.test(rest));
 });
 
+/* Helpers: lines a cockpit write adds (A1). */
+function addedHelpersLines(e, readText) {
+  const known = new Set(String(e.old ?? "").split("\n").concat(String(readText).split("\n")).map((l) => l.trim()));
+  return String(e.text).split("\n").filter((l) => /Helpers:/.test(l) && !known.has(l.trim()));
+}
+
 /* null when no sweep is due, else { phase: "start"|"wrap", reason }. Lines are transcript JSONL. */
 export function sweepDue(lines) {
   let cockpit = false, wrapAt = -1, sweepAt = -1, i = 0, repoint = [], archive = [];
   const archived = []; // { id, at }: archive_session calls, refused or not (DISC-291)
   const cockpitEdits = []; // { text, at }: Edit/Write to the cockpit
+  const cockpitReads = new Set(); let cockpitText = ""; // ids of cockpit Reads; their result text (A1: lines a Write merely re-emits)
   const sweeps = new Map(); // tool_use id -> position
   const sent = []; // { id, at }: send_message targets (DISC-268: the re-point messages)
   for (const line of lines) {
@@ -56,12 +63,15 @@ export function sweepDue(lines) {
     for (const p of blocks(e)) {
       if (p?.type === "tool_use") {
         const inp = p.input || {};
-        if (p.name === "Read" && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) cockpit = true;
+        if (p.name === "Read" && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) { cockpit = true; cockpitReads.add(p.id); }
         if (p.name === "Skill" && /(^|:)wrap$/.test(inp.skill || "")) wrapAt = i;
-        if (p.name === "Bash" && /helper-sweep\.mjs/.test(inp.command || "")) sweeps.set(p.id, i);
+        if (p.name === "Bash" && /helper-sweep\.mjs/.test(inp.command || "") && /--sessions/.test(inp.command) && !/--cockpit/.test(inp.command)) sweeps.set(p.id, i); // R1: --cockpit only prints ids
+        if (p.name === "Bash" && /orchestrator\/cockpit\.md/.test(inp.command || "") && /Helpers:/.test(inp.command)) cockpitEdits.push({ text: inp.command, old: "", at: i }); // A1: vault-write through the shell
         if (/send_message$/.test(p.name || "") && inp.session_id) sent.push({ id: String(inp.session_id), at: i });
         if (/archive_session$/.test(p.name || "") && inp.session_id) archived.push({ id: String(inp.session_id), at: i });
-        if ((p.name === "Edit" || p.name === "Write") && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) cockpitEdits.push({ text: inp.new_string ?? inp.content ?? "", at: i });
+        if ((p.name === "Edit" || p.name === "Write") && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) cockpitEdits.push({ text: inp.new_string ?? inp.content ?? "", old: inp.old_string ?? null, at: i });
+      } else if (p?.type === "tool_result" && cockpitReads.has(p.tool_use_id)) {
+        cockpitText += "\n" + (Array.isArray(p.content) ? p.content.map((c) => (typeof c === "string" ? c : c?.text || "")).join("\n") : String(p.content ?? ""));
       } else if (p?.type === "tool_result" && sweeps.has(p.tool_use_id) && !p.is_error) {
         if (sweeps.get(p.tool_use_id) >= sweepAt) { repoint = repointIds(p.content); archive = archiveIds(p.content); }
         sweepAt = Math.max(sweepAt, sweeps.get(p.tool_use_id));
@@ -71,13 +81,16 @@ export function sweepDue(lines) {
   if (!cockpit && wrapAt < 0) return null;
   if (wrapAt >= 0 ? sweepAt <= wrapAt : sweepAt < 0) {
     if (wrapAt >= 0) return { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} --keep <…> --waiting <…> --merged <…>, call archive_session on each Archive row, and put the sweep's Helpers: line (ids of every helper still open) on the cockpit wrap block (HARD-RULES 19).` };
-    return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Run helper-sweep.mjs --cockpit <cockpit.md> for the ids to get_session (the last five Helpers: lines), save each result, run ${SWEEP}, and call archive_session on each Archive row (HARD-RULES 19).` };
+    return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Run helper-sweep.mjs --cockpit <cockpit.md> for the ids to get_session (the last five Helpers: lines), save each result, run ${SWEEP} --keep <helpers whose PR is open> --waiting <helpers waiting on an operator answer in the queue>, and call archive_session on each Archive row (HARD-RULES 19).` };
   }
   // DISC-291: the sweep ran; an Archive row is finished only when archive_session was called on it after the sweep (a refused call counts: its refusal is the named line).
   const unarchived = archive.filter((id) => !archived.some((a) => a.id === id && a.at > sweepAt));
   if (unarchived.length) return { phase: "archive", reason: `Stop check (DISC-291): the helper sweep lists helpers to archive that nobody has archived. Call archive_session on each (a refusal is one named line in the status, never dropped) — still unarchived: ${unarchived.join(", ")}.` };
   if (wrapAt >= 0) {
-    return cockpitEdits.some((e) => e.at > wrapAt && badHelpersLine(e.text))
+    /* A1: judge only the LAST cockpit write that adds a Helpers: line, and only the lines it adds (an Edit's old_string and
+       lines the session read from the cockpit are not added; a Bash heredoc is judged whole). */
+    const added = cockpitEdits.filter((e) => e.at > wrapAt).map((e) => ({ at: e.at, lines: addedHelpersLines(e, cockpitText) })).filter((e) => e.lines.length);
+    return added.length && badHelpersLine(added[added.length - 1].lines.join("\n"))
       ? { phase: "helpers", reason: "Stop check (DISC-291): the cockpit Helpers: line sends helpers to the sidebar or names no ids, so no later sweep can find them. Write the sweep's Helpers: line (the ids of every helper still open), or 'none'; archive the rest (HARD-RULES 19)." }
       : null;
   }

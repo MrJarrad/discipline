@@ -158,3 +158,41 @@ test("DISC-291: at wrap, a Helpers: line of ids, or 'none', passes; an edit befo
   assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: none"))), null);
   assert.equal(sweepDue(lines(cockpit, cockpitEdit("- Helpers: Orphans (9) in the sidebar"), wrap, sweep)), null);
 });
+
+// DISC-291 round 1 review of #181.
+// R1: `helper-sweep.mjs --cockpit` only prints ids and exits 0; it must not satisfy the "sweep ran" gate, or the archive hold never fires.
+const cockpitCmd = use("Bash", { command: "node /p/hooks/scripts/helper-sweep.mjs --cockpit /v/orchestrator/cockpit.md" }, "ok", "session_x1\nsession_x2");
+test("R1: a --cockpit call does not count as the sweep, at start or at wrap", () => {
+  assert.equal(sweepDue(lines(cockpit, cockpitCmd))?.phase, "start");
+  assert.equal(sweepDue(lines(cockpit, wrap, cockpitCmd))?.phase, "wrap");
+  assert.equal(sweepDue(lines(cockpit, cockpitCmd, sweep)), null, "the real sweep after it still counts");
+});
+test("R1: a sweep command without --sessions does not count either", () => {
+  assert.equal(sweepDue(lines(cockpit, use("Bash", { command: "node /p/hooks/scripts/helper-sweep.mjs --self session_a" }, "ok")))?.phase, "start");
+});
+test("note 1: the start reason names --keep and --waiting so the parent passes them", () => {
+  const r = sweepDue(lines(cockpit)).reason;
+  assert.match(r, /--keep/); assert.match(r, /--waiting/); assert.match(r, /--cockpit/);
+});
+
+// A1: judge only the last cockpit write that carries a Helpers: line, and only the lines it adds.
+const BAD = "- Helpers: Orphans (9) need sidebar";
+test("A1: a bad Helpers: line followed by a good correction is not held", () => {
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit(BAD), cockpitEdit("- Helpers: session_k"))), null);
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, cockpitEdit("- Helpers: session_k"), cockpitEdit(BAD)))?.phase, "helpers", "the LAST one is judged");
+});
+test("A1: an Edit that keeps an old bad line in old_string and only adds a good one is not held", () => {
+  const edit = use("Edit", { file_path: "/v/orchestrator/cockpit.md", old_string: `${BAD}\nnext`, new_string: `${BAD}\n- Helpers: session_k\nnext` }, "ok");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, edit)), null);
+});
+test("A1: a Write that re-emits a Helpers: line the session read from the cockpit is not held; a new bad one is", () => {
+  const read = use("Read", { file_path: "/v/orchestrator/cockpit.md" }, "ok", `intro\n${BAD}\n`);
+  const write = (c) => use("Write", { file_path: "/v/orchestrator/cockpit.md", content: c }, "ok");
+  assert.equal(sweepDue(lines(read, wrap, sweep, write(`${BAD}\n- Helpers: session_k\n`))), null);
+  assert.equal(sweepDue(lines(read, wrap, sweep, write("- Helpers: 3 left in the sidebar\n")))?.phase, "helpers");
+});
+test("A1: a cockpit written through Bash (vault-write, heredoc) is judged the same way", () => {
+  const sh = (c) => use("Bash", { command: `cat >> /v/orchestrator/cockpit.md <<'EOF'\n${c}\nEOF` }, "ok");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh(BAD)))?.phase, "helpers");
+  assert.equal(sweepDue(lines(cockpit, wrap, sweep, sh("- Helpers: session_k"))), null);
+});

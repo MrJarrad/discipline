@@ -213,3 +213,23 @@ test("DISC-285: a before_id page whose id is the first_id of the page before it 
   assert.equal(run("session_h44", [...helper("session_h44"), ...p1, ...p2, ...p3]), null);
   deniedNaming(run("session_h44", [...helper("session_h44"), ...p1, ...p3]), /remaining events first/);
 });
+
+// DISC-291 round 1 A2: the chain is resolved from all pages, not in transcript order, so a subagent that read the older
+// pages and sorts first (agent-a < agent-b) does not leave a newest-then-oldest chain unsatisfiable.
+test("A2: the oldest page read BEFORE the newest page still chains to complete", () => {
+  const p1 = call("list_events", { session_id: "session_h50" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h50", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "b", last_id: "y" } }), "e2");
+  assert.equal(run("session_h50", [...helper("session_h50"), ...p2, ...p1]), null, "reverse order");
+  assert.equal(run("session_h50", [...helper("session_h50"), ...p1, ...p2]), null, "forward order");
+});
+test("A2: across two subagents, the older pages in the alphabetically-first file", () => {
+  const p1 = call("list_events", { session_id: "session_h51" }, JSON.stringify({ ccr: { data: [], has_more: true, first_id: "a", last_id: "z" } }), "e1");
+  const p2 = call("list_events", { session_id: "session_h51", before_id: "a" }, JSON.stringify({ ccr: { data: [], has_more: false, first_id: "b", last_id: "y" } }), "e2");
+  const dir = mkdtempSync(join(tmpdir(), "ag-")); const t = join(dir, "t.jsonl");
+  writeFileSync(t, helper("session_h51").map((l) => JSON.stringify(l)).join("\n"));
+  mkdirSync(join(dir, "t", "subagents"), { recursive: true });
+  writeFileSync(join(dir, "t", "subagents", "agent-a1.jsonl"), p2.map((l) => JSON.stringify(l)).join("\n"));
+  writeFileSync(join(dir, "t", "subagents", "agent-b1.jsonl"), p1.map((l) => JSON.stringify(l)).join("\n"));
+  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ tool_name: "mcp__claude-code-remote__archive_session", tool_input: { session_id: "session_h51" }, transcript_path: t }), encoding: "utf8" });
+  assert.equal(r.stdout.trim(), "");
+});
