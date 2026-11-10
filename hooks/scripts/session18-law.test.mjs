@@ -22,7 +22,7 @@ test("the queue is written once: handovers link and count (wrap, pause-resume, S
 });
 
 test("the output style still reprints the session projects' open rows in full in chat", () => {
-  assert.match(flat("output-styles/discipline.md"), /Every status reply ends with "Needed from you" — the operator queue, in full, for this session's projects\./);
+  assert.match(flat("output-styles/discipline.md"), /Every status reply ends with "Needed from you" — this turn's new asks plus one link line to the pinned checklist, where the operator queue lives, in full, for this session's projects/);
 });
 
 test("wrap writes a Next block and runs the digest; resume paths run it too; no SessionStart hook for it", () => {

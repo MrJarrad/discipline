@@ -58,9 +58,9 @@ export function check({ text: raw, userTs, vault, sessionId }) {
   const block = text.slice(idx);
   if (/^## (?!Needed from you)/m.test(block.slice(block.indexOf("\n") + 1))) return `Stop check (DISC-179): \`## Needed from you\` must be the last section of the reply. ${how}`;
   /* DISC-288: the short form — only this turn's new asks plus one line linking the pinned
-     checklist (its URL read from the vault). Anything else is the full-block check below. */
+     checklist (its URL read from the vault), matched as that exact line. Anything else is the full-block check below. */
   const url = pinnedChecklistUrl(vault);
-  if (url && block.includes(url)) {
+  if (url && block.split("\n").some((l) => l.trim() === `Full list: [Needed from you](${url})`)) {
     const unlisted = [...new Set(markers.map((m) => m.id).filter(Boolean))].filter((id) => !new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(block));
     return unlisted.length ? `Stop check (DISC-288): the short Needed-from-you block omits row(s) added this turn: ${unlisted.join(", ")}. List each new ask, then the one link line to the pinned checklist.` : null;
   }

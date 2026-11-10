@@ -134,3 +134,9 @@ test("DISC-288: a reply with a Build in Progress heading is still a status reply
   const v = vaultWithChecklist();
   assert.match(check({ text: "## Build in Progress\n\n- a lane\n", userTs: T, vault: v }), /no `## Needed from you` block/);
 });
+test("DISC-288 N1: only the exact link line takes the short form; the URL elsewhere in the block does not", () => {
+  const v = vaultWithChecklist();
+  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /no `### <PFX>/);
+  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /no `### <PFX>/);
+  assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
+});
