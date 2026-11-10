@@ -290,3 +290,6 @@ and queued the chat as the doer — that hatch is deleted.
    `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply;
    s44: ~176.7k). DO: arm the follow-up, reply,
    then merge and sweep. DON'T: read PR files and session lists before the operator has a status.
+
+Compare refs without touching the working tree (s74): to compare lint, tests or files against another ref, add a throwaway
+worktree (`git worktree add`) and read there. DO: compare against another ref in a throwaway `git worktree add`. DON'T: skip the worktree; never `git checkout <ref> -- .` over the working tree (it overwrote 13 just-committed vault files).

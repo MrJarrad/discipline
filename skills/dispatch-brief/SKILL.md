@@ -55,7 +55,7 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 ```
 
 The doer loads **`handoff-to-code`** under a Source contract, plus the house ledger overlay
-`skills/handoff-to-code/references/coverage-ledger.md`.
+`skills/handoff-to-code/references/coverage-ledger.md`. The brief names the branch worktree path (never the design-system root clone) and the export version it expects; the doer quotes the version it read and returns a mismatch as a defect, then stops (s74).
 
 **One contract unit per lane, always** — one export `COMPONENT_SET`, one captured page, one
 component. A brief covering more than one is malformed at any model; the parent slices, one
