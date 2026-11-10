@@ -293,3 +293,11 @@ and queued the chat as the doer — that hatch is deleted.
 
 Compare refs without touching the working tree (s74): to compare lint, tests or files against another ref, add a throwaway
 worktree (`git worktree add`) and read there. DO: compare against another ref in a throwaway `git worktree add`. DON'T: check another ref's files out over the working tree (`git checkout <ref> -- .` overwrote 13 just-committed vault files).
+
+Reviewed branches stay still (s75): once a reviewer is dispatched on a PR, push nothing more to that branch until it merges; new notes wait, or the reviewed change (a Mac job above all) goes on its own branch. DO: a fresh branch for the next note. DON'T: push a note commit onto a branch a reviewer has a verdict on (#1029: two commits landed while the review stood at an older head; the merge gate refused and each PR needed a second round). Not a hook: a push cannot be tied to a PR's reviewer from the transcript without false denies.
+
+Figma contracts need Figma tools (s75): a brief that says "read the Figma live" goes only to a vehicle that has the Figma tools (a helper session); the parent checks the persona's tool list before choosing in-session. DON'T: send it to an in-session reviewer (no Figma tools, no ToolSearch: "merge: no, contract unverified", pf #580). Not a hook: a phrase match on the brief false-denies briefs that mention Figma without needing it live.
+
+Load sheds heavy lanes (s75): at the first load warning the next heavy lane (suite, build, browser) goes to a helper session; reviewers that only read git stay in-session. DON'T: read the warning and override it (seven lanes in one 4-core container, load 17: a ten-minute probe took 54). Text only: a hook sees no container load.
+
+Run the proof command plain (s75): run the proof command plain, exactly as the gate prints it, never piped through `cut`, `head` or `grep` (`vault-pr-files.mjs` through `cut` was not counted and the merge was refused). Checked: `merge-review-gate.mjs` counts only a plain run and its refusal says so.

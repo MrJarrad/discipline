@@ -41,3 +41,13 @@ test("no file path: falls back to the session cwd", async () => {
     assert.ok(await waitFor(join(session, ".claude", ".typecheck-status.json")));
   } finally { rmSync(session, { recursive: true, force: true }); }
 });
+
+test("DISC-283: a repo with no typecheck gets no marker file (the tree stays clean)", async () => {
+  const { runTypecheckSync, markerPathFor } = await import("./run-typecheck.mjs");
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "tc-none-")));
+  try {
+    const m = runTypecheckSync(dir);
+    assert.equal(m.status, "skipped");
+    assert.equal(existsSync(markerPathFor(dir)), false);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

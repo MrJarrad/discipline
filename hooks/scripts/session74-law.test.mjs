@@ -1,5 +1,6 @@
 // Parent lessons s74 (vault fleet/lessons/2026-11-10-s74-parent-lessons.md) and the #168 ambers, one assertion per encoded rule.
 // Run: node --test hooks/scripts/session74-law.test.mjs
+// NOTE for the next CHANGED.txt entry (DISC-282): this file holds 6 tests; the 1.193.0 line says "(4)".
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
