@@ -29,6 +29,7 @@ import {
   groupRectsIntoColumns,
   columnInternalGaps,
   scanFrameForColumnGaps,
+  isSampleStable,
   totalColumnGapsAcrossFrames,
   isClippedOutOfView,
   coveringRect,
@@ -609,4 +610,98 @@ test("DISC-276 (c): a text block between two media in a column covers the span �
 test("text entries are covering only — never judged for paint", () => {
   const text = { tag: "text", id: "t", rect: onscreen(), clipRects: [], visibility: "visible", pixels: [] };
   assert.equal(totalEmptyMediaAcrossFrames([[text]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
+});
+
+// --- PF-1475: sampling race + row-layout whitespace ---------------------------
+// Rects below are the covering rects of one live frame of /grid (390x844, left
+// column 24-175 beside a taller portrait video, full-width heading text between
+// them) — a row layout, nothing missing, that the probe read as gaps=1.
+
+const liveRow = ([l, t, r, b]) => ({ left: l, top: t, right: r, bottom: b, width: r - l, height: b - t });
+
+test("scanFrameForColumnGaps: whitespace beside a taller row neighbour, with a full-width text block crossing it, is not a hole", () => {
+  const rects = [
+    [200, 0, 351, 61], [24, 196, 175, 296], [200, 196, 351, 423], [24, 557, 175, 658], [24, 793, 175, 844],
+    [24, 51, 25, 71], [24, 110, 351, 132], [24, 132, 351, 180], [24, 471, 351, 493], [24, 493, 351, 541],
+    [24, 707, 351, 729], [24, 729, 351, 777], [16, 788, 128, 832],
+  ].map(liveRow);
+  assert.deepEqual(scanFrameForColumnGaps(rects, { width: 390, height: 844 }), []);
+});
+
+test("scanFrameForColumnGaps: whitespace under a short row tile that ends where the next full-width text block starts is not a hole", () => {
+  const rects = [
+    [24, 0, 175, 19], [200, 0, 351, 146], [24, 280, 175, 381], [200, 280, 351, 507], [24, 642, 175, 743], [200, 642, 351, 844],
+    [24, 51, 25, 71], [24, 194, 351, 216], [24, 216, 351, 264], [24, 556, 351, 578], [24, 578, 351, 626], [16, 788, 128, 832],
+  ].map(liveRow);
+  assert.deepEqual(scanFrameForColumnGaps(rects, { width: 390, height: 844 }), []);
+});
+
+test("scanFrameForColumnGaps still flags a real hole: a column with a tile missing and nothing crossing the gap", () => {
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 328), tileAt(150, 0), tileAt(150, 164), tileAt(150, 700)];
+  const gaps = scanFrameForColumnGaps(rects, { width: 300, height: 844 });
+  assert.equal(gaps.length, 1);
+  assert.equal(gaps[0].left, 150);
+});
+
+test("isSampleStable: identical rects are stable; a slot that moved past the tolerance is not; a changed element count is not", () => {
+  const a = [{ tag: "img", rect: tileAt(24, 100) }, { tag: "text", rect: tileAt(24, 300) }];
+  const same = [{ tag: "img", rect: tileAt(24, 100) }, { tag: "text", rect: tileAt(24, 300) }];
+  const moved = [{ tag: "img", rect: tileAt(24, 162) }, { tag: "text", rect: tileAt(24, 362) }];
+  assert.equal(isSampleStable(a, same), true);
+  assert.equal(isSampleStable(a, moved), false);
+  assert.equal(isSampleStable(a, [a[0]]), false);
+  assert.equal(isSampleStable(a, [{ tag: "img", rect: tileAt(24, 100.5) }, a[1]]), true, "sub-pixel jitter under 1px is stable");
+});
+
+test("isSampleStable boundary: a 1px move is stable, a 2px move is not (same for width/height)", () => {
+  const at = (top, h = 100) => [{ tag: "img", rect: { left: 24, top, right: 124, bottom: top + h, width: 100, height: h } }];
+  assert.equal(isSampleStable(at(100), at(101)), true, "exactly 1px");
+  assert.equal(isSampleStable(at(100), at(102)), false, "2px");
+  assert.equal(isSampleStable(at(100, 100), at(100, 101)), true, "height +1px");
+  assert.equal(isSampleStable(at(100, 100), at(100, 102)), false, "height +2px");
+});
+
+// Shapes a gap must still flag whatever wide block is nearby: the block explains only
+// the whitespace it (or a row-aligned taller neighbour) actually covers.
+const holeFrame = (extra) => [
+  tileAt(0, 0, 100, 100), tileAt(0, 164, 100, 100), tileAt(0, 328, 100, 100), // left column, 64px rhythm
+  tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(150, 328, 100, 100), // right column
+  ...extra,
+];
+const VP = { width: 300, height: 1200 };
+
+test("a missing tile directly above a full-width heading still flags", () => {
+  // left column: tile at 0..100, tile missing 164..., next left tile far below the heading
+  const rects = [
+    tileAt(0, 0, 100, 100), tileAt(0, 164, 100, 100), tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(150, 328, 100, 100),
+    tileAt(0, 700, 250, 50), // full-width heading starting where the hole ends
+    tileAt(0, 780, 100, 100), tileAt(150, 780, 100, 100),
+  ];
+  const gaps = scanFrameForColumnGaps(rects, VP);
+  assert.ok(gaps.some((g) => g.left === 0 && g.top === 264), "the left-column hole under the 164 tile flags");
+});
+
+test("a full-width block inside a real hole that leaves a long uncovered run still flags", () => {
+  const rects = [...holeFrame([]).slice(0, 2), tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(0, 600, 250, 40), tileAt(0, 900, 100, 100), tileAt(150, 900, 100, 100)];
+  assert.ok(scanFrameForColumnGaps(rects, VP).length >= 1, "264..600 above the block and 640..900 below it are uncovered");
+});
+
+test("a hole beside a neighbour that is NOT top-aligned with the tile above it (masonry) still flags", () => {
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 40, 100, 600), tileAt(150, 704), tileAt(150, 868)];
+  assert.ok(scanFrameForColumnGaps(rects, VP).some((g) => g.left === 0), "gap 264..700 in the left column flags");
+});
+
+test("classifyEmptyAcrossFrames uses a stored `painted` verdict when a frame carries one (no pixels needed)", () => {
+  const vp = { width: 390, height: 844 };
+  const state = (painted) => ({ tag: "img", src: "a", rect: tileAt(24, 100, 100, 100), opacity: 1, visibility: "visible", clipRects: [], painted });
+  const blank = classifyEmptyAcrossFrames([[state(false)], [state(false)], [state(false)]], vp, [WHITE], { arrivalWindowMs: 300, frameIntervalMs: 250 });
+  assert.ok(blank.total >= 1, "a blank verdict held past the arrival window is flagged");
+  const ok = classifyEmptyAcrossFrames([[state(true)], [state(true)]], vp, [WHITE], { arrivalWindowMs: 300, frameIntervalMs: 250 });
+  assert.equal(ok.total, 0);
+});
+
+test("a hole beside a top-aligned neighbour that runs PAST the gap's lower edge still flags (a column continuing, not a row)", () => {
+  // left: tile 0..100, hole 164..., next left tile at 700; right neighbour starts at the same top and runs to 800
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 0, 100, 800), tileAt(300, 0), tileAt(300, 164), tileAt(300, 328)];
+  assert.ok(scanFrameForColumnGaps(rects, { width: 400, height: 900 }).some((g) => g.left === 0 && g.top === 264));
 });

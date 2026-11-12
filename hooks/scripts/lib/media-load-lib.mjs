@@ -351,7 +351,7 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
       // frame it was seen in) — a static tile at rest, on load or otherwise,
       // is never exempted, whatever share of its own rect is on screen.
       const sliverExempt = sliver && rectMoved(prev?.rect, state.rect);
-      const painted = isSlotPainted(state, state.pixels, emptyColors, options);
+      const painted = state.painted ?? isSlotPainted(state, state.pixels, emptyColors, options);
       const blankNow = onScreen && !sliverExempt && !painted;
 
       if (blankNow) {
@@ -464,17 +464,58 @@ export function median(values) {
 // the row-gap itself, comfortably past normal token-to-token variance) sets
 // how much taller than that rhythm a column's own gap must be before it
 // counts as a real hole, never a real row-gap.
-export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2 } = {}) {
+export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2, rowSpacingPx = 96 } = {}) {
+  // PF-1475: a row layout leaves whitespace under a short tile beside a taller neighbour.
+  // A gap is explained only for the part it really covers: the row-aligned taller
+  // neighbour (same top as the tile above the gap) and any block wider than the gap that
+  // sits in it. If what stays uncovered is longer than `rowSpacingPx` (the largest
+  // ordinary row spacing), it is still a hole, whatever block is nearby.
+  const uncoveredRun = (g) => {
+    const upper = rects.find((r) => Math.abs(r.bottom - g.top) < 0.5 && r.left < g.right && g.left < r.right);
+    const covers = [];
+    for (const r of rects) {
+      const overlapsX = r.left < g.right && g.left < r.right;
+      const wider = r.left < g.left - 1 || r.right > g.right + 1;
+      if (overlapsX && wider && r.top < g.bottom && r.bottom > g.top) covers.push([Math.max(r.top, g.top), Math.min(r.bottom, g.bottom)]);
+      // A row's next content starts after its tallest member, so a row neighbour ends inside the gap;
+      // one that runs past the gap's lower edge is a column continuing beside a hole, not a row.
+      else if (!overlapsX && upper && Math.abs(r.top - upper.top) <= 1 && r.bottom > g.top && r.bottom <= g.bottom + 1) covers.push([g.top, r.bottom]);
+    }
+    if (covers.length === 0) return Infinity; // nothing explains it: an ordinary gap, judged by the rhythm threshold alone
+    covers.sort((x, y) => x[0] - y[0]);
+    let cursor = g.top;
+    let longest = 0;
+    for (const [from, to] of covers) {
+      longest = Math.max(longest, from - cursor);
+      cursor = Math.max(cursor, to);
+    }
+    return Math.max(longest, g.bottom - cursor);
+  };
   const gapsByColumn = groupRectsIntoColumns(rects).map((column) => columnInternalGaps(column));
   const candidateHeights = gapsByColumn.flatMap((gaps) => gaps.map((g) => g.height)).filter((h) => h > tolerancePx);
   if (candidateHeights.length === 0) return [];
   const rhythm = median(candidateHeights);
   const threshold = rhythm * widthRatio;
-  return gapsByColumn.flatMap((gaps) => gaps.filter((g) => g.height > tolerancePx && g.height > threshold));
+  // The rhythm is measured on every gap; only then is a hole the row layout explains set aside.
+  return gapsByColumn.flatMap((gaps) => gaps.filter((g) => g.height > tolerancePx && g.height > threshold && uncoveredRun(g) > rowSpacingPx));
 }
 
 // Across every sampled frame of the driven interaction — the probe's second
 // headline number alongside the paint count. Zero is the passing value.
 export function totalColumnGapsAcrossFrames(framesOfRects, viewport, options) {
   return framesOfRects.reduce((sum, rects) => sum + scanFrameForColumnGaps(rects, viewport, options).length, 0);
+}
+
+// PF-1475: a sample is a DOM read plus a screenshot taken a moment apart; under
+// CPU throttle the page keeps scrolling between them, so the box read from the DOM
+// no longer sits where the screenshot painted it and a healthy slot crops as text
+// or background. A sample is stable when a second read, taken after the screenshot,
+// matches the first (same elements in the same order, boxes within `epsilonPx`).
+export function isSampleStable(before, after, epsilonPx = 1) {
+  if (before.length !== after.length) return false;
+  return before.every((el, i) => {
+    const other = after[i];
+    if (el.tag !== other.tag) return false;
+    return ["left", "top", "width", "height"].every((k) => Math.abs(el.rect[k] - other.rect[k]) <= epsilonPx);
+  });
 }

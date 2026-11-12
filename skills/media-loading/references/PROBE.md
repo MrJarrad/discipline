@@ -89,6 +89,18 @@ Two independent counts, both must be **0**:
      `2`, i.e. a gap must be more than twice the frame's own rhythm to count
      as a genuine hole, never a real row-gap).
 
+**One frame, one moment (PF-1475).** Each sample reads the boxes, takes the screenshot, then reads the
+boxes again; if anything moved by more than 1 px between the two reads (the page was still scrolling under a
+throttled screenshot) it waits 100 ms and retries, and drops the frame after six tries (`dropped=` in the rep line).
+**Long runs:** each frame keeps one `painted` verdict per slot and drops the pixel crop, so a `--duration 60000` session fits the default Node heap (it used to run out at 2 GB).
+**Drop rule:** a dropped frame is not judged, so a rep is green only if at least one frame was judged and
+dropped frames are at most `--max-dropped-share` (default `0.25`) of all samples; otherwise the rep prints
+`NOT GREEN` and the run exits 1, whatever paint and gaps read.
+Without this a healthy tile read as blank because its box no longer matched the pixels. The gap scan
+explains only the whitespace a row layout really covers: a taller neighbour whose top matches the tile above
+the gap, and blocks wider than the gap that sit in it. A row neighbour counts only if it ends inside the gap (a column running past the gap's lower edge is a column, not a row). A gap whose longest uncovered run is more than 96 px
+still flags, so a missing tile above or around a full-width heading is still a hole.
+
 ## Flags
 
 | Flag | Default | Meaning |
@@ -114,6 +126,7 @@ Two independent counts, both must be **0**:
 | `--min-structure-edge N` | `20` | Largest single-step luma jump between spatially-adjacent pixels a crop must ALSO cross before path (b) rescues it — a smooth gradient/shimmer skeleton has real spread but no real edge, so spread alone no longer counts as structure. |
 | `--arrival-window-ms MS` | `300` | How long a slot must stay blank (consecutive sampled frames × the drive mode's own cadence) before it counts — strictly past the fling session's own 250ms sampling cadence (`FLING_SAMPLE_EVERY_MS`), so a single sample can never cross it alone; past the page's own approved ~250ms entrance fade either way. Forced to `0` for `--interaction load` (no session to fade across). |
 | `--min-visible-area 0-1` | `0.15` | Share of an element's own natural (unclipped) area that must be on screen before its paint state is judged at all — below this AND above 0 AND the element is in MOTION since the previous frame, it's a trivial edge sliver, exempted; a static tile (at rest, on load) at the same small share is judged normally, and exactly `0` visible area (fully clipped/hidden) is never exempted either way. |
+| `--max-dropped-share 0-1` | `0.25` | Share of samples that may be dropped for never holding still before the rep stops being green (and `frames=0` is never green). |
 | `--help`, `-h` | — | Print usage and exit `0`. Recognised anywhere in argv, including as the URL slot — never navigated to as a URL. |
 
 ## Worked examples
