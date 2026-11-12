@@ -30,6 +30,20 @@ export const STATUSES = ["Ready for you", "You're on it", "Claude's on it", "Don
 const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`));
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
+/* DISC-297: a Claude Docs read returns the doc as (entity-escaped) XML, each item a <listItem><paragraph><dropdown>Status</dropdown><text> …</text></paragraph></listItem>
+   and each section a <heading>. Rewrite that shape to the checklist lines the plan reads below, the chip kept as `[Status]`; markdown input passes through. */
+export function fromDocsRead(t) {
+  if (!/(<|&lt;)listItem\b/.test(t)) return t;
+  const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  return doc.replace(/<heading\b[^>]*>([\s\S]*?)<\/heading>/g, (_, h) => `\n## ${h.replace(/<[^>]+>/g, "").trim()}\n`)
+    .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
+      const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
+      const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();
+      const text = body.replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n`;
+    });
+}
+
 export function syncPlan({ vault, prefixes, docText }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
@@ -38,6 +52,7 @@ export function syncPlan({ vault, prefixes, docText }) {
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
   if (docText == null) return plan;
+  docText = fromDocsRead(docText);
   let section = "";
   const listed = new Set();
   for (const line of docText.split(/\r?\n/)) {
