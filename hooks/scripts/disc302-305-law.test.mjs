@@ -1,6 +1,6 @@
 // DISC-302 (operator s81: "can you make sure status in the needed from you doc get updated with responses") and
 // DISC-305 (operator s81: "I think status is correct"; "a way to group different projects within the doc may be worthwhile").
-// Mechanisms: queue-page-sync.mjs (chipChanges, projects, toAddUnder, misfiled) and needed-from-you-stop.mjs; this pins the prose.
+// Mechanisms: queue-page-sync.mjs (chipChanges; heading placement moved to status-layout.mjs, DISC-312) and needed-from-you-stop.mjs; this pins the prose.
 // Run: node --test hooks/scripts/disc302-305-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,9 +20,10 @@ test("DISC-302: the rule names the same-turn chip change, the plan field and the
 test("DISC-305: the doc is called Status, one doc for all projects, a ### heading per project; the reply heading is unchanged", () => {
   const h = flat("skills/routing/references/HARD-RULES.md");
   for (const s of ["The Status doc is called \"Status\" (operator s81: *\"I think status is correct\"*)",
-    "one doc for all projects, with a `### <PFX> — <project>` heading per project inside \"Waiting on you\" and \"Running now\"",
-    "`toAddUnder`, `misfiled`", "the reply heading stays `## Needed from you`"]) assert.ok(h.includes(s), s);
-  assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("under its project's `### <PFX> — <project>` heading"));
+    "one doc for all projects, with a `###` heading per project inside each section",
+    "`status-layout.mjs` owns those headings and where an item sits", "the reply heading stays `## Needed from you`"]) assert.ok(h.includes(s), s);
+  assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("placed by `status-layout.mjs`"));
+  assert.ok(!/toAddUnder|misfiled/.test(flat("skills/routing/references/HARD-RULES.md") + flat("skills/wrap/references/SECTIONS.md")), "DISC-312: the retired heading fields are not named as live");
   const style = flat("output-styles/discipline.md");
   assert.ok(style.includes("Full list: [Status](<url>)"));
   assert.ok(!style.includes("Full list: [Needed from you]"));
