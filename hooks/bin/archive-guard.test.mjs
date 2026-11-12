@@ -100,6 +100,15 @@ test("DISC-315: an open PR found only by the helper's branch refuses (its descri
   const t = [...helperB(ID("a3"), ["claude/lane-b"]), ...ghSearch(`is:pr is:open ${ID("a3")}`, search(), "l0"), ...ghSearch("is:pr is:open head:claude/lane-b", search("", [pr(180)]), "l1")];
   deniedNaming(run(ID("a3"), t), /#180/);
 });
+// Real helper get_session shape (parent-checked, s84): no session_context.outcomes; branches are the VALUES of
+// ccr.external_metadata.current_branches, a map like { "": "ht126-component-inventory" }.
+const helperCurrent = (id, map) => call("get_session", {}, { ccr: { ...sess(id, "Helper · x — no action needed", "session_p"), external_metadata: { current_branches: map } } }, "g1");
+test("DISC-315: a branch in external_metadata.current_branches needs its own lookup, and an open PR on it refuses", () => {
+  const base = [...helperCurrent(ID("e1"), { "": "ht126-inventory" }), ...ghSearch(`is:pr is:open ${ID("e1")}`, search(), "l0")];
+  deniedNaming(run(ID("e1"), base), /ht126-inventory/);
+  assert.equal(run(ID("e1"), [...base, ...ghSearch("is:pr is:open head:ht126-inventory", search(), "l1")]), null);
+  deniedNaming(run(ID("e1"), [...base, ...ghSearch("is:pr is:open head:ht126-inventory", search("", [pr(126)]), "l1")]), /#126/);
+});
 test("DISC-315: a branch with no lookup of its own refuses, naming the branch", () => {
   const t = [...helperB(ID("a4"), ["claude/lane-c"]), ...ghSearch(`is:pr is:open ${ID("a4")}`, search(), "l0")];
   deniedNaming(run(ID("a4"), t), /claude\/lane-c/);

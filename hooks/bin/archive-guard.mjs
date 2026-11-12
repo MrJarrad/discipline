@@ -49,13 +49,15 @@ export function shownSession(lines, id) {
   return found;
 }
 
-/* Branch names anywhere inside a get_session object (session_context.outcomes[].git_info.branches, outcome_branch). */
+/* Branch names anywhere inside a get_session object: a helper's external_metadata.current_branches values, a parent's
+   session_context.outcomes[].git_info.branches, outcome_branch. */
 function* branchesIn(v) {
   if (Array.isArray(v)) { for (const x of v) yield* branchesIn(x); return; }
   if (!v || typeof v !== "object") return;
   for (const [k, x] of Object.entries(v)) {
     if (k === "branches" && Array.isArray(x)) for (const b of x) { if (typeof b === "string" && b) yield b; }
     else if (k === "outcome_branch" && typeof x === "string" && x) yield x;
+    else if (k === "current_branches" && x && typeof x === "object") for (const b of Object.values(x)) { if (typeof b === "string" && b) yield b; }
     else yield* branchesIn(x);
   }
 }
