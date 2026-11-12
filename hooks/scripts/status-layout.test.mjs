@@ -3,7 +3,7 @@
 // Run: node --test hooks/scripts/status-layout.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { layoutPlan, displayName } from "./status-layout.mjs";
@@ -18,7 +18,7 @@ function vault() {
   put("projects/portfolio/portfolio-queue.md", FM("PF", "queue") + Q + "| PF-1585 | Look at glow round 4 | | | |\n| PF-797 | Your final review before the holding screen lifts | | | |\n| PF-65 | Media for each case study | | | |\n| PF-1600 | Look at the new header | reply here | | |\n| ~~PF-1598~~ | ~~Header flicker~~ | | | |\n");
   put("projects/portfolio/portfolio-backlog.md", FM("PF", "backlog") + "## Open\n\n" + B + "| PF-1505 | Time Circuits lag | d | open |\n");
   put("projects/portfolio/portfolio-go-live.md", "---\nname: portfolio go-live\nkind: checklist\n---\n# Go-live\n\n## 1. Site bugs and polish\n\n- [x] PF-1507 · Glide fill\n- [ ] PF-1505 · Time Circuits still laggy\n- [ ] PF-1531 · Glow sits on each piece of media\n- [ ] PF-1475 · Grid on a phone: one image paints late\n\n## 2. Tests and tooling\n\n- [x] PF-1420 · Media import\n- [ ] PF-1464 · Import checklist records film length\n\n## 3. Checks before launch\n\n- [ ] PF-1391 · Safari and iPhone\n\n## 4. Launch steps\n\n- [ ] PF-1412 · Switch to live\n\n## 5. After launch\n\n- [ ] PF-1396 · Raise HTTPS setting\n");
-  put("projects/jhd-discipline/jhd-discipline-queue.md", FM("DISC", "queue") + Q + "| DISC-311 | One short extra round on the Status item fix | | | |\n| ~~DISC-303~~ | ~~One tap per release~~ | | | |\n");
+  put("projects/jhd-discipline/jhd-discipline-queue.md", FM("DISC", "queue") + Q + "| DISC-311 | One short extra round on the Status item fix | | | |\n| ~~DISC-303~~ | ~~One tap per release~~ | | | |\n| ~~DISC-999~~ | ~~A finished ask~~ | | | |\n");
   put("projects/jhd-discipline/jhd-discipline-backlog.md", FM("DISC", "backlog") + "## Up next\n\n1. DISC-306 — first thing\n2. DISC-309\n3. DISC-310\n4. DISC-312\n5. DISC-313\n6. DISC-314\n\n## Open\n\n" + B + "| DISC-306 | Plugin stale: more clearly | d | open |\n| DISC-309 | Another item | d | open |\n| DISC-310 | Status doc restructure | d | open |\n| DISC-312 | Twelfth | d | open |\n| DISC-313 | Thirteenth | d | open |\n| DISC-314 | Fourteenth, past the top five | d | open |\n");
   put("projects/handoff-toolkit/handoff-toolkit-queue.md", FM("HT", "queue") + Q + "| HT-95 | Invite your friend to the toolkit | | | |\n");
   put("projects/handoff-toolkit/handoff-toolkit-backlog.md", FM("HT", "backlog") + "## Open\n\n" + B + "| HT-1 | something | d | open |\n");
@@ -55,7 +55,7 @@ test("an item's section follows its chip: Ready for you 0, You're on it 1, Claud
   assert.deepEqual(to(".38335"), ["Done this session", "Discipline", "Done", "ticked"], "DISC-303");
   assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "Ready for you", "layout"], "DISC-311 is an open row here");
   const landed = move(plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-999)") }), ".43205");
-  assert.deepEqual([landed.to.section, landed.chip, landed.reason], ["Done this session", "Done", "landed"], "a Ready item whose row is no longer open goes to Done");
+  assert.deepEqual([landed.to.section, landed.chip, landed.reason], ["Done this session", "Done", "landed"], "a Ready item whose row is struck in the vault goes to Done");
   assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "Ready for you", "layout"], "HT-95");
 });
 test("running lines: a ticked one goes to Done; one with no chip lands in Claude's on it with the chip set", () => {
@@ -141,4 +141,21 @@ test("CLI: prints the plan as JSON for a doc file and refuses an unknown project
   assert.ok(out.ops.some((o) => o.op === "setDate" && o.value === "2026-11-12"));
   assert.ok(out.ops.some((o) => o.op === "removeSection" && o.name === "Go-live"));
   assert.equal(run("ZZ").status, 1);
+  writeFileSync(f, LIVE.replace("(DISC-311)", "(DISC-777)"));
+  assert.match(run("PF,DISC,HT").stderr, /DISC-777.*stale|stale.*DISC-777/i, "a row the vault does not hold is called out on stderr");
+});
+
+// s82 (parent: DISC-311 is open in the parent's vault but this run called it landed): a row the vault does not hold at all is UNKNOWN, never landed.
+test("an item whose row id is in no queue or backlog file the run can see stays put and is reported as unknown (a stale vault checkout is not a landed row)", () => {
+  const p = plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-777)") });
+  const m = move(p, ".43205");
+  assert.deepEqual([m.to.section, m.reason], ["Ready for you", "layout"], "it keeps its chip's section, it is not sent to Done");
+  assert.deepEqual(p.unknown, ["DISC-777"]);
+  assert.deepEqual(plan().unknown, [], "every id in the fixture doc is known to the vault (open or struck)");
+});
+test("a backlog row marked done counts as known and landed", () => {
+  const v = vault();
+  writeFileSync(join(v, "projects/jhd-discipline/jhd-discipline-backlog.md"), readFileSync(join(v, "projects/jhd-discipline/jhd-discipline-backlog.md"), "utf8") + "| DISC-888 | an old item | d | done (MrJarrad/discipline#1) |\n");
+  const p = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE.replace("(DISC-311)", "(DISC-888)"), today: "2026-11-12", base: BASE });
+  assert.equal(move(p, ".43205").reason, "landed");
 });

@@ -45,7 +45,7 @@ export function neededFromYou(vault, prefixes) {
   const out = [];
   for (const prefix of want) {
     const e = reg.byPrefix.get(prefix);
-    const queue = { head: [], rows: [] };
+    const queue = { head: [], rows: [], file: e.queue || null };
     const backlog = { head: [], rows: [], file: e.backlog || null };
     if (e.queue) {
       const qt = readFileSync(join(vault, e.queue), "utf8");

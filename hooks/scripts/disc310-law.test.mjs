@@ -24,7 +24,8 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "A ticked item MOVES to \"Done this session\" (never ticked in place), which is cleared at wrap with no note line; the doc has no Go-live section",
     "`status-layout.mjs --vault <vault> --projects <PFX,...> --doc <file with the xml of the doc's body node>` prints the edit ops and the session applies them with the connector, never by hand",
     "**Refill from Up next:** the moment a lane lands or parks on the operator, start the top Up next item of that project, with no asking",
-    "**Tick go-live on merge:** a merged row that is a go-live line is ticked in the go-live file the same turn"]) assert.ok(h.includes(s), s);
+    "**Tick go-live on merge:** a merged row that is a go-live line is ticked in the go-live file the same turn: `go-live-tick.mjs --vault <vault> --rows <ids> --apply` writes the tick and prints the launch line, then `status-layout.mjs` prints the doc ops",
+    "An id the vault does not hold is `unknown` (stale checkout: pull the vault first), never landed"]) assert.ok(h.includes(s), s);
 });
 test("DISC-310: the output style and wrap point at the rule instead of restating it", () => {
   assert.ok(flat("output-styles/discipline.md").includes("(DISC-310, `routing` HARD-RULES)"));

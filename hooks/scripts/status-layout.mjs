@@ -6,7 +6,7 @@
      project, "Nothing." when empty; Up next ### Portfolio also carries "Launch: N of M done · link"; ticked items MOVE to Done, no note line) / ## Backlogs.
    Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading, insertItem, moveItem (delete
    + insert with the item's new chip: the connector cannot set a chip in place, so an item's section always matches its chip), insertNothing, removeNode,
-   setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). An empty `ops` means the doc is
+   setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
    already in the layout. `unplaced` lists items naming no project.
    Up next sources: a project's backlog `## Up next` (an ordered list of row ids, first five), or, when `projects/<p>/<p>-go-live.md` exists, its
    first unticked lines; neither -> "Nothing.". A row already in Ready for you, You're on it or Claude's on it is never also Up next. The launch count is the go-live file's
@@ -63,6 +63,10 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [];
   const names = r.projects.map((p) => ({ prefix: p.prefix, name: displayName(p.project), backlog: p.backlog.file }));
   const { open, formatted } = openItems(r);
+  /* every row id the run can see, open or struck or done: a row in none of these files is UNKNOWN (a stale vault checkout), never "landed" */
+  const known = new Set(open.keys());
+  for (const p of r.projects) for (const f of [p.queue.file, p.backlog.file]) if (f) for (const m of readFileSync(join(vault, f), "utf8").matchAll(/^\|\s*(?:~~)?([A-Z]{2,4}-\d+[a-z]?)(?:~~)?\s*\|/gm)) known.add(m[1]);
+  const unknown = [];
   const section = (n) => doc.sections.find((x) => x.name === n);
   const project = (sec, n) => sec?.projects.find((q) => q.name === n);
   const byPrefix = (px) => names.find((x) => x.prefix === px);
@@ -83,7 +87,9 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
       const owner = byPrefix(prefixOf(it.rowId || ID_AT.exec(it.text)?.[1] || ""));
       const home = owner?.name ?? proj;
       if (!home) { unplaced.push({ id: it.id, text: it.text }); continue; }
-      const landed = mirrorsQueue && it.rowId && byPrefix(prefixOf(it.rowId)) && !open.has(it.rowId);
+      const sessionRow = mirrorsQueue && it.rowId && byPrefix(prefixOf(it.rowId));
+      if (sessionRow && !known.has(it.rowId) && !unknown.includes(it.rowId)) unknown.push(it.rowId);
+      const landed = sessionRow && !open.has(it.rowId) && known.has(it.rowId);
       const to = it.ticked || landed ? "Done this session" : CHIP_SECTION[it.chip?.index] ?? "Claude's on it";
       const reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chip" : null;
       if (reason === null) { bump(sname, home); continue; }
@@ -157,7 +163,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const have = (bk?.items || []).map((i) => i.text);
     if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) clean.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links });
   }
-  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)] };
+  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], unknown };
 }
 
 function main() {
@@ -165,6 +171,7 @@ function main() {
   if (!get("--vault") || !get("--doc")) { console.error("usage: status-layout --vault <root> --projects PF,DISC --doc <xml file> [--today YYYY-MM-DD]"); process.exit(1); }
   try {
     const out = layoutPlan({ vault: resolveVaultRoot(get("--vault")), prefixes: String(get("--projects") || "").split(","), docXml: readFileSync(get("--doc"), "utf8"), today: get("--today") || new Date().toISOString().slice(0, 10) });
+    if (out.unknown.length) console.error(`status-layout: ${out.unknown.join(", ")} are on the doc but in no queue or backlog file here: the vault checkout is stale (pull it first); they were not called landed`);
     console.log(JSON.stringify(out, null, 2));
   } catch (e) { console.error(`status-layout: ${e.message}`); process.exit(1); }
 }
