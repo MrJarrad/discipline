@@ -62,7 +62,7 @@ const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
 
 const LIVE_SECTIONS = ["Running now", "Claude's on it", "You're on it"];
-const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|writing|(?:is|are|still) running|running now)\b/i;
+const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|writing (?:the|a|an|up)|(?:is|are|now|still) (?:running|writing)|running now)\b/i;
 const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
