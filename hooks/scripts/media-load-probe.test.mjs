@@ -7,7 +7,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, chmodSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { classifyEmptyAcrossFrames } from "./lib/media-load-lib.mjs";
 import { dirname, join } from "node:path";
@@ -519,4 +520,58 @@ test("headerNamesLine prints names only, never values", () => {
 test("--help lists --header", () => {
   const r = spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" });
   assert.match(r.stdout, /--header/);
+});
+
+// --- --header-file <path> and the --header* typo guard ---------------------------
+
+const headerFileWith = (text, mode) => {
+  const dir = mkdtempSync(join(tmpdir(), "probe-hdr-"));
+  const path = join(dir, "headers.txt");
+  writeFileSync(path, text);
+  chmodSync(path, mode);
+  return path;
+};
+
+test("--header-file reads one Name: value per line (blank lines and # comments skipped) and merges with --header", () => {
+  const path = headerFileWith("# access token\nCF-Access-Client-Id: idv\n\nCF-Access-Client-Secret: sec:ret\n", 0o600);
+  const opts = parseArgs(["https://x.test", "--header-file", path, "--header", "X-Extra: 1"]);
+  assert.deepEqual(opts.headers, { "CF-Access-Client-Id": "idv", "CF-Access-Client-Secret": "sec:ret", "X-Extra": "1" });
+  assert.equal("headerFile" in opts, false, "the path list is not carried on the parsed options");
+});
+
+test("--header-file refuses a file whose mode allows group or other access, without printing its contents", () => {
+  for (const mode of [0o640, 0o604, 0o644, 0o660]) {
+    const path = headerFileWith("CF-Access-Client-Secret: topsecret-value\n", mode);
+    assert.throws(() => parseArgs(["https://x.test", "--header-file", path]), (e) => /group or other/.test(e.message) && !/topsecret-value/.test(e.message), `mode ${mode.toString(8)}`);
+  }
+  const ok = headerFileWith("A: b\n", 0o400);
+  assert.deepEqual(parseArgs(["https://x.test", "--header-file", ok]).headers, { A: "b" });
+});
+
+test("--header-file: a malformed line stops the run naming the line number, never its text; a missing file names the path only", () => {
+  const path = headerFileWith("Good: one\nnot-a-header-secret-text\n", 0o600);
+  assert.throws(() => parseArgs(["https://x.test", "--header-file", path]), (e) => /line 2/.test(e.message) && !/not-a-header-secret-text/.test(e.message));
+  assert.throws(() => parseArgs(["https://x.test", "--header-file", "/nonexistent/headers.txt"]), /headers\.txt/);
+});
+
+test("any --header* token that is not exactly --header or --header-file stops the run (a typo must not run unauthenticated), without echoing it", () => {
+  for (const bad of ["--headers", "--header-flie", "--header=X-Secret: abc123", "--headerfile"]) {
+    assert.throws(() => parseArgs(["https://x.test", bad, "X: y"]), (e) => /--header/.test(e.message) && !/abc123|flie|headerfile/.test(e.message), bad);
+  }
+  assert.doesNotThrow(() => parseArgs(["https://x.test", "--header", "X: y"]));
+});
+
+test("a header VALUE that starts with --header is a value, not a flag", () => {
+  assert.deepEqual(parseArgs(["https://x.test", "--header", "X-Note: --header-file"]).headers, { "X-Note": "--header-file" });
+});
+
+test("--help lists --header-file", () => {
+  assert.match(spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" }).stdout, /--header-file/);
+});
+
+test("CLI: a bad header option prints one `error:` line and exits 2, with no stack trace", () => {
+  const r = spawnSync(process.execPath, [script, "https://x.test", "--header-flie", "x"], { encoding: "utf8" });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /^error: unknown --header\* option/);
+  assert.doesNotMatch(r.stderr, /\bat \w+.*\.mjs/);
 });
