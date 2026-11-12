@@ -17,6 +17,11 @@
    c) DISC-288: when the block links the vault's pinned checklist, it need only
       carry this turn's new asks (by row ID) plus that link line; old rows live on
       the checklist, not in the thread.
+   d) s79 (operator: "it's not been what the last couple of session automatically did"): DISC-288
+      is enforced, not advised. With the pinned checklist configured in the vault, a status reply
+      must carry the exact `Full list:` link line (a full block reprinted inline is refused), and
+      must follow a write to the checklist doc this turn (an `update` or `batch` tool call naming the
+      doc id), so Running now and Done this session are current before the reply.
    Otherwise (an automated wake with nothing new, a wrapped session) it allows.
    A failure blocks once (`stop_hook_active` set -> allow, no loop). No
    DISCIPLINE_VAULT_ROOT -> silent exit 0, like the commit gate.            */
@@ -30,20 +35,25 @@ const HEAD = /^## Needed from you\s*$/m;
 const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b?.type === "text").map((b) => b.text).join("\n") : "");
 const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_result");
 
-/* The last assistant text after the last real user message, and that message's timestamp. */
-export function lastTurn(transcriptText) {
-  let userTs = "", text = null;
+/* The last assistant text after the last real user message, that message's timestamp, and whether this turn wrote to
+   the pinned checklist doc (an `update`/`batch` MCP call whose input names the doc id, the last segment of `docUrl`). */
+export function lastTurn(transcriptText, docUrl) {
+  const docId = docUrl ? docUrl.split("/").pop() : null;
+  let userTs = "", text = null, docWritten = false;
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; }
-    else if (e.type === "assistant") { const t = textOf(c); if (t.trim()) text = t; }
+    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; }
+    else if (e.type === "assistant") {
+      const t = textOf(c); if (t.trim()) text = t;
+      if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && JSON.stringify(b.input || {}).includes(docId))) docWritten = true;
+    }
   }
-  return { userTs, text };
+  return docId ? { userTs, text, docWritten } : { userTs, text };
 }
 
-export function check({ text: raw, userTs, vault, sessionId }) {
+export function check({ text: raw, userTs, vault, sessionId, docWritten }) {
   // a heading inside a fenced code block is not a heading
   const text = raw && raw.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
   if (!text || /^\s*This session is wrapped/i.test(text)) return null;
@@ -62,8 +72,11 @@ export function check({ text: raw, userTs, vault, sessionId }) {
   const url = pinnedChecklistUrl(vault);
   if (url && block.split("\n").some((l) => l.trim() === `Full list: [Needed from you](${url})`)) {
     const unlisted = [...new Set(markers.map((m) => m.id).filter(Boolean))].filter((id) => !new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(block));
-    return unlisted.length ? `Stop check (DISC-288): the short Needed-from-you block omits row(s) added this turn: ${unlisted.join(", ")}. List each new ask, then the one link line to the pinned checklist.` : null;
+    if (unlisted.length) return `Stop check (DISC-288): the short Needed-from-you block omits row(s) added this turn: ${unlisted.join(", ")}. List each new ask, then the one link line to the pinned checklist.`;
+    if (docWritten === false) return `Stop check (DISC-288): a status reply comes after the pinned checklist doc is brought current this turn. Run \`queue-page-sync.mjs\`, apply its lines to the doc (Running now checked with get_session, Done this session, Waiting on you), then reply with the new asks and the Full list link.`;
+    return null;
   }
+  if (url) return `Stop check (DISC-288): the vault names a pinned checklist, so a status reply carries only this turn's new asks plus the exact line \`Full list: [Needed from you](${url})\`, not the queue reprinted inline. Update the doc first (Running now, Done this session, Waiting on you), then reply.`;
   const prefixes = [...new Set([...block.matchAll(/^### ([A-Z]{2,4}) — /gm)].map((m) => m[1]).concat(mPrefixes))];
   if (!prefixes.length) return `Stop check (DISC-179): the Needed-from-you block has no \`### <PFX> — <project>\` heading, so it was not built by the script. ${how}`;
   const missingHeads = mPrefixes.filter((p) => !new RegExp(`^### ${p} — `, "m").test(block));
@@ -82,8 +95,9 @@ function main() {
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
-  const { userTs, text } = lastTurn(t);
-  let reason; try { reason = check({ text, userTs, vault: resolve(vaultEnv), sessionId: input.session_id }); } catch { return; }
+  const vault = resolve(vaultEnv);
+  const { userTs, text, docWritten } = lastTurn(t, pinnedChecklistUrl(vault));
+  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 

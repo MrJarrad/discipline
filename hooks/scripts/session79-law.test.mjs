@@ -35,3 +35,12 @@ test("DISC-295: the Stop hook is wired", () => {
   const cmds = hooks.hooks.Stop.flatMap((g) => g.hooks.map((h) => h.command));
   assert.ok(cmds.some((c) => c.includes("lane-capacity-stop.mjs")));
 });
+test("s79: status in the pinned doc is enforced by tool, and a stale plugin is loud", () => {
+  has(HARD, "`needed-from-you-stop.mjs` refuses a status reply that reprints the queue inline instead of the `Full list:` link, and one that follows no write to the checklist doc this turn");
+  has(HARD, "`plugin-freshness.mjs` warns at session start when the loaded plugin is older than the newest release and holds a status reply while it is");
+  has(HARD, "the vault's `.claude/settings.json` runs a copy of `plugin-freshness.mjs`");
+  const hooks = JSON.parse(readFileSync(join(root, "hooks/hooks.json"), "utf8"));
+  const on = (ev) => hooks.hooks[ev].flatMap((g) => g.hooks.map((h) => h.command));
+  assert.ok(on("SessionStart").some((c) => c.includes("plugin-freshness.mjs\" start")));
+  assert.ok(on("Stop").some((c) => c.includes("plugin-freshness.mjs\" stop")));
+});
