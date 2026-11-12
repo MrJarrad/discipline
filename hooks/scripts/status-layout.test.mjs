@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { layoutPlan, displayName } from "./status-layout.mjs";
-import { LIVE } from "./fixtures/status-doc-live.mjs";
+import { LIVE, layoutDoc } from "./fixtures/status-doc-live.mjs";
 
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
 const Q = "| # | Needed | Where | Why | Recommended |\n| - | - | - | - | - |\n";
@@ -94,7 +94,7 @@ test("Up next: Discipline reads the ordered ## Up next of its backlog, top five 
   assert.deepEqual(disc.lines.slice(0, 4), ["- (DISC-306) Plugin stale: more clearly", "- (DISC-309) Another item", "- (DISC-312) Twelfth", "- (DISC-313) Thirteenth"]);
   const long = disc.lines[4].replace("- (DISC-314) ", "");
   assert.ok(!long.includes("[[") && !long.includes("]]"), "a wikilink reads as its plain text: " + long);
-  assert.ok(long.startsWith("Vault graph model migration, the rest of decision 2026-11-02-vault-graph-model after the") && long.endsWith("…") && long.length <= 91, long);
+  assert.ok(long.startsWith("Vault graph model migration, the rest of decision 2026-11-02-vault-graph-model after the") && long.endsWith("…") && long.length <= 121, long);
   assert.ok(!/\bs…$/.test(long) && !/\(jhd…$/.test(long), "cut at a word boundary, not mid-word or inside a parenthesis: " + long);
   assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Handoff toolkit").lines, ["Nothing."]);
 });
@@ -220,4 +220,121 @@ test("a backlog row marked done counts as known and landed", () => {
   writeFileSync(join(v, "projects/jhd-discipline/jhd-discipline-backlog.md"), readFileSync(join(v, "projects/jhd-discipline/jhd-discipline-backlog.md"), "utf8") + "| DISC-888 | an old item | d | done (MrJarrad/discipline#1) |\n");
   const p = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE.replace("(DISC-311)", "(DISC-888)"), today: "2026-11-12", base: BASE });
   assert.equal(move(p, ".43205").reason, "landed");
+});
+
+// DISC-314 (first live apply, doc rev 345->359). Seam: layoutPlan / the CLI, on docs in the real xml shape.
+const READY = { Portfolio: [{ id: "a", chip: 0, text: "(PF-1585) Look at glow round 4. Waiting on you." }, { id: "b", chip: 0, text: "(PF-797) Your final review before the holding screen lifts. Waiting on you." }, { id: "e", chip: 0, text: "(PF-1600) Look at the new header. Waiting on you." }], Discipline: [{ id: "f", chip: 0, text: "(DISC-311) One short extra round on the Status item fix. Waiting on you." }], "Handoff toolkit": [{ id: "g", chip: 0, text: "(HT-95) Invite your friend to the toolkit. Waiting on you." }] };
+const doc = (o = {}) => layoutDoc({ base: BASE, ...o, sections: { "Ready for you": READY, "You're on it": { Portfolio: [{ id: "m", chip: 1, text: "(PF-65) Media for each case study. Waiting on you." }] }, ...(o.sections || {}) } });
+/* a temp vault has no git remote, so the CLI prints the launch line without a link and never plans backlog links */
+const cliDoc = (o = {}) => doc({ launch: "Launch: 2 of 8 done · full list in the vault", ...o });
+const runCli = (xml, extra = []) => { const v = vault(); return spawnSync("node", [fileURLToPath(new URL("./status-layout.mjs", import.meta.url)), "--vault", v, "--projects", "PF,DISC,HT", "--today", "2026-11-12", ...extra], { encoding: "utf8", input: xml }); };
+test("DISC-314 1: a ticked item already in Done stays; a conformant doc prints zero ops on a second run (convergence), through the CLI", () => {
+  const done = { "Done this session": { Discipline: [{ id: "x", chip: 2, ticked: true, text: "(DISC-303) One tap per release. Done." }] } };
+  assert.deepEqual(plan({ docXml: doc({ sections: done }) }).ops, []);
+  const r = runCli(cliDoc({ sections: done }), ["--doc", "-"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout).ops, []);
+});
+test("DISC-314 2: missing project headings in one section are emitted so that applying each insert-after in order leaves Portfolio, Discipline, Handoff toolkit", () => {
+  const bare = doc({ omit: ["Claude's on it|Portfolio", "Claude's on it|Discipline", "Claude's on it|Handoff toolkit", "Done this session|Discipline", "Done this session|Handoff toolkit"] });
+  const heads = (sec) => ops(plan({ docXml: bare }), "insertProjectHeading").filter((o) => o.section === sec);
+  assert.deepEqual(heads("Claude's on it").map((o) => o.name), ["Handoff toolkit", "Discipline", "Portfolio"], "same anchor, so the last wanted is inserted first");
+  assert.equal(new Set(heads("Claude's on it").map((o) => o.afterId)).size, 1);
+  assert.deepEqual(heads("Done this session").map((o) => o.name), ["Handoff toolkit", "Discipline"]);
+  assert.ok(heads("Done this session").every((o) => o.afterId !== heads("Claude's on it")[0].afterId), "anchored on Portfolio's last node, not the section heading");
+});
+test("DISC-314 3: a move into a project that has a heading but no list is preceded by ensureList for that project", () => {
+  const p = plan({ docXml: doc({ sections: { "Ready for you": { ...READY, Discipline: undefined } } }) });
+  const e = ops(p, "ensureList");
+  assert.deepEqual(e.map((o) => [o.section, o.project]), [["Ready for you", "Discipline"]], "DISC-311 is an open row the doc lacks, so it is inserted there");
+  assert.ok(p.ops.indexOf(e[0]) < p.ops.findIndex((o) => o.op === "insertItem" && o.project === "Discipline"));
+  assert.deepEqual(ops(plan({ docXml: doc() }), "ensureList"), [], "a project that has a list needs none");
+});
+test("DISC-314 4: every item that goes to Done is ticked (landed ones too), in the move and in the replacement markdown", () => {
+  const landed = plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-999)") }).ops.find((o) => o.id === ".43205");
+  assert.equal(landed.reason, "landed");
+  assert.equal(landed.ticked, true);
+  const pf1598 = plan().ops.find((o) => o.id === ".40753");
+  assert.ok(pf1598.markdown.startsWith("- [x] [Done]"), pf1598.markdown);
+  const ready = plan().ops.find((o) => o.id === ".32090");
+  assert.notEqual(ready.ticked, true, "a move to an open section is not ticked");
+});
+test("DISC-314 5: a stale in-flight lane text going to Done is its headline rewritten to the row's title and 'Done.' (children travel with it)", () => {
+  const building = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") });
+  const o = building.ops.find((x) => x.id === ".42857");
+  assert.equal(o.op, "replaceItem");
+  assert.match(o.markdown, /^- \[x\] \[Done\] \*\*\(PF-1496\) [^\n]*\. Done\.\*\*$/, o.markdown);
+  assert.ok(!/building|helper session/i.test(o.markdown), o.markdown);
+});
+test("DISC-314 6: Up next titles keep a whole sentence up to 120 characters, else cut at a word before 120", () => {
+  const v = vault();
+  const t100 = "Grid on a phone: one image paints late until the second scroll on a slow connection in Safari today"; // 99
+  const long = `${"word ".repeat(30)}end`; // 153
+  writeFileSync(join(v, "projects/portfolio/portfolio-go-live.md"), `---\nname: g\nkind: checklist\n---\n## 1. Site\n\n- [ ] PF-2001 · ${t100}.\n- [ ] PF-2002 · ${long}\n`);
+  const lines = ops(layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE }), "setUpNext").find((o) => o.project === "Portfolio").lines;
+  assert.equal(lines[0], `- (PF-2001) ${t100}`);
+  assert.ok(lines[1].endsWith("…") && lines[1].length <= "- (PF-2002) ".length + 121 && !/\s…$/.test(lines[1]), lines[1]);
+});
+test("DISC-314 8: the doc comes in on stdin (--doc -) or as the connector's JSON result (--doc-json file or -)", () => {
+  const xml = cliDoc();
+  const j = JSON.stringify({ xml });
+  const dir = mkdtempSync(join(tmpdir(), "sld-")), f = join(dir, "read.json");
+  writeFileSync(f, j);
+  for (const args of [["--doc-json", "-"], ["--doc-json", f]]) {
+    const r = runCli(args[1] === "-" ? j : "", args);
+    assert.equal(r.status, 0, r.stderr);
+    assert.deepEqual(JSON.parse(r.stdout).ops, []);
+  }
+  assert.equal(runCli("{}", ["--doc-json", "-"]).status, 1, "JSON with no xml is refused");
+});
+
+// DISC-314 review round 1 (session_019vvsL13jPRvdiiXyyekYaH)
+import { applyToXml } from "./fixtures/status-doc-apply.mjs";
+test("DISC-314 review 3: plan, apply, plan again is empty on the live doc (the applier refuses an item into a project with no list)", () => {
+  const first = plan();
+  const once = applyToXml(LIVE, first.ops.filter((o) => !first.refused.some((r) => r.id === o.id && r.id)));
+  const second = plan({ docXml: once });
+  assert.deepEqual(second.ops, []);
+  assert.deepEqual(plan({ docXml: applyToXml(once, second.ops) }).ops, [], "and stays empty");
+});
+test("DISC-314 review 3b: the convergence test bites: the plan is long, and without its ensureList ops the applier refuses (shape_mismatch)", () => {
+  const first = plan();
+  assert.ok(first.ops.length > 20);
+  assert.ok(ops(first, "ensureList").length > 0, "the live doc's new sections need lists");
+  assert.throws(() => applyToXml(LIVE, first.ops.filter((o) => o.op !== "ensureList")), /shape_mismatch/);
+});
+test("DISC-314 review 4: every project of a newly inserted section that receives an item gets an ensureList, after the section and before the item", () => {
+  const p = plan();
+  const ins = p.ops.findIndex((o) => o.op === "insertSection" && o.name === "Ready for you");
+  for (const [proj] of [["Portfolio"], ["Discipline"], ["Handoff toolkit"]]) {
+    const e = p.ops.findIndex((o) => o.op === "ensureList" && o.section === "Ready for you" && o.project === proj);
+    assert.ok(e > ins, `${proj}: ensureList after insertSection`);
+    assert.ok(e < p.ops.findIndex((o) => (o.op === "move" || o.op === "replaceItem") && o.to.section === "Ready for you" && o.to.project === proj), `${proj}: before its first item`);
+  }
+  assert.equal(ops(p, "ensureList").filter((o) => o.section === "Ready for you" && o.project === "Portfolio").length, 1, "once per project");
+});
+test("DISC-314 review RED: an item naming several rows (rowId null) keeps its own id text in the rewritten headline, never (null)", () => {
+  const multi = LIVE.replace("<listItem id='.39877'", "<listItem id='.39877' checked='true'").replace("writing the step into the rules", "building the step into the rules");
+  const o = plan({ docXml: multi }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.op, "replaceItem");
+  assert.ok(!o.markdown.includes("null"), o.markdown);
+  assert.match(o.markdown, /^- \[x\] \[Done\] \*\*Latest plugin in every session \(DISC-299\/303\)\. Done\.\*\*$/, o.markdown);
+});
+test("DISC-314 review 2: the rewritten headline is the item's short own title: no trailing …, no doubled period, no queue-ask detail, cut at the in-flight clause", () => {
+  const o = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") }).ops.find((x) => x.id === ".42857");
+  assert.equal(o.markdown, "- [x] [Done] **(PF-1496) Copying a text page leaves out the nav labels. Done.**");
+  const cut = (text) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("Copying a text page leaves out the nav labels", text) }).ops.find((x) => x.id === ".42857").markdown;
+  const long = cut("Copying a text page leaves out the nav labels after the import step in a very long sentence with plenty more words added so it runs past one hundred and twenty characters in total");
+  assert.ok(!/(?:…|\.\.)\. Done|\.\. Done/.test(long) && /\*\*[^*]*\. Done\.\*\*$/.test(long), long);
+});
+test("DISC-314 review: a rewritten headline still carries the item's children (PF-1598's Problem and Decision)", () => {
+  const o = plan().ops.find((x) => x.id === ".40753");
+  assert.equal(o.op, "replaceItem");
+  assert.ok(o.markdown.startsWith("- [x] [Done] **(PF-1598) Header flicker fix. Done.**\n"), o.markdown);
+  for (const t of ["\n  - **Problem:**", "\n  - **Decision:**", "\n    - **Recommended:**"]) assert.ok(o.markdown.includes(t), t);
+});
+test("DISC-314 review: 'running' alone in a finished title is not an in-flight clause; 'still running' is", () => {
+  const word = (t) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("building, helper session_019vvsL33CSwXZah39dApWeL", t) }).ops.find((x) => x.id === ".42857");
+  assert.equal(word("fixed, running order restored").staleText, false);
+  assert.equal(word("tests still running").staleText, true);
 });

@@ -15,16 +15,15 @@
      appended     (DISC-297) Waiting items holding more than one link: a round appended, not replaced; rewrite to the current round
      sameLane     (DISC-297) open Waiting items sharing a `(lane: x)` marker: present them as one look row
      leaveWaiting (DISC-297) Waiting items ticked (answered) or no longer open: delete them from Waiting the same turn
-     projects     (DISC-305) the `### <PFX> — <project>` heading each session project owns in the doc
-     toAddUnder   (DISC-305) each missing open row with the project heading it goes under
-     misfiled     (DISC-305) Waiting items under another project's heading (or none, once the doc groups by project)
      chipChanges  (DISC-302) every answered or landed Waiting item whose Status chip is not Done: replace its dropdown with Done
                   the same turn (a chars-range replace carrying a new dropdown chip; s81 proven), and drop its "Look now:" lead
      clearAtWrap every ticked "Done this session" item and every ticked "Waiting on you" item whose row is
               no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
               at each sessions end").
-   DISC-310: the whole-doc layout (project headings, Up next, Done moves, no Go-live) is status-layout.mjs; this script keeps its row-level plan.
+   DISC-310 / DISC-312: the whole-doc layout (sections, project headings and where an item sits, Up next, Done moves) is status-layout.mjs; this script is the
+   row-level step and reads the layout's sections: Ready for you and You're on it mirror the queue, Claude's on it lists the lanes (the old Waiting on you and
+   Running now names still read the same way).
    Usage: node queue-page-sync.mjs --vault <root> --projects PF,HB [--doc <file with the doc text>] */
 import { readFileSync } from "node:fs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -143,39 +142,34 @@ export function openItems(r) {
   return { open, formatted };
 }
 
+/* the doc's sections by what they hold (section names, lower case): items that mirror a queue row, and lanes in flight */
+const MIRRORS = ["waiting", "ready for you", "you're on it"], LANES = ["running", "claude's on it"];
 export function syncPlan({ vault, prefixes, docText }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
   const { open, formatted } = openItems(r);
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
-  /* DISC-305: one doc for all projects, a `### <PFX> — <project>` heading per project inside Waiting on you and Running now. */
-  plan.projects = r.projects.map((p) => ({ prefix: p.prefix, heading: `### ${p.prefix} — ${p.project}` }));
-  Object.assign(plan, { toAddUnder: [], misfiled: [], needsProjectHeadings: false, chipChanges: [] });
+  plan.chipChanges = [];
   if (docText == null) return plan;
   docText = fromDocsRead(docText);
-  plan.needsProjectHeadings = !/^###\s+/m.test(docText);
-  const headingOf = new Map(plan.projects.map((p) => [p.prefix, p.heading]));
-  let under = null;
   let section = "";
   const listed = new Set();
   for (const line of docText.split(/\r?\n/)) {
     const h = /^##\s+(.*)$/.exec(line);
-    if (h) { section = h[1].trim().toLowerCase(); under = null; continue; }
-    const sub = /^###\s+(.*)$/.exec(line);
-    if (sub) { under = { text: line.trim(), prefix: /^([A-Z]{2,4}) —/.exec(sub[1].trim())?.[1] ?? null }; continue; }
+    if (h) { section = h[1].trim().toLowerCase(); continue; }
     if (section.startsWith("done") && /^- \[x\]/i.test(line)) plan.clearAtWrap.push(line.trim());
     const it = /^- \[( |x)\]\s+(.*)$/i.exec(line);
     if (!it) continue;
     const ticked = it[1].toLowerCase() === "x", text = it[2].trim();
-    if (section.startsWith("running")) {
-      if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]), ...(under?.prefix ? { project: under.prefix } : {}) }); if (!hasStatus(text)) plan.noStatus.push(text); }
+    if (LANES.some((x) => section.startsWith(x))) {
+      if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]) }); if (!hasStatus(text)) plan.noStatus.push(text); }
       continue;
     }
     const id = (/^(?:\[[^\]]*\]\s*)?\*\*(?:\(([A-Z]{2,4}-\d+[a-z]?)\)|([A-Z]{2,4}-\d+[a-z]?)\*\*)/.exec(text) || []).slice(1).find(Boolean);
     if (!id) continue;
     listed.add(id);
-    if (section.startsWith("waiting")) {
+    if (MIRRORS.some((x) => section.startsWith(x))) {
       if (!ticked && !hasStatus(text)) plan.noStatus.push(id);
       if (!ticked && new Set(text.match(/https?:\/\/[^\s)>\]]+/g) || []).size > 1) plan.appended.push(id);
       const lane = !ticked && /\(lane:\s*([^)]+)\)/i.exec(text)?.[1].trim().toLowerCase();
@@ -183,15 +177,12 @@ export function syncPlan({ vault, prefixes, docText }) {
       if (ticked || !open.has(id)) plan.leaveWaiting.push(id);
       const chip = chipOf(text);
       if ((ticked || !open.has(id)) && chip !== "Done") plan.chipChanges.push({ id, from: chip, to: "Done", why: ticked && open.has(id) ? "answered" : "landed" });
-      const owner = /^([A-Z]{2,4})-/.exec(id)?.[1];
-      if (!plan.needsProjectHeadings && (!under || under.prefix !== owner)) plan.misfiled.push({ id, under: under ? under.text : null, belongsTo: owner });
       if (!ticked && !open.has(id)) plan.toTick.push(id);
       if (ticked && !open.has(id)) plan.clearAtWrap.push(line.trim());
       if (ticked && open.has(id)) plan.answered.push(id);
     }
   }
   for (const [lane, ids] of lanes) if (ids.length > 1) plan.sameLane.push({ lane, ids });
-  plan.toAddUnder = [...open.keys()].filter((id) => !listed.has(id)).map((id) => ({ id, under: headingOf.get(/^([A-Z]{2,4})-/.exec(id)[1]) }));
   plan.toAdd = [...open.keys()].filter((id) => !listed.has(id)).map((id) => formatted.get(id));
   return plan;
 }

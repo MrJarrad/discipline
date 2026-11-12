@@ -4,14 +4,14 @@
    doc exactly this layout, so nothing is hand-edited:
      # Status / date · you / ## Ready for you / ## You're on it / ## Claude's on it / ## Up next / ## Done this session (each: one ### heading per session
      project, "Nothing." when empty; Up next ### Portfolio also carries "Launch: N of M done · link"; ticked items MOVE to Done, no note line) / ## Backlogs.
-   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading, insertItem, moveItem (delete
+   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading (a run of missing headings is emitted last-wanted first), ensureList (a project with a heading but no list), insertItem, moveItem (delete
    + insert with the item's new chip: the connector cannot set a chip in place, so an item's section always matches its chip), insertNothing, removeNode,
    setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
    already in the layout. `unplaced` lists items naming no project.
    Up next sources: a project's backlog `## Up next` (an ordered list of row ids, first five), or, when `projects/<p>/<p>-go-live.md` exists, its
    first unticked lines; neither -> "Nothing.". A row already in Ready for you, You're on it or Claude's on it is never also Up next. The launch count is the go-live file's
    groups 1-4 (ticked of all).
-   Usage: node status-layout.mjs --vault <root> --projects PF,DISC,HT --doc <file with the xml of the doc's body node> [--today YYYY-MM-DD]  */
+   Usage: node status-layout.mjs --vault <root> --projects PF,DISC,HT --doc <file with the xml of the doc's body node, or - for stdin> | --doc-json <the connector's JSON result, file or ->  [--today YYYY-MM-DD]  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, basename, join } from "node:path";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -24,8 +24,8 @@ const ID_AT = /\b([A-Z]{2,4}-\d+[a-z]?)\b/;
 const prefixOf = (id) => /^([A-Z]{2,4})-/.exec(id)?.[1] ?? null;
 const shortTitle = (t) => {
   let x = String(t || "").replace(/\[\[([^\]|]*)\|([^\]]*)\]\]/g, "$2").replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/g, "").replace(/~~/g, "").replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)[0].replace(/[.!?…]+$/, "");
-  if (x.length > 90) {
-    x = x.slice(0, 90).replace(/\s+\S*$/, "");
+  if (x.length > 120) {
+    x = x.slice(0, 120).replace(/\s+\S*$/, "");
     const o = x.lastIndexOf("("); if (o > x.lastIndexOf(")")) x = x.slice(0, o).trim();
     x = `${x.replace(/[\s,;:(-]+$/, "")}…`;
   }
@@ -62,7 +62,7 @@ const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
 
 const LIVE_SECTIONS = ["Running now", "Claude's on it", "You're on it"];
-const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|running)\b/i;
+const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|(?:is|are|still) running|running now)\b/i;
 const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
@@ -84,6 +84,16 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   const dateOps = doc.date !== today && doc.dateId ? [{ op: "setDate", id: doc.dateId, value: today, why: `the doc's date line reads ${doc.date}` }] : [];
   const drop = (comments, op, item) => { for (const c of comments) droppedComments.push({ id: c.id, answered: c.answered, op, item }); };
   const refuse = (entry) => refused.push(entry);
+  /* the item's own short headline with the in-flight clause cut off (never the queue ask, which carries developer detail); the row's title only when
+     the item has none. An item with several ids keeps its own id text, e.g. "(DISC-299/303)"; a single-row item gets "(ID) " in front. */
+  const headline = (it) => {
+    const t = it.text.replace(/\*\*/g, "").trim(), cut = t.search(STALE);
+    let own = (cut > 0 ? t.slice(0, cut) : t).replace(/[\s:;,.…—-]+$/, "");
+    if (it.rowId) own = own.replace(new RegExp(`^\\(?${it.rowId}\\)?[\\s:.]*`), "").replace(new RegExp(`\\s*\\(${it.rowId}\\)$`), "");
+    own = shortTitle(own).replace(/[.…\s]+$/, "");
+    if (!own && it.rowId) for (const p of r.projects) for (const f of [p.queue.file, p.backlog.file]) if (!own && f && prefixOf(it.rowId) === p.prefix) own = shortTitle(rowTitle(readFileSync(join(vault, f), "utf8"), it.rowId)).replace(/[.…\s]+$/, "");
+    return `${it.rowId ? `(${it.rowId}) ` : ""}${own}`;
+  };
 
   /* 1. every existing item: where it is, where its chip (or tick, or closed row) says it belongs */
   const itemSections = [...SECTIONS.filter((n) => n !== "Up next"), "Waiting on you", "Running now"];
@@ -127,13 +137,21 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     let reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chip" : null;
     if (to === "Done this session" && job) { to = "Claude's on it"; reason = "pending"; }
     if (sname === to && home === proj && it.chip && reason === null) { bump(sname, home); continue; }
+    /* DISC-314 1: a ticked item already in Done under its project is where it belongs; moving it again never converges */
+    if (sname === "Done this session" && it.ticked && to === sname && home === proj && it.chip?.label === "Done") { bump(sname, home); if (open.has(it.rowId)) answered.push(it.rowId); continue; }
     if (reason === null) reason = "chip";
     const chipLabel = SECTION_CHIP[to], chipOk = it.chip?.label === chipLabel;
-    if (!chipOk && it.comments.some((c) => !c.answered)) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
+    /* DISC-314 5: lane text that says the work is still going must not reach Done verbatim: the item is re-created as the row's title + "Done." */
+    const rewrite = to === "Done this session" && STALE.test(it.text);
+    const recreate = !chipOk || rewrite;
+    if (recreate && it.comments.some((c) => !c.answered)) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
     const from = { section: sname, project: proj }, dest = { section: to, project: home };
-    if (chipOk) work.push({ op: "move", id: it.id, rowId: it.rowId, from, to: dest, reason, kids: it.kids.length, ...(to === "Done this session" ? { staleText: STALE.test(it.text) } : {}) });
+    const isDone = to === "Done this session";
+    if (!recreate) work.push({ op: "move", id: it.id, rowId: it.rowId, from, to: dest, reason, kids: it.kids.length, ...(isDone ? { staleText: false, ticked: true } : {}) });
     else {
-      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from, to: dest, chip: chipLabel, reason, markdown: toMarkdown({ ...it, chip: { label: chipLabel }, listKind: "check" }), comments: it.comments, ...(to === "Done this session" ? { staleText: STALE.test(it.text) } : {}) });
+      /* DISC-314 4: everything that enters Done is ticked, the ones the operator did not tick (landed) included */
+      const body = rewrite ? { ...it, text: `**${headline(it)}. Done.**` } : it;
+      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from, to: dest, chip: chipLabel, reason, markdown: toMarkdown({ ...body, ticked: isDone || it.ticked, chip: { label: chipLabel }, listKind: "check" }), comments: it.comments, ...(isDone ? { staleText: STALE.test(it.text), ticked: true } : {}) });
       drop(it.comments, "replaceItem", it.id);
     }
     bump(to, home);
@@ -153,12 +171,16 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const sec = section(sname);
     if (!sec) structure.push({ op: "insertSection", name: sname, afterSection: prevName, projects: names.map((x) => x.name) });
     else {
-      let prev = null;
+      /* DISC-314 2: inserts after one anchor stack up newest-first, so a run of missing headings is emitted last-wanted first */
+      let prev = null, run = [];
+      const flush = () => { for (const name of run.reverse()) structure.push({ op: "insertProjectHeading", section: sname, name, afterId: prev ? prev.last : sec.id }); run = []; };
       for (const x of names) {
         const pr = project(sec, x.name);
-        if (!pr) structure.push({ op: "insertProjectHeading", section: sname, name: x.name, afterId: prev ? prev.last : sec.id });
-        prev = pr || prev;
+        if (!pr) { run.push(x.name); continue; }
+        flush();
+        prev = pr;
       }
+      flush();
     }
     prevName = sname;
     if (sname === "Up next") continue;
@@ -169,6 +191,18 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
       if (!n && !incoming && !nothing) tail.push({ op: "insertNothing", section: sname, project: x.name, afterId: pr?.last ?? null });
       else if ((n || incoming) && nothing) tail.push({ op: "removeNode", section: sname, id: nothing.id, why: "the project has items again" });
     }
+  }
+
+  /* DISC-314 3: the connector refuses a move or insert into a project that has no list (shape_mismatch): make the list first */
+  const ensured = new Set();
+  for (const o of work) {
+    const sname = o.to?.section || o.section, pname = o.to?.project || o.project, sec = section(sname);
+    if (!sname || !pname || sname === "Up next" || ensured.has(`${sname}|${pname}`)) continue;
+    /* a project of a section this plan inserts (or whose heading it inserts) has a heading and no list until this op makes it */
+    const pr = sec ? project(sec, pname) : null;
+    if (pr && pr.listIds.length) continue;
+    ensured.add(`${sname}|${pname}`);
+    structure.push(pr ? { op: "ensureList", section: sname, project: pname, afterId: pr.last } : { op: "ensureList", section: sname, project: pname, afterHeading: pname });
   }
 
   /* 3. Up next */
@@ -228,11 +262,20 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], unknown, refused, droppedComments, holds };
 }
 
+/* DISC-314 8: the doc read arrives inline in the session, never as a file: `-` reads stdin; --doc-json takes the connector's JSON result ({ xml }, or the xml as a JSON string) */
+function readDoc(doc, docJson) {
+  const text = readFileSync(doc === "-" || docJson === "-" ? 0 : doc || docJson, "utf8");
+  if (doc) return text;
+  const j = JSON.parse(text), xml = typeof j === "string" ? j : j?.xml ?? j?.node?.xml;
+  if (typeof xml !== "string" || !xml.trim()) throw new Error("the --doc-json input holds no xml field");
+  return xml;
+}
+
 function main() {
   const a = process.argv.slice(2), get = (k) => { const i = a.indexOf(k); return i !== -1 ? a[i + 1] : undefined; };
-  if (!get("--vault") || !get("--doc")) { console.error("usage: status-layout --vault <root> --projects PF,DISC --doc <xml file> [--today YYYY-MM-DD]"); process.exit(1); }
+  if (!get("--vault") || !(get("--doc") || get("--doc-json"))) { console.error("usage: status-layout --vault <root> --projects PF,DISC (--doc <xml file|-> | --doc-json <connector result file|->) [--today YYYY-MM-DD]"); process.exit(1); }
   try {
-    const out = layoutPlan({ vault: resolveVaultRoot(get("--vault")), prefixes: String(get("--projects") || "").split(","), docXml: readFileSync(get("--doc"), "utf8"), today: get("--today") || new Date().toISOString().slice(0, 10) });
+    const out = layoutPlan({ vault: resolveVaultRoot(get("--vault")), prefixes: String(get("--projects") || "").split(","), docXml: readDoc(get("--doc"), get("--doc-json")), today: get("--today") || new Date().toISOString().slice(0, 10) });
     if (out.unknown.length) console.error(`status-layout: ${out.unknown.join(", ")} are on the doc but in no queue or backlog file here: the vault checkout is stale (pull it first); they were not called landed`);
     console.log(JSON.stringify(out, null, 2));
   } catch (e) { console.error(`status-layout: ${e.message}`); process.exit(1); }
