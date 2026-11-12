@@ -24,6 +24,7 @@
               no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
               at each sessions end").
+   DISC-310: the whole-doc layout (project headings, Up next, Done moves, no Go-live) is status-layout.mjs; this script keeps its row-level plan.
    Usage: node queue-page-sync.mjs --vault <root> --projects PF,HB [--doc <file with the doc text>] */
 import { readFileSync } from "node:fs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -131,16 +132,21 @@ export function fromDocsRead(t) {
 
 }
 
-export function syncPlan({ vault, prefixes, docText }) {
-  const r = neededFromYou(vault, prefixes);
-  if (!r.ok) throw new Error(r.reason);
-  const open = new Map();
-  const formatted = new Map();
+/* Every open row of the result: `open` id -> the one-line form, `formatted` id -> the DISC-307 item (formatItem), each in the queue's order. */
+export function openItems(r) {
+  const open = new Map(), formatted = new Map();
   for (const p of r.projects) for (const [kind, rows] of [["queue", p.queue.rows], ["backlog", p.backlog.rows]]) for (const row of rows) {
     open.set(row.id, `- [ ] **(${row.id})** ${clean(cells(row.line)[1] || "")}`);
     const c = cells(row.line);
     formatted.set(row.id, formatItem(kind === "queue" ? { id: row.id, needed: c[1], where: c[2], why: c[3], recommended: c[4] } : { id: row.id, needed: c[1] }));
   }
+  return { open, formatted };
+}
+
+export function syncPlan({ vault, prefixes, docText }) {
+  const r = neededFromYou(vault, prefixes);
+  if (!r.ok) throw new Error(r.reason);
+  const { open, formatted } = openItems(r);
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
   /* DISC-305: one doc for all projects, a `### <PFX> — <project>` heading per project inside Waiting on you and Running now. */

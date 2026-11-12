@@ -33,7 +33,7 @@ down", "stop for now", "let's stop here".
    `hooks/scripts/session-resume.mjs`). The open queue is not copied: the cockpit carries each project's queue path and
    open-row count (the Status doc holds the rows; the pause reply carries only new asks and its link, `needed-from-you.mjs --projects <prefixes> --short --new <ids>`); a handover carries a link
    and the open-row count only.
-   Bring the Status doc's "Running now" current: `queue-page-sync.mjs`, then `get_session` on each item.
+   Bring the Status doc's "Claude's on it" section current: `status-layout.mjs` (`routing` HARD-RULES § The Status doc layout), then `get_session` on each item.
 4. **Confirm in one line.** Name what's paused and that nothing runs until
    resume — no verdict wall.
 
@@ -50,7 +50,7 @@ snapshot".
    from `origin/main`, never from the local or branch copy: a session that kept working after
    its wrap leaves newer state on main, and a stale branch cockpit restarts lanes that already
    merged (`resume-reads-vault-main-first-2026-10-10`).
-1. Run `queue-page-sync.mjs` and check each pinned-checklist "Running now" item with `get_session` before trusting it (output style § Status doc). Run `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>` once: it prints, per lane, branch head, PR/CI, last progress line vs branch reality, contract, next owner, and whether this session's plugin is older than the installed one (reload before dispatching). A cloud parent passes `--released <version>` read from discipline main's `.claude-plugin/plugin.json` (s64, s67: a container ran 1.181.0 for days while 1.184.0 was out) and names any gap in its first status. Then read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`; the first status reply comes before any merge or sweep (`routing` HARD-RULES 24).
+1. Run `queue-page-sync.mjs` and check each "Claude's on it" item with `get_session` before trusting it (output style § Status doc). Run `node <plugin>/hooks/scripts/session-resume.mjs <vault-root>` once: it prints, per lane, branch head, PR/CI, last progress line vs branch reality, contract, next owner, and whether this session's plugin is older than the installed one (reload before dispatching). A cloud parent passes `--released <version>` read from discipline main's `.claude-plugin/plugin.json` (s64, s67: a container ran 1.181.0 for days while 1.184.0 was out) and names any gap in its first status. Then read the snapshot (`projects/<name>/<name>-handover.md`) as it stands on `origin/main`; the first status reply comes before any merge or sweep (`routing` HARD-RULES 24).
    **Re-check every "running" lane** against live PR and branch state (`gh pr view`, branch
    head, merged or closed, draft or ready, whose decision it is) before any re-dispatch; a
    lane whose PR merged, moved on, or is held by the operator is not restarted.
