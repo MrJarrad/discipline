@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,10 +22,10 @@ const comments = (owner, repo, list) => [
   use("mcp__github__pull_request_read", "c", { owner, repo, pullNumber: 10, method: "get_comments" }),
   res("c", JSON.stringify(list.map(([login, body]) => ({ body, user: { login }, created_at: "2026-11-09T08:00:00Z" })))),
 ];
-const run = (lines, owner, repo) => {
+const run = (lines, owner, repo, gh = "/nonexistent/gh") => {
   const p = join(dir, `t${n++}.jsonl`);
   writeFileSync(p, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
-  const out = execFileSync(process.execPath, [gate], { input: JSON.stringify({ tool_name: "mcp__github__merge_pull_request", tool_input: { owner, repo, pullNumber: 10, expectedHeadSha: HEAD }, transcript_path: p }), encoding: "utf8" });
+  const out = execFileSync(process.execPath, [gate], { input: JSON.stringify({ tool_name: "mcp__github__merge_pull_request", tool_input: { owner, repo, pullNumber: 10, expectedHeadSha: HEAD }, transcript_path: p }), encoding: "utf8", env: { ...process.env, DISCIPLINE_GH: gh } });
   return out.trim() ? JSON.parse(out).hookSpecificOutput : { permissionDecision: "allow" };
 };
 const ORG = ["Jarrad-Harvey-Design", "figma-agent-handoff-toolkit"];
@@ -65,4 +65,27 @@ test("s75 7: a vault merge with no notes-only proof is refused and the message s
   const r = run([], "MrJarrad", "jhd-vault");
   assert.equal(r.permissionDecision, "deny");
   assert.match(r.permissionDecisionReason, /run plain, exactly as printed: no pipe/);
+});
+
+// DISC-296: the gate also trusts the authenticated gh user (as trustedLogins() in merge-after-review.mjs does), so an
+// org-owned repo's verdict, authored by the operator's account, clears even when the session never called get_me.
+function fakeGh(body) {
+  const f = join(dir, `gh${n++}`);
+  writeFileSync(f, `#!/bin/sh\n${body}\n`);
+  chmodSync(f, 0o755);
+  return f;
+}
+test("DISC-296 org repo: no get_me, but the authenticated gh user authored the verdict, clears the merge", () => {
+  const gh = fakeGh("echo MrJarrad");
+  assert.equal(run(comments(...ORG, [["MrJarrad", yes]]), ...ORG, gh).permissionDecision, "allow");
+});
+test("DISC-296 org repo: a verdict by someone other than the gh user is still refused", () => {
+  const gh = fakeGh("echo MrJarrad");
+  assert.equal(run(comments(...ORG, [["drive-by", yes]]), ...ORG, gh).permissionDecision, "deny");
+});
+test("DISC-296 org repo: gh unavailable falls back to the owner alone, so the refusal stands and names get_me", () => {
+  const gh = fakeGh("exit 1");
+  const r = run(comments(...ORG, [["MrJarrad", yes]]), ...ORG, gh);
+  assert.equal(r.permissionDecision, "deny");
+  assert.match(r.permissionDecisionReason, /get_me/);
 });

@@ -44,3 +44,7 @@ test("s79: status in the pinned doc is enforced by tool, and a stale plugin is l
   assert.ok(on("SessionStart").some((c) => c.includes("plugin-freshness.mjs\" start")));
   assert.ok(on("Stop").some((c) => c.includes("plugin-freshness.mjs\" stop")));
 });
+test("DISC-296: the merge gate also trusts the authenticated gh user, not only the repo owner and get_me", () => {
+  has("hooks/bin/merge-review-gate.mjs", "const me = reads.me.length ? reads.me : ghLogin();");
+  has("hooks/bin/merge-review-gate.mjs", "gh unavailable -> the owner alone");
+});
