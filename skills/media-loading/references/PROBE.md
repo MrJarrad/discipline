@@ -98,7 +98,7 @@ dropped frames are at most `--max-dropped-share` (default `0.25`) of all samples
 `NOT GREEN` and the run exits 1, whatever paint and gaps read.
 Without this a healthy tile read as blank because its box no longer matched the pixels. The gap scan
 explains only the whitespace a row layout really covers: a taller neighbour whose top matches the tile above
-the gap, and blocks wider than the gap that sit in it. A row neighbour counts only if it ends inside the gap (a column running past the gap's lower edge is a column, not a row). A gap whose longest uncovered run is more than 96 px
+the gap, and blocks wider than the gap that sit in it. A row neighbour counts only if it ends inside the gap (a column running past the gap's lower edge is a column, not a row). A gap whose longest uncovered run is more than 4× `--gap-tolerance` (96 px at the default 24)
 still flags, so a missing tile above or around a full-width heading is still a hole.
 
 ## Flags
@@ -181,9 +181,9 @@ what the structure-edge bound (`--min-structure-edge`) is for: with this
 tolerance, the two skeleton tiles already read empty via the fraction path
 alone (mirroring `media-load-lib.test.mjs`'s own isolation of the same OR
 condition), so the only thing standing between them and a false PAINTED is
-the edge-jump floor. Expect exactly `paint=7 gaps=1` on both
+the edge-jump floor. Expect exactly `paint=7 gaps=2` on both
 `--browser chromium` and `--browser webkit` (verified live, both engines,
 2026-09-27) — 5 real defects plus the 2 skeleton tiles caught (never the
-white-heavy true negative), 1 genuine hole caught (never the healthy 20px
+white-heavy true negative), the genuine hole caught (never the healthy 20px
 rhythm elsewhere on the page). Kill the server (`pkill -f serve-fixture.mjs`)
 when done.

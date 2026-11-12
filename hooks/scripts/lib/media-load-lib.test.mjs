@@ -705,3 +705,16 @@ test("a hole beside a top-aligned neighbour that runs PAST the gap's lower edge 
   const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 0, 100, 800), tileAt(300, 0), tileAt(300, 164), tileAt(300, 328)];
   assert.ok(scanFrameForColumnGaps(rects, { width: 400, height: 900 }).some((g) => g.left === 0 && g.top === 264));
 });
+
+test("the covered-gap allowance follows --gap-tolerance: 4x the tolerance, and an explicit rowSpacingPx wins", () => {
+  // Left tile (0..100) beside a taller right neighbour (0..200) that ends inside the 100..260 gap: 60px stays uncovered.
+  const rects = [
+    tileAt(0, 0, 100, 100), tileAt(0, 260, 100, 100),
+    tileAt(150, 0, 100, 200), tileAt(150, 264, 100, 100),
+    tileAt(300, 0), tileAt(300, 164), tileAt(300, 328), tileAt(300, 492), // 64px rhythm
+  ];
+  const vp = { width: 400, height: 700 };
+  assert.deepEqual(scanFrameForColumnGaps(rects, vp), [], "default tolerance 24 -> allowance 96 -> 60px is row spacing");
+  assert.ok(scanFrameForColumnGaps(rects, vp, { tolerancePx: 12 }).some((g) => g.left === 0), "tolerance 12 -> allowance 48 -> 60px is a hole");
+  assert.deepEqual(scanFrameForColumnGaps(rects, vp, { tolerancePx: 12, rowSpacingPx: 96 }), [], "an explicit rowSpacingPx wins");
+});
