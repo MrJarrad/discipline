@@ -27,3 +27,7 @@ test("s83 3: cloud pushes branches, never tags or branch deletes; the tag goes a
 test("s83 4: a plugin schema bump releases the checker first; shipped strings are checked at the source", () => {
   assert.ok(flat("skills/release-deploy/references/RELEASE-PATH.md").includes("A plugin's schema test reads the installed checker, so a schema bump ships only after the checker release is out."));
 });
+
+test("s83 5: a reviewer brief names the reviewer's own session id source", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("**A reviewer brief names the id to sign with** (s83: reviewers copied the parent's id from `~/.claude/helper-session` into `reviewer:`)"));
+});
