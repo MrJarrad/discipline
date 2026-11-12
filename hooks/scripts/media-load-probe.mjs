@@ -152,7 +152,33 @@ export const USAGE =
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
   "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
-  "[--min-visible-area 0-1] [--max-dropped-share 0-1] | --help";
+  "[--min-visible-area 0-1] [--max-dropped-share 0-1] [--header \"Name: value\" ...] | --help";
+
+// `--header "Name: value"` (repeatable): split at the first colon. A malformed one
+// throws naming the flag only, never echoing the text, since values can be secrets.
+export function parseHeaders(list) {
+  const headers = {};
+  for (const raw of list) {
+    const at = typeof raw === "string" ? raw.indexOf(":") : -1;
+    if (at < 1) throw new Error('--header needs "Name: value"');
+    headers[raw.slice(0, at).trim()] = raw.slice(at + 1).trim();
+  }
+  return headers;
+}
+
+// Names only: header values (an access token, say) never reach logs or reports.
+export function headerNamesLine(headers) {
+  const names = Object.keys(headers);
+  return names.length ? `headers sent: ${names.join(", ")}` : "";
+}
+
+// The browser-context options shared by chromium, webkit and `--channel chrome`;
+// `extraHTTPHeaders` rides on the context so every request carries the headers.
+export function buildContextOptions(opts) {
+  const ctx = { viewport: { width: opts.width, height: opts.height }, deviceScaleFactor: opts.dpr };
+  if (opts.headers && Object.keys(opts.headers).length > 0) ctx.extraHTTPHeaders = opts.headers;
+  return ctx;
+}
 
 export function parseArgs(argv) {
   const [url, ...rest] = argv;
@@ -180,6 +206,7 @@ export function parseArgs(argv) {
     arrivalWindowMs: DEFAULT_ARRIVAL_WINDOW_MS,
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
     maxDroppedShare: 0.25,
+    header: [],
   };
   const keyMap = {
     "gap-tolerance": "gapTolerance",
@@ -202,15 +229,18 @@ export function parseArgs(argv) {
       continue;
     }
     i++;
-    opts[key] = rest[i];
+    if (key === "header") opts.header.push(rest[i]);
+    else opts[key] = rest[i];
   }
   // `--help` (or a bare `-h`) anywhere in argv, including as the URL slot
   // itself (`node media-load-probe.mjs --help`), asks for usage — never
   // treated as a URL to navigate to.
   if (url === "--help" || url === "-h" || argv.includes("-h")) opts.help = true;
   const [width, height] = opts.viewport.split("x").map(Number);
+  const { header: rawHeaders, ...restOpts } = opts;
   return {
-    ...opts,
+    ...restOpts,
+    headers: parseHeaders(rawHeaders),
     url: opts.help ? undefined : url,
     width,
     height,
@@ -497,10 +527,7 @@ async function run(opts) {
   if (opts.channel) launchOpts.channel = opts.channel;
   if (opts.headed) launchOpts.headless = false;
   const browser = await engine.launch(launchOpts);
-  const context = await browser.newContext({
-    viewport: { width: opts.width, height: opts.height },
-    deviceScaleFactor: opts.dpr,
-  });
+  const context = await browser.newContext(buildContextOptions(opts));
   const page = await context.newPage();
   await throttle(page, opts.network);
   // 1.96.0 fix round 2: `domcontentloaded` fires before the browser has even
@@ -599,6 +626,8 @@ async function main() {
     process.exit(1);
   }
   const reps = [];
+  const headerLine = headerNamesLine(opts.headers);
+  if (headerLine) console.log(headerLine);
   for (let i = 0; i < opts.reps; i++) {
     const r = await run(opts);
     reps.push(r);
