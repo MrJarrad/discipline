@@ -17,7 +17,9 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "would it be better to perhaps group by status and sub group by project?",
     "`## Ready for you`, `## You're on it`, `## Claude's on it` (running lanes live here; there is no Running now), `## Up next`, `## Done this session`, then `Backlogs`",
     "An item's section always matches its chip",
-    "moving an item is delete plus insert with the new chip (the connector cannot set a chip in place)",
+    "a section move is the connector's `move` (it keeps block ids, children and comment threads); delete plus insert (`replaceItem`, carrying the whole item with every child) only where the chip itself must change, because the connector cannot set a chip in place",
+    "the plan names every comment thread an op would drop (`droppedComments`) and refuses (`refused`) any op over an unanswered one",
+    "one row is one section: a row on the doc twice keeps the live lane's item (`removeDuplicate`), and a row with Mac work still queued (`holds`) is never Done",
     "when the operator flips a chip the next run moves the item and banks an open queue row as answered (`answered`)",
     "Each section has a `###` heading per session project (Portfolio, Discipline, Handoff toolkit), \"Nothing.\" when a project is empty",
     "Up next is each project's first five from its backlog's `## Up next` ordered list (Portfolio: `projects/portfolio/portfolio-go-live.md`, with \"Launch: N of M done\" and a link)",
@@ -31,4 +33,11 @@ test("DISC-310: the output style and wrap point at the rule instead of restating
   assert.ok(flat("output-styles/discipline.md").includes("(DISC-310, `routing` HARD-RULES)"));
   const w = flat("skills/wrap/references/SECTIONS.md");
   assert.ok(w.includes("status-layout.mjs --vault <vault> --projects <prefixes> --doc <xml>") && w.includes("ticked items move to Done this session"));
+});
+
+test("DISC-310 round 2: the always-on style no longer lists the old sections; it points at the layout rule and status-layout.mjs", () => {
+  const style = flat("output-styles/discipline.md");
+  assert.ok(!style.includes("Sections: **Waiting on you**") && !style.includes("**Running now** (`- [ ]` per lane"));
+  assert.ok(style.includes("§ The Status doc layout: **run `status-layout.mjs`**"));
+  for (const f of ["skills/pause-resume/SKILL.md", "skills/wrap/references/SECTIONS.md", "output-styles/discipline.md"]) assert.ok(!/"Running now"/.test(flat(f)), f);
 });

@@ -49,14 +49,24 @@ export function render(paragraph) {
   return parts.join("").replace(/\s+/g, " ").trim();
 }
 
+/* Comment threads under a node, once each by id: { id, answered } (a comment without answered='true' is unanswered). */
+export function commentsOf(node, out = []) {
+  for (const c of node.children || []) {
+    if (c.name === "comment" && !out.some((x) => x.id === c.attrs.id)) out.push({ id: c.attrs.id, answered: c.attrs.answered === "true" });
+    else commentsOf(c, out);
+  }
+  return out;
+}
+const mergeComments = (...lists) => { const out = []; for (const l of lists) for (const c of l) if (!out.some((x) => x.id === c.id)) out.push(c); return out; };
+
 const ID = /^\**\(?([A-Z]{2,4}-\d+[a-z]?)\)?/;
-function item(li) {
+function item(li, listKind = "check") {
   const p = li.children.find((c) => c.name === "paragraph");
   const dd = p?.children.find((c) => c.name === "dropdown");
   const text = p ? render(p) : "";
-  const kids = li.children.filter((c) => c.name === "list").flatMap((l) => l.children.filter((c) => c.name === "listItem").map(item));
+  const kids = li.children.filter((c) => c.name === "list").flatMap((l) => l.children.filter((c) => c.name === "listItem").map((k) => item(k, l.attrs.kind || "bullet")));
   const index = dd ? Number(dd.attrs.index) : null;
-  return { id: li.attrs.id, text, ticked: li.attrs.checked === "true", chip: dd ? { index, label: CHIPS[index] ?? decode(dd.children.map((c) => c.text || "").join("")) } : null, rowId: ID.exec(text)?.[1] ?? /\(([A-Z]{2,4}-\d+[a-z]?)\)/.exec(text)?.[1] ?? null, kids };
+  return { id: li.attrs.id, text, ticked: li.attrs.checked === "true", chip: dd ? { index, label: CHIPS[index] ?? decode(dd.children.map((c) => c.text || "").join("")) } : null, rowId: ID.exec(text)?.[1] ?? /\(([A-Z]{2,4}-\d+[a-z]?)\)/.exec(text)?.[1] ?? null, kids, listKind, comments: commentsOf(li) };
 }
 
 export function parseStatusDoc(xml) {
@@ -66,20 +76,28 @@ export function parseStatusDoc(xml) {
   let section = null, project = null;
   for (const c of docNode.children) {
     /* every top-level node after a section heading belongs to it (nodeIds, last); a project's last node is tracked the same way */
-    if (section && !(c.name === "paragraph" && Number(c.attrs.heading) === 2)) { section.nodeIds.push(c.attrs.id); section.last = c.attrs.id; if (project && !(c.name === "paragraph" && Number(c.attrs.heading) === 3)) project.last = c.attrs.id; }
+    if (section && !(c.name === "paragraph" && Number(c.attrs.heading) === 2)) { section.nodeIds.push(c.attrs.id); section.last = c.attrs.id; section.comments = mergeComments(section.comments, commentsOf(c)); if (project) project.comments = mergeComments(project.comments, commentsOf(c)); if (project && !(c.name === "paragraph" && Number(c.attrs.heading) === 3)) project.last = c.attrs.id; }
     if (c.name === "paragraph") {
       const level = Number(c.attrs.heading) || 0, text = render(c);
       if (level === 1) { out.title = text; continue; }
-      if (level === 2) { section = { name: text, id: c.attrs.id, paras: [], items: [], projects: [], listIds: [], nodeIds: [c.attrs.id], last: c.attrs.id }; project = null; out.sections.push(section); continue; }
-      if (level === 3 && section) { project = { name: text, id: c.attrs.id, paras: [], items: [], listIds: [], last: c.attrs.id }; section.projects.push(project); continue; }
+      if (level === 2) { section = { name: text, id: c.attrs.id, paras: [], items: [], projects: [], listIds: [], nodeIds: [c.attrs.id], last: c.attrs.id, comments: commentsOf(c) }; project = null; out.sections.push(section); continue; }
+      if (level === 3 && section) { project = { name: text, id: c.attrs.id, paras: [], items: [], listIds: [], last: c.attrs.id, comments: commentsOf(c) }; section.projects.push(project); continue; }
       const date = c.children.find((k) => k.name === "date");
       if (date && !section) { out.date = date.attrs.value; out.dateId = c.attrs.id; continue; }
       if (!text) continue;
       (project || section)?.paras.push({ id: c.attrs.id, text });
     } else if (c.name === "list" && section) {
       (project || section).listIds.push(c.attrs.id);
-      (project || section).items.push(...c.children.filter((k) => k.name === "listItem").map(item));
+      (project || section).items.push(...c.children.filter((k) => k.name === "listItem").map((k) => item(k, c.attrs.kind || "bullet")));
     }
   }
   return out;
+}
+
+/* An item and every child as markdown, chips and ticks kept: what an op that re-creates the item must carry. */
+export function toMarkdown(it, depth = 0) {
+  const pad = "  ".repeat(depth);
+  const chip = it.chip ? `[${it.chip.label}] ` : "";
+  const box = it.listKind === "check" ? `[${it.ticked ? "x" : " "}] ` : "";
+  return [`${pad}- ${box}${chip}${it.text}`, ...it.kids.map((k) => toMarkdown(k, depth + 1))].join("\n");
 }

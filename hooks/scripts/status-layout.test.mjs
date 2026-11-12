@@ -12,14 +12,17 @@ import { LIVE } from "./fixtures/status-doc-live.mjs";
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
 const Q = "| # | Needed | Where | Why | Recommended |\n| - | - | - | - | - |\n";
 const B = "| # | Item | Raised | Status |\n| - | --- | --- | --- |\n";
-function vault() {
+function vault({ hbOpen = true } = {}) {
   const v = mkdtempSync(join(tmpdir(), "sl-"));
   const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
-  put("projects/portfolio/portfolio-queue.md", FM("PF", "queue") + Q + "| PF-1585 | Look at glow round 4 | | | |\n| PF-797 | Your final review before the holding screen lifts | | | |\n| PF-65 | Media for each case study | | | |\n| PF-1600 | Look at the new header | reply here | | |\n| ~~PF-1598~~ | ~~Header flicker~~ | | | |\n");
+  put("projects/portfolio/portfolio-queue.md", FM("PF", "queue") + Q + "| PF-1585 | Look at glow round 4 | | | |\n| PF-797 | Your final review before the holding screen lifts | | | |\n| PF-65 | Media for each case study | | | |\n| PF-1600 | Look at the new header | reply here | | |\n| ~~PF-1598~~ | ~~Header flicker~~ | | | |\n| ~~PF-1596~~ | ~~Sharper board~~ | | | |\n");
   put("projects/portfolio/portfolio-backlog.md", FM("PF", "backlog") + "## Open\n\n" + B + "| PF-1505 | Time Circuits lag | d | open |\n");
   put("projects/portfolio/portfolio-go-live.md", "---\nname: portfolio go-live\nkind: checklist\n---\n# Go-live\n\n## 1. Site bugs and polish\n\n- [x] PF-1507 · Glide fill\n- [ ] PF-1505 · Time Circuits still laggy\n- [ ] PF-1531 · Glow sits on each piece of media\n- [ ] PF-1475 · Grid on a phone: one image paints late\n\n## 2. Tests and tooling\n\n- [x] PF-1420 · Media import\n- [ ] PF-1464 · Import checklist records film length\n\n## 3. Checks before launch\n\n- [ ] PF-1391 · Safari and iPhone\n\n## 4. Launch steps\n\n- [ ] PF-1412 · Switch to live\n\n## 5. After launch\n\n- [ ] PF-1396 · Raise HTTPS setting\n");
-  put("projects/jhd-discipline/jhd-discipline-queue.md", FM("DISC", "queue") + Q + "| DISC-311 | One short extra round on the Status item fix | | | |\n| ~~DISC-303~~ | ~~One tap per release~~ | | | |\n| ~~DISC-999~~ | ~~A finished ask~~ | | | |\n");
-  put("projects/jhd-discipline/jhd-discipline-backlog.md", FM("DISC", "backlog") + "## Up next\n\n1. DISC-306 — first thing\n2. DISC-309\n3. DISC-310\n4. DISC-312\n5. DISC-313\n6. DISC-314\n\n## Open\n\n" + B + "| DISC-306 | Plugin stale: more clearly | d | open |\n| DISC-309 | Another item | d | open |\n| DISC-310 | Status doc restructure | d | open |\n| DISC-312 | Twelfth | d | open |\n| DISC-313 | Thirteenth | d | open |\n| DISC-314 | Fourteenth, past the top five | d | open |\n");
+  put("projects/jhd-discipline/jhd-discipline-queue.md", FM("DISC", "queue") + Q + "| DISC-311 | One short extra round on the Status item fix | | | |\n| ~~DISC-303~~ | ~~One tap per release~~ | | | |\n| ~~DISC-999~~ | ~~A finished ask~~ | | | |\n| ~~DISC-304~~ | ~~Delete the test branch~~ | | | |\n");
+  put("projects/jhd-discipline/jhd-discipline-backlog.md", FM("DISC", "backlog") + "## Up next\n\n1. DISC-306 — first thing\n2. DISC-309\n3. DISC-310\n4. DISC-312\n5. DISC-313\n6. DISC-314\n\n## Open\n\n" + B + "| DISC-306 | Plugin stale: more clearly | d | open |\n| DISC-309 | Another item | d | open |\n| DISC-310 | Status doc restructure | d | open |\n| DISC-312 | Twelfth | d | open |\n| DISC-313 | Thirteenth | d | open |\n| DISC-314 | Vault graph model migration, the rest of decision [[2026-11-02-vault-graph-model]] after the straggler tidy (jhd-vault #878): kind: and up: on every note and many more words follow here | d | open |\n");
+  put("queue/mac/review/20261112T160000Z-delete-probe-branch.md", "---\nrepo: ~/JHD/ai/discipline/main\n---\nDelete the throwaway branch s81-vendor-probe (DISC-304). No background tasks, no subagents.\n");
+  put("projects/hoverboard/hoverboard-queue.md", FM("HB", "queue") + Q + (hbOpen ? "| HB-1 | Pick the hover colour | | | |\n" : "| ~~HB-1~~ | ~~Pick the hover colour~~ | | | |\n"));
+  put("projects/hoverboard/hoverboard-backlog.md", FM("HB", "backlog") + "## Open\n\n" + B + (hbOpen ? "| HB-2 | A hoverboard idea | d | open |\n" : ""));
   put("projects/handoff-toolkit/handoff-toolkit-queue.md", FM("HT", "queue") + Q + "| HT-95 | Invite your friend to the toolkit | | | |\n");
   put("projects/handoff-toolkit/handoff-toolkit-backlog.md", FM("HT", "backlog") + "## Open\n\n" + B + "| HT-1 | something | d | open |\n");
   return v;
@@ -36,7 +39,7 @@ test("the date line is set to today when it differs", () => {
   assert.deepEqual(ops(plan({ docXml: LIVE.replace("2026-11-10", "2026-11-12") }), "setDate"), []);
 });
 // DISC-310 amendment (operator s82): the sections ARE the chip values: Ready for you, You're on it, Claude's on it, Up next, Done this session.
-const move = (p, id) => p.ops.find((o) => o.op === "moveItem" && o.id === id);
+const move = (p, id) => p.ops.find((o) => (o.op === "move" || o.op === "replaceItem") && o.id === id);
 test("every section is a chip value, in order, each with the three project headings; the sections they replace are removed once their items moved", () => {
   const p = plan();
   assert.deepEqual(ops(p, "insertSection").map((o) => [o.name, o.afterSection, o.projects]), [
@@ -47,16 +50,16 @@ test("every section is a chip value, in order, each with the three project headi
 });
 test("an item's section follows its chip: Ready for you 0, You're on it 1, Claude's on it 3; a ticked item or a closed row goes to Done with chip Done", () => {
   const p = plan();
-  const to = (id) => [move(p, id).to.section, move(p, id).to.project, move(p, id).chip, move(p, id).reason];
-  assert.deepEqual(to(".32090"), ["Ready for you", "Portfolio", "Ready for you", "layout"], "PF-797");
-  assert.deepEqual(to(".31651"), ["You're on it", "Portfolio", "You're on it", "layout"], "PF-65, nested list moves with it");
-  assert.deepEqual(to(".33589"), ["Claude's on it", "Portfolio", "Claude's on it", "layout"], "PF-1585");
+  const to = (id) => [move(p, id).to.section, move(p, id).to.project, move(p, id).chip ?? "kept", move(p, id).reason];
+  assert.deepEqual(to(".32090"), ["Ready for you", "Portfolio", "kept", "layout"], "PF-797: its chip already says Ready, so the block just moves");
+  assert.deepEqual(to(".31651"), ["You're on it", "Portfolio", "kept", "layout"], "PF-65, nested list moves with it");
+  assert.deepEqual(to(".33589"), ["Claude's on it", "Portfolio", "kept", "layout"], "PF-1585");
   assert.deepEqual(to(".40753"), ["Done this session", "Portfolio", "Done", "ticked"], "PF-1598");
   assert.deepEqual(to(".38335"), ["Done this session", "Discipline", "Done", "ticked"], "DISC-303");
-  assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "Ready for you", "layout"], "DISC-311 is an open row here");
+  assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "kept", "layout"], "DISC-311 is an open row here");
   const landed = move(plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-999)") }), ".43205");
   assert.deepEqual([landed.to.section, landed.chip, landed.reason], ["Done this session", "Done", "landed"], "a Ready item whose row is struck in the vault goes to Done");
-  assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "Ready for you", "layout"], "HT-95");
+  assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "kept", "layout"], "HT-95");
 });
 test("running lines: a ticked one goes to Done; one with no chip lands in Claude's on it with the chip set", () => {
   const p = plan();
@@ -88,12 +91,16 @@ test("the operator flips a chip in the doc: the item moves to the matching secti
 test("Up next: Discipline reads the ordered ## Up next of its backlog, top five with titles, skipping rows already Ready, You're on it or Claude's on it (DISC-310 is Claude's on it)", () => {
   const p = plan();
   const disc = ops(p, "setUpNext").find((o) => o.project === "Discipline");
-  assert.deepEqual(disc.lines, ["- (DISC-306) Plugin stale: more clearly", "- (DISC-309) Another item", "- (DISC-312) Twelfth", "- (DISC-313) Thirteenth", "- (DISC-314) Fourteenth, past the top five"]);
+  assert.deepEqual(disc.lines.slice(0, 4), ["- (DISC-306) Plugin stale: more clearly", "- (DISC-309) Another item", "- (DISC-312) Twelfth", "- (DISC-313) Thirteenth"]);
+  const long = disc.lines[4].replace("- (DISC-314) ", "");
+  assert.ok(!long.includes("[[") && !long.includes("]]"), "a wikilink reads as its plain text: " + long);
+  assert.ok(long.startsWith("Vault graph model migration, the rest of decision 2026-11-02-vault-graph-model after the") && long.endsWith("…") && long.length <= 91, long);
+  assert.ok(!/\bs…$/.test(long) && !/\(jhd…$/.test(long), "cut at a word boundary, not mid-word or inside a parenthesis: " + long);
   assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Handoff toolkit").lines, ["Nothing."]);
 });
-test("Up next: Portfolio comes from the go-live file (first unticked lines, never one already in play: PF-1531 is Claude's on it) with the launch count and a link", () => {
+test("Up next: Portfolio comes from the go-live file (first unticked lines, never one already in play: PF-1531 and PF-1505 are named by Claude's on it lines) with the launch count and a link", () => {
   const p = plan();
-  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1505) Time Circuits still laggy", "- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live"]);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live", "- (PF-1396) Raise HTTPS setting"]);
   assert.deepEqual(ops(p, "setLaunchLine").map((o) => o.text), [`Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`]);
 });
 test("Done this session: the explanatory note goes; the Go-live section goes whole", () => {
@@ -105,8 +112,11 @@ test("Done this session: the explanatory note goes; the Go-live section goes who
 test("Backlogs: one link per session project, in order, replacing a list that misses one", () => {
   const b = ops(plan(), "setBacklogLinks");
   assert.equal(b.length, 1);
-  assert.deepEqual(b[0].links, [{ label: "Portfolio", url: `${BASE}/projects/portfolio/portfolio-backlog.md` }, { label: "Discipline", url: `${BASE}/projects/jhd-discipline/jhd-discipline-backlog.md` }, { label: "Handoff toolkit", url: `${BASE}/projects/handoff-toolkit/handoff-toolkit-backlog.md` }]);
+  assert.deepEqual(b[0].links, [{ label: "Portfolio", url: `${BASE}/projects/portfolio/portfolio-backlog.md` }, { label: "Discipline", url: `${BASE}/projects/jhd-discipline/jhd-discipline-backlog.md` }, { label: "Handoff toolkit", url: `${BASE}/projects/handoff-toolkit/handoff-toolkit-backlog.md` }, { label: "Hoverboard", url: `${BASE}/projects/hoverboard/hoverboard-backlog.md` }], "the doc's Hoverboard link stays while that project has open rows");
   assert.equal(b[0].id, ".1613");
+  const gone = ops(layoutPlan({ vault: vault({ hbOpen: false }), prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE }), "setBacklogLinks")[0];
+  assert.deepEqual(gone.links.map((l) => l.label), ["Portfolio", "Discipline", "Handoff toolkit"]);
+  assert.deepEqual(gone.dropped, ["Hoverboard"], "a link left out is named in the plan, never silent");
 });
 test("a doc already in the layout produces no ops (a second run is empty)", () => {
   let hn = 0;
@@ -128,6 +138,58 @@ test("a doc already in the layout produces no ops (a second run is empty)", () =
     + h("Backlogs", 2) + list("bk", "bullet", ...["portfolio/portfolio", "jhd-discipline/jhd-discipline", "handoff-toolkit/handoff-toolkit"].map((x, i) => li(`bk${i}`, `<link href='${BASE}/projects/${x}-backlog.md'>${["Portfolio", "Discipline", "Handoff toolkit"][i]}</link>`)))
     + "</doc>";
   assert.deepEqual(plan({ docXml: ok }).ops, []);
+});
+// DISC-310 round 2 (review of #192, session_019vvsL13jPRvdiiXyyekYaH)
+test("RED 1: a delete+insert op carries the WHOLE item (every child, chip and tick) so nothing is lost at the destination; PF-65's checklist and PF-1598's Problem/Decision travel", () => {
+  const ticked = LIVE.replace("<listItem id='.31651' rev='269' h='3a0af54e'>", "<listItem id='.31651' rev='269' h='3a0af54e' checked='true'>");
+  const pf65 = plan({ docXml: ticked }).ops.find((o) => o.op === "replaceItem" && o.id === ".31651");
+  assert.equal(pf65.chip, "Done");
+  assert.ok(pf65.markdown.startsWith("- [x] [Done] **(PF-65) Media for each case study.**"), pf65.markdown);
+  assert.ok(pf65.markdown.includes("\n  - [x] [Done] Yardsale") && pf65.markdown.includes("\n  - [ ] [You're on it] Sabina Savage"), "the nested checklist keeps its ticks and chips");
+  const pf1598 = plan().ops.find((o) => o.op === "replaceItem" && o.id === ".40753");
+  for (const t of ["\n  - **Problem:** the card title shown in the header caught the pointer.", "\n  - **Decision:** while a card is held", "\n    - **Recommended:** keep it unclickable.", "\n    - **Alternative:** keep it clickable another way."]) assert.ok(pf1598.markdown.includes(t), t);
+});
+test("amber 3: a section move that needs no new chip is the connector's `move` (keeps block ids, children, comment threads); delete+insert (`replaceItem`) only where the chip itself changes", () => {
+  const p = plan();
+  const pf65 = p.ops.find((o) => o.id === ".31651"), pf797 = p.ops.find((o) => o.id === ".32090"), pf1598 = p.ops.find((o) => o.id === ".40753");
+  assert.deepEqual([pf65.op, pf65.to.section, pf65.kids], ["move", "You're on it", 2]);
+  assert.deepEqual([pf797.op, pf797.to.section, pf797.kids], ["move", "Ready for you", 0]);
+  assert.equal(pf1598.op, "replaceItem", "its chip must become Done");
+});
+test("amber 3: the plan names every comment thread an op would drop; an answered one is listed, an UNANSWERED one refuses the op", () => {
+  const p = plan();
+  const dropped = p.droppedComments.map((c) => `${c.id}|${c.op}`);
+  for (const d of ["9f8eaeb7-56b8|replaceItem", "b60a38fc-e0cf|removeNode", "6686672e-610e|removeSection", "bb7a2b05-65bd|removeDuplicate"]) assert.ok(dropped.includes(d), d + " in " + dropped.join(", "));
+  assert.ok(p.droppedComments.every((c) => c.answered === true));
+  const bad = plan({ docXml: LIVE.replace("<comment id='9f8eaeb7-56b8' to='claude' answered='true'/><text id='.40756'>", "<comment id='9f8eaeb7-56b8' to='claude'/><text id='.40756'>") });
+  assert.ok(!bad.ops.some((o) => o.id === ".40753"), "PF-1598 is not deleted over an unanswered thread");
+  assert.deepEqual(bad.refused.filter((r) => r.id).map((r) => [r.id, r.rowId, r.reason]), [[".40753", "PF-1598", "unanswered comment thread"]]);
+  assert.ok(bad.refused.some((r) => r.section === "Waiting on you" && /still holds/.test(r.reason)), "the old section is not removed while it still holds that item");
+  assert.ok(!bad.ops.some((o) => o.op === "removeSection" && o.name === "Waiting on you"));
+  const gl = plan({ docXml: LIVE.replace("<comment id='6686672e-610e' to='claude' answered='true'/><text id='.9026'>", "<comment id='6686672e-610e' to='claude'/><text id='.9026'>") });
+  assert.ok(!gl.ops.some((o) => o.op === "removeSection" && o.name === "Go-live"));
+  assert.ok(gl.refused.some((r) => r.section === "Go-live"), "the Go-live section is refused, not removed");
+});
+test("amber 4: one row, one section: a row on the doc twice keeps the live lane's item and the other copy is removed (PF-1596: the ticked Waiting copy goes, the Claude's-on-it line stays)", () => {
+  const p = plan();
+  assert.deepEqual(ops(p, "removeDuplicate").map((o) => [o.id, o.rowId, o.keptId]).filter((x) => x[1] === "PF-1596"), [[".35506", "PF-1596", ".39504"]]);
+  assert.ok(!p.ops.some((o) => o.id === ".35506" && o.op !== "removeDuplicate"), "the duplicate is not also moved to Done");
+  assert.equal(move(p, ".39504").to.section, "Claude's on it");
+});
+test("amber 4: a row with Mac work still queued (a pending, review or running job names it) is never Done: DISC-304 stays in Claude's on it, once", () => {
+  const p = plan();
+  assert.deepEqual(ops(p, "removeDuplicate").filter((o) => o.rowId === "DISC-304").map((o) => [o.id, o.keptId]), [[".38721", ".40125"]]);
+  assert.equal(move(p, ".40125").to.section, "Claude's on it");
+  assert.deepEqual(p.holds, [{ rowId: "DISC-304", job: "queue/mac/review/20261112T160000Z-delete-probe-branch.md" }]);
+  const alone = `<doc node='n'><paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='h2' heading='2'><text id='t'>Ready for you</text></paragraph><paragraph id='h3' heading='3'><text id='t'>Discipline</text></paragraph><list id='l' kind='check'><listItem id='i' checked='true'><paragraph id='x'><dropdown id='dd' enum='e' index='3'>Claude's on it</dropdown><text id='t'> </text><text id='t2'><bold>(DISC-304) Delete the test branch.</bold></text></paragraph></listItem></list></doc>`;
+  const q = plan({ docXml: alone });
+  assert.deepEqual([move(q, "i").to.section, move(q, "i").reason], ["Claude's on it", "pending"], "ticked, but its work is not done");
+});
+test("note 5: an item sent to Done whose lane text says it is still being worked on is flagged for a rewrite", () => {
+  const p = plan();
+  assert.equal(p.ops.find((o) => o.id === ".39741").staleText, false, "'fix ready, link in Waiting on you' is a result, not a lane in flight");
+  const building = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") });
+  assert.equal(building.ops.find((o) => o.id === ".42857").staleText, true, "'building, helper session_…' goes to Done verbatim otherwise");
 });
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

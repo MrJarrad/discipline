@@ -9,17 +9,17 @@ import { dirname, join } from "node:path";
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(repo, p), "utf8").replace(/\s+/g, " ");
 
-test("wrap brings the checklist's Running now current and empties Done this session", () => {
+test("wrap brings the checklist's Claude's on it section current and empties Done this session", () => {
   assert.match(flat("skills/wrap/SKILL.md"), /the pinned-checklist sync \(\[SECTIONS\.md\]/);
   const t = flat("skills/wrap/references/SECTIONS.md");
   assert.match(t, /queue-page-sync\.mjs/);
-  assert.match(t, /"Running now" item with `get_session`/);
+  assert.match(t, /"Claude's on it" item with `get_session`/);
   assert.match(t, /delete every `clearAtWrap`\s+line so "Done this session" starts empty/);
 });
-test("pause-resume reconciles Running now on resume and at pause", () => {
+test("pause-resume reconciles Claude's on it on resume and at pause", () => {
   const t = flat("skills/pause-resume/SKILL.md");
   assert.match(t, /queue-page-sync\.mjs/);
-  assert.match(t, /"Running now" .{0,80}`get_session`/);
+  assert.match(t, /"Claude's on it" .{0,140}`get_session`/);
 });
 test("the output style carries the same reconcile and clear it points to", () => {
   const t = flat("output-styles/discipline.md");
@@ -38,11 +38,11 @@ test("B: wrap and pause-resume no longer say the reply prints the rows in full",
   assert.doesNotMatch(flat("skills/pause-resume/SKILL.md"), /prints the rows, in full, in the pause reply/);
   assert.doesNotMatch(flat("skills/present-for-review/SKILL.md"), /queue in full\*\* — the session's projects' open rows/);
 });
-test("N2: pause-resume brings Running now current in the Pause steps, not on the Resume line", () => {
+test("N2: pause-resume brings Claude's on it current in the Pause steps, not on the Resume line", () => {
   const t = readFileSync(join(repo, "skills/pause-resume/SKILL.md"), "utf8");
   const pause = t.slice(t.indexOf("## Pause"), t.indexOf("## Resume")).replace(/\s+/g, " ");
   const resume = t.slice(t.indexOf("## Resume"), t.indexOf("## Not wrap")).replace(/\s+/g, " ");
-  assert.match(pause, /"Running now" .{0,120}`get_session`/);
+  assert.match(pause, /"Claude's on it" .{0,140}`get_session`/);
   assert.doesNotMatch(resume, /at pause/);
 });
 test("N3: wrap keeps one handover file per touched project and never one rewrite for several", () => {
