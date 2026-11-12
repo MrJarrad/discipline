@@ -96,3 +96,25 @@ test("a marker holding the helper's own session id is refused: the block names @
   assert.ok(out.reason.includes('session_id "@parent"'), out.reason);
   assert.ok(!out.reason.includes(SELF), out.reason);
 });
+
+// DISC-294 (s79 lesson 3): a wake-event turn (GitHub bot edit, green check suite) that changed nothing is not a return.
+const wake = (body = "PR #584 edited by a bot") => user(`<wake reason="external-event"><event source="github" type="pull_request">${body}</event></wake>`);
+const LONG_WAIT = "Nothing changed on the PR: still waiting on the operator's look, CI green, no review comment. ".repeat(4);
+
+test("a wake-event turn that ran only reads and says nothing changed is let through", () => {
+  assert.equal(run([user("go"), called(SEND), result(), wake(), called("Read"), result(), said(LONG_WAIT)]), null);
+});
+
+test("a wake-event turn that pushed or edited is still held", () => {
+  assert.equal(run([user("go"), wake(), called("Edit"), result(), said(LONG)])?.decision, "block");
+  assert.equal(run([user("go"), wake(), called("Bash", { command: "git push -u origin d1" }), result(), said(LONG)])?.decision, "block");
+  assert.equal(run([user("go"), wake(), called("mcp__github__add_issue_comment"), result(), said(LONG)])?.decision, "block");
+});
+
+test("a wake-event turn that says `next: parent` is held", () => {
+  assert.equal(run([user("go"), wake(), called("Read"), result(), said("CI red on pf #584.\n\nnext: parent")])?.decision, "block");
+});
+
+test("the first brief, an automated notification that is not a wake event, is still a task turn", () => {
+  assert.equal(run([user("[SYSTEM NOTIFICATION - NOT USER INPUT] This message is your task"), called("Read"), result(), said(LONG)])?.decision, "block");
+});
