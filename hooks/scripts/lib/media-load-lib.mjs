@@ -465,7 +465,18 @@ export function median(values) {
 // how much taller than that rhythm a column's own gap must be before it
 // counts as a real hole, never a real row-gap.
 export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2 } = {}) {
-  const gapsByColumn = groupRectsIntoColumns(rects).map((column) => columnInternalGaps(column));
+  // PF-1475: a block wider than the gap (full-width text, a heading) that sits in the
+  // gap or starts where it ends means the frame is a row layout: the whitespace under a
+  // short tile beside a taller neighbour, not a missing tile. The tile above the gap
+  // ends exactly at its top, so it never counts as the covering block.
+  const spannedByWiderBlock = (g) =>
+    rects.some(
+      (r) =>
+        r.left < g.right && g.left < r.right && // overlaps the gap's columns
+        (r.left < g.left - 1 || r.right > g.right + 1) && // wider than the gap
+        r.top < g.bottom + 1 && r.bottom > g.top, // inside the gap or touching its lower edge
+    );
+  const gapsByColumn = groupRectsIntoColumns(rects).map((column) => columnInternalGaps(column).filter((g) => !spannedByWiderBlock(g)));
   const candidateHeights = gapsByColumn.flatMap((gaps) => gaps.map((g) => g.height)).filter((h) => h > tolerancePx);
   if (candidateHeights.length === 0) return [];
   const rhythm = median(candidateHeights);
@@ -477,4 +488,18 @@ export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widt
 // headline number alongside the paint count. Zero is the passing value.
 export function totalColumnGapsAcrossFrames(framesOfRects, viewport, options) {
   return framesOfRects.reduce((sum, rects) => sum + scanFrameForColumnGaps(rects, viewport, options).length, 0);
+}
+
+// PF-1475: a sample is a DOM read plus a screenshot taken a moment apart; under
+// CPU throttle the page keeps scrolling between them, so the box read from the DOM
+// no longer sits where the screenshot painted it and a healthy slot crops as text
+// or background. A sample is stable when a second read, taken after the screenshot,
+// matches the first (same elements in the same order, boxes within `epsilonPx`).
+export function isSampleStable(before, after, epsilonPx = 1) {
+  if (before.length !== after.length) return false;
+  return before.every((el, i) => {
+    const other = after[i];
+    if (el.tag !== other.tag) return false;
+    return ["left", "top", "width", "height"].every((k) => Math.abs(el.rect[k] - other.rect[k]) <= epsilonPx);
+  });
 }

@@ -15,6 +15,7 @@ import {
   driveInteraction,
   driveFlingSession,
   resolveDriveMode,
+  takeStableSample,
   NETWORK_PROFILES,
   DEFAULT_FLING_DURATION_MS,
 } from "./media-load-probe.mjs";
@@ -370,4 +371,24 @@ test("main() reports every rep and prints a combined paint + gap total", () => {
   const src = readFileSync(script, "utf8");
   assert.match(src, /rep \$\{i \+ 1\}\/\$\{opts\.reps\}/);
   assert.match(src, /paintSum === 0 && gapSum === 0/);
+});
+
+// --- takeStableSample (PF-1475): DOM read and screenshot must describe one frame
+
+const box = (top) => ({ left: 0, top, right: 100, bottom: top + 100, width: 100, height: 100 });
+
+test("takeStableSample retries while the page scrolls between the DOM read and the screenshot, then returns the settled read", async () => {
+  const reads = [[{ tag: "img", rect: box(0) }], [{ tag: "img", rect: box(60) }], // moved during attempt 1
+    [{ tag: "img", rect: box(60) }], [{ tag: "img", rect: box(60) }]]; // stable in attempt 2
+  let i = 0, shots = 0;
+  const out = await takeStableSample({ read: async () => reads[i++], capture: async () => ++shots, wait: async () => {}, maxAttempts: 4 });
+  assert.equal(shots, 2);
+  assert.equal(out.shot, 2);
+  assert.equal(out.elements[0].rect.top, 60);
+});
+
+test("takeStableSample returns null (frame dropped, not judged) when the page never settles within maxAttempts", async () => {
+  let t = 0;
+  const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box(t += 50) }], capture: async () => 1, wait: async () => {}, maxAttempts: 3 });
+  assert.equal(out, null);
 });

@@ -29,6 +29,7 @@ import {
   groupRectsIntoColumns,
   columnInternalGaps,
   scanFrameForColumnGaps,
+  isSampleStable,
   totalColumnGapsAcrossFrames,
   isClippedOutOfView,
   coveringRect,
@@ -609,4 +610,45 @@ test("DISC-276 (c): a text block between two media in a column covers the span �
 test("text entries are covering only — never judged for paint", () => {
   const text = { tag: "text", id: "t", rect: onscreen(), clipRects: [], visibility: "visible", pixels: [] };
   assert.equal(totalEmptyMediaAcrossFrames([[text]], VIEWPORT, [WHITE], { arrivalWindowMs: 0 }), 0);
+});
+
+// --- PF-1475: sampling race + row-layout whitespace ---------------------------
+// Rects below are the covering rects of one live frame of /grid (390x844, left
+// column 24-175 beside a taller portrait video, full-width heading text between
+// them) — a row layout, nothing missing, that the probe read as gaps=1.
+
+const liveRow = ([l, t, r, b]) => ({ left: l, top: t, right: r, bottom: b, width: r - l, height: b - t });
+
+test("scanFrameForColumnGaps: whitespace beside a taller row neighbour, with a full-width text block crossing it, is not a hole", () => {
+  const rects = [
+    [200, 0, 351, 61], [24, 196, 175, 296], [200, 196, 351, 423], [24, 557, 175, 658], [24, 793, 175, 844],
+    [24, 51, 25, 71], [24, 110, 351, 132], [24, 132, 351, 180], [24, 471, 351, 493], [24, 493, 351, 541],
+    [24, 707, 351, 729], [24, 729, 351, 777], [16, 788, 128, 832],
+  ].map(liveRow);
+  assert.deepEqual(scanFrameForColumnGaps(rects, { width: 390, height: 844 }), []);
+});
+
+test("scanFrameForColumnGaps: whitespace under a short row tile that ends where the next full-width text block starts is not a hole", () => {
+  const rects = [
+    [24, 0, 175, 19], [200, 0, 351, 146], [24, 280, 175, 381], [200, 280, 351, 507], [24, 642, 175, 743], [200, 642, 351, 844],
+    [24, 51, 25, 71], [24, 194, 351, 216], [24, 216, 351, 264], [24, 556, 351, 578], [24, 578, 351, 626], [16, 788, 128, 832],
+  ].map(liveRow);
+  assert.deepEqual(scanFrameForColumnGaps(rects, { width: 390, height: 844 }), []);
+});
+
+test("scanFrameForColumnGaps still flags a real hole: a column with a tile missing and nothing crossing the gap", () => {
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 328), tileAt(150, 0), tileAt(150, 164), tileAt(150, 700)];
+  const gaps = scanFrameForColumnGaps(rects, { width: 300, height: 844 });
+  assert.equal(gaps.length, 1);
+  assert.equal(gaps[0].left, 150);
+});
+
+test("isSampleStable: identical rects are stable; a slot that moved past the tolerance is not; a changed element count is not", () => {
+  const a = [{ tag: "img", rect: tileAt(24, 100) }, { tag: "text", rect: tileAt(24, 300) }];
+  const same = [{ tag: "img", rect: tileAt(24, 100) }, { tag: "text", rect: tileAt(24, 300) }];
+  const moved = [{ tag: "img", rect: tileAt(24, 162) }, { tag: "text", rect: tileAt(24, 362) }];
+  assert.equal(isSampleStable(a, same), true);
+  assert.equal(isSampleStable(a, moved), false);
+  assert.equal(isSampleStable(a, [a[0]]), false);
+  assert.equal(isSampleStable(a, [{ tag: "img", rect: tileAt(24, 100.5) }, a[1]]), true, "sub-pixel jitter under 1px is stable");
 });

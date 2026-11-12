@@ -89,6 +89,13 @@ Two independent counts, both must be **0**:
      `2`, i.e. a gap must be more than twice the frame's own rhythm to count
      as a genuine hole, never a real row-gap).
 
+**One frame, one moment (PF-1475).** Each sample reads the boxes, takes the screenshot, then reads the
+boxes again; if anything moved between the two reads (the page was still scrolling under a throttled
+screenshot) it waits 100 ms and retries, and drops the frame after six tries (`dropped=` in the rep line).
+Without this a healthy tile read as blank because its box no longer matched the pixels. The gap scan
+also skips whitespace under a short row tile when a block wider than the gap sits in it or starts where
+it ends (a row layout beside a taller neighbour, not a missing tile).
+
 ## Flags
 
 | Flag | Default | Meaning |
