@@ -92,6 +92,10 @@ other drift.
 block (floor + plugin-presence self-check), never a full rules copy — overlay scatter is
 the named anti-pattern.
 
+## Lane capacity at wrap (DISC-295)
+
+Run `lane-capacity.mjs` before the wrap report; a project under capacity with open agent rows is dispatched, or each gap is named with `--reason <PFX>="why"` (`routing` HARD-RULES, lane capacity). The next wave is dispatched, not listed. `lane-capacity-stop.mjs` holds a wrap that skipped it. A lane waiting on the operator's look does not count toward capacity.
+
 ## Stand down at wrap (last step; ruling `wrapped-sessions-go-quiet`, 2026-10-09)
 
 Run after the report and the final push, because it silences the session. Never archive it.

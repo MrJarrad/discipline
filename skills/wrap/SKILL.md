@@ -75,7 +75,7 @@ Full text: [REPORT-AND-LEARN.md](references/REPORT-AND-LEARN.md).
 
 ## Closing checks
 
-Six checks, each with its own procedure in [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
+Seven checks; procedure in [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
 
 | Check | Ends on |
 |---|---|
@@ -84,4 +84,5 @@ Six checks, each with its own procedure in [CLOSING-CHECKS.md](references/CLOSIN
 | **Estate sync** | the estate map and captures ground reflect what this session changed |
 | **Repo topology** | every clone of a shared origin accounted for, none left behind a push |
 | **Push at wrap** | what the operator authorized is pushed; nothing else; **the vault is on `origin/main` and the report names that sha** |
+| **Lane capacity** | at capacity, or each gap reasoned |
 | **Version sync (Claude)** | the installed plugin matches the repo, `CHANGED.txt` current |

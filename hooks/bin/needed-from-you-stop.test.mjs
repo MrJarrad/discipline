@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { check, lastTurn } from "./needed-from-you-stop.mjs";
 import { writeMarker } from "../scripts/lib/row-marker.mjs";
+import { pinnedChecklistIds } from "../scripts/lib/pinned-checklist.mjs";
 
 const hook = fileURLToPath(new URL("./needed-from-you-stop.mjs", import.meta.url));
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
@@ -122,10 +123,10 @@ test("DISC-288: a short block must still name every row added this turn, and be 
   } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
   assert.match(check({ text: SHORT() + "\n## Later\nmore", userTs: T, vault: v }), /last section/);
 });
-test("DISC-288: no link line, or a link to another page, falls back to the full-block check", () => {
+test("DISC-288 (s79): with the pinned checklist configured, no link line, or a link to another page, is refused (no full-block fallback)", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /no `### <PFX>/);
-  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /no `### <PFX>/);
+  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /pinned checklist/);
 });
 test("DISC-288: a vault with no pinned-checklist paragraph never accepts the short form", () => {
   assert.match(check({ text: SHORT(), userTs: T, vault: vault() }), /no `### <PFX>/);
@@ -136,7 +137,69 @@ test("DISC-288: a reply with a Build in Progress heading is still a status reply
 });
 test("DISC-288 N1: only the exact link line takes the short form; the URL elsewhere in the block does not", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /no `### <PFX>/);
-  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /no `### <PFX>/);
+  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /pinned checklist/);
   assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
+});
+
+// s79 (operator, doc comment 2026-11-12: "it's not been what the last couple of session automatically did"):
+// DISC-288 enforced by tool. With the pinned checklist configured, (a) a status reply that reprints the queue inline
+// instead of the doc link is refused, (b) a status reply is refused when the doc was not written to this turn.
+const DOC_ID = "KjmpGR4zjVKB6WVfy8QsNa";
+const wrote = (name = "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update", input = { container: { kind: "doc", id: DOC_ID }, payload: "Running now" }) =>
+  JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "d", name, input }] } });
+const turn = (...lines) => [JSON.stringify({ type: "user", timestamp: T, message: { content: "how are we looking" } }), ...lines].join("\n");
+const reply = (text) => JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text }] } });
+
+test("s79 (a): with the pinned checklist configured, a full inline block with no doc link is refused", () => {
+  const v = vaultWithChecklist();
+  assert.match(check({ text: FULL, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: FULL, userTs: T, vault: v }), /Full list:/);
+});
+test("s79 (a): with no pinned checklist in the vault the full block still passes", () => {
+  assert.equal(check({ text: FULL, userTs: T, vault: vault() }), null);
+});
+test("s79 (b): a status reply is refused when this turn never wrote to the checklist doc", () => {
+  const v = vaultWithChecklist();
+  const t = turn(reply(SHORT()));
+  const { userTs, text, docWritten } = lastTurn(t, [DOC_ID]);
+  assert.equal(docWritten, false);
+  assert.match(check({ text, userTs, vault: v, docWritten }), /Running now/);
+});
+test("s79 (b): a doc write this turn (update or batch on the doc id) lets the short form pass; a write to another doc does not", () => {
+  const v = vaultWithChecklist();
+  for (const name of ["mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update", "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch"]) {
+    const { userTs, text, docWritten } = lastTurn(turn(wrote(name), reply(SHORT())), [DOC_ID]);
+    assert.equal(docWritten, true, name);
+    assert.equal(check({ text, userTs, vault: v, docWritten }), null);
+  }
+  const other = lastTurn(turn(wrote(undefined, { container: { kind: "doc", id: "someOtherDoc" } }), reply(SHORT())), [DOC_ID]);
+  assert.equal(other.docWritten, false);
+  const read = lastTurn(turn(wrote("mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read"), reply(SHORT())), [DOC_ID]);
+  assert.equal(read.docWritten, false, "a read is not an update");
+});
+test("s79 (b): a write from an earlier turn does not count for this one", () => {
+  const earlier = [JSON.stringify({ type: "user", timestamp: T, message: { content: "first" } }), wrote(), reply("done"), JSON.stringify({ type: "user", timestamp: T, message: { content: "again" } }), reply(SHORT())].join("\n");
+  assert.equal(lastTurn(earlier, [DOC_ID]).docWritten, false);
+});
+
+// Review round 1 AMBER 3: the Claude Docs connector addresses the doc by its UUID (container id), not the artifact URL's last segment.
+const DOC_UUID = "97bd5a36-e22b-449d-b7ae-c73b9d2f7073";
+function vaultWithUuid() {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id ${DOC_UUID}, body node 51a59e14-4a0e).\n`);
+  return v;
+}
+test("s79 review AMBER 3: a Claude Docs update/batch naming the doc UUID counts as a write; the URL id still counts; another project id does not", () => {
+  const v = vaultWithUuid();
+  for (const name of ["mcp__Claude_Docs__update", "mcp__Claude_Docs__batch"]) {
+    const w = wrote(name, { container: { kind: "project", id: DOC_UUID }, payload: "x" });
+    const t = lastTurn(turn(w, reply(SHORT())), pinnedChecklistIds(v));
+    assert.equal(t.docWritten, true, name);
+    assert.equal(check({ text: t.text, userTs: t.userTs, vault: v, docWritten: t.docWritten }), null);
+  }
+  assert.equal(lastTurn(turn(wrote(), reply(SHORT())), pinnedChecklistIds(v)).docWritten, true, "artifact id also accepted");
+  const other = lastTurn(turn(wrote("mcp__Claude_Docs__update", { container: { kind: "project", id: "00000000-0000-0000-0000-000000000000" } }), reply(SHORT())), pinnedChecklistIds(v));
+  assert.equal(other.docWritten, false);
 });

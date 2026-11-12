@@ -137,6 +137,15 @@
     ],
     "SessionStart": [
       {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/plugin-freshness.mjs\" start"
+          }
+        ]
+      },
+      {
         "matcher": "startup|resume|compact",
         "hooks": [
           {
@@ -195,6 +204,14 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-sweep-stop.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/lane-capacity-stop.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/plugin-freshness.mjs\" stop"
           }
         ]
       }

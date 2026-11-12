@@ -19,12 +19,14 @@
    (absolute path, one plain command) for this PR whose JSON line is complete, names the
    pinned head, a MrJarrad/jhd-vault origin and only notes; it lists names from GitHub's
    merge ref for the PR, bound to that sha, instead of every patch.
+   DISC-296: when the session never read get_me, the authenticated gh user counts too (gh unavailable -> owner only).
    DISC-277: trusted means the repo owner and the login in this session's own \`get_me\` result (an
    org-owned repo's owner never posts); a commenter cannot write a tool result. Limits: every fleet agent posts as that
    login, so the gate proves a verdict-shaped comment exists, not who wrote it.
    A subagent's own reads are not in the parent's transcript.
    Fails closed: unreadable input, any crash, or a failure to load
    merge-after-review.mjs (imported inside the try) denies the merge, naming why. */
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -133,6 +135,14 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   return out;
 }
 
+/* The authenticated gh user's login (DISCIPLINE_GH overrides the binary for tests), or [] when gh is unavailable. */
+function ghLogin() {
+  try {
+    const login = execFileSync(process.env.DISCIPLINE_GH || "gh", ["api", "user", "--jq", ".login"], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return login ? [login] : [];
+  } catch { return []; }
+}
+
 function check(input, { notesOnly, reviewVerdict }) {
   const t = input.tool_input || {};
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
@@ -162,11 +172,14 @@ function check(input, { notesOnly, reviewVerdict }) {
   }
   /* DISC-277: on an org-owned repo the owner is the org, which never posts; the verdicts come from the
      session's own authenticated account, read from its get_me result (not from any comment body). */
-  const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...reads.me]);
+  /* DISC-296: a session that never called get_me still has an authenticated gh user, the account the verdict
+     comment is posted from (as trustedLogins() in merge-after-review.mjs); gh unavailable -> the owner alone. */
+  const me = reads.me.length ? reads.me : ghLogin();
+  const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...me]);
   if (review?.verdict === "yes") process.exit(0);
   const head = t.expectedHeadSha.slice(0, 7);
   const lacks = reads.truncated ? "the verdict read was truncated; re-read the comments and reviews with a smaller perPage —" : "no reviewer verdict";
-  const meHint = reads.me.length ? "" : " This session has not read get_me, so only the repo owner's login counts; on an org-owned repo call get_me first, then merge.";
+  const meHint = me.length ? "" : " This session has not read get_me and gh has no authenticated user, so only the repo owner's login counts; on an org-owned repo call get_me first, then merge.";
   deny(`merge-review-gate: ${pr} — ${review ? `the latest reviewer verdict on head ${head} says merge: no` : `${lacks} with merge: yes on head ${head} in this session`} (every merge needs merge: yes on the head it pins, \`2026-10-09-every-merge-reviewed\`). Dispatch the reviewer; once its verdict (shape: agents/reviewer.md § Verdict) is on the PR as a comment or review, read it with pull_request_read get_comments / get_reviews, then merge.${meHint}`);
 }
 
