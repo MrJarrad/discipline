@@ -287,3 +287,54 @@ test("DISC-314 8: the doc comes in on stdin (--doc -) or as the connector's JSON
   }
   assert.equal(runCli("{}", ["--doc-json", "-"]).status, 1, "JSON with no xml is refused");
 });
+
+// DISC-314 review round 1 (session_019vvsL13jPRvdiiXyyekYaH)
+import { applyToXml } from "./fixtures/status-doc-apply.mjs";
+test("DISC-314 review 3: plan, apply, plan again is empty on the live doc (the applier refuses an item into a project with no list)", () => {
+  const first = plan();
+  const once = applyToXml(LIVE, first.ops.filter((o) => !first.refused.some((r) => r.id === o.id && r.id)));
+  const second = plan({ docXml: once });
+  assert.deepEqual(second.ops, []);
+  assert.deepEqual(plan({ docXml: applyToXml(once, second.ops) }).ops, [], "and stays empty");
+});
+test("DISC-314 review 3b: the convergence test bites: the plan is long, and without its ensureList ops the applier refuses (shape_mismatch)", () => {
+  const first = plan();
+  assert.ok(first.ops.length > 20);
+  assert.ok(ops(first, "ensureList").length > 0, "the live doc's new sections need lists");
+  assert.throws(() => applyToXml(LIVE, first.ops.filter((o) => o.op !== "ensureList")), /shape_mismatch/);
+});
+test("DISC-314 review 4: every project of a newly inserted section that receives an item gets an ensureList, after the section and before the item", () => {
+  const p = plan();
+  const ins = p.ops.findIndex((o) => o.op === "insertSection" && o.name === "Ready for you");
+  for (const [proj] of [["Portfolio"], ["Discipline"], ["Handoff toolkit"]]) {
+    const e = p.ops.findIndex((o) => o.op === "ensureList" && o.section === "Ready for you" && o.project === proj);
+    assert.ok(e > ins, `${proj}: ensureList after insertSection`);
+    assert.ok(e < p.ops.findIndex((o) => (o.op === "move" || o.op === "replaceItem") && o.to.section === "Ready for you" && o.to.project === proj), `${proj}: before its first item`);
+  }
+  assert.equal(ops(p, "ensureList").filter((o) => o.section === "Ready for you" && o.project === "Portfolio").length, 1, "once per project");
+});
+test("DISC-314 review RED: an item naming several rows (rowId null) keeps its own id text in the rewritten headline, never (null)", () => {
+  const multi = LIVE.replace("<listItem id='.39877'", "<listItem id='.39877' checked='true'").replace("writing the step into the rules", "building the step into the rules");
+  const o = plan({ docXml: multi }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.op, "replaceItem");
+  assert.ok(!o.markdown.includes("null"), o.markdown);
+  assert.match(o.markdown, /^- \[x\] \[Done\] \*\*Latest plugin in every session \(DISC-299\/303\)\. Done\.\*\*$/, o.markdown);
+});
+test("DISC-314 review 2: the rewritten headline is the item's short own title: no trailing …, no doubled period, no queue-ask detail, cut at the in-flight clause", () => {
+  const o = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") }).ops.find((x) => x.id === ".42857");
+  assert.equal(o.markdown, "- [x] [Done] **(PF-1496) Copying a text page leaves out the nav labels. Done.**");
+  const cut = (text) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("Copying a text page leaves out the nav labels", text) }).ops.find((x) => x.id === ".42857").markdown;
+  const long = cut("Copying a text page leaves out the nav labels after the import step in a very long sentence with plenty more words added so it runs past one hundred and twenty characters in total");
+  assert.ok(!/(?:…|\.\.)\. Done|\.\. Done/.test(long) && /\*\*[^*]*\. Done\.\*\*$/.test(long), long);
+});
+test("DISC-314 review: a rewritten headline still carries the item's children (PF-1598's Problem and Decision)", () => {
+  const o = plan().ops.find((x) => x.id === ".40753");
+  assert.equal(o.op, "replaceItem");
+  assert.ok(o.markdown.startsWith("- [x] [Done] **(PF-1598) Header flicker fix. Done.**\n"), o.markdown);
+  for (const t of ["\n  - **Problem:**", "\n  - **Decision:**", "\n    - **Recommended:**"]) assert.ok(o.markdown.includes(t), t);
+});
+test("DISC-314 review: 'running' alone in a finished title is not an in-flight clause; 'still running' is", () => {
+  const word = (t) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("building, helper session_019vvsL33CSwXZah39dApWeL", t) }).ops.find((x) => x.id === ".42857");
+  assert.equal(word("fixed, running order restored").staleText, false);
+  assert.equal(word("tests still running").staleText, true);
+});

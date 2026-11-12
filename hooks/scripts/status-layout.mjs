@@ -62,7 +62,7 @@ const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
 
 const LIVE_SECTIONS = ["Running now", "Claude's on it", "You're on it"];
-const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|running)\b/i;
+const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|(?:is|are|still) running|running now)\b/i;
 const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
@@ -84,11 +84,15 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   const dateOps = doc.date !== today && doc.dateId ? [{ op: "setDate", id: doc.dateId, value: today, why: `the doc's date line reads ${doc.date}` }] : [];
   const drop = (comments, op, item) => { for (const c of comments) droppedComments.push({ id: c.id, answered: c.answered, op, item }); };
   const refuse = (entry) => refused.push(entry);
-  /* the row's own title from its queue or backlog file; the item's first sentence when the files do not hold the row */
-  const rowTitleFor = (it) => {
-    for (const p of r.projects) for (const f of [p.queue.file, p.backlog.file]) if (f && prefixOf(it.rowId) === p.prefix) { const t = rowTitle(readFileSync(join(vault, f), "utf8"), it.rowId); if (t) return t; }
-    const t = it.text.replace(/\*\*/g, "").replace(/^\(?[A-Z]{2,4}-\d+[a-z]?\)?\s*/, ""), cut = t.search(STALE);
-    return shortTitle((cut > 0 ? t.slice(0, cut) : t).replace(/[\s:,;(-]+$/, "").replace(/\s*\([A-Z]{2,4}-\d+[a-z]?\)$/, ""));
+  /* the item's own short headline with the in-flight clause cut off (never the queue ask, which carries developer detail); the row's title only when
+     the item has none. An item with several ids keeps its own id text, e.g. "(DISC-299/303)"; a single-row item gets "(ID) " in front. */
+  const headline = (it) => {
+    const t = it.text.replace(/\*\*/g, "").trim(), cut = t.search(STALE);
+    let own = (cut > 0 ? t.slice(0, cut) : t).replace(/[\s:;,.…—-]+$/, "");
+    if (it.rowId) own = own.replace(new RegExp(`^\\(?${it.rowId}\\)?[\\s:.]*`), "").replace(new RegExp(`\\s*\\(${it.rowId}\\)$`), "");
+    own = shortTitle(own).replace(/[.…\s]+$/, "");
+    if (!own && it.rowId) for (const p of r.projects) for (const f of [p.queue.file, p.backlog.file]) if (!own && f && prefixOf(it.rowId) === p.prefix) own = shortTitle(rowTitle(readFileSync(join(vault, f), "utf8"), it.rowId)).replace(/[.…\s]+$/, "");
+    return `${it.rowId ? `(${it.rowId}) ` : ""}${own}`;
   };
 
   /* 1. every existing item: where it is, where its chip (or tick, or closed row) says it belongs */
@@ -146,7 +150,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     if (!recreate) work.push({ op: "move", id: it.id, rowId: it.rowId, from, to: dest, reason, kids: it.kids.length, ...(isDone ? { staleText: false, ticked: true } : {}) });
     else {
       /* DISC-314 4: everything that enters Done is ticked, the ones the operator did not tick (landed) included */
-      const body = rewrite ? { ...it, text: `**(${it.rowId}) ${rowTitleFor(it)}. Done.**` } : it;
+      const body = rewrite ? { ...it, text: `**${headline(it)}. Done.**` } : it;
       work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from, to: dest, chip: chipLabel, reason, markdown: toMarkdown({ ...body, ticked: isDone || it.ticked, chip: { label: chipLabel }, listKind: "check" }), comments: it.comments, ...(isDone ? { staleText: STALE.test(it.text), ticked: true } : {}) });
       drop(it.comments, "replaceItem", it.id);
     }
@@ -193,8 +197,9 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   const ensured = new Set();
   for (const o of work) {
     const sname = o.to?.section || o.section, pname = o.to?.project || o.project, sec = section(sname);
-    if (!sec || sname === "Up next" || ensured.has(`${sname}|${pname}`)) continue;
-    const pr = project(sec, pname);
+    if (!sname || !pname || sname === "Up next" || ensured.has(`${sname}|${pname}`)) continue;
+    /* a project of a section this plan inserts (or whose heading it inserts) has a heading and no list until this op makes it */
+    const pr = sec ? project(sec, pname) : null;
     if (pr && pr.listIds.length) continue;
     ensured.add(`${sname}|${pname}`);
     structure.push(pr ? { op: "ensureList", section: sname, project: pname, afterId: pr.last } : { op: "ensureList", section: sname, project: pname, afterHeading: pname });
