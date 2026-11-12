@@ -24,7 +24,18 @@ const STATUS = /^##\s+Needed from you\b|^Full list:/m;
 const FIX = "claude plugin update discipline@discipline (or /plugin update discipline), then /reload-plugins or restart the session";
 
 const readVersion = (p) => { try { return JSON.parse(readFileSync(p, "utf8")).version || null; } catch { return null; } };
-const loadedVersion = () => readVersion(join(process.env.CLAUDE_PLUGIN_ROOT || resolve(HERE, "..", ".."), ".claude-plugin", "plugin.json"));
+/* The loaded plugin: CLAUDE_PLUGIN_ROOT inside the plugin's own hooks; from the vault's settings.json there is none, so the
+   version installed_plugins.json records for discipline@discipline (the cache a session loads), else this file's own plugin. */
+function loadedVersion() {
+  if (process.env.CLAUDE_PLUGIN_ROOT) return readVersion(join(process.env.CLAUDE_PLUGIN_ROOT, ".claude-plugin", "plugin.json"));
+  try {
+    const j = JSON.parse(readFileSync(join(homedir(), ".claude", "plugins", "installed_plugins.json"), "utf8"));
+    const e = j.plugins?.["discipline@discipline"] ?? Object.entries(j.plugins ?? {}).find(([k]) => k.startsWith("discipline@"))?.[1];
+    const v = (Array.isArray(e) ? e[0] : e)?.version;
+    if (v) return v;
+  } catch { /* fall through */ }
+  return readVersion(join(resolve(HERE, "..", ".."), ".claude-plugin", "plugin.json"));
+}
 const older = (a, b) => { const [x, y] = [a, b].map((v) => String(v).split(".").map(Number)); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
 
 async function latestVersion() {
