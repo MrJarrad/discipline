@@ -16,7 +16,7 @@
       must then carry the block, with a heading for each marker prefix.
    c) DISC-288: when the block links the vault's Status doc, it need only
       carry this turn's new asks (by row ID) plus that link line; old rows live on
-      the checklist, not in the thread.
+      the Status doc, not in the thread.
    d) s79 (operator: "it's not been what the last couple of session automatically did"): DISC-288
       is enforced, not advised. With the Status doc configured in the vault, a status reply
       must carry the exact `Full list:` link line (a full block reprinted inline is refused), and

@@ -46,3 +46,13 @@ test("s81 (review NOTE): the Stop fallback link text reads [Status] and no messa
   assert.ok(!/Status doc doc/.test(hook));
   assert.ok(!/exact line `Full list: \[Needed from you\]/.test(hook.replace(/\\`/g, "`")));
 });
+
+// DISC-307: one item format, one home (HARD-RULES), emitted by queue-page-sync.
+test("DISC-307: the Status item format is defined once in HARD-RULES and pointed at from the output style", () => {
+  const h = flat("skills/routing/references/HARD-RULES.md");
+  for (const s of ["**One Status item format** (DISC-307", "ideally though we would consistently format things like i've done for pf-15131",
+    "the Status chip, then bold \"(ID) Title.\" plus one bold state line", "**Problem:**, **Solution:**, **Decision:**", "**Recommended:** and **Alternative:** are each their own nested bullet",
+    "**Look:** (a link and what to do, ending \"Say yes, or what's off.\")", "A short item is the chip, bold \"(ID) Title.\" and one plain line",
+    "`queue-page-sync.mjs` emits this shape for every `toAdd` item"]) assert.ok(h.includes(s), s);
+  assert.ok(flat("output-styles/discipline.md").includes("(DISC-307, `routing` HARD-RULES)"));
+});

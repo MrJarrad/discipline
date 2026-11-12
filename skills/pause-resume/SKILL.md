@@ -33,7 +33,7 @@ down", "stop for now", "let's stop here".
    `hooks/scripts/session-resume.mjs`). The open queue is not copied: the cockpit carries each project's queue path and
    open-row count (the Status doc holds the rows; the pause reply carries only new asks and its link, `needed-from-you.mjs --projects <prefixes> --short --new <ids>`); a handover carries a link
    and the open-row count only.
-   Bring the checklist's "Running now" current: `queue-page-sync.mjs`, then `get_session` on each item.
+   Bring the Status doc's "Running now" current: `queue-page-sync.mjs`, then `get_session` on each item.
 4. **Confirm in one line.** Name what's paused and that nothing runs until
    resume — no verdict wall.
 

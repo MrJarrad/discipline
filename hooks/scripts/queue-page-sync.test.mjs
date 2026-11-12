@@ -1,4 +1,4 @@
-// DISC-288: the pinned checklist mirrors the queue files; this script says what a session must change on it.
+// DISC-288: the Status doc mirrors the queue files; this script says what a session must change on it.
 // Run: node --test hooks/scripts/queue-page-sync.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -42,7 +42,7 @@ test("open queue and waiting-backlog rows become checklist lines, row id first i
 });
 test("against the live doc: missing open rows to add, landed rows to tick, his ticks to bank as answers", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
-  assert.deepEqual(p.toAdd, ["- [ ] **PF-8** idea"]);
+  assert.deepEqual(p.toAdd, ["- [ ] [Ready for you] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."], "DISC-307: toAdd emits the item format");
   assert.deepEqual(p.toTick, ["PF-4"], "unticked on the page but no longer open in the queue");
   assert.deepEqual(p.answered, ["PF-6"], "ticked on the page while the queue row is still open");
 });
@@ -205,4 +205,41 @@ test("DISC-305: fromDocsRead reads the real heading shape at levels 1-3 and leav
   const out = fromDocsRead([heading("Status", 1), heading("Waiting on you"), heading("PF — portfolio", 3), `&lt;paragraph id='.7'&gt;just text&lt;/paragraph&gt;`, li("Ready for you", "**PF-5** look")].join("\n"));
   assert.match(out, /^# Status$/m); assert.match(out, /^## Waiting on you$/m); assert.match(out, /^### PF — portfolio$/m);
   assert.ok(!/^#+ just text/m.test(out), "a paragraph with no heading attribute is not a heading");
+});
+
+// DISC-307 (operator s81, verbatim: "ideally though we would consistently format things like i've done for pf-15131 or something even more improved";
+// "that's feeling much easier to digest, i made one more change though": under Decision, Recommended and Alternative are each their own nested bullet).
+import { formatItem } from "./queue-page-sync.mjs";
+test("DISC-307: a short item is chip + bold (ID) Title. state + one plain line", () => {
+  assert.equal(formatItem({ id: "PF-5", needed: "look at footer", why: "the spacing changed" }),
+    "- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - the spacing changed.");
+  assert.equal(formatItem({ id: "PF-5", needed: "look at footer" }), "- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.");
+});
+test("DISC-307: a fix carries Problem, Solution, then Look (link + steps, ending 'Say yes, or what's off.') in that order", () => {
+  const out = formatItem({ id: "PF-1598", needed: "Header flicker fix. Problem: the title caught the pointer. Solution: it no longer catches it.", where: "scroll so the header hides, rest the cursor on a card under it", why: "https://p.example/preview" });
+  assert.equal(out, [
+    "- [ ] [Ready for you] **(PF-1598) Header flicker fix. Ready for your look.**",
+    "  - **Problem:** the title caught the pointer.",
+    "  - **Solution:** it no longer catches it.",
+    "  - **Look:** [Open the preview](https://p.example/preview) scroll so the header hides, rest the cursor on a card under it. Say yes, or what's off.",
+  ].join("\n"));
+});
+test("DISC-307: a choice carries Decision with Recommended and Alternative as their own nested bullets, before Look", () => {
+  const out = formatItem({ id: "PF-7", needed: "Pick the hero crop", recommended: "Recommended: the tight crop. Alternative: the wide crop (a bigger change)." });
+  assert.equal(out, [
+    "- [ ] [Ready for you] **(PF-7) Pick the hero crop. Needs your decision.**",
+    "  - **Decision:** Pick the hero crop",
+    "    - **Recommended:** the tight crop.",
+    "    - **Alternative:** the wide crop (a bigger change).",
+  ].join("\n"));
+  assert.ok(!formatItem({ id: "PF-7", needed: "Pick", recommended: "go with the tight crop" }).includes("**Alternative:**"), "no alternative is invented");
+});
+test("DISC-307: toAdd emits the new shape, items keeps the one-line form, and the parser reads the (ID) form", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
+  assert.deepEqual(p.toAdd, ["- [ ] [Ready for you] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."]);
+  assert.deepEqual(p.items[2], "- [ ] **PF-8** idea");
+  const doc = "## Waiting on you\n\n- [x] [Done] **(PF-6) Pick hero. Waiting on you.**\n  - Needs your answer.\n- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.\n";
+  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: doc });
+  assert.deepEqual(q.answered, ["PF-6"], "the (ID) form is read as the row id");
+  assert.deepEqual(q.toAdd.map((l) => l.split("\n")[0].match(/PF-\d+/)[0]), ["PF-8"]);
 });

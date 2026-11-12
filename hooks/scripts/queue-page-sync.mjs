@@ -35,6 +35,34 @@ export const STATUSES = ["Ready for you", "You're on it", "Claude's on it", "Don
 const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`));
 /* The chip a line shows, "Status: X" or "[X]", else null (DISC-302). */
 const chipOf = (t) => STATUSES.find((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`)) ?? null;
+/* DISC-307 (operator s81: "ideally though we would consistently format things like i've done for pf-15131"; Recommended and Alternative are
+   each their own nested bullet): one item format. Chip, bold "(ID) Title." plus one bold state line, then nested bullets in fixed order
+   Problem, Solution, Decision (Recommended, Alternative nested; only when there is a choice), Look (link + steps, ends "Say yes, or what's
+   off."). A short item is the chip, the bold line and one plain line. Built from a queue row's cells: needed, where, why, recommended. */
+const sentence = (t) => { const x = String(t || "").trim().replace(/\s+/g, " "); return x && /[.!?…]$/.test(x) ? x : x ? `${x}.` : ""; };
+const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+export function formatItem({ id, needed = "", where = "", why = "", recommended = "", chip = "Ready for you" }) {
+  const all = clean([needed, why].join(" "));
+  const field = (name, text) => new RegExp(`${name}:\\s*(.*?)\\s*(?=(?:Problem|Solution):|$)`, "i").exec(text)?.[1]?.trim() || "";
+  const problem = field("Problem", clean(needed)), solution = field("Solution", clean(needed));
+  const head = clean(needed).replace(/\s*(?:Problem|Solution):.*$/i, "").trim();
+  const title = cap(head.split(/(?<=[.!?])\s+/)[0].replace(/[.!?…]+$/, "").slice(0, 90).trim());
+  const url = /https?:\/\/[^\s)>\]]+/.exec(all)?.[0];
+  const choice = clean(recommended);
+  const decision = !!choice, look = !!url;
+  const state = decision ? "Needs your decision." : look ? "Ready for your look." : "Waiting on you.";
+  const lines = [`- [ ] [${chip}] **(${id}) ${title}. ${state}**`];
+  if (problem) lines.push(`  - **Problem:** ${problem}`);
+  if (solution) lines.push(`  - **Solution:** ${solution}`);
+  if (decision) {
+    const m = /^(?:Recommended:?\s*)?(.*?)(?:\s*Alternative:?\s*(.*))?$/i.exec(choice);
+    lines.push(`  - **Decision:** ${head}`, `    - **Recommended:** ${m[1].trim()}`);
+    if (m[2]) lines.push(`    - **Alternative:** ${m[2].trim()}`);
+  }
+  if (look) lines.push(`  - **Look:** [Open the preview](${url})${clean(where) ? ` ${clean(where).replace(/[.!?]+$/, "")}` : ""}. Say yes, or what's off.`);
+  if (!problem && !solution && !decision && !look) lines.push(`  - ${sentence(clean(why) || clean(where)) || "Needs your answer."}`);
+  return lines.join("\n");
+}
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
 /* DISC-297 / DISC-305: a Claude Docs read returns the doc as (entity-escaped) XML. An item is
@@ -57,7 +85,12 @@ export function syncPlan({ vault, prefixes, docText }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
   const open = new Map();
-  for (const p of r.projects) for (const row of [...p.queue.rows, ...p.backlog.rows]) open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
+  const formatted = new Map();
+  for (const p of r.projects) for (const [kind, rows] of [["queue", p.queue.rows], ["backlog", p.backlog.rows]]) for (const row of rows) {
+    open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
+    const c = cells(row.line);
+    formatted.set(row.id, formatItem(kind === "queue" ? { id: row.id, needed: c[1], where: c[2], why: c[3], recommended: c[4] } : { id: row.id, needed: c[1] }));
+  }
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
   /* DISC-305: one doc for all projects, a `### <PFX> — <project>` heading per project inside Waiting on you and Running now. */
@@ -83,7 +116,7 @@ export function syncPlan({ vault, prefixes, docText }) {
       if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]), ...(under?.prefix ? { project: under.prefix } : {}) }); if (!hasStatus(text)) plan.noStatus.push(text); }
       continue;
     }
-    const id = /^\*\*([A-Z]{2,4}-\d+[a-z]?)\*\*/.exec(text)?.[1];
+    const id = (/^(?:\[[^\]]*\]\s*)?\*\*(?:\(([A-Z]{2,4}-\d+[a-z]?)\)|([A-Z]{2,4}-\d+[a-z]?)\*\*)/.exec(text) || []).slice(1).find(Boolean);
     if (!id) continue;
     listed.add(id);
     if (section.startsWith("waiting")) {
@@ -103,7 +136,7 @@ export function syncPlan({ vault, prefixes, docText }) {
   }
   for (const [lane, ids] of lanes) if (ids.length > 1) plan.sameLane.push({ lane, ids });
   plan.toAddUnder = [...open.keys()].filter((id) => !listed.has(id)).map((id) => ({ id, under: headingOf.get(/^([A-Z]{2,4})-/.exec(id)[1]) }));
-  plan.toAdd = [...open].filter(([id]) => !listed.has(id)).map(([, l]) => l);
+  plan.toAdd = [...open.keys()].filter((id) => !listed.has(id)).map((id) => formatted.get(id));
   return plan;
 }
 
