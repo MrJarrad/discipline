@@ -228,18 +228,31 @@ test("DISC-302: lastTurn reports the rows answered this turn and the text of thi
   assert.equal(r.docWrites.length, 1);
   assert.match(JSON.stringify(r.docWrites[0]), /dropdown Done/);
 });
+// The REAL chip change (parent s81): one update call with ops; the dropdown is a block {"type":"dropdown","enum":…,"index":N} swapped into a chars
+// range (index 0 Ready for you, 1 You're on it, 2 Done, 3 Claude's on it), and the row id rides in a SIBLING op (the lead-words rewrite) of the same call.
 const chipWrite = (payload) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload });
+const chipOp = (index) => ({ op: "replace", target: { kind: "chars", range: ["mvz0r93rszj.37884", "mvz0r93rszj.37884"] }, with: { as: "markdown", blocks: { v: { type: "dropdown", enum: "bc09b9b4-c14e", index } }, from: { kind: "inline", content: "&lt;?claude block v?&gt;" } } });
+const leadOp = (id) => ({ op: "replace", target: { kind: "find", text: `Look now: footer (${id}), in review…` }, with: { as: "text", from: { kind: "inline", content: `Answered (${id})` } } });
+const callOf = (...ops) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, ops });
 const answeredTurn = (...writes) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]);
-test("DISC-302 (review AMBER 4): the chip check looks at the answered row's own item; a Done anywhere else does not satisfy it", () => {
+test("DISC-302 (review AMBER 4, real payload): a call that sets a dropdown to index 1/2/3 and names the answered row passes; the index is read, not a label", () => {
+  const v = vaultWithChecklist();
+  for (const index of [1, 2, 3]) assert.equal(check({ ...answeredTurn(callOf(chipOp(index), leadOp("PF-6"))), vault: v }), null, `index ${index}`);
+  assert.equal(check({ ...answeredTurn(callOf(leadOp("PF-6"), chipOp(2))), vault: v }), null, "op order does not matter");
+});
+test("DISC-302: no pass for a Ready index, no dropdown, no row id in the call, or another row's call", () => {
   const v = vaultWithChecklist();
   const no = (t) => assert.match(check({ ...t, vault: v }), /DISC-302.*PF-6/);
-  no(answeredTurn(chipWrite("moved the item to the Done this session section")));
-  no(answeredTurn(chipWrite({ op: "replace", target: "PF-9", dropdown: { value: "Done" } })));
-  no(answeredTurn(chipWrite({ op: "replace", target: "PF-6", dropdown: { value: "Ready for you" } })));
-  const yes = (t) => assert.equal(check({ ...t, vault: v }), null);
-  yes(answeredTurn(chipWrite({ op: "replace", target: "PF-6", dropdown: { value: "Done" } })));
-  yes(answeredTurn(chipWrite("replace PF-6 with <dropdown id='.2' enum='e' index='2'>Done</dropdown>")));
-  yes(answeredTurn(chipWrite({ batch: [{ op: "replace", target: "PF-9", dropdown: { value: "Done" } }, { op: "replace", target: "PF-6", dropdown: { value: "You're on it" } }] })));
+  no(answeredTurn(callOf(chipOp(0), leadOp("PF-6"))));                         // still Ready for you
+  no(answeredTurn(callOf(leadOp("PF-6"))));                                    // lead words only
+  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9"))));                         // another row's call
+  no(answeredTurn(callOf(chipOp(2))));                                         // no row id anywhere in the call
+  no(answeredTurn(chipWrite("moved the item to the Done this session section"))); // the word Done, no dropdown
+  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9")), callOf(leadOp("PF-6"))));  // chip in one call, id in another
+});
+test("DISC-302: a read-side label shape in the call (a <dropdown> element) still counts when the row id is in the call", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ ...answeredTurn(chipWrite("replace PF-6 with <dropdown id='.2' enum='e' index='2'>Done</dropdown>")), vault: v }), null);
 });
 test("DISC-302: no row answered this turn adds no chip requirement", () => {
   const v = vaultWithChecklist();
