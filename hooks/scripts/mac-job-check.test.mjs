@@ -145,3 +145,20 @@ test("s83 6: a brief that runs npm ci only if node_modules or the dependency is 
     "Clone fresh. If the commit is missing from the remote, stop. Then run npm ci and npm test.",
   ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n")), [], body);
 });
+
+// s84 amber (review of #202): a backtick-quoted command and a "then" joiner are the same guarded install.
+test("s84 amber: a backtick-quoted guarded npm ci and an \"absent then npm ci\" are named; the review's clean phrasings stay clean", () => {
+  const bad = [
+    "Run `npm ci` only if node_modules is missing.",
+    "Run `npm ci` if the dependency is not installed.",
+    "If node_modules is absent then npm ci",
+  ];
+  for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n"))[0], /npm ci outright/, body);
+  for (const body of [
+    "Run npm ci, then npm test. If the lockfile is missing, stop.",
+    "Run npm ci. If the job fails because a font is missing, report it.",
+    "If the screenshot is missing, report it. Then run npm ci.",
+    "Run npm ci; when it finishes, report if any file is missing.",
+    "Run npm ci. When the test output is missing, say so.",
+  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n")), [], body);
+});
