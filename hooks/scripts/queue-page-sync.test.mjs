@@ -297,3 +297,31 @@ test("DISC-307 r2: a nested listItem in the real Claude Docs shape reads back as
   assert.deepEqual(p.noStatus, [], "the chip is read; the nested bullets are not items");
   assert.equal(p.toAdd.length, 2, "PF-6 and PF-8 are still missing from the doc");
 });
+
+// DISC-307 round 3 (review of #190, round 2): the real doc marks bold with <bold>…</bold>; reading it must give **…** or no (ID) is ever seen.
+const bold = (t) => `&lt;bold&gt;${t}&lt;/bold&gt;`;
+const liB = (chip, boldText, rest = "", extra = "") => `&lt;listItem id='.1'${extra}&gt;&lt;paragraph&gt;${chip === null ? "" : `&lt;dropdown id='.2' enum='e' index='0'&gt;${chip}&lt;/dropdown&gt;`}&lt;text&gt; &lt;/text&gt;${bold(boldText)}&lt;text&gt;${rest}&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;`;
+test("DISC-307 r3 RED: <bold> reads back as ** **, so the real doc's (ID) titles are seen: nothing is re-added and a tick is banked", () => {
+  const doc = [heading("Waiting on you"), liB("Ready for you", "(PF-5) Look at footer. Ready for your look."), liB("Done", "(PF-6) Pick hero. Waiting on you.", "", " checked='true'")].join("\n");
+  assert.match(fromDocsReadSync(doc), /^- \[ \] \*\*\(PF-5\) Look at footer\. Ready for your look\.\*\* \[Ready for you\]$/m);
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: doc });
+  assert.deepEqual(p.answered, ["PF-6"], "his tick on the open row PF-6 is seen");
+  assert.deepEqual(p.toAdd.map((l) => /\(PF-\d+\)/.exec(l)[0]), ["(PF-8)"], "PF-5 and PF-6 are already on the doc, only PF-8 is added");
+});
+test("DISC-307 r3 AMBER: a row's Caveat is kept, inside Solution when there is one, as its own bullet when there is not", () => {
+  const out = formatItem(ROW_1596);
+  assert.match(out, /\*\*Solution:\*\* \?board=fine draws the board alone at 4x in a small canvas that moves with it\. Caveat: in testing it cost about 1\.5x more to draw, so a Mac speed check runs before it could merge\./);
+  const noSol = formatItem({ id: "PF-4", needed: "Look at it: open https://p.example/x. Problem: it is off. Caveat: only on Safari. Say yes, or what's off." });
+  assert.match(noSol, /  - \*\*Problem:\*\* it is off\.\n  - \*\*Caveat:\*\* only on Safari\./);
+});
+test("DISC-307 r3 NOTE: no stray </list>, a nested bullet's own children keep their extra indent, and a very long plain line is cut at a word boundary", () => {
+  const nested = "&lt;listItem id='.1'&gt;&lt;paragraph&gt;&lt;text&gt;**(PF-7) Pick. Needs your decision.**&lt;/text&gt;&lt;/paragraph&gt;&lt;list&gt;&lt;listItem id='.2'&gt;&lt;paragraph&gt;&lt;text&gt;**Decision:** pick one&lt;/text&gt;&lt;/paragraph&gt;&lt;list&gt;&lt;listItem id='.3'&gt;&lt;paragraph&gt;&lt;text&gt;**Recommended:** A.&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;&lt;listItem id='.4'&gt;&lt;paragraph&gt;&lt;text&gt;**Alternative:** B.&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;&lt;/list&gt;&lt;/listItem&gt;&lt;/list&gt;&lt;/listItem&gt;";
+  const out = fromDocsReadSync(nested);
+  assert.ok(!out.includes("</list>") && !out.includes("<list"), out);
+  const lines = out.split("\n").filter(Boolean);
+  assert.deepEqual(lines.slice(1), ["  - **Decision:** pick one", "    - **Recommended:** A.", "    - **Alternative:** B."]);
+  const long = formatItem({ id: "PF-65", needed: `Project media: ${"all the media for every case study and then some more words ".repeat(40)}` });
+  const plain = long.split("\n")[1];
+  assert.ok(plain.length <= 260, `${plain.length}`);
+  assert.match(plain, /…$/);
+});

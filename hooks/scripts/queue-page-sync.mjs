@@ -70,7 +70,9 @@ export function formatItem({ id, needed = "", where = "", why = "", recommended 
   const closing = /\s(Say [^.]*\.)\s*$/.exec(text)?.[1];
   if (closing) text = text.slice(0, text.length - closing.length).trim();
   const field = (name) => new RegExp(`(?:^|\\s)${name}(?:\\s*\\([^)]*\\))?:\\s*(.*?)${FIELD_END}`, "i").exec(text)?.[1]?.trim() || "";
-  const problem = field("Problem"), solution = field("Solution");
+  const problem = field("Problem"), caveat = field("Caveat");
+  let solution = field("Solution");
+  if (solution && caveat) solution = `${solution} Caveat: ${caveat}`;
   const head = text.replace(/(?:^|\s)(?:Problem|Solution(?:\s*\([^)]*\))?|Caveat):.*$/i, "").trim();
   const [titleRaw, rest] = splitHead(head);
   const title = titleOf(titleRaw);
@@ -84,6 +86,7 @@ export function formatItem({ id, needed = "", where = "", why = "", recommended 
   const lines = [`- [ ] [${chip}] **(${id}) ${title}. ${state}**`];
   if (problem) lines.push(`  - **Problem:** ${problem}`);
   if (solution) lines.push(`  - **Solution:** ${solution}`);
+  if (caveat && !solution) lines.push(`  - **Caveat:** ${caveat}`);
   if (decision) {
     lines.push(`  - **Decision:** ${head}`, `    - **Recommended:** ${choice.replace(/\s*Alternative:?.*$/i, "").replace(/^Recommended:?\s*/i, "").trim()}`, `    - **Alternative:** ${alt}`);
   }
@@ -92,9 +95,10 @@ export function formatItem({ id, needed = "", where = "", why = "", recommended 
     const body = mdLink ? cap(steps) : `[Open the preview](${rawUrl})${steps ? ` ${steps.replace(/[.!?]+$/, "")}` : ""}`;
     lines.push(`  - **Look:** ${body.replace(/\s+$/, "")}${/[.!?]$/.test(body) ? "" : "."} ${closing || "Say yes, or what's off."}`);
   }
-  if (!problem && !solution && !decision && !look) {
+  if (!problem && !solution && !caveat && !decision && !look) {
     const plain = rest || (POINTER.test(clean(why)) ? "" : clean(why)) || (POINTER.test(clean(where)) ? "" : clean(where));
-    lines.push(`  - ${sentence(plain) || "Needs your answer."}`);
+    const one = plain.length > 240 ? `${plain.slice(0, 240).replace(/\s+\S*$/, "").replace(/[\s,;:(-]+$/, "")}…` : plain;
+    lines.push(`  - ${sentence(one) || "Needs your answer."}`);
   }
   return lines.join("\n");
 }
@@ -113,13 +117,14 @@ export function fromDocsRead(t) {
   const item = /<listItem\b([^>]*)>((?:(?!<listItem\b)[\s\S])*?)<\/listItem>/;
   let out = headed;
   for (let guard = 0; item.test(out) && guard < 500; guard++) {
-    out = out.replace(item, (_, attrs, body) => {
+    out = out.replace(item, (_, attrs, rawBody) => {
+      const body = rawBody.replace(/<\/?list\b[^>]*>/g, "");
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
       const k = body.indexOf("\n- [");
       const own = k === -1 ? body : body.slice(0, k), kids = k === -1 ? "" : body.slice(k);
       const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(own)?.[1].trim();
-      const text = own.replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n${kids.replace(/^- \[[ x]\] /gm, "  - ").replace(/^\n+/, "")}`;
+      const text = own.replace(/<bold>([\s\S]*?)<\/bold>/g, "**$1**").replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n${kids.split("\n").map((l) => (/^- \[[ x]\] /.test(l) ? l.replace(/^- \[[ x]\] /, "  - ") : /^\s+- /.test(l) ? `  ${l}` : l)).join("\n").replace(/^\n+/, "")}`;
     });
   }
   return out;
