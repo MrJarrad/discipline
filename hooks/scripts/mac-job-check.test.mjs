@@ -138,4 +138,10 @@ test("s83 6: a brief that runs npm ci only if node_modules or the dependency is 
   for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body))[0], /npm ci outright/, body);
   assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Run `npm ci` in the clone.\nNo background tasks, no subagents.\n")), []);
   assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Clone fresh, then npm ci.\nIf the test fails, report it. No background tasks, no subagents.\n")), []);
+  // s84 (review of #201): a condition that does not guard the install is not a conditional install.
+  for (const body of [
+    "Run `npm ci`. If package-lock.json is missing, stop and report.",
+    "Run npm ci. If the install fails because a package is missing from the registry, report it.",
+    "Clone fresh. If the commit is missing from the remote, stop. Then run npm ci and npm test.",
+  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n")), [], body);
 });
