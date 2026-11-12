@@ -3,8 +3,8 @@
    Claude Doc checklist ("Needed from you") mirrors them. A script cannot call the Claude Docs
    connector, so this prints what the session must change there (the session then applies each
    line with the connector's find/replace) and what to read back:
-     items    one `- [ ] **PF-5** text` line per open queue row and waiting-on-operator backlog row
-     toAdd    open rows the doc does not list yet
+     items    one `- [ ] **(PF-5)** text` line per open queue row and waiting-on-operator backlog row
+     toAdd    open rows the doc does not list yet, each in the Status item format (formatItem, DISC-307)
      toTick   doc rows still unticked whose queue row is no longer open (landed or answered)
      answered doc rows the operator ticked while the queue row is still open (bank as an answer,
               then `lane-end.mjs --id` strikes the queue row; the next sync ticks nothing twice)
@@ -41,26 +41,61 @@ const chipOf = (t) => STATUSES.find((s) => t.includes(`Status: ${s}`) || t.inclu
    off."). A short item is the chip, the bold line and one plain line. Built from a queue row's cells: needed, where, why, recommended. */
 const sentence = (t) => { const x = String(t || "").trim().replace(/\s+/g, " "); return x && /[.!?…]$/.test(x) ? x : x ? `${x}.` : ""; };
 const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+const POINTER = /^(?:the\s+)?(?:pinned doc|status doc|status|reply here|reply|drop|claude app|here)\b/i;
+const FIELD_END = "(?=\\s(?:Problem|Solution(?:\\s*\\([^)]*\\))?|Caveat):|$)";
+/* The title and the rest of a row's first part: cut at the first ": " outside brackets, else the first sentence. */
+function splitHead(head) {
+  let depth = 0;
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i];
+    if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth = Math.max(0, depth - 1);
+    else if (c === ":" && depth === 0 && /\s/.test(head[i + 1] || "")) return [head.slice(0, i), head.slice(i + 1).trim()];
+  }
+  const m = /^(.*?[.!?])\s+(.*)$/.exec(head);
+  return m ? [m[1], m[2]] : [head, ""];
+}
+/* A title: links reduced to their text, URLs dropped, cut at a word boundary within 90 characters and never inside a parenthesis. */
+function titleOf(raw) {
+  let t = raw.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().replace(/[.!?…:;,]+$/, "");
+  if (t.length > 90) {
+    t = t.slice(0, 90).replace(/\s+\S*$/, "");
+    const open = t.lastIndexOf("("); if (open > t.lastIndexOf(")")) t = t.slice(0, open).trim();
+    t = t.replace(/[\s,;:(-]+$/, "");
+  }
+  return cap(t);
+}
 export function formatItem({ id, needed = "", where = "", why = "", recommended = "", chip = "Ready for you" }) {
-  const all = clean([needed, why].join(" "));
-  const field = (name, text) => new RegExp(`${name}:\\s*(.*?)\\s*(?=(?:Problem|Solution):|$)`, "i").exec(text)?.[1]?.trim() || "";
-  const problem = field("Problem", clean(needed)), solution = field("Solution", clean(needed));
-  const head = clean(needed).replace(/\s*(?:Problem|Solution):.*$/i, "").trim();
-  const title = cap(head.split(/(?<=[.!?])\s+/)[0].replace(/[.!?…]+$/, "").slice(0, 90).trim());
-  const url = /https?:\/\/[^\s)>\]]+/.exec(all)?.[0];
+  let text = clean(needed);
+  const closing = /\s(Say [^.]*\.)\s*$/.exec(text)?.[1];
+  if (closing) text = text.slice(0, text.length - closing.length).trim();
+  const field = (name) => new RegExp(`(?:^|\\s)${name}(?:\\s*\\([^)]*\\))?:\\s*(.*?)${FIELD_END}`, "i").exec(text)?.[1]?.trim() || "";
+  const problem = field("Problem"), solution = field("Solution");
+  const head = text.replace(/(?:^|\s)(?:Problem|Solution(?:\s*\([^)]*\))?|Caveat):.*$/i, "").trim();
+  const [titleRaw, rest] = splitHead(head);
+  const title = titleOf(titleRaw);
+  const mdLink = /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(rest || text);
+  const rawUrl = /https?:\/\/[^\s)>\]]+/.exec(clean([needed, why].join(" ")))?.[0];
+  const look = mdLink || !!rawUrl;
   const choice = clean(recommended);
-  const decision = !!choice, look = !!url;
+  const alt = /\bAlternative:?\s*(.*)$/i.exec(choice)?.[1]?.trim();
+  const decision = !!alt;
   const state = decision ? "Needs your decision." : look ? "Ready for your look." : "Waiting on you.";
   const lines = [`- [ ] [${chip}] **(${id}) ${title}. ${state}**`];
   if (problem) lines.push(`  - **Problem:** ${problem}`);
   if (solution) lines.push(`  - **Solution:** ${solution}`);
   if (decision) {
-    const m = /^(?:Recommended:?\s*)?(.*?)(?:\s*Alternative:?\s*(.*))?$/i.exec(choice);
-    lines.push(`  - **Decision:** ${head}`, `    - **Recommended:** ${m[1].trim()}`);
-    if (m[2]) lines.push(`    - **Alternative:** ${m[2].trim()}`);
+    lines.push(`  - **Decision:** ${head}`, `    - **Recommended:** ${choice.replace(/\s*Alternative:?.*$/i, "").replace(/^Recommended:?\s*/i, "").trim()}`, `    - **Alternative:** ${alt}`);
   }
-  if (look) lines.push(`  - **Look:** [Open the preview](${url})${clean(where) ? ` ${clean(where).replace(/[.!?]+$/, "")}` : ""}. Say yes, or what's off.`);
-  if (!problem && !solution && !decision && !look) lines.push(`  - ${sentence(clean(why) || clean(where)) || "Needs your answer."}`);
+  if (look) {
+    const steps = mdLink ? rest : [rest, POINTER.test(clean(where)) ? "" : clean(where)].filter(Boolean).join(" ");
+    const body = mdLink ? cap(steps) : `[Open the preview](${rawUrl})${steps ? ` ${steps.replace(/[.!?]+$/, "")}` : ""}`;
+    lines.push(`  - **Look:** ${body.replace(/\s+$/, "")}${/[.!?]$/.test(body) ? "" : "."} ${closing || "Say yes, or what's off."}`);
+  }
+  if (!problem && !solution && !decision && !look) {
+    const plain = rest || (POINTER.test(clean(why)) ? "" : clean(why)) || (POINTER.test(clean(where)) ? "" : clean(where));
+    lines.push(`  - ${sentence(plain) || "Needs your answer."}`);
+  }
   return lines.join("\n");
 }
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
@@ -72,13 +107,23 @@ const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 export function fromDocsRead(t) {
   if (!/(<|&lt;)(listItem|paragraph)\b/.test(t)) return t;
   const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#39;/g, "'");
-  return doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
-    .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
+  const headed = doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
+  ;
+  /* Items, innermost first (DISC-307 round 2): a nested listItem is converted before its parent, then re-indented under it as a plain bullet. */
+  const item = /<listItem\b([^>]*)>((?:(?!<listItem\b)[\s\S])*?)<\/listItem>/;
+  let out = headed;
+  for (let guard = 0; item.test(out) && guard < 500; guard++) {
+    out = out.replace(item, (_, attrs, body) => {
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
-      const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();
-      const text = body.replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n`;
+      const k = body.indexOf("\n- [");
+      const own = k === -1 ? body : body.slice(0, k), kids = k === -1 ? "" : body.slice(k);
+      const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(own)?.[1].trim();
+      const text = own.replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n${kids.replace(/^- \[[ x]\] /gm, "  - ").replace(/^\n+/, "")}`;
     });
+  }
+  return out;
+
 }
 
 export function syncPlan({ vault, prefixes, docText }) {
@@ -87,7 +132,7 @@ export function syncPlan({ vault, prefixes, docText }) {
   const open = new Map();
   const formatted = new Map();
   for (const p of r.projects) for (const [kind, rows] of [["queue", p.queue.rows], ["backlog", p.backlog.rows]]) for (const row of rows) {
-    open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
+    open.set(row.id, `- [ ] **(${row.id})** ${clean(cells(row.line)[1] || "")}`);
     const c = cells(row.line);
     formatted.set(row.id, formatItem(kind === "queue" ? { id: row.id, needed: c[1], where: c[2], why: c[3], recommended: c[4] } : { id: row.id, needed: c[1] }));
   }
