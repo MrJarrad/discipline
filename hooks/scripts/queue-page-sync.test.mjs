@@ -139,3 +139,62 @@ test("DISC-297: end to end, a Claude Docs item holding two links is flagged appe
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: [heading("Waiting on you"), two, one].join("\n") });
   assert.deepEqual(p.appended, ["PF-5"]);
 });
+
+// DISC-302 (operator s81: "can you make sure status in the needed from you doc get updated with responses") and
+// DISC-305 (operator s81: "I think status is correct"; "a way to group different projects within the doc may be worthwhile").
+const GROUPED = `# Status
+
+## Waiting on you
+
+### PF — portfolio
+
+- [ ] **PF-5** Look now: footer https://p.example/r3 [Ready for you]
+- [x] **PF-6** pick hero [Ready for you]
+- [ ] **PF-4** old row, since landed [Claude's on it]
+
+### HB — hoverboard
+
+- [ ] **PF-9** filed under the wrong project [Ready for you]
+
+## Running now
+
+### PF — portfolio
+
+- [ ] footer round 4 (session_019vvsKxkt4YUc2iRJhzm8jJ) [Claude's on it]
+
+## Done this session
+
+- [x] **PF-3** earlier [Done]
+`;
+test("DISC-305: the plan names each session project's heading and where a missing open row is placed", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED });
+  assert.deepEqual(p.projects, [{ prefix: "PF", heading: "### PF — portfolio" }]);
+  assert.deepEqual(p.toAddUnder, [{ id: "PF-8", under: "### PF — portfolio" }]);
+});
+test("DISC-305: a Waiting item under another project's heading, or under none when the doc groups by project, is misfiled", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED });
+  assert.deepEqual(p.misfiled, [{ id: "PF-9", under: "### HB — hoverboard", belongsTo: "PF" }]);
+  const flat = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
+  assert.deepEqual(flat.misfiled, [], "a doc with no project headings at all is not flagged item by item");
+  assert.equal(flat.needsProjectHeadings, true);
+  assert.equal(p.needsProjectHeadings, false);
+});
+test("DISC-305: a Running now item carries the project of the heading it sits under", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED });
+  assert.deepEqual(p.running, [{ text: "footer round 4 (session_019vvsKxkt4YUc2iRJhzm8jJ) [Claude's on it]", sessions: ["session_019vvsKxkt4YUc2iRJhzm8jJ"], project: "PF" }]);
+});
+test("DISC-302: every answered or landed Waiting item whose chip is not Done gets a chip change to Done", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED });
+  assert.deepEqual(p.chipChanges, [
+    { id: "PF-6", from: "Ready for you", to: "Done", why: "answered" },
+    { id: "PF-4", from: "Claude's on it", to: "Done", why: "landed" },
+    { id: "PF-9", from: "Ready for you", to: "Done", why: "landed" },
+  ], "PF-9 is not an open row in this vault, so it reads as landed");
+});
+test("DISC-305: a level-3 heading in a Claude Docs read is a project heading, not a section", () => {
+  const h3 = (t) => `&lt;heading level='3'&gt;${t}&lt;/heading&gt;`;
+  const docs = [heading("Waiting on you"), h3("PF — portfolio"), li("Ready for you", "**PF-5** look"), li("Ready for you", "**PF-6** pick"), h3("HB — hoverboard"), li("Ready for you", "**PF-8** wrong place")].join("\n");
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: docs });
+  assert.deepEqual(p.misfiled, [{ id: "PF-8", under: "### HB — hoverboard", belongsTo: "PF" }]);
+  assert.equal(p.needsProjectHeadings, false);
+});

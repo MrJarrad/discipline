@@ -71,9 +71,9 @@ On wrap:
 If `projects/<name>/` does not exist for a live product (jhd-discipline), create the
 new-project trio in the same wrap (`vault-write`).
 
-**Pinned checklist (DISC-288):** run `queue-page-sync.mjs --vault <vault> --projects <prefixes> --doc <doc text>`;
+**Status doc (DISC-288, DISC-305):** run `queue-page-sync.mjs --vault <vault> --projects <prefixes> --doc <doc text>`;
 check each "Running now" item with `get_session` (tick landed, re-point live), then delete every `clearAtWrap`
-line so "Done this session" starts empty next session; `clearAtWrap` also holds ticked "Waiting on you" items whose row is closed (DISC-290), cleared the same way (operator: "clear it at each sessions end"; the vault keeps the record). Mid-session the same plan's `leaveWaiting` lists answered Waiting items to delete the turn they are answered (DISC-297).
+line so "Done this session" starts empty next session; `clearAtWrap` also holds ticked "Waiting on you" items whose row is closed (DISC-290), cleared the same way (operator: "clear it at each sessions end"; the vault keeps the record). Each item sits under its project's `### <PFX> — <project>` heading in "Waiting on you" and "Running now" (the plan's `toAddUnder`, `misfiled`; DISC-305), and each answered or landed item's chip is set to Done (`chipChanges`, DISC-302). Mid-session the same plan's `leaveWaiting` lists answered Waiting items to delete the turn they are answered (DISC-297).
 
 A project handover is last-left, not still-true. Date it. After a long gap the next
 session must say the date, then trust git + the hub.

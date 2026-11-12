@@ -129,11 +129,11 @@ test("DISC-288: renderShort prints only the named new rows and the one link line
   assert.match(out, /^## Needed from you/);
   assert.match(out, /PF-5 \| pf look at the footer/);
   assert.doesNotMatch(out, /HB-5|hb secret row|PF-8/, "old open rows stay on the checklist");
-  assert.match(out.trimEnd().split("\n").pop(), new RegExp(`^Full list: \\[Needed from you\\]\\(${LINK}\\)$`));
+  assert.match(out.trimEnd().split("\n").pop(), new RegExp(`^Full list: \\[Status\\]\\(${LINK}\\)$`));
 });
 test("DISC-288: no new asks prints just the link line; no link prints the full block", () => {
   const r = neededFromYou(vault(), ["PF"]);
-  assert.equal(renderShort(r, [], LINK), `## Needed from you\n\nFull list: [Needed from you](${LINK})`);
+  assert.equal(renderShort(r, [], LINK), `## Needed from you\n\nFull list: [Status](${LINK})`);
   assert.equal(renderShort(r, ["PF-5"], null), render(r));
 });
 test("DISC-288: CLI --short reads the link from the vault paragraph and --new from the flag", () => {

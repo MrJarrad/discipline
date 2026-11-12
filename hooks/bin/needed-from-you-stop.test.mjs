@@ -106,7 +106,7 @@ function vaultWithChecklist() {
   writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id x).\n`);
   return v;
 }
-const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Needed from you](${URL_})\n`;
+const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Status](${URL_})\n`;
 
 test("DISC-288: with the pinned checklist in the vault, the short form passes without reprinting old rows", () => {
   const v = vaultWithChecklist();
@@ -125,8 +125,8 @@ test("DISC-288: a short block must still name every row added this turn, and be 
 });
 test("DISC-288 (s79): with the pinned checklist configured, no link line, or a link to another page, is refused (no full-block fallback)", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /pinned checklist/);
-  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /Status doc/);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /Status doc/);
 });
 test("DISC-288: a vault with no pinned-checklist paragraph never accepts the short form", () => {
   assert.match(check({ text: SHORT(), userTs: T, vault: vault() }), /no `### <PFX>/);
@@ -137,8 +137,8 @@ test("DISC-288: a reply with a Build in Progress heading is still a status reply
 });
 test("DISC-288 N1: only the exact link line takes the short form; the URL elsewhere in the block does not", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /pinned checklist/);
-  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /Status doc/);
+  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /Status doc/);
   assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
 });
 
@@ -153,7 +153,7 @@ const reply = (text) => JSON.stringify({ type: "assistant", message: { content: 
 
 test("s79 (a): with the pinned checklist configured, a full inline block with no doc link is refused", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: FULL, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: FULL, userTs: T, vault: v }), /Status doc/);
   assert.match(check({ text: FULL, userTs: T, vault: v }), /Full list:/);
 });
 test("s79 (a): with no pinned checklist in the vault the full block still passes", () => {
@@ -202,4 +202,42 @@ test("s79 review AMBER 3: a Claude Docs update/batch naming the doc UUID counts 
   assert.equal(lastTurn(turn(wrote(), reply(SHORT())), pinnedChecklistIds(v)).docWritten, true, "artifact id also accepted");
   const other = lastTurn(turn(wrote("mcp__Claude_Docs__update", { container: { kind: "project", id: "00000000-0000-0000-0000-000000000000" } }), reply(SHORT())), pinnedChecklistIds(v));
   assert.equal(other.docWritten, false);
+});
+
+// DISC-305 (operator s81: "I think status is correct"): the doc is called Status, so the link line reads [Status]; the old link text still passes.
+test("DISC-305: the link line may read [Status] or the legacy [Needed from you]", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: `Lane landed.\n\n## Needed from you\n\nFull list: [Status](${URL_})\n`, userTs: T, vault: v }), null);
+  assert.equal(check({ text: `Lane landed.\n\n## Needed from you\n\nFull list: [Needed from you](${URL_})\n`, userTs: T, vault: v }), null);
+});
+test("DISC-305: the vault paragraph may be headed Status doc as well as Pinned checklist", () => {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Status doc (operator s81, DISC-305):** Claude Doc "Status" ${URL_} (doc id x).\n`);
+  assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /Status doc/);
+});
+
+// DISC-302 (operator s81: "can you make sure status in the needed from you doc get updated with responses"): a row answered this turn
+// (lane-end.mjs --id) must have its Status chip changed in the doc write, not left at Ready for you.
+const bash = (command) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "b", name: "Bash", input: { command } }] } });
+test("DISC-302: lastTurn reports the rows answered this turn and the text of this turn's doc writes", () => {
+  const t = turn(bash("node hooks/scripts/lane-end.mjs --vault /v --id PF-6 --status done"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "chars replace dropdown Done" }), reply(SHORT()));
+  const r = lastTurn(t, [DOC_ID]);
+  assert.deepEqual(r.answered, ["PF-6"]);
+  assert.match(r.docWriteText, /dropdown Done/);
+});
+test("DISC-302: an answered row with no chip change in the doc write is refused; a Done chip lets it pass", () => {
+  const v = vaultWithChecklist();
+  const mk = (payload) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload }), reply(SHORT())), [DOC_ID]);
+  const stale = mk("moved the item to Done this session");
+  assert.match(check({ ...stale, vault: v }), /DISC-302.*PF-6.*Ready for you/);
+  const fresh = mk({ op: "replace", dropdown: { value: "Done" } });
+  assert.equal(check({ ...fresh, vault: v }), null);
+});
+test("DISC-302: no row answered this turn adds no chip requirement", () => {
+  const v = vaultWithChecklist();
+  const r = lastTurn(turn(wrote(), reply(SHORT())), [DOC_ID]);
+  assert.deepEqual(r.answered, []);
+  assert.equal(check({ ...r, vault: v }), null);
 });
