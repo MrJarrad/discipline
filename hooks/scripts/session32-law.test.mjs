@@ -147,7 +147,7 @@ test("(B2) the gate fails closed: unreadable input or a crash refuses the merge 
 test("(B2) the hook is registered, the verdict shape is defined once in the reviewer charter, and the rule names the check", () => {
   const hooks = JSON.parse(readFileSync(join(root, "hooks/hooks.json"), "utf8")).hooks.PreToolUse;
   assert.ok(hooks.some((h) => h.matcher === "mcp__github__merge_pull_request" && h.hooks[0].command.includes("merge-review-gate.mjs")));
-  assert.match(flat("agents/reviewer.md"), /Verdict shape — the one definition the merge gates parse.*comment or a PR review.*`##` heading containing `Review` and `head <sha>`.*first line that begins `merge: yes` or `merge: no`/);
+  assert.match(flat("agents/reviewer.md"), /Verdict shape — the one definition the merge gates parse.*comment or a PR review.*`##` heading spelled `## Review — round N of 2, tier X, head <40-hex>`.*first line that begins `merge: yes` or `merge: no`/);
   assert.match(flat("skills/routing/references/HARD-RULES.md"), /Checked: `hooks\/bin\/merge-review-gate\.mjs` refuses `mcp__github__merge_pull_request`/);
   assert.match(flat("hooks/scripts/merge-after-review.mjs"), /reviewVerdict\(\[\.\.\.\(status\.comments \|\| \[\]\)\.map\(at\("createdAt"\)\), \.\.\.\(status\.reviews \|\| \[\]\)\.map\(at\("submittedAt"\)\)\]/);
 });
