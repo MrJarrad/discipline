@@ -58,7 +58,7 @@ test("lastTurn reads the final assistant text after the last real user message, 
     L({ type: "assistant", message: { content: [{ type: "text", text: "mid" }, { type: "tool_use", name: "x" }] } }),
     L({ type: "user", timestamp: "2026-10-16T11:01:00.000Z", message: { content: [{ type: "tool_result", content: "r" }] } }),
     L({ type: "assistant", message: { content: [{ type: "text", text: "final" }] } })].join("\n");
-  assert.deepEqual(lastTurn(t), { userTs: "2026-10-16T11:00:00.000Z", text: "final" });
+  assert.deepEqual(lastTurn(t), { userTs: "2026-10-16T11:00:00.000Z", text: "final", wake: false });
 });
 test("CLI: blocks via JSON decision, allows when stop_hook_active or no vault", () => {
   const v = vault();
@@ -240,4 +240,43 @@ test("DISC-302: no row answered this turn adds no chip requirement", () => {
   const r = lastTurn(turn(wrote(), reply(SHORT())), [DOC_ID]);
   assert.deepEqual(r.answered, []);
   assert.equal(check({ ...r, vault: v }), null);
+});
+
+// s81 (operator, verbatim: "you've started status updates in the thread again"): an automated wake (GitHub event, helper message,
+// background completion) with nothing the operator must act on gets no chat text at all; results go to the Status doc.
+const wakeUser = (body) => JSON.stringify({ type: "user", timestamp: T, message: { content: body } });
+const WAKE = `<system-reminder>\n[SYSTEM NOTIFICATION - NOT USER INPUT]\n<cross-session-message from-session="session_x">\nlane landed\n</cross-session-message>\n</system-reminder>`;
+test("s81: lastTurn marks a turn started by an automated notification as a wake; a real user message is not", () => {
+  assert.equal(lastTurn([wakeUser(WAKE), reply("PR merged.")].join("\n"), []).wake, true);
+  assert.equal(lastTurn([wakeUser(`<wake reason="external-event"><event source="github"/></wake>`), reply("ok")].join("\n"), []).wake, true);
+  assert.equal(lastTurn([wakeUser("how are we looking"), reply("fine")].join("\n"), []).wake, false);
+});
+test("s81: chat text on an automated wake with no new ask is refused; no text, or a wrapped one-liner, passes", () => {
+  const v = vault();
+  assert.match(check({ text: "The PR merged and the helper is done.", userTs: T, vault: v, wake: true }), /automated wake.*no chat text.*Status doc/i);
+  assert.equal(check({ text: null, userTs: T, vault: v, wake: true }), null);
+  assert.equal(check({ text: "This session is wrapped — continue in a fresh session", userTs: T, vault: v, wake: true }), null);
+});
+test("s81: a wake that raised a new ask (row-add marker this turn) still needs the Needed-from-you block, not silence", () => {
+  const v = vaultWithChecklist();
+  const dir = mkdtempSync(join(tmpdir(), "mk-"));
+  process.env.DISCIPLINE_MARKER_DIR = dir;
+  try {
+    writeMarker(v, { prefix: "PF", id: "PF-9", to: "queue", ts: "2026-10-16T10:05:00.000Z" });
+    assert.equal(check({ text: SHORT("1. **New** PF-9 look.\n\n"), userTs: T, vault: v, wake: true }), null);
+  } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
+});
+test("s81: a real user message with the same reply text is not held by the wake rule", () => {
+  assert.equal(check({ text: "The PR merged and the helper is done.", userTs: T, vault: vault(), wake: false }), null);
+});
+
+// s81 / DISC-302: the CLI must pass the wake flag and the answered rows through to check().
+test("CLI: an automated wake with reply text is blocked; an answered row with a stale chip is blocked by the hook itself", () => {
+  const v = vaultWithChecklist();
+  const d = mkdtempSync(join(tmpdir(), "tr-"));
+  const run = (lines) => { const tr = join(d, "t.jsonl"); writeFileSync(tr, lines.join("\n")); return spawnSync("node", [hook], { input: JSON.stringify({ transcript_path: tr, session_id: "s" }), encoding: "utf8", env: { PATH: process.env.PATH, DISCIPLINE_VAULT_ROOT: v } }); };
+  const w = run([wakeUser(WAKE), reply("The PR merged.")]);
+  assert.match(JSON.parse(w.stdout).reason, /automated wake/);
+  const stale = run([JSON.stringify({ type: "user", timestamp: T, message: { content: "done" } }), bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "moved to Done section" }), reply(SHORT())]);
+  assert.match(JSON.parse(stale.stdout).reason, /DISC-302/);
 });

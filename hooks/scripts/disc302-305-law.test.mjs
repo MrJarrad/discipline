@@ -27,3 +27,9 @@ test("DISC-305: the doc is called Status, one doc for all projects, a ### headin
   assert.ok(style.includes("Full list: [Status](<url>)"));
   assert.ok(!style.includes("Full list: [Needed from you]"));
 });
+
+test("s81: an automated wake with no new ask gets no chat text; the result goes to the Status doc", () => {
+  const style = flat("output-styles/discipline.md");
+  for (const x of ["gets no chat text at all", "you've started status updates in the thread again", "`needed-from-you-stop.mjs` holds a reply to a wake that raised no new ask"]) assert.ok(style.includes(x), x);
+  assert.ok(!style.includes("at most one line, no queue reprint"));
+});

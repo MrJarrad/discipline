@@ -266,9 +266,9 @@ test("the style body carries no wide tables", () => {
 
 // queue-wakes-and-back-references-2026-10-01: automated wakes are not status
 // replies, and a queue row never points at an earlier message.
-test("discipline.md: automated wakes get one line; rows are never back-references", () => {
+test("discipline.md: automated wakes get no chat text; rows are never back-references", () => {
   const style = readFileSync(new URL("../../output-styles/discipline.md", import.meta.url), "utf8");
-  assert.match(style, /automated wake[^.]*at most one line, no queue reprint/i);
+  assert.match(style, /automated wake[^.]*no chat text at all/i);
   assert.match(style, /never a back-reference[^)]*earlier\/previous\/above message/i);
 });
 

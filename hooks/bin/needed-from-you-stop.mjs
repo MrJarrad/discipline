@@ -31,6 +31,8 @@ import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
 import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
+/* s81: a turn started by the harness, not the operator: a notification wrapper, a GitHub wake, a helper's message. */
+const WAKE = /\[SYSTEM NOTIFICATION - NOT USER INPUT\]|<wake reason=|<cross-session-message|<task-notification/;
 const HEAD = /^## Needed from you\s*$/m;
 const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b?.type === "text").map((b) => b.text).join("\n") : "");
 const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_result");
@@ -41,12 +43,12 @@ const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_
 export function lastTurn(transcriptText, docIds) {
   const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean);
   const docId = ids.length ? ids : null;
-  let userTs = "", text = null, docWritten = false, answered = [], docWriteText = "";
+  let userTs = "", text = null, docWritten = false, answered = [], docWriteText = "", wake = false;
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWriteText = ""; }
+    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWriteText = ""; wake = WAKE.test(textOf(c)); }
     else if (e.type === "assistant") {
       const t = textOf(c); if (t.trim()) text = t;
       if (Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && b.name === "Bash") for (const m of String(b.input?.command || "").matchAll(/lane-end\.mjs[^\n]*?--id\s+([A-Z]{2,4}-\d+[a-z]?)/g)) if (!answered.includes(m[1])) answered.push(m[1]);
@@ -54,14 +56,16 @@ export function lastTurn(transcriptText, docIds) {
       if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id)))) docWritten = true;
     }
   }
-  return docId ? { userTs, text, docWritten, answered, docWriteText } : { userTs, text };
+  return docId ? { userTs, text, docWritten, answered, docWriteText, wake } : { userTs, text, wake };
 }
 
-export function check({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWriteText = "" }) {
+export function check({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWriteText = "", wake = false }) {
   // a heading inside a fenced code block is not a heading
   const text = raw && raw.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
   if (!text || /^\s*This session is wrapped/i.test(text)) return null;
   const markers = readMarkers(vault).filter((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId));
+  /* s81 (operator: "you've started status updates in the thread again"): an automated wake that raised no new ask gets no chat text. */
+  if (wake && markers.length === 0) return "Stop check (s81): this turn started from an automated wake (a GitHub event, a helper's message or a background completion) and raised no new ask, so it gets no chat text at all; the result goes to the Status doc. End the turn with no text.";
   const hasHead = HEAD.test(text);
   const status = hasHead || markers.length > 0 || /^## (Build in Progress|Upcoming)\s*$/m.test(text);
   if (!status) return null;
@@ -102,8 +106,8 @@ function main() {
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
   const vault = resolve(vaultEnv);
-  const { userTs, text, docWritten } = lastTurn(t, pinnedChecklistIds(vault));
-  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten }); } catch { return; }
+  const { userTs, text, docWritten, answered, docWriteText, wake } = lastTurn(t, pinnedChecklistIds(vault));
+  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWriteText, wake }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 
