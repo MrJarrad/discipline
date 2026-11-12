@@ -8,9 +8,9 @@
    open PR. DISC-315 (operator s84: "we were able to do this easily previously and now it's impossible"): that is checked by a
    direct open-PR lookup, not by paging the helper's whole event history (DISC-280/281/285). The transcript must hold, for the
    helper, (1) a lookup of open PRs naming its session id (descriptions carry the opening session's link) and (2) one naming each
-   branch get_session shows for it (PRs without the link). A lookup is a `gh api` / `gh pr list` call or a list/search
-   pull-requests MCP call restricted to open PRs, whose result parsed and was not truncated. Any open PR it returns for the id or a
-   branch refuses; a lookup that is missing, unreadable or truncated refuses. DISC-284 (s76): reads made by a subagent of this
+   branch get_session shows for it (PRs without the link; a body search can lag a fresh PR, a head: search does not). Only one lookup form is read (see LOOKUP_TOOL):
+   a search whose query is exactly `is:pr is:open <id or head:branch>`; any open PR it returns refuses; a lookup that is missing, a
+   different form, made before the get_session, or truncated refuses, and so does a helper still working. DISC-284 (s76): reads made by a subagent of this
    same session count (subagentLines).   */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
@@ -34,7 +34,7 @@ function* sessionsIn(v) {
 export function shownSession(lines, id) {
   const calls = new Set();
   let found = null;
-  for (const line of lines) {
+  for (const [at, line] of lines.entries()) {
     let e; try { e = JSON.parse(line); } catch { continue; }
     for (const part of Array.isArray(e?.message?.content) ? e.message.content : []) {
       if (part?.type === "tool_use" && SHOWS.test(part.name || "")) calls.add(part.id);
@@ -43,7 +43,7 @@ export function shownSession(lines, id) {
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
       const parsed = extractJson(text);
       if (parsed === undefined) continue;
-      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)] };
+      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], working: s.status_bucket === "working" || s.status === "running", at };
     }
   }
   return found;
@@ -63,9 +63,10 @@ function* branchesIn(v) {
 }
 
 /* Results of tool calls whose name matches `nameRe`, as { input, text }. */
-function* results(lines, nameRe) {
+function* results(lines, nameRe, from = 0) {
   const calls = new Map();
-  for (const line of lines) {
+  for (const [i, line] of lines.entries()) {
+    if (i < from) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     for (const part of Array.isArray(e?.message?.content) ? e.message.content : []) {
       if (part?.type === "tool_use" && nameRe.test(part.name || "")) calls.set(part.id, part.input || {});
@@ -76,45 +77,48 @@ function* results(lines, nameRe) {
   }
 }
 
-/* An open-PR lookup: a gh call (api search/pulls, pr list) or a list/search pull-requests MCP call, restricted to open PRs. */
-const LOOKUP_TOOL = /^Bash$|__(list_pull_requests|search_pull_requests)$/;
-const inputText = (input) => JSON.stringify(input ?? {});
-const isOpenLookup = (input) => {
-  const t = inputText(input);
-  if (typeof input.command === "string") return /\bgh (api|pr list)\b/.test(input.command) && /is:open|state=open|--state[ =]open/.test(input.command);
-  return input.state === "open" || /is:open/.test(t);
+/* DISC-315 round 2: the ONE accepted lookup form (review of #200: every wider form let a lookup of something else clear the
+   helper). A search whose query is exactly `is:pr is:open <term>`: no repo:, author:, negation or other qualifier, term = the
+   helper's session id, or head:<one of its branches>, matched as a whole token. Run as `gh api -X GET search/issues -f q='<query>'`
+   alone (no pipe, no wrapper) or as the MCP search_pull_requests tool. Its result must be the search object, untruncated. */
+const LOOKUP_TOOL = /^Bash$|__search_pull_requests$/;
+const GH_SEARCH = /^\s*gh api -X GET search\/issues -f q=(?:'([^']*)'|"([^"]*)")\s*$/;
+const queryOf = (input) => {
+  if (typeof input.command === "string") { const m = GH_SEARCH.exec(input.command); return m ? (m[1] ?? m[2]) : null; }
+  return typeof input.query === "string" ? input.query : null;
 };
-
-/* The PRs a lookup result lists, or null when the result is unreadable or truncated (search: total_count above the items
-   returned, or incomplete_results). */
+/* The term of an accepted query, or null. */
+function termOf(query) {
+  const rest = query.trim().split(/\s+/).filter(Boolean);
+  for (const need of ["is:pr", "is:open"]) { const k = rest.indexOf(need); if (k < 0) return null; rest.splice(k, 1); }
+  return rest.length === 1 ? rest[0] : null;
+}
+/* The PRs an accepted lookup returned, or null when the result is not the untruncated search object. */
 function listed(text) {
   const j = extractJson(text);
-  if (Array.isArray(j)) return j;
-  if (!j || typeof j !== "object" || !Array.isArray(j.items)) return null;
-  if (j.incomplete_results === true || (typeof j.total_count === "number" && j.total_count > j.items.length)) return null;
+  if (!j || typeof j !== "object" || Array.isArray(j) || !Array.isArray(j.items)) return null;
+  if (j.incomplete_results === true || typeof j.total_count !== "number" || j.total_count > j.items.length) return null;
   return j.items;
 }
 
-/* { open, missing }: open = PRs a lookup returned for the helper (named by its id or a branch in the lookup's input, or whose
-   description holds the id or whose head is one of its branches); missing = what no readable, untruncated lookup covered. */
-export function openPrLookup(lines, id, branches = []) {
-  const want = [id, ...branches];
+/* { open, missing }: open = PRs an accepted lookup returned for the helper's id or a branch; missing = names with no accepted
+   lookup. `from`: lookups in the parent's own transcript count only after its last get_session of the helper. */
+export function openPrLookup(lines, id, branches = [], subLines = [], from = 0) {
   const covered = new Set(), open = new Set();
-  for (const { input, text } of results(lines, LOOKUP_TOOL)) {
-    if (!isOpenLookup(input)) continue;
-    const prs = listed(text);
+  for (const { input, text } of [...results(lines, LOOKUP_TOOL, from), ...results(subLines, LOOKUP_TOOL)]) {
+    const q = queryOf(input), term = q && termOf(q);
+    const name = term === id ? id : branches.find((b) => term === `head:${b}`);
+    const prs = name && listed(text);
     if (!prs) continue;
-    const named = want.filter((w) => inputText(input).includes(w));
-    for (const w of named) covered.add(w);
+    covered.add(name);
     for (const p of prs) {
+      if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
       const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
       const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
-      const ref = p?.head?.ref ?? p?.head;
-      const hit = named.length || String(p?.body ?? "").includes(id) || (typeof ref === "string" && branches.includes(ref));
-      if (hit && (p?.state === undefined || p.state === "open")) open.add(m ? `${m[1]}#${m[2]}` : url);
+      open.add(m ? `${m[1]}#${m[2]}` : url);
     }
   }
-  return { open: [...open], missing: want.filter((w) => !covered.has(w)) };
+  return { open: [...open], missing: [id, ...branches].filter((w) => !covered.has(w)) };
 }
 
 /* DISC-284: transcripts of this session's subagents, at <transcript dir>/<transcript name>/subagents/agent-*.jsonl.
@@ -132,9 +136,10 @@ export function verdict(lines, id, subLines = []) {
   const s = shownSession(lines, id);
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
-  const { open, missing } = openPrLookup([...lines, ...subLines], id, s.branches);
+  if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
+  const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
-  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, e.g. gh api -X GET search/issues -f q='is:pr is:open <session id or head:<branch>>' (one call per name), then archive.`;
+  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
   return null;
 }
 

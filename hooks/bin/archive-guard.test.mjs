@@ -128,12 +128,44 @@ test("DISC-315: a lookup whose result cannot be read, or is truncated, refuses (
   const incomplete = [...helperB(ID("a9")), ...ghSearch(`is:pr is:open ${ID("a9")}`, search("", [], { incomplete_results: true }), "l0")];
   deniedNaming(run(ID("a9"), incomplete), /open-PR lookup|truncated/);
 });
-test("DISC-315: the MCP list_pull_requests lookup (state open) counts, and a listed PR whose head is the helper's branch refuses", () => {
-  const list = (items) => call("list_pull_requests", { owner: "mrjarrad", repo: "discipline", state: "open", head: "claude/lane-d" }, JSON.stringify(items), "m1");
-  const mcp = (e) => e.map((x) => JSON.parse(JSON.stringify(x).replace("mcp__claude-code-remote__list_pull_requests", "mcp__github__list_pull_requests")));
-  const base = [...helperB(ID("b1"), ["claude/lane-d"]), ...ghSearch(`is:pr is:open ${ID("b1")}`, search(), "l0")];
-  assert.equal(run(ID("b1"), [...base, ...mcp(list([]))]), null);
-  deniedNaming(run(ID("b1"), [...base, ...mcp(list([{ number: 7, state: "open", html_url: "https://github.com/mrjarrad/discipline/pull/7", head: { ref: "claude/lane-d" } }]))]), /#7/);
+// Round 2 (review of #200 head 73b113d): each red was an ALLOW of a helper that may have an open PR. The accepted lookup is ONE
+// form: a search whose query is exactly `is:pr is:open <term>`, term = the helper's session id or `head:<its branch>`, whole-token.
+const mcpSearch = (query, result, cid = "m1") => call("search_pull_requests", { query }, JSON.stringify(result), cid).map((x) => JSON.parse(JSON.stringify(x).replace("mcp__claude-code-remote__search_pull_requests", "mcp__github__search_pull_requests")));
+test("DISC-315 red 1: a lookup scoped to another repo (repo:) does not clear the helper, over gh or MCP", () => {
+  const t = (...l) => [...helperB(ID("r1")), ...l];
+  deniedNaming(run(ID("r1"), t(...ghSearch(`is:pr is:open ${ID("r1")} repo:other/nothing`, search(), "l0"))), /open-PR lookup/);
+  deniedNaming(run(ID("r1"), t(...mcpSearch(`is:pr is:open ${ID("r1")} repo:o/zzz`, search()))), /open-PR lookup/);
+  assert.equal(run(ID("r1"), t(...mcpSearch(`is:pr is:open ${ID("r1")}`, search()))), null, "the exact form over MCP is accepted");
+});
+test("DISC-315 red 2: an open PR whose state is upper-case OPEN refuses; `gh pr list` is not an accepted lookup", () => {
+  deniedNaming(run(ID("r2"), [...helperB(ID("r2")), ...ghSearch(`is:pr is:open ${ID("r2")}`, search("", [pr(5, { state: "OPEN" })]), "l0")]), /#5/);
+  const list = call("Bash", { command: `gh pr list --state open --search '${ID("r2")}' --json number,state` }, JSON.stringify([]), "l1").map((x) => JSON.parse(JSON.stringify(x).replace("mcp__claude-code-remote__Bash", "Bash")));
+  deniedNaming(run(ID("r2"), [...helperB(ID("r2")), ...list]), /open-PR lookup/);
+});
+test("DISC-315 red 3: a lookup for session_ABC does not cover session_AB, nor head:fix-other the branch fix", () => {
+  deniedNaming(run(ID("AB"), [...helperB(ID("AB")), ...ghSearch(`is:pr is:open ${ID("ABC")}`, search(), "l0")]), /open-PR lookup/);
+  const t = [...helperB(ID("r3"), ["fix"]), ...ghSearch(`is:pr is:open ${ID("r3")}`, search(), "l0"), ...ghSearch("is:pr is:open head:fix-other", search(), "l1")];
+  deniedNaming(run(ID("r3"), t), /fix/);
+});
+test("DISC-315 red 4: the id as author:, negated, or beside -is:open does not count as a lookup of the id", () => {
+  for (const q of [`is:pr is:open author:${ID("r4")}`, `is:pr is:open -${ID("r4")}`, `is:pr -is:open ${ID("r4")}`, `is:pr is:open ${ID("r4")} -label:x`]) {
+    deniedNaming(run(ID("r4"), [...helperB(ID("r4")), ...ghSearch(q, search(), "l0")]), /open-PR lookup/);
+  }
+});
+test("DISC-315 red 5: a bare array of PRs (a 30-item page) is not an accepted lookup result", () => {
+  const thirty = Array.from({ length: 30 }, (_, k) => pr(k + 1));
+  deniedNaming(run(ID("r5"), [...helperB(ID("r5")), ...ghSearch(`is:pr is:open ${ID("r5")}`, thirty, "l0")]), /open-PR lookup/);
+});
+test("DISC-315 red 6: a helper still working is refused (a PR it opens next is not yet visible to a body search)", () => {
+  const working = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), status_bucket: "working" } }, "g1");
+  deniedNaming(run(ID("r6"), [...working, ...ghSearch(`is:pr is:open ${ID("r6")}`, search(), "l0")]), /still working/);
+  const done = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), status_bucket: "completed" } }, "g1");
+  assert.equal(run(ID("r6"), [...done, ...ghSearch(`is:pr is:open ${ID("r6")}`, search(), "l0")]), null);
+});
+test("DISC-315 amber: a lookup made before the get_session, or inside an echo, is not a lookup", () => {
+  deniedNaming(run(ID("r7"), [...ghSearch(`is:pr is:open ${ID("r7")}`, search(), "l0"), ...helperB(ID("r7"))]), /open-PR lookup/);
+  const echo = call("Bash", { command: `echo '{"items":[]}' # gh api -X GET search/issues -f q='is:pr is:open ${ID("r8")}'` }, JSON.stringify(search()), "l1").map((x) => JSON.parse(JSON.stringify(x).replace("mcp__claude-code-remote__Bash", "Bash")));
+  deniedNaming(run(ID("r8"), [...helperB(ID("r8")), ...echo]), /open-PR lookup/);
 });
 test("DISC-315: a parent session is refused even when every lookup is clear", () => {
   const t = [...call("get_session", {}, { ccr: sess("session_p2", "portfolio · 7 Nov (wrapped)") }, "g1"), ...ghSearch("is:pr is:open session_p2", search(), "l0")];
