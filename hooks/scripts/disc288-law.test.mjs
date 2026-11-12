@@ -30,7 +30,7 @@ test("the output style carries the same reconcile and clear it points to", () =>
 test("A: the style's status paragraph is one rule — new asks plus the checklist link, the queue in full on the checklist", () => {
   const t = flat("output-styles/discipline.md");
   assert.doesNotMatch(t, /the operator queue, in full, for this session's projects\.\*\* \*\*Status stays out/);
-  assert.match(t, /\*\*Every status reply ends with "Needed from you" — this turn's new asks plus one link line to the pinned checklist/);
+  assert.match(t, /\*\*Every status reply ends with "Needed from you" — this turn's new asks plus one link line to the Status doc/);
 });
 test("B: wrap and pause-resume no longer say the reply prints the rows in full", () => {
   assert.doesNotMatch(flat("skills/wrap/SKILL.md"), /wrap reply prints the rows in full/);

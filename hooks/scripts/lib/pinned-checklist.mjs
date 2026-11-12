@@ -1,5 +1,5 @@
 /* pinned-checklist — DISC-288. The one place that reads where the operator's pinned
-   "Needed from you" checklist (a Claude Doc) lives: the "Pinned checklist" paragraph of the
+   "Status" doc (a Claude Doc; "Needed from you" before DISC-305) lives: the "Status doc" (formerly "Pinned checklist") paragraph of the
    vault's orchestrator/operator-queue.md carries its URL. Read at run time, never copied into
    the plugin, so moving the doc is a vault edit. Returns null when the vault has no such
    paragraph; callers then fall back to the full-block rule. */
@@ -11,7 +11,7 @@ import { join } from "node:path";
 export function pinnedChecklistIds(vault) {
   let text;
   try { text = readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"); } catch { return []; }
-  const para = text.split(/\r?\n\s*\r?\n/).find((p) => /\*\*Pinned checklist\b/.test(p));
+  const para = text.split(/\r?\n\s*\r?\n/).find((p) => /\*\*(?:Pinned checklist|Status doc)\b/.test(p));
   if (!para) return [];
   const url = /https:\/\/claude\.ai\/artifact\/([A-Za-z0-9_-]+)/.exec(para)?.[1];
   const uuid = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/.exec(para)?.[0];
@@ -21,7 +21,7 @@ export function pinnedChecklistIds(vault) {
 export function pinnedChecklistUrl(vault) {
   let text;
   try { text = readFileSync(join(vault, "orchestrator", "operator-queue.md"), "utf8"); } catch { return null; }
-  const para = text.split(/\r?\n\s*\r?\n/).find((p) => /\*\*Pinned checklist\b/.test(p));
+  const para = text.split(/\r?\n\s*\r?\n/).find((p) => /\*\*(?:Pinned checklist|Status doc)\b/.test(p));
   const m = para && /https:\/\/claude\.ai\/artifact\/[A-Za-z0-9_-]+/.exec(para);
   return m ? m[0] : null;
 }

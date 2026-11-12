@@ -58,7 +58,7 @@ test("lastTurn reads the final assistant text after the last real user message, 
     L({ type: "assistant", message: { content: [{ type: "text", text: "mid" }, { type: "tool_use", name: "x" }] } }),
     L({ type: "user", timestamp: "2026-10-16T11:01:00.000Z", message: { content: [{ type: "tool_result", content: "r" }] } }),
     L({ type: "assistant", message: { content: [{ type: "text", text: "final" }] } })].join("\n");
-  assert.deepEqual(lastTurn(t), { userTs: "2026-10-16T11:00:00.000Z", text: "final" });
+  assert.deepEqual(lastTurn(t), { userTs: "2026-10-16T11:00:00.000Z", text: "final", wake: false });
 });
 test("CLI: blocks via JSON decision, allows when stop_hook_active or no vault", () => {
   const v = vault();
@@ -106,7 +106,7 @@ function vaultWithChecklist() {
   writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id x).\n`);
   return v;
 }
-const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Needed from you](${URL_})\n`;
+const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Status](${URL_})\n`;
 
 test("DISC-288: with the pinned checklist in the vault, the short form passes without reprinting old rows", () => {
   const v = vaultWithChecklist();
@@ -125,8 +125,8 @@ test("DISC-288: a short block must still name every row added this turn, and be 
 });
 test("DISC-288 (s79): with the pinned checklist configured, no link line, or a link to another page, is refused (no full-block fallback)", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /pinned checklist/);
-  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: "## Needed from you\n\nnothing new.\n", userTs: T, vault: v }), /Status doc/);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /Status doc/);
 });
 test("DISC-288: a vault with no pinned-checklist paragraph never accepts the short form", () => {
   assert.match(check({ text: SHORT(), userTs: T, vault: vault() }), /no `### <PFX>/);
@@ -137,8 +137,8 @@ test("DISC-288: a reply with a Build in Progress heading is still a status reply
 });
 test("DISC-288 N1: only the exact link line takes the short form; the URL elsewhere in the block does not", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /pinned checklist/);
-  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: `## Needed from you\n\nSee ${URL_} for the rest.\n`, userTs: T, vault: v }), /Status doc/);
+  assert.match(check({ text: `## Needed from you\n\n[Needed from you](${URL_})\n`, userTs: T, vault: v }), /Status doc/);
   assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
 });
 
@@ -153,7 +153,7 @@ const reply = (text) => JSON.stringify({ type: "assistant", message: { content: 
 
 test("s79 (a): with the pinned checklist configured, a full inline block with no doc link is refused", () => {
   const v = vaultWithChecklist();
-  assert.match(check({ text: FULL, userTs: T, vault: v }), /pinned checklist/);
+  assert.match(check({ text: FULL, userTs: T, vault: v }), /Status doc/);
   assert.match(check({ text: FULL, userTs: T, vault: v }), /Full list:/);
 });
 test("s79 (a): with no pinned checklist in the vault the full block still passes", () => {
@@ -202,4 +202,111 @@ test("s79 review AMBER 3: a Claude Docs update/batch naming the doc UUID counts 
   assert.equal(lastTurn(turn(wrote(), reply(SHORT())), pinnedChecklistIds(v)).docWritten, true, "artifact id also accepted");
   const other = lastTurn(turn(wrote("mcp__Claude_Docs__update", { container: { kind: "project", id: "00000000-0000-0000-0000-000000000000" } }), reply(SHORT())), pinnedChecklistIds(v));
   assert.equal(other.docWritten, false);
+});
+
+// DISC-305 (operator s81: "I think status is correct"): the doc is called Status, so the link line reads [Status]; the old link text still passes.
+test("DISC-305: the link line may read [Status] or the legacy [Needed from you]", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: `Lane landed.\n\n## Needed from you\n\nFull list: [Status](${URL_})\n`, userTs: T, vault: v }), null);
+  assert.equal(check({ text: `Lane landed.\n\n## Needed from you\n\nFull list: [Needed from you](${URL_})\n`, userTs: T, vault: v }), null);
+});
+test("DISC-305: the vault paragraph may be headed Status doc as well as Pinned checklist", () => {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Status doc (operator s81, DISC-305):** Claude Doc "Status" ${URL_} (doc id x).\n`);
+  assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
+  assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /Status doc/);
+});
+
+// DISC-302 (operator s81: "can you make sure status in the needed from you doc get updated with responses"): a row answered this turn
+// (lane-end.mjs --id) must have its Status chip changed in the doc write, not left at Ready for you.
+const bash = (command) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "b", name: "Bash", input: { command } }] } });
+test("DISC-302: lastTurn reports the rows answered this turn and the text of this turn's doc writes", () => {
+  const t = turn(bash("node hooks/scripts/lane-end.mjs --vault /v --id PF-6 --status done"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "chars replace dropdown Done" }), reply(SHORT()));
+  const r = lastTurn(t, [DOC_ID]);
+  assert.deepEqual(r.answered, ["PF-6"]);
+  assert.equal(r.docWrites.length, 1);
+  assert.match(JSON.stringify(r.docWrites[0]), /dropdown Done/);
+});
+// The REAL chip change (parent s81): one update call with ops; the dropdown is a block {"type":"dropdown","enum":…,"index":N} swapped into a chars
+// range (index 0 Ready for you, 1 You're on it, 2 Done, 3 Claude's on it), and the row id rides in a SIBLING op (the lead-words rewrite) of the same call.
+const chipWrite = (payload) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload });
+const chipOp = (index) => ({ op: "replace", target: { kind: "chars", range: ["mvz0r93rszj.37884", "mvz0r93rszj.37884"] }, with: { as: "markdown", blocks: { v: { type: "dropdown", enum: "bc09b9b4-c14e", index } }, from: { kind: "inline", content: "&lt;?claude block v?&gt;" } } });
+const leadOp = (id) => ({ op: "replace", target: { kind: "find", text: `Look now: footer (${id}), in review…` }, with: { as: "text", from: { kind: "inline", content: `Answered (${id})` } } });
+const callOf = (...ops) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, ops });
+const answeredTurn = (...writes) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]);
+test("DISC-302 (review AMBER 4, real payload): a call that sets a dropdown to index 1/2/3 and names the answered row passes; the index is read, not a label", () => {
+  const v = vaultWithChecklist();
+  for (const index of [1, 2, 3]) assert.equal(check({ ...answeredTurn(callOf(chipOp(index), leadOp("PF-6"))), vault: v }), null, `index ${index}`);
+  assert.equal(check({ ...answeredTurn(callOf(leadOp("PF-6"), chipOp(2))), vault: v }), null, "op order does not matter");
+});
+test("DISC-302: no pass for a Ready index, no dropdown, no row id in the call, or another row's call", () => {
+  const v = vaultWithChecklist();
+  const no = (t) => assert.match(check({ ...t, vault: v }), /DISC-302.*PF-6/);
+  no(answeredTurn(callOf(chipOp(0), leadOp("PF-6"))));                         // still Ready for you
+  no(answeredTurn(callOf(leadOp("PF-6"))));                                    // lead words only
+  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9"))));                         // another row's call
+  no(answeredTurn(callOf(chipOp(2))));                                         // no row id anywhere in the call
+  no(answeredTurn(chipWrite("moved the item to the Done this session section"))); // the word Done, no dropdown
+  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9")), callOf(leadOp("PF-6"))));  // chip in one call, id in another
+});
+test("DISC-302: a read-side label shape in the call (a <dropdown> element) still counts when the row id is in the call", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ ...answeredTurn(chipWrite("replace PF-6 with <dropdown id='.2' enum='e' index='2'>Done</dropdown>")), vault: v }), null);
+});
+test("DISC-302: no row answered this turn adds no chip requirement", () => {
+  const v = vaultWithChecklist();
+  const r = lastTurn(turn(wrote(), reply(SHORT())), [DOC_ID]);
+  assert.deepEqual(r.answered, []);
+  assert.equal(check({ ...r, vault: v }), null);
+});
+
+// s81 (operator, verbatim: "you've started status updates in the thread again"): an automated wake (GitHub event, helper message,
+// background completion) with nothing the operator must act on gets no chat text at all; results go to the Status doc.
+const wakeUser = (body) => JSON.stringify({ type: "user", timestamp: T, message: { content: body } });
+const WAKE = `<system-reminder>\n[SYSTEM NOTIFICATION - NOT USER INPUT]\n<cross-session-message from-session="session_x">\nlane landed\n</cross-session-message>\n</system-reminder>`;
+test("s81: lastTurn marks a turn started by an automated notification as a wake; a real user message is not", () => {
+  assert.equal(lastTurn([wakeUser(WAKE), reply("PR merged.")].join("\n"), []).wake, true);
+  assert.equal(lastTurn([wakeUser(`<wake reason="external-event"><event source="github"/></wake>`), reply("ok")].join("\n"), []).wake, true);
+  assert.equal(lastTurn([wakeUser("how are we looking"), reply("fine")].join("\n"), []).wake, false);
+});
+test("s81: chat text on an automated wake with no new ask is refused; no text, or a wrapped one-liner, passes", () => {
+  const v = vault();
+  assert.match(check({ text: "The PR merged and the helper is done.", userTs: T, vault: v, wake: true }), /automated wake.*no chat text.*Status doc/i);
+  assert.equal(check({ text: null, userTs: T, vault: v, wake: true }), null);
+  assert.equal(check({ text: "This session is wrapped — continue in a fresh session", userTs: T, vault: v, wake: true }), null);
+});
+test("s81: a wake that raised a new ask (row-add marker this turn) still needs the Needed-from-you block, not silence", () => {
+  const v = vaultWithChecklist();
+  const dir = mkdtempSync(join(tmpdir(), "mk-"));
+  process.env.DISCIPLINE_MARKER_DIR = dir;
+  try {
+    writeMarker(v, { prefix: "PF", id: "PF-9", to: "queue", ts: "2026-10-16T10:05:00.000Z" });
+    assert.equal(check({ text: SHORT("1. **New** PF-9 look.\n\n"), userTs: T, vault: v, wake: true }), null);
+  } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
+});
+test("s81: a real user message with the same reply text is not held by the wake rule", () => {
+  assert.equal(check({ text: "The PR merged and the helper is done.", userTs: T, vault: vault(), wake: false }), null);
+});
+
+// s81 / DISC-302: the CLI must pass the wake flag and the answered rows through to check().
+test("CLI: an automated wake with reply text is blocked; an answered row with a stale chip is blocked by the hook itself", () => {
+  const v = vaultWithChecklist();
+  const d = mkdtempSync(join(tmpdir(), "tr-"));
+  const run = (lines) => { const tr = join(d, "t.jsonl"); writeFileSync(tr, lines.join("\n")); return spawnSync("node", [hook], { input: JSON.stringify({ transcript_path: tr, session_id: "s" }), encoding: "utf8", env: { PATH: process.env.PATH, DISCIPLINE_VAULT_ROOT: v } }); };
+  const w = run([wakeUser(WAKE), reply("The PR merged.")]);
+  assert.match(JSON.parse(w.stdout).reason, /automated wake/);
+  const stale = run([JSON.stringify({ type: "user", timestamp: T, message: { content: "done" } }), bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "moved to Done section" }), reply(SHORT())]);
+  assert.match(JSON.parse(stale.stdout).reason, /DISC-302/);
+});
+
+test("s81 (review AMBER 2): a real operator message is never a wake, even if it quotes wrapper text or carries a notification block beside its own words", () => {
+  const wk = (content) => lastTurn([JSON.stringify({ type: "user", timestamp: T, message: { content } }), reply("ok")].join("\n"), []).wake;
+  assert.equal(wk(WAKE), true);
+  assert.equal(wk(`<wake reason="external-event"><event source="github"/></wake>`), true);
+  assert.equal(wk(`<task-notification><status>done</status></task-notification>`), true);
+  assert.equal(wk(`why did you write <wake reason="x"> in the doc?`), false);
+  assert.equal(wk(`${WAKE}\nand also please check the footer`), false);
+  assert.equal(wk([{ type: "text", text: "check the footer" }, { type: "text", text: WAKE }]), false);
+  assert.equal(wk([{ type: "text", text: WAKE }, { type: "text", text: `<task-notification><status>done</status></task-notification>` }]), true);
 });

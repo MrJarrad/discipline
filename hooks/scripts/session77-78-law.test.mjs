@@ -25,8 +25,8 @@ test("s77 3: scripts run from the newest plugin copy, or the version is named", 
 test("s77 4: list-drift-check runs locally before every vault push that touches a list", () => {
   has("skills/vault-write/references/WRITING.md", "Run `list-drift-check.mjs` locally before every vault push that touches a list");
 });
-test("s78 1: session start banks the checklist doc's unread answers before the first status", () => {
-  has(HARD, "before the first status, read the pinned checklist doc's comment threads addressed to Claude, answered or not, since the last wrap, and bank each");
+test("s78 1: session start banks the Status doc's unread answers before the first status", () => {
+  has(HARD, "before the first status, read the Status doc's comment threads addressed to Claude, answered or not, since the last wrap, and bank each");
 });
 test("s78 2 and DISC-289: a wrap PR carries no review/ Mac job without a verdict; the gate treats queue/mac as not notes-only", () => {
   has("skills/cloud-dispatch/references/MAC-JOBS.md", "A wrap PR carries no `queue/mac/` job without a reviewer verdict on that PR");

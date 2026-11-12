@@ -15,6 +15,11 @@
      appended     (DISC-297) Waiting items holding more than one link: a round appended, not replaced; rewrite to the current round
      sameLane     (DISC-297) open Waiting items sharing a `(lane: x)` marker: present them as one look row
      leaveWaiting (DISC-297) Waiting items ticked (answered) or no longer open: delete them from Waiting the same turn
+     projects     (DISC-305) the `### <PFX> — <project>` heading each session project owns in the doc
+     toAddUnder   (DISC-305) each missing open row with the project heading it goes under
+     misfiled     (DISC-305) Waiting items under another project's heading (or none, once the doc groups by project)
+     chipChanges  (DISC-302) every answered or landed Waiting item whose Status chip is not Done: replace its dropdown with Done
+                  the same turn (a chars-range replace carrying a new dropdown chip; s81 proven), and drop its "Look now:" lead
      clearAtWrap every ticked "Done this session" item and every ticked "Waiting on you" item whose row is
               no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
@@ -28,14 +33,18 @@ const cells = (line) => line.split("|").slice(1, -1).map((x) => x.trim());
 /* DISC-297: the four values of the doc's Status chip, as a line shows it ("Status: Ready for you" or "[Ready for you]"). */
 export const STATUSES = ["Ready for you", "You're on it", "Claude's on it", "Done"];
 const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`));
+/* The chip a line shows, "Status: X" or "[X]", else null (DISC-302). */
+const chipOf = (t) => STATUSES.find((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`)) ?? null;
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
-/* DISC-297: a Claude Docs read returns the doc as (entity-escaped) XML, each item a <listItem><paragraph><dropdown>Status</dropdown><text> …</text></paragraph></listItem>
-   and each section a <heading>. Rewrite that shape to the checklist lines the plan reads below, the chip kept as `[Status]`; markdown input passes through. */
+/* DISC-297 / DISC-305: a Claude Docs read returns the doc as (entity-escaped) XML. An item is
+   <listItem><paragraph><dropdown>Status</dropdown><text> …</text></paragraph></listItem>; a heading is a paragraph carrying its level,
+   <paragraph id='…' h='…' heading='2'>Waiting on you</paragraph> (the real shape, s81). Rewrite that to the checklist lines the plan
+   reads below, the chip kept as `[Status]`; markdown input passes through. */
 export function fromDocsRead(t) {
-  if (!/(<|&lt;)listItem\b/.test(t)) return t;
+  if (!/(<|&lt;)(listItem|paragraph)\b/.test(t)) return t;
   const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#39;/g, "'");
-  return doc.replace(/<heading\b[^>]*>([\s\S]*?)<\/heading>/g, (_, h) => `\n## ${h.replace(/<[^>]+>/g, "").trim()}\n`)
+  return doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
     .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
       const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();
@@ -51,19 +60,27 @@ export function syncPlan({ vault, prefixes, docText }) {
   for (const p of r.projects) for (const row of [...p.queue.rows, ...p.backlog.rows]) open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
+  /* DISC-305: one doc for all projects, a `### <PFX> — <project>` heading per project inside Waiting on you and Running now. */
+  plan.projects = r.projects.map((p) => ({ prefix: p.prefix, heading: `### ${p.prefix} — ${p.project}` }));
+  Object.assign(plan, { toAddUnder: [], misfiled: [], needsProjectHeadings: false, chipChanges: [] });
   if (docText == null) return plan;
   docText = fromDocsRead(docText);
+  plan.needsProjectHeadings = !/^###\s+/m.test(docText);
+  const headingOf = new Map(plan.projects.map((p) => [p.prefix, p.heading]));
+  let under = null;
   let section = "";
   const listed = new Set();
   for (const line of docText.split(/\r?\n/)) {
     const h = /^##\s+(.*)$/.exec(line);
-    if (h) { section = h[1].trim().toLowerCase(); continue; }
+    if (h) { section = h[1].trim().toLowerCase(); under = null; continue; }
+    const sub = /^###\s+(.*)$/.exec(line);
+    if (sub) { under = { text: line.trim(), prefix: /^([A-Z]{2,4}) —/.exec(sub[1].trim())?.[1] ?? null }; continue; }
     if (section.startsWith("done") && /^- \[x\]/i.test(line)) plan.clearAtWrap.push(line.trim());
     const it = /^- \[( |x)\]\s+(.*)$/i.exec(line);
     if (!it) continue;
     const ticked = it[1].toLowerCase() === "x", text = it[2].trim();
     if (section.startsWith("running")) {
-      if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]) }); if (!hasStatus(text)) plan.noStatus.push(text); }
+      if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]), ...(under?.prefix ? { project: under.prefix } : {}) }); if (!hasStatus(text)) plan.noStatus.push(text); }
       continue;
     }
     const id = /^\*\*([A-Z]{2,4}-\d+[a-z]?)\*\*/.exec(text)?.[1];
@@ -75,12 +92,17 @@ export function syncPlan({ vault, prefixes, docText }) {
       const lane = !ticked && /\(lane:\s*([^)]+)\)/i.exec(text)?.[1].trim().toLowerCase();
       if (lane) lanes.set(lane, [...(lanes.get(lane) || []), id]);
       if (ticked || !open.has(id)) plan.leaveWaiting.push(id);
+      const chip = chipOf(text);
+      if ((ticked || !open.has(id)) && chip !== "Done") plan.chipChanges.push({ id, from: chip, to: "Done", why: ticked && open.has(id) ? "answered" : "landed" });
+      const owner = /^([A-Z]{2,4})-/.exec(id)?.[1];
+      if (!plan.needsProjectHeadings && (!under || under.prefix !== owner)) plan.misfiled.push({ id, under: under ? under.text : null, belongsTo: owner });
       if (!ticked && !open.has(id)) plan.toTick.push(id);
       if (ticked && !open.has(id)) plan.clearAtWrap.push(line.trim());
       if (ticked && open.has(id)) plan.answered.push(id);
     }
   }
   for (const [lane, ids] of lanes) if (ids.length > 1) plan.sameLane.push({ lane, ids });
+  plan.toAddUnder = [...open.keys()].filter((id) => !listed.has(id)).map((id) => ({ id, under: headingOf.get(/^([A-Z]{2,4})-/.exec(id)[1]) }));
   plan.toAdd = [...open].filter(([id]) => !listed.has(id)).map(([, l]) => l);
   return plan;
 }

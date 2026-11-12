@@ -111,7 +111,7 @@ export function renderShort(result, newIds, url) {
     const rows = [...p.queue.rows, ...p.backlog.rows].filter((r) => want.has(r.id));
     if (rows.length) lines.push(...rowLines(p.queue.head, rows));
   }
-  lines.push(`Full list: [Needed from you](${url})`);
+  lines.push(`Full list: [Status](${url})`);
   return lines.join("\n");
 }
 
