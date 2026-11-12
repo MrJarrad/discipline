@@ -23,3 +23,7 @@ test("s83 2: merging the PR that adds a review/ job is the go, after the operato
 test("s83 3: cloud pushes branches, never tags or branch deletes; the tag goes as a Mac job", () => {
   assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Cloud pushes branches, never tags or branch deletes** (s83): the proxy refuses both. A tag is a review-first Mac job at once, and the merged commit is pinned"));
 });
+
+test("s83 4: a plugin schema bump releases the checker first; shipped strings are checked at the source", () => {
+  assert.ok(flat("skills/release-deploy/references/RELEASE-PATH.md").includes("A plugin's schema test reads the installed checker, so a schema bump ships only after the checker release is out."));
+});
