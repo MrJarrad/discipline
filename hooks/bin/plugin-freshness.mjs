@@ -12,7 +12,7 @@
    case), so it is only the offline fallback. Unreadable -> silent, nothing claimed.
    SELF-CONTAINED (node built-ins only): a stale cache loads none of this plugin's hooks, so the vault's own
    .claude/settings.json runs a copy of this file for SessionStart and Stop. Any error -> silent exit 0.            */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,7 +48,16 @@ async function latestVersion() {
   return readVersion(join(homedir(), ".claude", "plugins", "marketplaces", "discipline", ".claude-plugin", "plugin.json"));
 }
 
-const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}.`;
+/* DISC-298 (s81): a cloud container is restored from an image whose setup script ran once, at build. Its output file's date
+   is the proof: older than a day means the script's `plugin update` did not run for this session. */
+function imageNote() {
+  try {
+    const m = statSync(join(homedir(), ".claude", "environment-manager", "setup-script-output")).mtime;
+    if (Date.now() - m.getTime() < 864e5) return "";
+    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. Edit the environment's setup script (any change rebuilds the image) and tell the operator.`;
+  } catch { return ""; }
+}
+const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}.${imageNote()}`;
 
 async function start() {
   const loaded = loadedVersion(), latest = await latestVersion();

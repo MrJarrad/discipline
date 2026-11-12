@@ -104,3 +104,34 @@ test("outside the plugin's hooks (no CLAUDE_PLUGIN_ROOT) the loaded version come
   assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /1\.181\.0 is loaded but 1\.199\.0 is released/);
   assert.match(stop(e, STATUS)?.reason, /1\.181\.0/);
 });
+
+// DISC-298 (s81): the Default environment's setup script runs `plugin update`, but it ran once when the container image was
+// built and is restored, not rerun, so the loaded plugin is as old as the image. The warning must say so, with the dated proof.
+import { utimesSync } from "node:fs";
+function withSetupOutput(e, daysOld) {
+  const d = join(e.dir, "home", ".claude", "environment-manager");
+  mkdirSync(d, { recursive: true });
+  const f = join(d, "setup-script-output");
+  writeFileSync(f, "discipline is already at the latest version (1.184.0).\n");
+  const t = new Date(Date.now() - daysOld * 864e5);
+  utimesSync(f, t, t);
+  return t.toISOString().slice(0, 10);
+}
+test("DISC-298: when the setup script's output is older than a day, the stale warning names the cached image, its date, and the environment fix", () => {
+  const e = env("1.184.0", "1.199.0");
+  const date = withSetupOutput(e, 4);
+  const ctx = JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext;
+  assert.ok(ctx.includes(date), "the date the setup script last ran");
+  assert.match(ctx, /cached (container )?image/i);
+  assert.match(ctx, /edit the (Default )?environment's setup script/i);
+});
+test("DISC-298: a setup script that ran today adds no image note (the cause is elsewhere)", () => {
+  const e = env("1.184.0", "1.199.0");
+  withSetupOutput(e, 0);
+  const ctx = JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext;
+  assert.doesNotMatch(ctx, /cached/i);
+});
+test("DISC-298: no setup-script output file (a local machine) adds no image note", () => {
+  const e = env("1.184.0", "1.199.0");
+  assert.doesNotMatch(JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext, /cached/i);
+});
