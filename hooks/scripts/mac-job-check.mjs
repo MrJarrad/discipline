@@ -18,6 +18,9 @@ const MAC_HOME = (process.env.JHD_MAC_HOME || "/Users/jarrad.harvey").replace(/\
    the iOS 27.0 runtime unusable on the operator's Mac). A job reads versions without side effects. */
 export const XCODE_TOOLS = /\b(xcodebuild|softwareupdate)\b/i;
 export const NO_BACKGROUND = /no background tasks,? no subagents/i;
+/* s83 lesson 6: "npm ci only if missing" kept a stale 0.12.0 checker and the pull job failed 14/30. A line that installs
+   conditionally on node_modules or the dependency being there already is refused; a reinstall job says `npm ci` outright. */
+export const CONDITIONAL_INSTALL = /\bnpm (?:ci|install|i)\b[^\n]*\b(?:only if|if|when|unless)\b[^\n]*\b(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist|no node_modules)\b|\b(?:only if|if|when|unless)\b[^\n]*\b(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist)\b[^\n]*\bnpm (?:ci|install|i)\b|-d\s+\S*node_modules\b[^\n]*\bnpm (?:ci|install|i)\b/i;
 
 export function macJobProblems(text) {
   const t = String(text);
@@ -42,6 +45,8 @@ export function macJobProblems(text) {
   if (!body.trim()) problems.push("empty brief (runner exit 98)");
   else if (!NO_BACKGROUND.test(body))
     problems.push('brief lacks "no background tasks, no subagents" (a headless job that backgrounds work is killed at the 600 s ceiling)');
+  if (CONDITIONAL_INSTALL.test(body))
+    problems.push("brief installs only if node_modules or the dependency is missing: a stale install stays in place (s83: a 0.12.0 checker left from an earlier install failed the pull job 14/30). Say npm ci outright");
   // purpose: xcode in the frontmatter marks a job that is for Xcode or system updates; any other job may not name them.
   const forXcode = head.some((l) => /^purpose:[ ]*xcode\s*$/i.test(l));
   const tool = body.match(XCODE_TOOLS);

@@ -31,3 +31,7 @@ test("s83 4: a plugin schema bump releases the checker first; shipped strings ar
 test("s83 5: a reviewer brief names the reviewer's own session id source", () => {
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("**A reviewer brief names the id to sign with** (s83: reviewers copied the parent's id from `~/.claude/helper-session` into `reviewer:`)"));
 });
+
+test("s83 6: a reinstall job says npm ci outright", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**A reinstall job says `npm ci` outright** (s83): \"`npm ci` only if missing\" left a 0.12.0 checker from an earlier install in place"));
+});

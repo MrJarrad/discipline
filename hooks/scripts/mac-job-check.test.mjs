@@ -124,3 +124,18 @@ test("s83 2: the pending/-on-a-branch refusal names merging as the go and promis
   assert.doesNotMatch(msg, /moves it to pending|git mv/);
   assert.match(msg, /merging its PR is the go/);
 });
+
+// s83 lesson 6: "npm ci only if missing" left a 0.12.0 checker from an earlier install in place and the pull job failed 14/30.
+// A reinstall job says `npm ci` outright.
+test("s83 6: a brief that runs npm ci only if node_modules or the dependency is missing is named; a plain npm ci is clean", () => {
+  const bad = [
+    "Run npm ci only if node_modules is missing.\nNo background tasks, no subagents.",
+    "If node_modules does not exist, run `npm ci`.\nNo background tasks, no subagents.",
+    "[ -d node_modules ] || npm ci\nNo background tasks, no subagents.",
+    "Install with npm ci when the checker is absent.\nNo background tasks, no subagents.",
+    "test -d node_modules || npm install\nNo background tasks, no subagents.",
+  ];
+  for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body))[0], /npm ci outright/, body);
+  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Run `npm ci` in the clone.\nNo background tasks, no subagents.\n")), []);
+  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Clone fresh, then npm ci.\nIf the test fails, report it. No background tasks, no subagents.\n")), []);
+});
