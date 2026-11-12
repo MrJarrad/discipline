@@ -464,24 +464,37 @@ export function median(values) {
 // the row-gap itself, comfortably past normal token-to-token variance) sets
 // how much taller than that rhythm a column's own gap must be before it
 // counts as a real hole, never a real row-gap.
-export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2 } = {}) {
-  // PF-1475: a block wider than the gap (full-width text, a heading) that sits in the
-  // gap or starts where it ends means the frame is a row layout: the whitespace under a
-  // short tile beside a taller neighbour, not a missing tile. The tile above the gap
-  // ends exactly at its top, so it never counts as the covering block.
-  const spannedByWiderBlock = (g) =>
-    rects.some(
-      (r) =>
-        r.left < g.right && g.left < r.right && // overlaps the gap's columns
-        (r.left < g.left - 1 || r.right > g.right + 1) && // wider than the gap
-        r.top < g.bottom + 1 && r.bottom > g.top, // inside the gap or touching its lower edge
-    );
-  const gapsByColumn = groupRectsIntoColumns(rects).map((column) => columnInternalGaps(column).filter((g) => !spannedByWiderBlock(g)));
+export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2, rowSpacingPx = 96 } = {}) {
+  // PF-1475: a row layout leaves whitespace under a short tile beside a taller neighbour.
+  // A gap is explained only for the part it really covers: the row-aligned taller
+  // neighbour (same top as the tile above the gap) and any block wider than the gap that
+  // sits in it. If what stays uncovered is longer than `rowSpacingPx` (the largest
+  // ordinary row spacing), it is still a hole, whatever block is nearby.
+  const uncoveredRun = (g) => {
+    const upper = rects.find((r) => Math.abs(r.bottom - g.top) < 0.5 && r.left < g.right && g.left < r.right);
+    const covers = [];
+    for (const r of rects) {
+      const overlapsX = r.left < g.right && g.left < r.right;
+      const wider = r.left < g.left - 1 || r.right > g.right + 1;
+      if (overlapsX && wider && r.top < g.bottom && r.bottom > g.top) covers.push([Math.max(r.top, g.top), Math.min(r.bottom, g.bottom)]);
+      else if (!overlapsX && upper && Math.abs(r.top - upper.top) <= 1 && r.bottom > g.top) covers.push([g.top, Math.min(r.bottom, g.bottom)]);
+    }
+    covers.sort((x, y) => x[0] - y[0]);
+    let cursor = g.top;
+    let longest = 0;
+    for (const [from, to] of covers) {
+      longest = Math.max(longest, from - cursor);
+      cursor = Math.max(cursor, to);
+    }
+    return Math.max(longest, g.bottom - cursor);
+  };
+  const gapsByColumn = groupRectsIntoColumns(rects).map((column) => columnInternalGaps(column));
   const candidateHeights = gapsByColumn.flatMap((gaps) => gaps.map((g) => g.height)).filter((h) => h > tolerancePx);
   if (candidateHeights.length === 0) return [];
   const rhythm = median(candidateHeights);
   const threshold = rhythm * widthRatio;
-  return gapsByColumn.flatMap((gaps) => gaps.filter((g) => g.height > tolerancePx && g.height > threshold));
+  // The rhythm is measured on every gap; only then is a hole the row layout explains set aside.
+  return gapsByColumn.flatMap((gaps) => gaps.filter((g) => g.height > tolerancePx && g.height > threshold && uncoveredRun(g) > rowSpacingPx));
 }
 
 // Across every sampled frame of the driven interaction — the probe's second

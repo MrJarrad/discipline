@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { classifyEmptyAcrossFrames } from "./lib/media-load-lib.mjs";
 import { dirname, join } from "node:path";
 import {
   parseArgs,
@@ -16,6 +17,7 @@ import {
   driveFlingSession,
   resolveDriveMode,
   takeStableSample,
+  repVerdict,
   NETWORK_PROFILES,
   DEFAULT_FLING_DURATION_MS,
 } from "./media-load-probe.mjs";
@@ -391,4 +393,58 @@ test("takeStableSample returns null (frame dropped, not judged) when the page ne
   let t = 0;
   const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box(t += 50) }], capture: async () => 1, wait: async () => {}, maxAttempts: 3 });
   assert.equal(out, null);
+});
+
+// --- repVerdict (PF-1475 review): a rep that judged nothing is never green ----
+
+test("repVerdict: zero paint, zero gaps, frames judged, few dropped is green", () => {
+  assert.equal(repVerdict({ paint: 0, gaps: 0, frames: 20, dropped: 2 }, 0.25).ok, true);
+});
+
+test("repVerdict: a page that never settles (every frame dropped, frames=0) is not green", () => {
+  const v = repVerdict({ paint: 0, gaps: 0, frames: 0, dropped: 12 }, 0.25);
+  assert.equal(v.ok, false);
+  assert.match(v.reason, /no frame was judged/);
+});
+
+test("repVerdict: dropped frames above the stated share fail the rep, at the boundary they pass", () => {
+  assert.equal(repVerdict({ paint: 0, gaps: 0, frames: 15, dropped: 5 }, 0.25).ok, true, "5 of 20 = exactly 25%");
+  const v = repVerdict({ paint: 0, gaps: 0, frames: 14, dropped: 6 }, 0.25);
+  assert.equal(v.ok, false, "6 of 20 = 30%");
+  assert.match(v.reason, /dropped/);
+});
+
+test("repVerdict: paint or gaps above zero fail whatever the frame counts", () => {
+  assert.equal(repVerdict({ paint: 1, gaps: 0, frames: 20, dropped: 0 }, 0.25).ok, false);
+  assert.equal(repVerdict({ paint: 0, gaps: 1, frames: 20, dropped: 0 }, 0.25).ok, false);
+});
+
+test("a blank tile in a strip that moves every frame is never judged green: every frame drops, verdict red", async () => {
+  let top = 0;
+  const frames = [];
+  for (let f = 0; f < 6; f++) {
+    const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box((top += 40)) }], capture: async () => 1, wait: async () => {}, maxAttempts: 3 });
+    if (out) frames.push(out);
+  }
+  assert.equal(frames.length, 0);
+  assert.equal(repVerdict({ paint: 0, gaps: 0, frames: frames.length, dropped: 6 }, 0.25).ok, false);
+});
+
+test("settled blank control: a blank tile that holds still is returned by takeStableSample and counted by the classifier", async () => {
+  const white = { r: 255, g: 255, b: 255 };
+  const bgPixels = Array.from({ length: 100 }, () => ({ ...white, a: 255 }));
+  const state = { tag: "img", rect: box(100), src: "a.avif", opacity: 1, visibility: "visible", clipRects: [], pixels: bgPixels };
+  const frames = [];
+  for (let f = 0; f < 3; f++) {
+    const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box(100) }], capture: async () => 1, wait: async () => {}, maxAttempts: 3 });
+    assert.ok(out, "a still page yields a frame");
+    frames.push([state]);
+  }
+  const r = classifyEmptyAcrossFrames(frames, { width: 390, height: 844 }, [white], { arrivalWindowMs: 300, frameIntervalMs: 250 });
+  assert.ok(r.total >= 1, "the blank, settled slot is flagged");
+});
+
+test("parseArgs: --max-dropped-share defaults to 0.25 and reads a value", () => {
+  assert.equal(parseArgs(["https://x.test"]).maxDroppedShare, 0.25);
+  assert.equal(parseArgs(["https://x.test", "--max-dropped-share", "0.1"]).maxDroppedShare, 0.1);
 });

@@ -151,7 +151,7 @@ export const USAGE =
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
   "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
-  "[--min-visible-area 0-1] | --help";
+  "[--min-visible-area 0-1] [--max-dropped-share 0-1] | --help";
 
 export function parseArgs(argv) {
   const [url, ...rest] = argv;
@@ -178,6 +178,7 @@ export function parseArgs(argv) {
     minStructureEdge: MIN_STRUCTURE_EDGE_JUMP,
     arrivalWindowMs: DEFAULT_ARRIVAL_WINDOW_MS,
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
+    maxDroppedShare: 0.25,
   };
   const keyMap = {
     "gap-tolerance": "gapTolerance",
@@ -189,6 +190,7 @@ export function parseArgs(argv) {
     "min-structure-edge": "minStructureEdge",
     "arrival-window-ms": "arrivalWindowMs",
     "min-visible-area": "minVisibleArea",
+    "max-dropped-share": "maxDroppedShare",
   };
   for (let i = 0; i < rest.length; i++) {
     const raw = rest[i].replace(/^--/, "");
@@ -224,6 +226,7 @@ export function parseArgs(argv) {
     minStructureEdge: Number(opts.minStructureEdge),
     arrivalWindowMs: Number(opts.arrivalWindowMs),
     minVisibleArea: Number(opts.minVisibleArea),
+    maxDroppedShare: Number(opts.maxDroppedShare),
     placeholderColors: opts.placeholderColors
       ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
       : [],
@@ -357,6 +360,17 @@ export async function takeStableSample({ read, capture, wait, maxAttempts = 6 })
     await wait();
   }
   return null;
+}
+
+// PF-1475 review: a rep is green only if it judged frames. Frames dropped for never
+// holding still are not judged, so a page that never settles (frames=0) or drops more
+// than `maxDroppedShare` of its samples cannot pass on "0 paint, 0 gaps" alone.
+export function repVerdict({ paint, gaps, frames, dropped }, maxDroppedShare = 0.25) {
+  if (frames === 0) return { ok: false, reason: `no frame was judged (${dropped} dropped: the page never held still)` };
+  const share = dropped / (frames + dropped);
+  if (share > maxDroppedShare) return { ok: false, reason: `dropped ${dropped} of ${frames + dropped} frames (${(share * 100).toFixed(0)}% > ${(maxDroppedShare * 100).toFixed(0)}%)` };
+  if (paint > 0 || gaps > 0) return { ok: false, reason: `paint=${paint} gaps=${gaps}` };
+  return { ok: true, reason: "" };
 }
 
 // The default sampler: plain DOM state only, no screenshot — what the
@@ -579,7 +593,9 @@ async function main() {
   for (let i = 0; i < opts.reps; i++) {
     const r = await run(opts);
     reps.push(r);
-    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} dropped=${r.dropped} mode=${r.mode}`);
+    const v = repVerdict(r, opts.maxDroppedShare);
+    r.verdict = v;
+    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} dropped=${r.dropped} mode=${r.mode}${v.ok ? "" : ` NOT GREEN: ${v.reason}`}`);
   }
   const paintSum = reps.reduce((s, r) => s + r.paint, 0);
   const gapSum = reps.reduce((s, r) => s + r.gaps, 0);
@@ -594,7 +610,7 @@ async function main() {
       "NOTE: headless/synthetic run is a FLOOR, not proof — confirm with --headed --channel chrome or a real device before closing a lane.",
     );
   }
-  process.exit(paintSum === 0 && gapSum === 0 ? 0 : 1);
+  process.exit(paintSum === 0 && gapSum === 0 && reps.every((r) => r.verdict.ok) ? 0 : 1);
 }
 
 // Only run when invoked as a CLI, never on import from the tests.

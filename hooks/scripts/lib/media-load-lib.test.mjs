@@ -652,3 +652,41 @@ test("isSampleStable: identical rects are stable; a slot that moved past the tol
   assert.equal(isSampleStable(a, [a[0]]), false);
   assert.equal(isSampleStable(a, [{ tag: "img", rect: tileAt(24, 100.5) }, a[1]]), true, "sub-pixel jitter under 1px is stable");
 });
+
+test("isSampleStable boundary: a 1px move is stable, a 2px move is not (same for width/height)", () => {
+  const at = (top, h = 100) => [{ tag: "img", rect: { left: 24, top, right: 124, bottom: top + h, width: 100, height: h } }];
+  assert.equal(isSampleStable(at(100), at(101)), true, "exactly 1px");
+  assert.equal(isSampleStable(at(100), at(102)), false, "2px");
+  assert.equal(isSampleStable(at(100, 100), at(100, 101)), true, "height +1px");
+  assert.equal(isSampleStable(at(100, 100), at(100, 102)), false, "height +2px");
+});
+
+// Shapes a gap must still flag whatever wide block is nearby: the block explains only
+// the whitespace it (or a row-aligned taller neighbour) actually covers.
+const holeFrame = (extra) => [
+  tileAt(0, 0, 100, 100), tileAt(0, 164, 100, 100), tileAt(0, 328, 100, 100), // left column, 64px rhythm
+  tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(150, 328, 100, 100), // right column
+  ...extra,
+];
+const VP = { width: 300, height: 1200 };
+
+test("a missing tile directly above a full-width heading still flags", () => {
+  // left column: tile at 0..100, tile missing 164..., next left tile far below the heading
+  const rects = [
+    tileAt(0, 0, 100, 100), tileAt(0, 164, 100, 100), tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(150, 328, 100, 100),
+    tileAt(0, 700, 250, 50), // full-width heading starting where the hole ends
+    tileAt(0, 780, 100, 100), tileAt(150, 780, 100, 100),
+  ];
+  const gaps = scanFrameForColumnGaps(rects, VP);
+  assert.ok(gaps.some((g) => g.left === 0 && g.top === 264), "the left-column hole under the 164 tile flags");
+});
+
+test("a full-width block inside a real hole that leaves a long uncovered run still flags", () => {
+  const rects = [...holeFrame([]).slice(0, 2), tileAt(150, 0, 100, 100), tileAt(150, 164, 100, 100), tileAt(0, 600, 250, 40), tileAt(0, 900, 100, 100), tileAt(150, 900, 100, 100)];
+  assert.ok(scanFrameForColumnGaps(rects, VP).length >= 1, "264..600 above the block and 640..900 below it are uncovered");
+});
+
+test("a hole beside a neighbour that is NOT top-aligned with the tile above it (masonry) still flags", () => {
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 40, 100, 600), tileAt(150, 704), tileAt(150, 868)];
+  assert.ok(scanFrameForColumnGaps(rects, VP).some((g) => g.left === 0), "gap 264..700 in the left column flags");
+});
