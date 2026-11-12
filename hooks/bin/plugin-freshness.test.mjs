@@ -123,7 +123,7 @@ test("DISC-298: when the setup script's output is older than a day, the stale wa
   const ctx = JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext;
   assert.ok(ctx.includes(date), "the date the setup script last ran");
   assert.match(ctx, /cached (container )?image/i);
-  assert.match(ctx, /server-managed settings/i);
+  assert.match(ctx, /setup-script refresh line/i);
 });
 test("DISC-298: a setup script that ran today adds no image note (the cause is elsewhere)", () => {
   const e = env("1.184.0", "1.199.0");

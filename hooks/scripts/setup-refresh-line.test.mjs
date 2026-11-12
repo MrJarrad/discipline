@@ -1,5 +1,5 @@
-// DISC-299 (s81): after each discipline release tag the release path proposes bumping the Default environment's setup-script
-// refresh line, because the cloud image caches the plugin as of the script's last change (DISC-298).
+// DISC-299 / DISC-303 (s81): after each discipline release the parent proposes bumping the Default environment's setup-script
+// refresh line (one operator approval per release), because the cloud image caches the plugin as of the script's last change (DISC-298).
 // Run: node --test hooks/scripts/setup-refresh-line.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";

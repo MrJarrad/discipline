@@ -133,3 +133,9 @@ test("DISC-297: an unescaped dropdown read gives the same plan", () => {
   const raw = CHIPDOC.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
   assert.deepEqual(syncPlan({ vault: vault(), prefixes: ["PF"], docText: raw }).noStatus, ["PF-8", "a lane with no chip"]);
 });
+test("DISC-297: end to end, a Claude Docs item holding two links is flagged appended and one holding a single link is not", () => {
+  const two = li("Ready for you", "**PF-5** round 1 &lt;link href='https://p.example/a'&gt;a&lt;/link&gt; round 2 &lt;link href='https://p.example/b'&gt;b&lt;/link&gt;");
+  const one = li("Ready for you", "**PF-6** &lt;link href='https://p.example/c'&gt;c&lt;/link&gt;");
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: [heading("Waiting on you"), two, one].join("\n") });
+  assert.deepEqual(p.appended, ["PF-5"]);
+});

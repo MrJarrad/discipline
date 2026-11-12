@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* setup-refresh-line — DISC-299 (s81). A cloud container is restored from an image built when the Default environment's setup
-   script last changed (DISC-298), so its plugin is as old as that change. After each discipline release tag the release path
+   script last changed (DISC-298), so its plugin is as old as that change. After each discipline release the parent (one approval card, DISC-303)
    bumps the script's first line, `# plugin refresh <date> (discipline <version>)`; any edit rebuilds the image on the next fresh
-   session. FALLBACK ONLY (DISC-299: server-managed settings is the route, see RELEASE-PATH); the edit needs the operator's approval each time (this script edits nothing).
+   session. The edit needs the operator's approval each release (this script edits nothing); see RELEASE-PATH § After a discipline release.
    Usage: node setup-refresh-line.mjs --date YYYY-MM-DD [--release 1.200.0] [--line] < current-setup-script
    Prints the new script, or with --line only the first line to propose. Exit 0 · 2 bad date.                          */
 import { readFileSync } from "node:fs";

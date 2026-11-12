@@ -28,13 +28,20 @@ test("DISC-297: the always-on style and wrap point at the rule, they do not rest
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`leaveWaiting`"));
 });
 
-// DISC-299 (s81): the release path proposes the setup-script refresh-line bump; s80 Mac wording lives where Mac-job asks live.
-test("DISC-299: RELEASE-PATH makes server-managed settings the route (no per-release step) and the refresh line only a fallback", () => {
+// DISC-299 / DISC-303 (s81, operator 2026-11-12 14:52 "yes to both"): personal plans have no server-managed settings, so after each discipline release
+// the parent proposes the Default setup-script refresh-line bump (one approval card), and releases are batched to at most one a day.
+test("DISC-299/303: RELEASE-PATH has the per-release refresh-line step, says it costs one approval, and marks the docs-unstated facts unconfirmed", () => {
   const r = flat("skills/release-deploy/references/RELEASE-PATH.md");
-  for (const s of ["every new session should always be on the latest version of the plugin", "https://claude.ai/admin-settings/claude-code",
-    "\"extraKnownMarketplaces\":{\"discipline\":{\"source\":{\"source\":\"github\",\"repo\":\"MrJarrad/discipline\"},\"autoUpdate\":true}}", "\"enabledPlugins\":{\"discipline@discipline\":true}",
-    "There is no per-release step", "Prove it in a fresh session", "Fallback only", "setup-refresh-line.mjs"]) assert.ok(r.includes(s), s);
-  assert.ok(!r.includes("After a discipline release tag"), "the per-release proposal step is gone");
+  for (const s of ["## After a discipline release: propose the setup-script refresh line (DISC-299, DISC-303, s81)",
+    "every new session should always be on the latest version of the plugin",
+    "route does NOT meet that ruling: it needs one operator approval per release, because personal plans have no server-managed settings",
+    "at most one discipline release a day",
+    "setup-refresh-line.mjs", "one approval card",
+    "Proved (s81): editing the setup script rebuilt the Default image", "installedAt",
+    "Unconfirmed (the docs do not say", "the image also rebuilds after about seven days", "`autoUpdate` runs in a cloud session",
+    "a project plugin under `.claude/skills/` loads in a cloud session"]) assert.ok(r.includes(s), s);
+  assert.ok(!r.includes("There is no per-release step"), "no claim of a step-free route");
+  assert.ok(!r.includes("server-managed settings are the route"), "managed settings are unavailable on this plan");
 });
 test("s80 Mac wording: ask 'Is now a good time for me to take over your Mac (about N minutes)?' before a job that uses the screen", () => {
   const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");
