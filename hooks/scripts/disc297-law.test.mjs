@@ -29,9 +29,12 @@ test("DISC-297: the always-on style and wrap point at the rule, they do not rest
 });
 
 // DISC-299 (s81): the release path proposes the setup-script refresh-line bump; s80 Mac wording lives where Mac-job asks live.
-test("DISC-299: RELEASE-PATH names the refresh-line bump after each discipline release tag", () => {
+test("DISC-299: RELEASE-PATH makes server-managed settings the route (no per-release step) and the refresh line only a fallback", () => {
   const r = flat("skills/release-deploy/references/RELEASE-PATH.md");
-  for (const s of ["setup-refresh-line.mjs", "# plugin refresh", "the parent proposes it to the operator"]) assert.ok(r.includes(s), s);
+  for (const s of ["every new session should always be on the latest version of the plugin", "https://claude.ai/admin-settings/claude-code",
+    "\"extraKnownMarketplaces\":{\"discipline\":{\"source\":{\"source\":\"github\",\"repo\":\"MrJarrad/discipline\"},\"autoUpdate\":true}}", "\"enabledPlugins\":{\"discipline@discipline\":true}",
+    "There is no per-release step", "Prove it in a fresh session", "Fallback only", "setup-refresh-line.mjs"]) assert.ok(r.includes(s), s);
+  assert.ok(!r.includes("After a discipline release tag"), "the per-release proposal step is gone");
 });
 test("s80 Mac wording: ask 'Is now a good time for me to take over your Mac (about N minutes)?' before a job that uses the screen", () => {
   const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");

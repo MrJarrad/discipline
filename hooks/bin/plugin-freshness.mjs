@@ -54,7 +54,7 @@ function imageNote() {
   try {
     const m = statSync(join(homedir(), ".claude", "environment-manager", "setup-script-output")).mtime;
     if (Date.now() - m.getTime() < 864e5) return "";
-    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. Edit the environment's setup script (any change rebuilds the image) and tell the operator.`;
+    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. The durable fix is the operator's server-managed settings registering the discipline marketplace (RELEASE-PATH § Every new session on the latest plugin); if that is in place and this still appears, say so as a queue row.`;
   } catch { return ""; }
 }
 const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}. Until then vault rulings win over the loaded style: where a ruling and this session's output style disagree, follow the ruling.${imageNote()}`;
