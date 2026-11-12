@@ -104,6 +104,7 @@ import {
   scaleRect,
   parseCssColor,
   isSampleStable,
+  isSlotPainted,
   MIN_PAINTED_STDDEV,
   MIN_STRUCTURE_EDGE_JUMP,
   MIN_VISIBLE_AREA_FRACTION,
@@ -373,6 +374,20 @@ export function repVerdict({ paint, gaps, frames, dropped }, maxDroppedShare = 0
   return { ok: true, reason: "" };
 }
 
+// One frame's elements reduced to what the classifier needs: each slot's own
+// `painted` verdict, computed from its screenshot crop and then dropped. A long
+// session keeps one small object per slot per frame, never the crops themselves
+// (each crop is thousands of pixel objects; keeping all of them ran a 60 s session
+// out of the default 2 GB heap).
+export function judgeFrameElements(elements, image, viewport, emptyColors, paintClassifyOptions) {
+  const scale = image.width / viewport.width;
+  return elements.map((el) => {
+    const clipped = el.tag === "text" || isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
+    const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
+    return { ...el, painted: el.tag === "text" ? undefined : isSlotPainted(el, pixels, emptyColors, paintClassifyOptions) };
+  });
+}
+
 // The default sampler: plain DOM state only, no screenshot — what the
 // interaction-driving tests below exercise against a fake `page`. `run()`
 // supplies its own sampler (below) that also screenshots and crops.
@@ -528,13 +543,7 @@ async function run(opts) {
       droppedFrames++;
       return null;
     }
-    const image = decodePng(stable.shot);
-    const scale = image.width / viewport.width;
-    return stable.elements.map((el) => {
-      const clipped = el.tag === "text" || isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
-      const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
-      return { ...el, pixels };
-    });
+    return judgeFrameElements(stable.elements, decodePng(stable.shot), viewport, emptyColors, paintClassifyOptions);
   };
 
   // Fix round 3: `scroll`/`drag` default to a realistic fling SESSION, never

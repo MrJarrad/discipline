@@ -690,3 +690,18 @@ test("a hole beside a neighbour that is NOT top-aligned with the tile above it (
   const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 40, 100, 600), tileAt(150, 704), tileAt(150, 868)];
   assert.ok(scanFrameForColumnGaps(rects, VP).some((g) => g.left === 0), "gap 264..700 in the left column flags");
 });
+
+test("classifyEmptyAcrossFrames uses a stored `painted` verdict when a frame carries one (no pixels needed)", () => {
+  const vp = { width: 390, height: 844 };
+  const state = (painted) => ({ tag: "img", src: "a", rect: tileAt(24, 100, 100, 100), opacity: 1, visibility: "visible", clipRects: [], painted });
+  const blank = classifyEmptyAcrossFrames([[state(false)], [state(false)], [state(false)]], vp, [WHITE], { arrivalWindowMs: 300, frameIntervalMs: 250 });
+  assert.ok(blank.total >= 1, "a blank verdict held past the arrival window is flagged");
+  const ok = classifyEmptyAcrossFrames([[state(true)], [state(true)]], vp, [WHITE], { arrivalWindowMs: 300, frameIntervalMs: 250 });
+  assert.equal(ok.total, 0);
+});
+
+test("a hole beside a top-aligned neighbour that runs PAST the gap's lower edge still flags (a column continuing, not a row)", () => {
+  // left: tile 0..100, hole 164..., next left tile at 700; right neighbour starts at the same top and runs to 800
+  const rects = [tileAt(0, 0), tileAt(0, 164), tileAt(0, 700), tileAt(150, 0, 100, 800), tileAt(300, 0), tileAt(300, 164), tileAt(300, 328)];
+  assert.ok(scanFrameForColumnGaps(rects, { width: 400, height: 900 }).some((g) => g.left === 0 && g.top === 264));
+});

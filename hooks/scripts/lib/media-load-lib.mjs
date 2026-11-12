@@ -351,7 +351,7 @@ export function classifyEmptyAcrossFrames(framesOfStates, viewport, emptyColors,
       // frame it was seen in) — a static tile at rest, on load or otherwise,
       // is never exempted, whatever share of its own rect is on screen.
       const sliverExempt = sliver && rectMoved(prev?.rect, state.rect);
-      const painted = isSlotPainted(state, state.pixels, emptyColors, options);
+      const painted = state.painted ?? isSlotPainted(state, state.pixels, emptyColors, options);
       const blankNow = onScreen && !sliverExempt && !painted;
 
       if (blankNow) {
@@ -477,8 +477,11 @@ export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widt
       const overlapsX = r.left < g.right && g.left < r.right;
       const wider = r.left < g.left - 1 || r.right > g.right + 1;
       if (overlapsX && wider && r.top < g.bottom && r.bottom > g.top) covers.push([Math.max(r.top, g.top), Math.min(r.bottom, g.bottom)]);
-      else if (!overlapsX && upper && Math.abs(r.top - upper.top) <= 1 && r.bottom > g.top) covers.push([g.top, Math.min(r.bottom, g.bottom)]);
+      // A row's next content starts after its tallest member, so a row neighbour ends inside the gap;
+      // one that runs past the gap's lower edge is a column continuing beside a hole, not a row.
+      else if (!overlapsX && upper && Math.abs(r.top - upper.top) <= 1 && r.bottom > g.top && r.bottom <= g.bottom + 1) covers.push([g.top, r.bottom]);
     }
+    if (covers.length === 0) return Infinity; // nothing explains it: an ordinary gap, judged by the rhythm threshold alone
     covers.sort((x, y) => x[0] - y[0]);
     let cursor = g.top;
     let longest = 0;

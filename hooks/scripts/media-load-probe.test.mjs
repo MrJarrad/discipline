@@ -18,6 +18,7 @@ import {
   resolveDriveMode,
   takeStableSample,
   repVerdict,
+  judgeFrameElements,
   NETWORK_PROFILES,
   DEFAULT_FLING_DURATION_MS,
 } from "./media-load-probe.mjs";
@@ -447,4 +448,39 @@ test("settled blank control: a blank tile that holds still is returned by takeSt
 test("parseArgs: --max-dropped-share defaults to 0.25 and reads a value", () => {
   assert.equal(parseArgs(["https://x.test"]).maxDroppedShare, 0.25);
   assert.equal(parseArgs(["https://x.test", "--max-dropped-share", "0.1"]).maxDroppedShare, 0.1);
+});
+
+// --- long runs keep verdicts, not pixels (PF-1475) -----------------------------
+
+const solidImage = (w, h, [r, g, b]) => {
+  const data = new Uint8Array(w * h * 4);
+  for (let i = 0; i < w * h; i++) data.set([r, g, b, 255], i * 4);
+  return { width: w, height: h, data };
+};
+const slot = (top) => ({ tag: "img", src: "a.avif", opacity: 1, visibility: "visible", clipRects: [], rect: { left: 0, top, right: 300, bottom: top + 300, width: 300, height: 300 } });
+const WHITE_PX = { r: 255, g: 255, b: 255 };
+const PAINT_OPTS = { tolerance: 8, minPaintedFraction: 0.05, minPaintedStddev: 10, minStructureEdgeJump: 20, minVisibleAreaFraction: 0.15 };
+
+test("judgeFrameElements keeps a per-slot painted verdict and no pixel crop", () => {
+  const vp = { width: 300, height: 300 };
+  const blank = judgeFrameElements([slot(0)], solidImage(300, 300, [255, 255, 255]), vp, [WHITE_PX], PAINT_OPTS);
+  const photo = judgeFrameElements([slot(0)], solidImage(300, 300, [40, 90, 160]), vp, [WHITE_PX], PAINT_OPTS);
+  assert.equal(blank[0].painted, false);
+  assert.equal(photo[0].painted, true);
+  assert.equal("pixels" in blank[0], false, "the crop is not retained");
+});
+
+test("a 60 s session (240 frames of 300x300 crops) runs inside a 48 MB heap: memory stays flat, pixels are not kept", () => {
+  // Retaining each crop would need ~240 x 90k pixel objects (gigabytes); keeping verdicts needs kilobytes.
+  const code = `
+    import { judgeFrameElements } from ${JSON.stringify(new URL("./media-load-probe.mjs", import.meta.url).href)};
+    const img = { width: 300, height: 300, data: new Uint8Array(300 * 300 * 4).fill(255) };
+    const el = { tag: "img", src: "a", opacity: 1, visibility: "visible", clipRects: [], rect: { left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300 } };
+    const kept = [];
+    for (let f = 0; f < 240; f++) kept.push(judgeFrameElements([el], img, { width: 300, height: 300 }, [{ r: 255, g: 255, b: 255 }], { tolerance: 8, minPaintedFraction: 0.05, minPaintedStddev: 10, minStructureEdgeJump: 20, minVisibleAreaFraction: 0.15 }));
+    console.log("ok", kept.length);
+  `;
+  const r = spawnSync(process.execPath, ["--max-old-space-size=48", "--input-type=module", "-e", code], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr.slice(0, 300));
+  assert.match(r.stdout, /ok 240/);
 });

@@ -92,12 +92,13 @@ Two independent counts, both must be **0**:
 **One frame, one moment (PF-1475).** Each sample reads the boxes, takes the screenshot, then reads the
 boxes again; if anything moved by more than 1 px between the two reads (the page was still scrolling under a
 throttled screenshot) it waits 100 ms and retries, and drops the frame after six tries (`dropped=` in the rep line).
+**Long runs:** each frame keeps one `painted` verdict per slot and drops the pixel crop, so a `--duration 60000` session fits the default Node heap (it used to run out at 2 GB).
 **Drop rule:** a dropped frame is not judged, so a rep is green only if at least one frame was judged and
 dropped frames are at most `--max-dropped-share` (default `0.25`) of all samples; otherwise the rep prints
 `NOT GREEN` and the run exits 1, whatever paint and gaps read.
 Without this a healthy tile read as blank because its box no longer matched the pixels. The gap scan
 explains only the whitespace a row layout really covers: a taller neighbour whose top matches the tile above
-the gap, and blocks wider than the gap that sit in it. A gap whose longest uncovered run is more than 96 px
+the gap, and blocks wider than the gap that sit in it. A row neighbour counts only if it ends inside the gap (a column running past the gap's lower edge is a column, not a row). A gap whose longest uncovered run is more than 96 px
 still flags, so a missing tile above or around a full-width heading is still a hole.
 
 ## Flags
