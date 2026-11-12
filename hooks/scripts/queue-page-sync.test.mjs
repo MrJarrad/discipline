@@ -120,7 +120,8 @@ test("DISC-297: a plan against no doc carries the new fields empty", () => {
 // DISC-297 correction (parent s81): the pinned doc's Status is a real dropdown chip. A Claude Docs read returns each item as
 // <listItem><paragraph><dropdown enum=… index=…>Value</dropdown><text> …</text></paragraph></listItem>, entity-escaped.
 const li = (chip, text, extra = "") => `&lt;listItem id='.1'${extra}&gt;&lt;paragraph&gt;${chip === null ? "" : `&lt;dropdown id='.2' enum='bc09b9b4-c14e' index='1'&gt;${chip}&lt;/dropdown&gt;`}&lt;text&gt; ${text}&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;`;
-const heading = (t) => `&lt;heading level='2'&gt;${t}&lt;/heading&gt;`;
+// The real Status doc heading shape (parent s81): a paragraph carrying heading='N', not a <heading> element.
+const heading = (t, n = 2) => `&lt;paragraph id='.9' h='${t.length}' heading='${n}'&gt;${t}&lt;/paragraph&gt;`;
 const CHIPDOC = [heading("Waiting on you"), li("Ready for you", "**PF-5** look at footer https://p.example/r3"), li(null, "**PF-8** idea"), li("Done", "**PF-4** old row", " checked='true'"),
   heading("Running now"), li("Claude's on it", "footer round 4 (session_019vvsKxkt4YUc2iRJhzm8jJ)"), li(null, "a lane with no chip")].join("\n");
 test("DISC-297: the Status chip is read from the dropdown shape of a Claude Docs read", () => {
@@ -191,10 +192,17 @@ test("DISC-302: every answered or landed Waiting item whose chip is not Done get
     { id: "PF-9", from: "Ready for you", to: "Done", why: "landed" },
   ], "PF-9 is not an open row in this vault, so it reads as landed");
 });
-test("DISC-305: a level-3 heading in a Claude Docs read is a project heading, not a section", () => {
-  const h3 = (t) => `&lt;heading level='3'&gt;${t}&lt;/heading&gt;`;
+test("DISC-305: a heading='3' paragraph in a Claude Docs read is a project heading, not a section", () => {
+  const h3 = (t) => heading(t, 3);
   const docs = [heading("Waiting on you"), h3("PF — portfolio"), li("Ready for you", "**PF-5** look"), li("Ready for you", "**PF-6** pick"), h3("HB — hoverboard"), li("Ready for you", "**PF-8** wrong place")].join("\n");
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: docs });
   assert.deepEqual(p.misfiled, [{ id: "PF-8", under: "### HB — hoverboard", belongsTo: "PF" }]);
   assert.equal(p.needsProjectHeadings, false);
+});
+
+test("DISC-305: fromDocsRead reads the real heading shape at levels 1-3 and leaves a plain paragraph alone", async () => {
+  const { fromDocsRead } = await import("./queue-page-sync.mjs");
+  const out = fromDocsRead([heading("Status", 1), heading("Waiting on you"), heading("PF — portfolio", 3), `&lt;paragraph id='.7'&gt;just text&lt;/paragraph&gt;`, li("Ready for you", "**PF-5** look")].join("\n"));
+  assert.match(out, /^# Status$/m); assert.match(out, /^## Waiting on you$/m); assert.match(out, /^### PF — portfolio$/m);
+  assert.ok(!/^#+ just text/m.test(out), "a paragraph with no heading attribute is not a heading");
 });

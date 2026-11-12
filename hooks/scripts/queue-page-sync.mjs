@@ -37,12 +37,14 @@ const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.in
 const chipOf = (t) => STATUSES.find((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`)) ?? null;
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
-/* DISC-297: a Claude Docs read returns the doc as (entity-escaped) XML, each item a <listItem><paragraph><dropdown>Status</dropdown><text> …</text></paragraph></listItem>
-   and each section a <heading>. Rewrite that shape to the checklist lines the plan reads below, the chip kept as `[Status]`; markdown input passes through. */
+/* DISC-297 / DISC-305: a Claude Docs read returns the doc as (entity-escaped) XML. An item is
+   <listItem><paragraph><dropdown>Status</dropdown><text> …</text></paragraph></listItem>; a heading is a paragraph carrying its level,
+   <paragraph id='…' h='…' heading='2'>Waiting on you</paragraph> (the real shape, s81). Rewrite that to the checklist lines the plan
+   reads below, the chip kept as `[Status]`; markdown input passes through. */
 export function fromDocsRead(t) {
-  if (!/(<|&lt;)listItem\b/.test(t)) return t;
+  if (!/(<|&lt;)(listItem|paragraph)\b/.test(t)) return t;
   const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#39;/g, "'");
-  return doc.replace(/<heading\b([^>]*)>([\s\S]*?)<\/heading>/g, (_, attrs, h) => `\n${"#".repeat(Math.min(6, Math.max(2, Number(/level=['"]?(\d)/.exec(attrs)?.[1]) || 2)))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
+  return doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
     .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
       const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();

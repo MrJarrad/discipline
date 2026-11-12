@@ -33,3 +33,16 @@ test("s81: an automated wake with no new ask gets no chat text; the result goes 
   for (const x of ["gets no chat text at all", "you've started status updates in the thread again", "`needed-from-you-stop.mjs` holds a reply to a wake that raised no new ask"]) assert.ok(style.includes(x), x);
   assert.ok(!style.includes("at most one line, no queue reprint"));
 });
+
+test("s81 (review AMBER 5): one wording for the wake rule across the output style, HARD-RULES, wrap and the wrap closing checks", () => {
+  for (const f of ["output-styles/discipline.md", "skills/routing/references/HARD-RULES.md", "skills/wrap/references/CLOSING-CHECKS.md"])
+    assert.ok(/no chat text at all/.test(flat(f)), f);
+  assert.ok(flat("skills/wrap/SKILL.md").includes("automated events get no chat text"));
+  assert.ok(!/ends silently|end silently|one line at most/i.test([flat("skills/routing/references/HARD-RULES.md"), flat("skills/wrap/SKILL.md")].join(" ")));
+  assert.ok(!/At most one line: "Wrapped/.test(flat("skills/wrap/references/CLOSING-CHECKS.md")));
+});
+test("s81 (review NOTE): the Stop fallback link text reads [Status] and no message says Status doc doc", () => {
+  const hook = readFileSync(join(root, "hooks/bin/needed-from-you-stop.mjs"), "utf8");
+  assert.ok(!/Status doc doc/.test(hook));
+  assert.ok(!/exact line `Full list: \[Needed from you\]/.test(hook.replace(/\\`/g, "`")));
+});

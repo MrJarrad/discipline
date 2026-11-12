@@ -225,15 +225,21 @@ test("DISC-302: lastTurn reports the rows answered this turn and the text of thi
   const t = turn(bash("node hooks/scripts/lane-end.mjs --vault /v --id PF-6 --status done"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "chars replace dropdown Done" }), reply(SHORT()));
   const r = lastTurn(t, [DOC_ID]);
   assert.deepEqual(r.answered, ["PF-6"]);
-  assert.match(r.docWriteText, /dropdown Done/);
+  assert.equal(r.docWrites.length, 1);
+  assert.match(JSON.stringify(r.docWrites[0]), /dropdown Done/);
 });
-test("DISC-302: an answered row with no chip change in the doc write is refused; a Done chip lets it pass", () => {
+const chipWrite = (payload) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload });
+const answeredTurn = (...writes) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]);
+test("DISC-302 (review AMBER 4): the chip check looks at the answered row's own item; a Done anywhere else does not satisfy it", () => {
   const v = vaultWithChecklist();
-  const mk = (payload) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload }), reply(SHORT())), [DOC_ID]);
-  const stale = mk("moved the item to Done this session");
-  assert.match(check({ ...stale, vault: v }), /DISC-302.*PF-6.*Ready for you/);
-  const fresh = mk({ op: "replace", dropdown: { value: "Done" } });
-  assert.equal(check({ ...fresh, vault: v }), null);
+  const no = (t) => assert.match(check({ ...t, vault: v }), /DISC-302.*PF-6/);
+  no(answeredTurn(chipWrite("moved the item to the Done this session section")));
+  no(answeredTurn(chipWrite({ op: "replace", target: "PF-9", dropdown: { value: "Done" } })));
+  no(answeredTurn(chipWrite({ op: "replace", target: "PF-6", dropdown: { value: "Ready for you" } })));
+  const yes = (t) => assert.equal(check({ ...t, vault: v }), null);
+  yes(answeredTurn(chipWrite({ op: "replace", target: "PF-6", dropdown: { value: "Done" } })));
+  yes(answeredTurn(chipWrite("replace PF-6 with <dropdown id='.2' enum='e' index='2'>Done</dropdown>")));
+  yes(answeredTurn(chipWrite({ batch: [{ op: "replace", target: "PF-9", dropdown: { value: "Done" } }, { op: "replace", target: "PF-6", dropdown: { value: "You're on it" } }] })));
 });
 test("DISC-302: no row answered this turn adds no chip requirement", () => {
   const v = vaultWithChecklist();
@@ -279,4 +285,15 @@ test("CLI: an automated wake with reply text is blocked; an answered row with a 
   assert.match(JSON.parse(w.stdout).reason, /automated wake/);
   const stale = run([JSON.stringify({ type: "user", timestamp: T, message: { content: "done" } }), bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "moved to Done section" }), reply(SHORT())]);
   assert.match(JSON.parse(stale.stdout).reason, /DISC-302/);
+});
+
+test("s81 (review AMBER 2): a real operator message is never a wake, even if it quotes wrapper text or carries a notification block beside its own words", () => {
+  const wk = (content) => lastTurn([JSON.stringify({ type: "user", timestamp: T, message: { content } }), reply("ok")].join("\n"), []).wake;
+  assert.equal(wk(WAKE), true);
+  assert.equal(wk(`<wake reason="external-event"><event source="github"/></wake>`), true);
+  assert.equal(wk(`<task-notification><status>done</status></task-notification>`), true);
+  assert.equal(wk(`why did you write <wake reason="x"> in the doc?`), false);
+  assert.equal(wk(`${WAKE}\nand also please check the footer`), false);
+  assert.equal(wk([{ type: "text", text: "check the footer" }, { type: "text", text: WAKE }]), false);
+  assert.equal(wk([{ type: "text", text: WAKE }, { type: "text", text: `<task-notification><status>done</status></task-notification>` }]), true);
 });
