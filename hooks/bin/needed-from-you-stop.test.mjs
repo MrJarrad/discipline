@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { check, lastTurn } from "./needed-from-you-stop.mjs";
 import { writeMarker } from "../scripts/lib/row-marker.mjs";
+import { pinnedChecklistIds } from "../scripts/lib/pinned-checklist.mjs";
 
 const hook = fileURLToPath(new URL("./needed-from-you-stop.mjs", import.meta.url));
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
@@ -161,23 +162,44 @@ test("s79 (a): with no pinned checklist in the vault the full block still passes
 test("s79 (b): a status reply is refused when this turn never wrote to the checklist doc", () => {
   const v = vaultWithChecklist();
   const t = turn(reply(SHORT()));
-  const { userTs, text, docWritten } = lastTurn(t, URL_);
+  const { userTs, text, docWritten } = lastTurn(t, [DOC_ID]);
   assert.equal(docWritten, false);
   assert.match(check({ text, userTs, vault: v, docWritten }), /Running now/);
 });
 test("s79 (b): a doc write this turn (update or batch on the doc id) lets the short form pass; a write to another doc does not", () => {
   const v = vaultWithChecklist();
   for (const name of ["mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__update", "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch"]) {
-    const { userTs, text, docWritten } = lastTurn(turn(wrote(name), reply(SHORT())), URL_);
+    const { userTs, text, docWritten } = lastTurn(turn(wrote(name), reply(SHORT())), [DOC_ID]);
     assert.equal(docWritten, true, name);
     assert.equal(check({ text, userTs, vault: v, docWritten }), null);
   }
-  const other = lastTurn(turn(wrote(undefined, { container: { kind: "doc", id: "someOtherDoc" } }), reply(SHORT())), URL_);
+  const other = lastTurn(turn(wrote(undefined, { container: { kind: "doc", id: "someOtherDoc" } }), reply(SHORT())), [DOC_ID]);
   assert.equal(other.docWritten, false);
-  const read = lastTurn(turn(wrote("mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read"), reply(SHORT())), URL_);
+  const read = lastTurn(turn(wrote("mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read"), reply(SHORT())), [DOC_ID]);
   assert.equal(read.docWritten, false, "a read is not an update");
 });
 test("s79 (b): a write from an earlier turn does not count for this one", () => {
   const earlier = [JSON.stringify({ type: "user", timestamp: T, message: { content: "first" } }), wrote(), reply("done"), JSON.stringify({ type: "user", timestamp: T, message: { content: "again" } }), reply(SHORT())].join("\n");
-  assert.equal(lastTurn(earlier, URL_).docWritten, false);
+  assert.equal(lastTurn(earlier, [DOC_ID]).docWritten, false);
+});
+
+// Review round 1 AMBER 3: the Claude Docs connector addresses the doc by its UUID (container id), not the artifact URL's last segment.
+const DOC_UUID = "97bd5a36-e22b-449d-b7ae-c73b9d2f7073";
+function vaultWithUuid() {
+  const v = vault();
+  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id ${DOC_UUID}, body node 51a59e14-4a0e).\n`);
+  return v;
+}
+test("s79 review AMBER 3: a Claude Docs update/batch naming the doc UUID counts as a write; the URL id still counts; another project id does not", () => {
+  const v = vaultWithUuid();
+  for (const name of ["mcp__Claude_Docs__update", "mcp__Claude_Docs__batch"]) {
+    const w = wrote(name, { container: { kind: "project", id: DOC_UUID }, payload: "x" });
+    const t = lastTurn(turn(w, reply(SHORT())), pinnedChecklistIds(v));
+    assert.equal(t.docWritten, true, name);
+    assert.equal(check({ text: t.text, userTs: t.userTs, vault: v, docWritten: t.docWritten }), null);
+  }
+  assert.equal(lastTurn(turn(wrote(), reply(SHORT())), pinnedChecklistIds(v)).docWritten, true, "artifact id also accepted");
+  const other = lastTurn(turn(wrote("mcp__Claude_Docs__update", { container: { kind: "project", id: "00000000-0000-0000-0000-000000000000" } }), reply(SHORT())), pinnedChecklistIds(v));
+  assert.equal(other.docWritten, false);
 });

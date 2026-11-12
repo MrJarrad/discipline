@@ -29,16 +29,18 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
-import { pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
+import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
 const HEAD = /^## Needed from you\s*$/m;
 const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.filter((b) => b?.type === "text").map((b) => b.text).join("\n") : "");
 const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_result");
 
 /* The last assistant text after the last real user message, that message's timestamp, and whether this turn wrote to
-   the pinned checklist doc (an `update`/`batch` MCP call whose input names the doc id, the last segment of `docUrl`). */
-export function lastTurn(transcriptText, docUrl) {
-  const docId = docUrl ? docUrl.split("/").pop() : null;
+   the pinned checklist doc (an `update`/`batch` MCP call whose input names one of `docIds`: the artifact id and the doc UUID
+   the Claude Docs connector sends as container.id; see pinnedChecklistIds). */
+export function lastTurn(transcriptText, docIds) {
+  const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean);
+  const docId = ids.length ? ids : null;
   let userTs = "", text = null, docWritten = false;
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
@@ -47,7 +49,7 @@ export function lastTurn(transcriptText, docUrl) {
     if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; }
     else if (e.type === "assistant") {
       const t = textOf(c); if (t.trim()) text = t;
-      if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && JSON.stringify(b.input || {}).includes(docId))) docWritten = true;
+      if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id)))) docWritten = true;
     }
   }
   return docId ? { userTs, text, docWritten } : { userTs, text };
@@ -96,7 +98,7 @@ function main() {
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
   const vault = resolve(vaultEnv);
-  const { userTs, text, docWritten } = lastTurn(t, pinnedChecklistUrl(vault));
+  const { userTs, text, docWritten } = lastTurn(t, pinnedChecklistIds(vault));
   let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }

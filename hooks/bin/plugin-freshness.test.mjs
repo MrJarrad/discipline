@@ -3,7 +3,8 @@
 // Run: node --test hooks/bin/plugin-freshness.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,4 +73,23 @@ test("when the release cannot be read, nothing is blocked and nothing is claimed
   assert.equal(r.status, 0);
   assert.equal(r.stdout, "");
   assert.equal(stop(e, STATUS), null);
+});
+
+// Review round 1 AMBER 2: the on-disk marketplace clone can be as stale as the cache (the s79 case), so the network is asked first.
+test("the network release wins over a marketplace clone as stale as the cache; offline falls back to the clone", async () => {
+  const e = env("1.181.0", "");
+  e.env.DISCIPLINE_LATEST_VERSION = "";
+  const clone = join(e.env.HOME, ".claude", "plugins", "marketplaces", "discipline", ".claude-plugin");
+  mkdirSync(clone, { recursive: true });
+  writeFileSync(join(clone, "plugin.json"), JSON.stringify({ version: "1.181.0" }));
+  const srv = createServer((_, res) => res.end(JSON.stringify({ version: "1.198.0" })));
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const run = (url) => new Promise((resolve) => {
+    const c = spawn(process.execPath, [hook, "start"], { env: { ...e.env, DISCIPLINE_LATEST_URL: url } });
+    let out = ""; c.stdout.on("data", (d) => (out += d)); c.stdin.end(JSON.stringify({ session_id: "s" })); c.on("close", () => resolve(out));
+  });
+  try {
+    assert.match(await run(`http://127.0.0.1:${srv.address().port}/plugin.json`), /1\.198\.0/);
+    assert.equal(await run("http://127.0.0.1:1/none"), "", "offline: the clone says 1.181.0 = loaded, so silent");
+  } finally { srv.close(); }
 });

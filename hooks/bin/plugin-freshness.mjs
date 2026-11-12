@@ -7,8 +7,9 @@
             and prints a warning (additionalContext) with the exact update commands; current -> removes the marker.
      stop   blocks a status reply (a `## Needed from you` heading or the `Full list:` line) once while the loaded version
             is still older than the recorded release; an update + reload clears it.
-   The newest release comes from DISCIPLINE_LATEST_VERSION, else the marketplace clone on disk, else a 4 s fetch of the
-   repo's plugin.json (DISCIPLINE_LATEST_URL overrides); unreadable -> silent, nothing claimed.
+   The newest release comes from DISCIPLINE_LATEST_VERSION, else a 4 s fetch of the repo's plugin.json
+   (DISCIPLINE_LATEST_URL overrides), else the marketplace clone on disk: the clone can be as stale as the cache (the s79
+   case), so it is only the offline fallback. Unreadable -> silent, nothing claimed.
    SELF-CONTAINED (node built-ins only): a stale cache loads none of this plugin's hooks, so the vault's own
    .claude/settings.json runs a copy of this file for SessionStart and Stop. Any error -> silent exit 0.            */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -28,12 +29,12 @@ const older = (a, b) => { const [x, y] = [a, b].map((v) => String(v).split(".").
 
 async function latestVersion() {
   if (process.env.DISCIPLINE_LATEST_VERSION) return process.env.DISCIPLINE_LATEST_VERSION;
-  const clone = readVersion(join(homedir(), ".claude", "plugins", "marketplaces", "discipline", ".claude-plugin", "plugin.json"));
-  if (clone) return clone;
   try {
     const r = await fetch(process.env.DISCIPLINE_LATEST_URL || DEFAULT_URL, { signal: AbortSignal.timeout(4000) });
-    return r.ok ? (await r.json()).version || null : null;
-  } catch { return null; }
+    const v = r.ok ? (await r.json()).version || null : null;
+    if (v) return v;
+  } catch { /* offline: the clone below */ }
+  return readVersion(join(homedir(), ".claude", "plugins", "marketplaces", "discipline", ".claude-plugin", "plugin.json"));
 }
 
 const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}.`;
