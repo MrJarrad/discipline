@@ -24,6 +24,7 @@
               no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
               at each sessions end").
+   DISC-310: the whole-doc layout (project headings, Up next, Done moves, no Go-live) is status-layout.mjs; this script keeps its row-level plan.
    Usage: node queue-page-sync.mjs --vault <root> --projects PF,HB [--doc <file with the doc text>] */
 import { readFileSync } from "node:fs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
