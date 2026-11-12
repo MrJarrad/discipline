@@ -328,3 +328,11 @@ test("DISC-311: a bold id split into runs ('(PF-15' + '85' + ')') reads as one b
   assert.ok(!p.toAdd.some((l) => l.includes("(PF-1585)")), "PF-1585 is an open row already on the doc: it is not added again");
   assert.ok(p.toAdd.some((l) => l.includes("(PF-5)")), "an open row that is not on the doc is still added");
 });
+
+// DISC-312 follow-up (carried amber from #190: "misfiled flags every Waiting item" because the real doc's headings are Portfolio / Discipline / Handoff toolkit)
+test("DISC-312: on the real doc read (headings Portfolio, Discipline, Handoff toolkit) the plan flags nothing by heading", async () => {
+  const { LIVE } = await import("./fixtures/status-doc-live.mjs");
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: LIVE });
+  for (const k of ["misfiled", "toAddUnder", "projects", "needsProjectHeadings"]) assert.ok(!(k in p), k);
+  assert.ok(p.running.length > 0 && p.running.every((x) => !("project" in x)), "lanes are read from Running now with no heading attribution");
+});

@@ -338,3 +338,24 @@ test("DISC-314 review: 'running' alone in a finished title is not an in-flight c
   assert.equal(word("fixed, running order restored").staleText, false);
   assert.equal(word("tests still running").staleText, true);
 });
+
+// DISC-314 follow-up (round-2 notes on #195)
+const TICK399 = (text) => LIVE.replace("<listItem id='.39877'", "<listItem id='.39877' checked='true'").replace("writing the step into the rules", text);
+test("DISC-314 follow-up 2: 'writing' is an in-flight cue: the live DISC-299/303 lane text 'writing the step into the rules' is rewritten on its way to Done", () => {
+  const o = plan({ docXml: TICK399("writing the step into the rules") }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.op, "replaceItem");
+  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session (DISC-299/303). Done.**");
+});
+test("DISC-314 follow-up 1: a headline is never left with an open parenthesis: it is cut at the last unbalanced '(' (no '(#188. Done.')", () => {
+  const o = plan({ docXml: TICK399("writing the step into the rules").replace("Latest plugin in every session (DISC-299/303)", "Latest plugin in every session (follow-up to #188. Then the rest) and more (see #188. Other") }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session. Done.**");
+  assert.ok((o.markdown.match(/\(/g) || []).length === (o.markdown.match(/\)/g) || []).length, o.markdown);
+});
+test("DISC-314 follow-up review: 'writing' inside a finished title is not an in-flight cue; only the verb form is ('writing the…', 'now/still writing')", () => {
+  const item = (t) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("Copying a text page leaves out the nav labels (PF-1496): building, helper session_019vvsL33CSwXZah39dApWeL.", t) }).ops.find((x) => x.id === ".42857");
+  const done = item("Brand writing guide for the footer, published (PF-1496).");
+  assert.equal(done.staleText, false);
+  assert.ok(done.markdown.includes("Brand writing guide for the footer, published"), "a finished title keeps its own words, not 'Brand. Done.': " + done.markdown);
+  assert.equal(item("Footer copy (PF-1496): still writing the guide.").op, "replaceItem");
+  assert.match(item("Footer copy (PF-1496): writing the guide.").markdown, /^- \[x\] \[Done\] \*\*\(PF-1496\) Footer copy\. Done\.\*\*$/);
+});

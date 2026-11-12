@@ -62,7 +62,7 @@ const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
 
 const LIVE_SECTIONS = ["Running now", "Claude's on it", "You're on it"];
-const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|(?:is|are|still) running|running now)\b/i;
+const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|writing (?:the|a|an|up)|(?:is|are|now|still) (?:running|writing)|running now)\b/i;
 const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
@@ -91,6 +91,8 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     let own = (cut > 0 ? t.slice(0, cut) : t).replace(/[\s:;,.…—-]+$/, "");
     if (it.rowId) own = own.replace(new RegExp(`^\\(?${it.rowId}\\)?[\\s:.]*`), "").replace(new RegExp(`\\s*\\(${it.rowId}\\)$`), "");
     own = shortTitle(own).replace(/[.…\s]+$/, "");
+    /* never leave a "(" open: the sentence cut or the in-flight cut can land inside a parenthesis ("…(#188. Done.") */
+    const open = own.lastIndexOf("("); if (open > own.lastIndexOf(")")) own = own.slice(0, open).replace(/[\s:;,.…—-]+$/, "");
     if (!own && it.rowId) for (const p of r.projects) for (const f of [p.queue.file, p.backlog.file]) if (!own && f && prefixOf(it.rowId) === p.prefix) own = shortTitle(rowTitle(readFileSync(join(vault, f), "utf8"), it.rowId)).replace(/[.…\s]+$/, "");
     return `${it.rowId ? `(${it.rowId}) ` : ""}${own}`;
   };
