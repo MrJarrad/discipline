@@ -46,10 +46,10 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // open/marker/close lines (DISC-216), at the moment a helper brief is written.
 // Raised 1560 -> 1580 at s74: the reviewer brief says which reviewers sign `reviewer:` (s74 lesson 2).
 // Raised 1580 -> 1603 (measured) at s74 lesson 3: the Source contract template carries the Worktree line.
-// Raised 1603 -> 1645 (measured) at s76 lesson 7: the reviewer brief carries the invoke-for-real wording and the Mac access question. 1645 -> 1655 (measured) at s83 lesson 1: the spelled verdict heading.
-test("the dispatch-brief skill stays under its 1655-word ceiling", () => {
+// Raised 1603 -> 1645 (measured) at s76 lesson 7: the reviewer brief carries the invoke-for-real wording and the Mac access question. 1645 -> 1655 (measured) at s83 lesson 1: the spelled verdict heading. 1664 (measured) at s84: the reviewer's own get_session id.
+test("the dispatch-brief skill stays under its 1664-word ceiling", () => {
   const count = words(dispatchBrief);
-  assert.ok(count <= 1655, `dispatch-brief is ${count} words; the ceiling is 1655`);
+  assert.ok(count <= 1664, `dispatch-brief is ${count} words; the ceiling is 1664`);
 });
 
 test("the scenario table has exactly eight rows", () => {
@@ -156,4 +156,8 @@ test("every agent points at doer-rules.md and reads it whole", () => {
       `agents/${file} must point at doer-rules.md`,
     );
   }
+});
+
+test("s84: the Reviewer brief says the reviewer: id is the reviewer's own get_session id, no session_id", () => {
+  assert.match(dispatchBrief, /`<id>` is your own `get_session` id \(no session_id\)/);
 });

@@ -20,7 +20,17 @@ export const XCODE_TOOLS = /\b(xcodebuild|softwareupdate)\b/i;
 export const NO_BACKGROUND = /no background tasks,? no subagents/i;
 /* s83 lesson 6: "npm ci only if missing" kept a stale 0.12.0 checker and the pull job failed 14/30. A line that installs
    conditionally on node_modules or the dependency being there already is refused; a reinstall job says `npm ci` outright. */
-export const CONDITIONAL_INSTALL = /\bnpm (?:ci|install|i)\b[^\n]*\b(?:only if|if|when|unless)\b[^\n]*\b(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist|no node_modules)\b|\b(?:only if|if|when|unless)\b[^\n]*\b(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist)\b[^\n]*\bnpm (?:ci|install|i)\b|-d\s+\S*node_modules\b[^\n]*\bnpm (?:ci|install|i)\b/i;
+export const CONDITIONAL_INSTALL = (() => {
+  const inst = String.raw`npm (?:ci|install|i)\b`;
+  const cond = String.raw`(?:only if|unless|when|if)\b`;
+  const gone = String.raw`(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist|no node_modules)\b`;
+  const clause = String.raw`(?:(?!\.\s)[^\n])*`; // stays inside one sentence
+  return new RegExp([
+    `${inst}(?:\\s+-\\S+)*\\s+${cond}${clause}${gone}`, // "npm ci only if node_modules is missing"
+    `${cond}${clause}${gone}${clause},\\s*(?:then\\s+)?(?:run\\s+)?\`?${inst}`, // "If node_modules does not exist, run npm ci"
+    String.raw`-d\s+\S*node_modules\b[^\n]*\bnpm (?:ci|install|i)\b`, // "[ -d node_modules ] || npm ci"
+  ].join("|"), "i");
+})();
 
 export function macJobProblems(text) {
   const t = String(text);
