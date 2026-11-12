@@ -3,8 +3,8 @@
    Claude Doc checklist ("Needed from you") mirrors them. A script cannot call the Claude Docs
    connector, so this prints what the session must change there (the session then applies each
    line with the connector's find/replace) and what to read back:
-     items    one `- [ ] **PF-5** text` line per open queue row and waiting-on-operator backlog row
-     toAdd    open rows the doc does not list yet
+     items    one `- [ ] **(PF-5)** text` line per open queue row and waiting-on-operator backlog row
+     toAdd    open rows the doc does not list yet, each in the Status item format (formatItem, DISC-307)
      toTick   doc rows still unticked whose queue row is no longer open (landed or answered)
      answered doc rows the operator ticked while the queue row is still open (bank as an answer,
               then `lane-end.mjs --id` strikes the queue row; the next sync ticks nothing twice)
@@ -35,6 +35,73 @@ export const STATUSES = ["Ready for you", "You're on it", "Claude's on it", "Don
 const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`));
 /* The chip a line shows, "Status: X" or "[X]", else null (DISC-302). */
 const chipOf = (t) => STATUSES.find((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`)) ?? null;
+/* DISC-307 (operator s81: "ideally though we would consistently format things like i've done for pf-15131"; Recommended and Alternative are
+   each their own nested bullet): one item format. Chip, bold "(ID) Title." plus one bold state line, then nested bullets in fixed order
+   Problem, Solution, Decision (Recommended, Alternative nested; only when there is a choice), Look (link + steps, ends "Say yes, or what's
+   off."). A short item is the chip, the bold line and one plain line. Built from a queue row's cells: needed, where, why, recommended. */
+const sentence = (t) => { const x = String(t || "").trim().replace(/\s+/g, " "); return x && /[.!?…]$/.test(x) ? x : x ? `${x}.` : ""; };
+const cap = (t) => (t ? t[0].toUpperCase() + t.slice(1) : t);
+const POINTER = /^(?:the\s+)?(?:pinned doc|status doc|status|reply here|reply|drop|claude app|here)\b/i;
+const FIELD_END = "(?=\\s(?:Problem|Solution(?:\\s*\\([^)]*\\))?|Caveat):|$)";
+/* The title and the rest of a row's first part: cut at the first ": " outside brackets, else the first sentence. */
+function splitHead(head) {
+  let depth = 0;
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i];
+    if (c === "(" || c === "[") depth++;
+    else if (c === ")" || c === "]") depth = Math.max(0, depth - 1);
+    else if (c === ":" && depth === 0 && /\s/.test(head[i + 1] || "")) return [head.slice(0, i), head.slice(i + 1).trim()];
+  }
+  const m = /^(.*?[.!?])\s+(.*)$/.exec(head);
+  return m ? [m[1], m[2]] : [head, ""];
+}
+/* A title: links reduced to their text, URLs dropped, cut at a word boundary within 90 characters and never inside a parenthesis. */
+function titleOf(raw) {
+  let t = raw.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim().replace(/[.!?…:;,]+$/, "");
+  if (t.length > 90) {
+    t = t.slice(0, 90).replace(/\s+\S*$/, "");
+    const open = t.lastIndexOf("("); if (open > t.lastIndexOf(")")) t = t.slice(0, open).trim();
+    t = t.replace(/[\s,;:(-]+$/, "");
+  }
+  return cap(t);
+}
+export function formatItem({ id, needed = "", where = "", why = "", recommended = "", chip = "Ready for you" }) {
+  let text = clean(needed);
+  const closing = /\s(Say [^.]*\.)\s*$/.exec(text)?.[1];
+  if (closing) text = text.slice(0, text.length - closing.length).trim();
+  const field = (name) => new RegExp(`(?:^|\\s)${name}(?:\\s*\\([^)]*\\))?:\\s*(.*?)${FIELD_END}`, "i").exec(text)?.[1]?.trim() || "";
+  const problem = field("Problem"), caveat = field("Caveat");
+  let solution = field("Solution");
+  if (solution && caveat) solution = `${solution} Caveat: ${caveat}`;
+  const head = text.replace(/(?:^|\s)(?:Problem|Solution(?:\s*\([^)]*\))?|Caveat):.*$/i, "").trim();
+  const [titleRaw, rest] = splitHead(head);
+  const title = titleOf(titleRaw);
+  const mdLink = /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(rest || text);
+  const rawUrl = /https?:\/\/[^\s)>\]]+/.exec(clean([needed, why].join(" ")))?.[0];
+  const look = mdLink || !!rawUrl;
+  const choice = clean(recommended);
+  const alt = /\bAlternative:?\s*(.*)$/i.exec(choice)?.[1]?.trim();
+  const decision = !!alt;
+  const state = decision ? "Needs your decision." : look ? "Ready for your look." : "Waiting on you.";
+  const lines = [`- [ ] [${chip}] **(${id}) ${title}. ${state}**`];
+  if (problem) lines.push(`  - **Problem:** ${problem}`);
+  if (solution) lines.push(`  - **Solution:** ${solution}`);
+  if (caveat && !solution) lines.push(`  - **Caveat:** ${caveat}`);
+  if (decision) {
+    lines.push(`  - **Decision:** ${head}`, `    - **Recommended:** ${choice.replace(/\s*Alternative:?.*$/i, "").replace(/^Recommended:?\s*/i, "").trim()}`, `    - **Alternative:** ${alt}`);
+  }
+  if (look) {
+    const steps = mdLink ? rest : [rest, POINTER.test(clean(where)) ? "" : clean(where)].filter(Boolean).join(" ");
+    const body = mdLink ? cap(steps) : `[Open the preview](${rawUrl})${steps ? ` ${steps.replace(/[.!?]+$/, "")}` : ""}`;
+    lines.push(`  - **Look:** ${body.replace(/\s+$/, "")}${/[.!?]$/.test(body) ? "" : "."} ${closing || "Say yes, or what's off."}`);
+  }
+  if (!problem && !solution && !caveat && !decision && !look) {
+    const plain = rest || (POINTER.test(clean(why)) ? "" : clean(why)) || (POINTER.test(clean(where)) ? "" : clean(where));
+    const one = plain.length > 240 ? `${plain.slice(0, 240).replace(/\s+\S*$/, "").replace(/[\s,;:(-]+$/, "")}…` : plain;
+    lines.push(`  - ${sentence(one) || "Needs your answer."}`);
+  }
+  return lines.join("\n");
+}
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
 /* DISC-297 / DISC-305: a Claude Docs read returns the doc as (entity-escaped) XML. An item is
@@ -44,20 +111,36 @@ const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 export function fromDocsRead(t) {
   if (!/(<|&lt;)(listItem|paragraph)\b/.test(t)) return t;
   const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#39;/g, "'");
-  return doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
-    .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
+  const headed = doc.replace(/<paragraph\b([^>]*\bheading=['"]?(\d)['"]?[^>]*)>([\s\S]*?)<\/paragraph>/g, (_, _a, level, h) => `\n${"#".repeat(Math.min(6, Math.max(1, Number(level))))} ${h.replace(/<[^>]+>/g, "").trim()}\n`)
+  ;
+  /* Items, innermost first (DISC-307 round 2): a nested listItem is converted before its parent, then re-indented under it as a plain bullet. */
+  const item = /<listItem\b([^>]*)>((?:(?!<listItem\b)[\s\S])*?)<\/listItem>/;
+  let out = headed;
+  for (let guard = 0; item.test(out) && guard < 500; guard++) {
+    out = out.replace(item, (_, attrs, rawBody) => {
+      const body = rawBody.replace(/<\/?list\b[^>]*>/g, "");
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
-      const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();
-      const text = body.replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
-      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n`;
+      const k = body.indexOf("\n- [");
+      const own = k === -1 ? body : body.slice(0, k), kids = k === -1 ? "" : body.slice(k);
+      const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(own)?.[1].trim();
+      const text = own.replace(/<\/bold>\s*<\/text>\s*<text\b[^>]*>\s*<bold>/g, "").replace(/<\/bold>\s*<bold>/g, "").replace(/<bold>([\s\S]*?)<\/bold>/g, (_, t) => (t.trim() ? `${/^\s/.test(t) ? " " : ""}**${t.trim()}**${/\s$/.test(t) ? " " : ""}` : t)).replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n${kids.split("\n").map((l) => (/^- \[[ x]\] /.test(l) ? l.replace(/^- \[[ x]\] /, "  - ") : /^\s+- /.test(l) ? `  ${l}` : l)).join("\n").replace(/^\n+/, "")}`;
     });
+  }
+  return out;
+
 }
 
 export function syncPlan({ vault, prefixes, docText }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
   const open = new Map();
-  for (const p of r.projects) for (const row of [...p.queue.rows, ...p.backlog.rows]) open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
+  const formatted = new Map();
+  for (const p of r.projects) for (const [kind, rows] of [["queue", p.queue.rows], ["backlog", p.backlog.rows]]) for (const row of rows) {
+    open.set(row.id, `- [ ] **(${row.id})** ${clean(cells(row.line)[1] || "")}`);
+    const c = cells(row.line);
+    formatted.set(row.id, formatItem(kind === "queue" ? { id: row.id, needed: c[1], where: c[2], why: c[3], recommended: c[4] } : { id: row.id, needed: c[1] }));
+  }
   const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
   const lanes = new Map();
   /* DISC-305: one doc for all projects, a `### <PFX> — <project>` heading per project inside Waiting on you and Running now. */
@@ -83,7 +166,7 @@ export function syncPlan({ vault, prefixes, docText }) {
       if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]), ...(under?.prefix ? { project: under.prefix } : {}) }); if (!hasStatus(text)) plan.noStatus.push(text); }
       continue;
     }
-    const id = /^\*\*([A-Z]{2,4}-\d+[a-z]?)\*\*/.exec(text)?.[1];
+    const id = (/^(?:\[[^\]]*\]\s*)?\*\*(?:\(([A-Z]{2,4}-\d+[a-z]?)\)|([A-Z]{2,4}-\d+[a-z]?)\*\*)/.exec(text) || []).slice(1).find(Boolean);
     if (!id) continue;
     listed.add(id);
     if (section.startsWith("waiting")) {
@@ -103,7 +186,7 @@ export function syncPlan({ vault, prefixes, docText }) {
   }
   for (const [lane, ids] of lanes) if (ids.length > 1) plan.sameLane.push({ lane, ids });
   plan.toAddUnder = [...open.keys()].filter((id) => !listed.has(id)).map((id) => ({ id, under: headingOf.get(/^([A-Z]{2,4})-/.exec(id)[1]) }));
-  plan.toAdd = [...open].filter(([id]) => !listed.has(id)).map(([, l]) => l);
+  plan.toAdd = [...open.keys()].filter((id) => !listed.has(id)).map((id) => formatted.get(id));
   return plan;
 }
 
