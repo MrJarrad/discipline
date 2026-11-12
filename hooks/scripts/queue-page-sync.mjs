@@ -11,6 +11,10 @@
      running  every unticked "Running now" item with the helper session ids it names; a session
               checks each with get_session before trusting it (landed -> tick, live -> re-point,
               no id -> name the helper or drop it). Run at session start and again at wrap.
+     noStatus     (DISC-297) unticked Waiting / Running items showing no Status chip (Ready for you / You're on it / Claude's on it / Done)
+     appended     (DISC-297) Waiting items holding more than one link: a round appended, not replaced; rewrite to the current round
+     sameLane     (DISC-297) open Waiting items sharing a `(lane: x)` marker: present them as one look row
+     leaveWaiting (DISC-297) Waiting items ticked (answered) or no longer open: delete them from Waiting the same turn
      clearAtWrap every ticked "Done this session" item and every ticked "Waiting on you" item whose row is
               no longer open (DISC-290; a ticked one still open is in `answered`, banked first): at wrap the session deletes each, so the
               section starts empty next session (the vault keeps the record; operator s77: "clear it
@@ -21,6 +25,9 @@ import { resolveVaultRoot } from "./lib/vault-root.mjs";
 import { neededFromYou } from "./needed-from-you.mjs";
 
 const cells = (line) => line.split("|").slice(1, -1).map((x) => x.trim());
+/* DISC-297: the four values of the doc's Status chip, as a line shows it ("Status: Ready for you" or "[Ready for you]"). */
+export const STATUSES = ["Ready for you", "You're on it", "Claude's on it", "Done"];
+const hasStatus = (t) => STATUSES.some((s) => t.includes(`Status: ${s}`) || t.includes(`[${s}]`));
 const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
 
 export function syncPlan({ vault, prefixes, docText }) {
@@ -28,7 +35,8 @@ export function syncPlan({ vault, prefixes, docText }) {
   if (!r.ok) throw new Error(r.reason);
   const open = new Map();
   for (const p of r.projects) for (const row of [...p.queue.rows, ...p.backlog.rows]) open.set(row.id, `- [ ] **${row.id}** ${clean(cells(row.line)[1] || "")}`);
-  const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [] };
+  const plan = { items: [...open.values()], toAdd: [], toTick: [], answered: [], running: [], clearAtWrap: [], noStatus: [], appended: [], sameLane: [], leaveWaiting: [] };
+  const lanes = new Map();
   if (docText == null) return plan;
   let section = "";
   const listed = new Set();
@@ -40,18 +48,24 @@ export function syncPlan({ vault, prefixes, docText }) {
     if (!it) continue;
     const ticked = it[1].toLowerCase() === "x", text = it[2].trim();
     if (section.startsWith("running")) {
-      if (!ticked) plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]) });
+      if (!ticked) { plan.running.push({ text, sessions: [...text.matchAll(/session_[A-Za-z0-9]+/g)].map((m) => m[0]) }); if (!hasStatus(text)) plan.noStatus.push(text); }
       continue;
     }
     const id = /^\*\*([A-Z]{2,4}-\d+[a-z]?)\*\*/.exec(text)?.[1];
     if (!id) continue;
     listed.add(id);
     if (section.startsWith("waiting")) {
+      if (!ticked && !hasStatus(text)) plan.noStatus.push(id);
+      if (!ticked && new Set(text.match(/https?:\/\/[^\s)>\]]+/g) || []).size > 1) plan.appended.push(id);
+      const lane = !ticked && /\(lane:\s*([^)]+)\)/i.exec(text)?.[1].trim().toLowerCase();
+      if (lane) lanes.set(lane, [...(lanes.get(lane) || []), id]);
+      if (ticked || !open.has(id)) plan.leaveWaiting.push(id);
       if (!ticked && !open.has(id)) plan.toTick.push(id);
       if (ticked && !open.has(id)) plan.clearAtWrap.push(line.trim());
       if (ticked && open.has(id)) plan.answered.push(id);
     }
   }
+  for (const [lane, ids] of lanes) if (ids.length > 1) plan.sameLane.push({ lane, ids });
   plan.toAdd = [...open].filter(([id]) => !listed.has(id)).map(([, l]) => l);
   return plan;
 }

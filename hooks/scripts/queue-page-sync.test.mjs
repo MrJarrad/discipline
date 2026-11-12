@@ -72,3 +72,47 @@ test("DISC-290 (operator s78: \"can we clear done at the end of each session too
   assert.deepEqual(p.answered, ["PF-6"], "PF-6 is ticked but its row is open: bank it, never clear it unbanked");
   assert.ok(!p.clearAtWrap.some((l) => l.includes("PF-6")));
 });
+
+// DISC-297 (operator s80: "Generally we may be getting a bit granular with reviews"; "i'm getting a bit confused with what i should be looking at").
+const DOC297 = `# Needed from you
+
+## Waiting on you
+
+- [ ] **PF-5** Look now: footer round 3 https://p.example/r3 — Status: Ready for you
+- [ ] **PF-6** pick hero, round 1 https://p.example/a, round 2 https://p.example/b — Status: Ready for you
+- [x] **PF-4** old row, since answered — Status: Done
+- [ ] **PF-8** idea
+- [ ] **PF-9** (lane: footer) second ask on the footer — Status: Ready for you
+- [ ] **PF-10** (lane: footer) third ask on the footer — Status: Claude's on it
+
+## Running now
+
+- [ ] footer round 4 (session_019vvsKxkt4YUc2iRJhzm8jJ) — Status: Claude's on it
+- [ ] a lane with no chip (session_019vvsKyTCE2owmQkRCwS64c)
+
+## Done this session
+
+- [x] **PF-3** earlier — Status: Done
+`;
+test("DISC-297 (a): a Waiting or Running item with no Status chip is flagged; Done items need none", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
+  assert.deepEqual(p.noStatus, ["PF-8", "a lane with no chip (session_019vvsKyTCE2owmQkRCwS64c)"]);
+});
+test("DISC-297 (b): a Waiting item carrying two links is an appended round, flagged to be replaced", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
+  assert.deepEqual(p.appended, ["PF-6"]);
+});
+test("DISC-297 (c): two open Waiting items on one lane are flagged for one combined look row", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
+  assert.deepEqual(p.sameLane, [{ lane: "footer", ids: ["PF-9", "PF-10"] }]);
+});
+test("DISC-297 (d): an answered item leaves Waiting on you the same turn: ticked or closed items are listed in leaveWaiting", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
+  assert.deepEqual(p.leaveWaiting, ["PF-4", "PF-9", "PF-10"], "PF-4 ticked; PF-9 and PF-10 are not open rows in this vault");
+  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC.replace("- [ ] **PF-4**", "- [ ] **PF-4**") });
+  assert.deepEqual(q.leaveWaiting, ["PF-6", "PF-4"], "the ticked PF-6 (answered, row still open) and the closed PF-4");
+});
+test("DISC-297: a plan against no doc carries the new fields empty", () => {
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"] });
+  assert.deepEqual([p.noStatus, p.appended, p.sameLane, p.leaveWaiting], [[], [], [], []]);
+});
