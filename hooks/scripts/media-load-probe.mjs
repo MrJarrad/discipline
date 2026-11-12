@@ -95,6 +95,7 @@
 // — a WebKit pass on video never substitutes for a real iPhone check.
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { readFileSync, statSync } from "node:fs";
 import {
   totalEmptyMediaAcrossFrames,
   totalColumnGapsAcrossFrames,
@@ -152,7 +153,7 @@ export const USAGE =
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
   "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
-  "[--min-visible-area 0-1] [--max-dropped-share 0-1] [--header \"Name: value\" ...] | --help";
+  "[--min-visible-area 0-1] [--max-dropped-share 0-1] [--header \"Name: value\" ...] [--header-file PATH] | --help";
 
 // `--header "Name: value"` (repeatable): split at the first colon. A malformed one
 // throws naming the flag only, never echoing the text, since values can be secrets.
@@ -163,6 +164,33 @@ export function parseHeaders(list) {
     if (at < 1) throw new Error('--header needs "Name: value"');
     headers[raw.slice(0, at).trim()] = raw.slice(at + 1).trim();
   }
+  return headers;
+}
+
+// `--header-file PATH`: one "Name: value" per line (blank lines and # comments skipped), so a
+// secret never sits on a command line. Refuses a file group/other can read (POSIX); errors name
+// the path or the line number, never the contents.
+export function readHeaderFile(path) {
+  let st;
+  try {
+    st = statSync(path);
+  } catch {
+    throw new Error(`--header-file cannot read ${path}`);
+  }
+  if (process.platform !== "win32" && (st.mode & 0o077) !== 0) {
+    throw new Error(`--header-file ${path} is readable by group or other; run chmod 600 on it`);
+  }
+  const lines = readFileSync(path, "utf8").split(/\r?\n/);
+  const headers = {};
+  lines.forEach((line, i) => {
+    const text = line.trim();
+    if (!text || text.startsWith("#")) return;
+    try {
+      Object.assign(headers, parseHeaders([text]));
+    } catch {
+      throw new Error(`--header-file ${path} line ${i + 1} is not "Name: value"`);
+    }
+  });
   return headers;
 }
 
@@ -207,6 +235,7 @@ export function parseArgs(argv) {
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
     maxDroppedShare: 0.25,
     header: [],
+    headerFile: [],
   };
   const keyMap = {
     "gap-tolerance": "gapTolerance",
@@ -219,9 +248,15 @@ export function parseArgs(argv) {
     "arrival-window-ms": "arrivalWindowMs",
     "min-visible-area": "minVisibleArea",
     "max-dropped-share": "maxDroppedShare",
+    "header-file": "headerFile",
   };
   for (let i = 0; i < rest.length; i++) {
     const raw = rest[i].replace(/^--/, "");
+    // A mistyped header flag would run unauthenticated and look like a page problem; the
+    // token is not echoed since it may carry the value (--header=Name: secret).
+    if (rest[i].startsWith("--header") && raw !== "header" && raw !== "header-file") {
+      throw new Error("unknown --header* option: use exactly --header or --header-file");
+    }
     const key = keyMap[raw] ?? raw;
     if (!(key in opts)) continue;
     if (BOOLEAN_FLAGS.has(key)) {
@@ -230,6 +265,7 @@ export function parseArgs(argv) {
     }
     i++;
     if (key === "header") opts.header.push(rest[i]);
+    else if (key === "headerFile") opts.headerFile.push(rest[i]);
     else opts[key] = rest[i];
   }
   // `--help` (or a bare `-h`) anywhere in argv, including as the URL slot
@@ -237,10 +273,10 @@ export function parseArgs(argv) {
   // treated as a URL to navigate to.
   if (url === "--help" || url === "-h" || argv.includes("-h")) opts.help = true;
   const [width, height] = opts.viewport.split("x").map(Number);
-  const { header: rawHeaders, ...restOpts } = opts;
+  const { header: rawHeaders, headerFile: headerFiles, ...restOpts } = opts;
   return {
     ...restOpts,
-    headers: parseHeaders(rawHeaders),
+    headers: Object.assign({}, ...headerFiles.map(readHeaderFile), parseHeaders(rawHeaders)),
     url: opts.help ? undefined : url,
     width,
     height,
@@ -616,7 +652,13 @@ async function run(opts) {
 }
 
 async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+  let opts;
+  try {
+    opts = parseArgs(process.argv.slice(2));
+  } catch (e) {
+    console.error(`error: ${e.message}`);
+    process.exit(2);
+  }
   if (opts.help) {
     console.log(USAGE);
     process.exit(0);
