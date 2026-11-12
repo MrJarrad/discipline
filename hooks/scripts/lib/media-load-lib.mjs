@@ -464,12 +464,13 @@ export function median(values) {
 // the row-gap itself, comfortably past normal token-to-token variance) sets
 // how much taller than that rhythm a column's own gap must be before it
 // counts as a real hole, never a real row-gap.
-export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2, rowSpacingPx = 96 } = {}) {
+export function scanFrameForColumnGaps(rects, viewport, { tolerancePx = 24, widthRatio = 2, rowSpacingPx = tolerancePx * 4 } = {}) {
   // PF-1475: a row layout leaves whitespace under a short tile beside a taller neighbour.
   // A gap is explained only for the part it really covers: the row-aligned taller
   // neighbour (same top as the tile above the gap) and any block wider than the gap that
-  // sits in it. If what stays uncovered is longer than `rowSpacingPx` (the largest
-  // ordinary row spacing), it is still a hole, whatever block is nearby.
+  // sits in it. If what stays uncovered is longer than `rowSpacingPx` (the largest ordinary
+  // row spacing; default 4x `tolerancePx`, so `--gap-tolerance` scales it), it is still a
+  // hole, whatever block is nearby.
   const uncoveredRun = (g) => {
     const upper = rects.find((r) => Math.abs(r.bottom - g.top) < 0.5 && r.left < g.right && g.left < r.right);
     const covers = [];
