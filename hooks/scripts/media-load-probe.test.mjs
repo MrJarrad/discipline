@@ -19,6 +19,8 @@ import {
   takeStableSample,
   repVerdict,
   judgeFrameElements,
+  buildContextOptions,
+  headerNamesLine,
   NETWORK_PROFILES,
   DEFAULT_FLING_DURATION_MS,
 } from "./media-load-probe.mjs";
@@ -483,4 +485,38 @@ test("a 60 s session (240 frames of 300x300 crops) runs inside a 48 MB heap: mem
   const r = spawnSync(process.execPath, ["--max-old-space-size=48", "--input-type=module", "-e", code], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr.slice(0, 300));
   assert.match(r.stdout, /ok 240/);
+});
+
+// --- --header "Name: value" (repeatable), applied as extraHTTPHeaders ----------
+
+test("parseArgs: --header is repeatable and parses Name: value at the first colon", () => {
+  const opts = parseArgs(["https://x.test", "--header", "CF-Access-Client-Id: abc.access", "--header", "X-Thing: a:b"]);
+  assert.deepEqual(opts.headers, { "CF-Access-Client-Id": "abc.access", "X-Thing": "a:b" });
+  assert.equal("header" in opts, false, "the raw strings are not carried on the parsed options");
+});
+
+test("parseArgs: no --header means no headers; a malformed one throws without echoing its text", () => {
+  assert.deepEqual(parseArgs(["https://x.test"]).headers, {});
+  assert.throws(() => parseArgs(["https://x.test", "--header", "supersecretvalue"]), (e) => /--header/.test(e.message) && !/supersecretvalue/.test(e.message));
+});
+
+test("buildContextOptions puts the headers on the browser context as extraHTTPHeaders (every engine shares newContext)", () => {
+  const withH = buildContextOptions({ width: 390, height: 844, dpr: 3, headers: { "CF-Access-Client-Secret": "s3cr3t" } });
+  assert.deepEqual(withH.extraHTTPHeaders, { "CF-Access-Client-Secret": "s3cr3t" });
+  assert.deepEqual(withH.viewport, { width: 390, height: 844 });
+  assert.equal(withH.deviceScaleFactor, 3);
+  assert.equal("extraHTTPHeaders" in buildContextOptions({ width: 1, height: 1, dpr: 1, headers: {} }), false);
+});
+
+test("headerNamesLine prints names only, never values", () => {
+  const line = headerNamesLine({ "CF-Access-Client-Id": "idvalue-123", "CF-Access-Client-Secret": "s3cr3t-456" });
+  assert.match(line, /CF-Access-Client-Id/);
+  assert.match(line, /CF-Access-Client-Secret/);
+  assert.doesNotMatch(line, /idvalue-123|s3cr3t-456/);
+  assert.equal(headerNamesLine({}), "");
+});
+
+test("--help lists --header", () => {
+  const r = spawnSync(process.execPath, [script, "--help"], { encoding: "utf8" });
+  assert.match(r.stdout, /--header/);
 });
