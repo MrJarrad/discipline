@@ -60,7 +60,7 @@ export function macJobPathProblems(file, branch) {
   if (branch === "main") return [];
   // Only a readable main passes: a detached HEAD or an unreadable checkout counts as not-main.
   const where = !branch || branch === "HEAD" ? "a checkout whose branch is unreadable (detached HEAD or not a git checkout)" : `branch '${branch}'`;
-  return [`filed in queue/mac/pending/ on ${where}: the runner claims it before its review PR merges; file it in queue/mac/review/ until the merge moves it to pending/ (DISC-233)`];
+  return [`filed in queue/mac/pending/ on ${where}: the runner claims it before its review PR merges; file it in queue/mac/review/: the runner reads review/ on main, so merging its PR is the go (DISC-233, s83)`];
 }
 
 function branchOf(file) {

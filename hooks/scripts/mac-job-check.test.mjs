@@ -115,3 +115,12 @@ test("DISC-258: the CLI refuses a pending/ job in a detached-HEAD checkout", () 
   assert.equal(r.status, 1, r.stderr);
   assert.match(r.stderr, /detached|unreadable/i);
 });
+
+// s83 lesson 2: the runner reads review/ on main within minutes of the merge; nothing moves a job to pending/. The refusal must
+// not promise a move, and must say that merging is the go.
+test("s83 2: the pending/-on-a-branch refusal names merging as the go and promises no move to pending/", () => {
+  const msg = macJobPathProblems("/v/queue/mac/pending/j.md", "claude/foo")[0];
+  assert.match(msg, /queue\/mac\/review\//);
+  assert.doesNotMatch(msg, /moves it to pending|git mv/);
+  assert.match(msg, /merging its PR is the go/);
+});

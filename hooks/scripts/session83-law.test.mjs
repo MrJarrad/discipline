@@ -15,3 +15,7 @@ test("s83 1: the verdict heading is spelled with the full 40-hex sha, and the pa
   assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Its first line is the heading `## Review — round N of 2, tier X, head <40-hex>`"));
   assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("Re-read the PR's comments after the last post, then merge (s83)"));
 });
+
+test("s83 2: merging the PR that adds a review/ job is the go, after the operator's yes when it takes over the Mac", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Merging the PR that adds a `queue/mac/review/` job is the go** (s83): the runner reads `review/` on main within minutes, so no `git mv` to `pending/` follows. A job that takes over the Mac does not merge before the operator's yes."));
+});
