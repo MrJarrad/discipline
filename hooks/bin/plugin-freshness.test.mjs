@@ -93,3 +93,14 @@ test("the network release wins over a marketplace clone as stale as the cache; o
     assert.equal(await run("http://127.0.0.1:1/none"), "", "offline: the clone says 1.181.0 = loaded, so silent");
   } finally { srv.close(); }
 });
+
+// Run from the vault's own .claude/settings.json there is no CLAUDE_PLUGIN_ROOT: the loaded plugin is the one in installed_plugins.json.
+test("outside the plugin's hooks (no CLAUDE_PLUGIN_ROOT) the loaded version comes from installed_plugins.json", () => {
+  const e = env("1.198.0", "1.199.0");
+  delete e.env.CLAUDE_PLUGIN_ROOT;
+  mkdirSync(join(e.env.HOME, ".claude", "plugins"), { recursive: true });
+  writeFileSync(join(e.env.HOME, ".claude", "plugins", "installed_plugins.json"), JSON.stringify({ plugins: { "discipline@discipline": [{ version: "1.181.0" }] } }));
+  const r = start(e);
+  assert.match(JSON.parse(r.stdout).hookSpecificOutput.additionalContext, /1\.181\.0 is loaded but 1\.199\.0 is released/);
+  assert.match(stop(e, STATUS)?.reason, /1\.181\.0/);
+});
