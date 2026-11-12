@@ -109,7 +109,7 @@ test("DISC-297 (c): two open Waiting items on one lane are flagged for one combi
 test("DISC-297 (d): an answered item leaves Waiting on you the same turn: ticked or closed items are listed in leaveWaiting", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
   assert.deepEqual(p.leaveWaiting, ["PF-4", "PF-9", "PF-10"], "PF-4 ticked; PF-9 and PF-10 are not open rows in this vault");
-  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC.replace("- [ ] **PF-4**", "- [ ] **PF-4**") });
+  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
   assert.deepEqual(q.leaveWaiting, ["PF-6", "PF-4"], "the ticked PF-6 (answered, row still open) and the closed PF-4");
 });
 test("DISC-297: a plan against no doc carries the new fields empty", () => {
@@ -132,4 +132,10 @@ test("DISC-297: the Status chip is read from the dropdown shape of a Claude Docs
 test("DISC-297: an unescaped dropdown read gives the same plan", () => {
   const raw = CHIPDOC.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
   assert.deepEqual(syncPlan({ vault: vault(), prefixes: ["PF"], docText: raw }).noStatus, ["PF-8", "a lane with no chip"]);
+});
+test("DISC-297: end to end, a Claude Docs item holding two links is flagged appended and one holding a single link is not", () => {
+  const two = li("Ready for you", "**PF-5** round 1 &lt;link href='https://p.example/a'&gt;a&lt;/link&gt; round 2 &lt;link href='https://p.example/b'&gt;b&lt;/link&gt;");
+  const one = li("Ready for you", "**PF-6** &lt;link href='https://p.example/c'&gt;c&lt;/link&gt;");
+  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: [heading("Waiting on you"), two, one].join("\n") });
+  assert.deepEqual(p.appended, ["PF-5"]);
 });

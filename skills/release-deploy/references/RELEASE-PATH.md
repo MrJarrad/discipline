@@ -16,3 +16,16 @@ Operator, 2026-10-15, on a "Release again?" row: "yes, ( can we fix this type of
 **Still the operator's:** anything that changes what production visitors may see (SITE_MODE holding -> live, a new public route, removing the holding page), and a release whose promote checks fail and auto-roll back twice. A row that carries one of these passes the guard; name the call in the row. Applies to jhd-portfolio now, other products once their release path has the same auto-rollback.
 
 **"Release follows merge" means the product's own live path: read the product handover's release note before dispatching release-ops.** Portfolio main merges go live on preview.jarrad.design via Workers Builds; `release:promote` only updates jarrad.design (go-live, PF-797), so there is no per-merge release lane for it (s73: one was dispatched).
+
+
+## After a discipline release: propose the setup-script refresh line (DISC-299, DISC-303, s81)
+
+Operator ruling `2026-11-12-every-session-on-latest-plugin`: *"every new session should always be on the latest version of the plugin"*. This route does NOT meet that ruling: it needs one operator approval per release, because personal plans have no server-managed settings (the operator's admin page: "Organization settings are available on Claude Team and Enterprise plans"). The operator chose it anyway (2026-11-12, "yes to both"; DISC-303). A cloud session loads the plugin as of the Default environment's cached image (DISC-298), and any edit to the environment's setup script rebuilds the image.
+
+**The step.** After each discipline release tag the parent runs `node <plugin>/hooks/scripts/setup-refresh-line.mjs --date <today> --release <version> --line`, reads the script with `get_environment`, and proposes the one-line change (the script's first line becomes `# plugin refresh <date> (discipline <version>)`) with `update_environment`: one approval card. The release lane never edits the environment. **Batch:** at most one discipline release a day, so the card costs the operator one approval a day at most; merged work waits for the day's release.
+
+**Check it.** In a fresh cloud session after the bump, `~/.claude/plugins/installed_plugins.json` names the released version with `installedAt` at session start, and no PLUGIN STALE line appears. A session that started before the bump stays on its old image.
+
+Proved (s81): editing the setup script rebuilt the Default image. A fresh cloud session after the `# plugin refresh 2026-11-12` edit had discipline 1.199.0 installed at session start (`installedAt` the session's start time), while a session on the 8 Nov image had 1.184.0.
+
+Unconfirmed (the docs do not say, nothing here tested): the image also rebuilds after about seven days (a model-extracted summary of a truncated page); `autoUpdate` runs in a cloud session (it did nothing in a headless start); a project plugin under `.claude/skills/` loads in a cloud session (the s81 probe saw it NOT load, while plain project skills and a repo SessionStart hook did, in a single-repo session); that a session started before the bump is never served the old image after it. DON'T: edit the environment from a release lane, release more than once a day to feel current, or describe this route as meeting the ruling.

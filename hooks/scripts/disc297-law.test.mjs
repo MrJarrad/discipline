@@ -27,3 +27,32 @@ test("DISC-297: the always-on style and wrap point at the rule, they do not rest
   assert.ok(flat("output-styles/discipline.md").includes("(DISC-297, `routing` HARD-RULES)"));
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`leaveWaiting`"));
 });
+
+// DISC-299 / DISC-303 (s81, operator 2026-11-12 14:52 "yes to both"): personal plans have no server-managed settings, so after each discipline release
+// the parent proposes the Default setup-script refresh-line bump (one approval card), and releases are batched to at most one a day.
+test("DISC-299/303: RELEASE-PATH has the per-release refresh-line step, says it costs one approval, and marks the docs-unstated facts unconfirmed", () => {
+  const r = flat("skills/release-deploy/references/RELEASE-PATH.md");
+  for (const s of ["## After a discipline release: propose the setup-script refresh line (DISC-299, DISC-303, s81)",
+    "every new session should always be on the latest version of the plugin",
+    "route does NOT meet that ruling: it needs one operator approval per release, because personal plans have no server-managed settings",
+    "at most one discipline release a day",
+    "setup-refresh-line.mjs", "one approval card",
+    "Proved (s81): editing the setup script rebuilt the Default image", "installedAt",
+    "Unconfirmed (the docs do not say", "the image also rebuilds after about seven days", "`autoUpdate` runs in a cloud session",
+    "a project plugin under `.claude/skills/` loads in a cloud session"]) assert.ok(r.includes(s), s);
+  assert.ok(!r.includes("There is no per-release step"), "no claim of a step-free route");
+  assert.ok(!r.includes("server-managed settings are the route"), "managed settings are unavailable on this plan");
+});
+test("s80 Mac wording: ask 'Is now a good time for me to take over your Mac (about N minutes)?' before a job that uses the screen", () => {
+  const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");
+  assert.ok(m.includes("Is now a good time for me to take over your Mac (about N minutes)?"));
+  assert.ok(m.includes("never ask whether he is at the Mac"));
+});
+// Review notes on #187.
+test("#187 notes: fromDocsRead decodes &amp;#39; and keeps link urls when stripping tags", async () => {
+  const { fromDocsRead } = await import("./queue-page-sync.mjs");
+  const doc = "&lt;listItem id='.1'&gt;&lt;paragraph&gt;&lt;text&gt; **PF-5** you&amp;#39;re &lt;link href='https://a.example/x'&gt;one&lt;/link&gt; and &lt;link href='https://a.example/y'&gt;two&lt;/link&gt;&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;";
+  const out = fromDocsRead(doc);
+  assert.ok(out.includes("you're"), out);
+  assert.ok(out.includes("https://a.example/x") && out.includes("https://a.example/y"), out);
+});

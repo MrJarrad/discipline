@@ -54,10 +54,10 @@ function imageNote() {
   try {
     const m = statSync(join(homedir(), ".claude", "environment-manager", "setup-script-output")).mtime;
     if (Date.now() - m.getTime() < 864e5) return "";
-    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. Edit the environment's setup script (any change rebuilds the image) and tell the operator.`;
+    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. The parent's fix is the setup-script refresh line, proposed after each release (RELEASE-PATH § After a discipline release); if it was bumped for this release and this still appears, say so as a queue row.`;
   } catch { return ""; }
 }
-const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}.${imageNote()}`;
+const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}. Until then vault rulings win over the loaded style: where a ruling and this session's output style disagree, follow the ruling.${imageNote()}`;
 
 async function start() {
   const loaded = loadedVersion(), latest = await latestVersion();

@@ -123,7 +123,7 @@ test("DISC-298: when the setup script's output is older than a day, the stale wa
   const ctx = JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext;
   assert.ok(ctx.includes(date), "the date the setup script last ran");
   assert.match(ctx, /cached (container )?image/i);
-  assert.match(ctx, /edit the (Default )?environment's setup script/i);
+  assert.match(ctx, /setup-script refresh line/i);
 });
 test("DISC-298: a setup script that ran today adds no image note (the cause is elsewhere)", () => {
   const e = env("1.184.0", "1.199.0");
@@ -134,4 +134,10 @@ test("DISC-298: a setup script that ran today adds no image note (the cause is e
 test("DISC-298: no setup-script output file (a local machine) adds no image note", () => {
   const e = env("1.184.0", "1.199.0");
   assert.doesNotMatch(JSON.parse(start(e).stdout).hookSpecificOutput.additionalContext, /cached/i);
+});
+
+// DISC-299 (s81): a stale session's loaded style is old, so a vault ruling that disagrees with it wins.
+test("DISC-299: the stale warning says vault rulings win over the loaded output style", () => {
+  const ctx = JSON.parse(start(env("1.184.0", "1.199.0")).stdout).hookSpecificOutput.additionalContext;
+  assert.match(ctx, /vault rulings win over the loaded (output )?style/i);
 });
