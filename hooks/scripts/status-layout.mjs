@@ -2,13 +2,14 @@
 /* status-layout — DISC-310 (operator s82: "the doc needs be consistent, easy to maintain and scan"; "yes" to the layout). Turns the vault's queue,
    backlog, Up next and go-live files plus a read of the Status doc (real Claude Docs xml, lib/status-doc.mjs) into the EDIT OPS that make the
    doc exactly this layout, so nothing is hand-edited:
-     # Status / date · you / ## Waiting on you / ## Running now / ## Up next (each: one ### heading per session project, "Nothing." when empty;
-     Up next ### Portfolio also carries "Launch: N of M done · link") / ## Done this session (ticked items MOVE here, no note line) / ## Backlogs.
-   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading, insertNothing,
-   insertItem, moveToDone, moveItem, setUpNext, setLaunchLine, removeNode, removeSection, setBacklogLinks. An empty `ops` means the doc is
-   already in the layout. `unplaced` lists Running lines naming no project heading.
+     # Status / date · you / ## Ready for you / ## You're on it / ## Claude's on it / ## Up next / ## Done this session (each: one ### heading per session
+     project, "Nothing." when empty; Up next ### Portfolio also carries "Launch: N of M done · link"; ticked items MOVE to Done, no note line) / ## Backlogs.
+   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading, insertItem, moveItem (delete
+   + insert with the item's new chip: the connector cannot set a chip in place, so an item's section always matches its chip), insertNothing, removeNode,
+   setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). An empty `ops` means the doc is
+   already in the layout. `unplaced` lists items naming no project.
    Up next sources: a project's backlog `## Up next` (an ordered list of row ids, first five), or, when `projects/<p>/<p>-go-live.md` exists, its
-   first unticked lines; neither -> "Nothing.". A row already Waiting or Running is never also Up next. The launch count is the go-live file's
+   first unticked lines; neither -> "Nothing.". A row already in Ready for you, You're on it or Claude's on it is never also Up next. The launch count is the go-live file's
    groups 1-4 (ticked of all).
    Usage: node status-layout.mjs --vault <root> --projects PF,DISC,HT --doc <file with the xml of the doc's body node> [--today YYYY-MM-DD]  */
 import { existsSync, readFileSync } from "node:fs";
@@ -49,49 +50,82 @@ function upNextIds(text) {
 }
 const rowTitle = (text, id) => shortTitle(new RegExp(`^\\|\\s*(?:~~)?${id}(?:~~)?\\s*\\|([^|]*)\\|`, "m").exec(text)?.[1] ?? "");
 
+/* DISC-310 amendment (operator s82: "would it be better to perhaps group by status and sub group by project? ... we don't really need running now as a
+   specific section if there's a claude's on it status"): the top-level sections ARE the chip values. An item's section always matches its chip. */
+export const SECTIONS = ["Ready for you", "You're on it", "Claude's on it", "Up next", "Done this session"];
+const CHIP_SECTION = { 0: "Ready for you", 1: "You're on it", 2: "Done this session", 3: "Claude's on it" };
+const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're on it", "Claude's on it": "Claude's on it", "Done this session": "Done" };
+const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
+
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
-  const doc = parseStatusDoc(docXml), ops = [], unplaced = [];
+  const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [];
   const names = r.projects.map((p) => ({ prefix: p.prefix, name: displayName(p.project), backlog: p.backlog.file }));
   const { open, formatted } = openItems(r);
-  const section = (n) => doc.sections.find((s) => s.name === n);
-  const project = (s, n) => s?.projects.find((p) => p.name === n);
+  const section = (n) => doc.sections.find((x) => x.name === n);
+  const project = (sec, n) => sec?.projects.find((q) => q.name === n);
   const byPrefix = (px) => names.find((x) => x.prefix === px);
+  const dateOps = doc.date !== today && doc.dateId ? [{ op: "setDate", id: doc.dateId, value: today, why: `the doc's date line reads ${doc.date}` }] : [];
 
-  if (doc.date !== today && doc.dateId) ops.push({ op: "setDate", id: doc.dateId, value: today, why: `the doc's date line reads ${doc.date}` });
-
-  /* ids already Waiting or Running (never also Up next) */
-  const busy = new Set(open.keys());
-  for (const n of ["Waiting on you", "Running now"]) for (const pr of section(n)?.projects || []) for (const it of pr.items) { if (it.rowId) busy.add(it.rowId); for (const m of it.text.matchAll(new RegExp(ID_AT, "g"))) busy.add(m[1]); }
-
-  for (const sname of ["Waiting on you", "Running now"]) {
+  /* 1. every existing item: where it is, where its chip (or tick, or closed row) says it belongs */
+  const itemSections = [...SECTIONS.filter((n) => n !== "Up next"), "Waiting on you", "Running now"];
+  const stay = new Map(), seenIds = new Set(), busy = new Set(open.keys());
+  const bump = (sec, proj, n = 1) => stay.set(`${sec}|${proj}`, (stay.get(`${sec}|${proj}`) || 0) + n);
+  for (const sname of itemSections) {
     const sec = section(sname);
-    if (!sec) { ops.push({ op: "insertSection", name: sname, afterId: doc.sections.at(-1)?.last ?? null, projects: names.map((x) => x.name) }); continue; }
-    let prev = null;
-    for (const x of names) {
-      let pr = project(sec, x.name);
-      if (!pr) { ops.push({ op: "insertProjectHeading", section: sname, name: x.name, afterId: prev ? prev.last : sec.id }); ops.push({ op: "insertNothing", section: sname, project: x.name }); prev = null; continue; }
-      let remaining = pr.items.filter((it) => !(it.ticked || (sname === "Waiting on you" && it.rowId && prefixOf(it.rowId) === x.prefix && !open.has(it.rowId))));
-      for (const it of pr.items) {
-        const gone = it.ticked || (sname === "Waiting on you" && it.rowId && prefixOf(it.rowId) === x.prefix && !open.has(it.rowId));
-        if (gone) { ops.push({ op: "moveToDone", section: sname, project: x.name, id: it.id, rowId: it.rowId, reason: it.ticked ? "ticked" : "landed", chip: "Done", text: it.text }); continue; }
-        const owner = prefixOf(it.rowId || ID_AT.exec(it.text)?.[1] || "");
-        if (owner && owner !== x.prefix && byPrefix(owner)) { ops.push({ op: "moveItem", section: sname, id: it.id, rowId: it.rowId, from: x.name, toProject: byPrefix(owner).name }); remaining = remaining.filter((k) => k !== it); }
-      }
-      if (sname === "Waiting on you") {
-        const seen = new Set(section("Waiting on you").projects.flatMap((q) => q.items.map((k) => k.rowId)));
-        for (const [id] of open) if (prefixOf(id) === x.prefix && !seen.has(id)) { ops.push({ op: "insertItem", section: sname, project: x.name, afterId: remaining.at(-1)?.id ?? pr.last, rowId: id, markdown: formatted.get(id) }); remaining.push({ id: `new:${id}` }); }
-      }
-      if (!remaining.length && !pr.paras.some((q) => q.text === "Nothing.")) ops.push({ op: "insertNothing", section: sname, project: x.name, afterId: pr.last });
-      prev = pr;
+    if (!sec) continue;
+    const mirrorsQueue = sname === "Waiting on you" || sname === "Ready for you";
+    const all = [...sec.projects.flatMap((q) => q.items.map((it) => ({ it, proj: q.name }))), ...sec.items.map((it) => ({ it, proj: null }))];
+    for (const { it, proj } of all) {
+      if (it.rowId) seenIds.add(it.rowId);
+      if (sname !== "Done this session") { if (it.rowId) busy.add(it.rowId); for (const m of it.text.matchAll(new RegExp(ID_AT, "g"))) busy.add(m[1]); }
+      const owner = byPrefix(prefixOf(it.rowId || ID_AT.exec(it.text)?.[1] || ""));
+      const home = owner?.name ?? proj;
+      if (!home) { unplaced.push({ id: it.id, text: it.text }); continue; }
+      const landed = mirrorsQueue && it.rowId && byPrefix(prefixOf(it.rowId)) && !open.has(it.rowId);
+      const to = it.ticked || landed ? "Done this session" : CHIP_SECTION[it.chip?.index] ?? "Claude's on it";
+      const reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chip" : null;
+      if (reason === null) { bump(sname, home); continue; }
+      work.push({ op: "moveItem", id: it.id, rowId: it.rowId, from: { section: sname, project: proj }, to: { section: to, project: home }, chip: SECTION_CHIP[to], reason, text: it.text });
+      bump(to, home);
+      if (sname === "Ready for you" && reason === "chip" && it.rowId && open.has(it.rowId)) answered.push(it.rowId);
+      if (it.ticked && open.has(it.rowId)) answered.push(it.rowId);
     }
-    for (const it of sec.items) unplaced.push({ id: it.id, text: it.text });
+  }
+  /* open rows the doc does not hold yet: Ready for you, in the item format */
+  for (const [id] of open) if (!seenIds.has(id)) {
+    const x = byPrefix(prefixOf(id));
+    work.push({ op: "insertItem", section: "Ready for you", project: x.name, rowId: id, markdown: formatted.get(id) });
+    bump("Ready for you", x.name);
   }
 
-  /* Up next */
-  const upSec = section("Up next");
-  if (!upSec) ops.push({ op: "insertSection", name: "Up next", afterId: section("Running now")?.last ?? doc.sections.at(-1)?.last ?? null, projects: names.map((x) => x.name) });
+  /* 2. structure: every section, and a heading per session project in it; "Nothing." for the empty ones */
+  let prevName = null;
+  for (const sname of SECTIONS) {
+    const sec = section(sname);
+    if (!sec) structure.push({ op: "insertSection", name: sname, afterSection: prevName, projects: names.map((x) => x.name) });
+    else {
+      let prev = null;
+      for (const x of names) {
+        const pr = project(sec, x.name);
+        if (!pr) structure.push({ op: "insertProjectHeading", section: sname, name: x.name, afterId: prev ? prev.last : sec.id });
+        prev = pr || prev;
+      }
+    }
+    prevName = sname;
+    if (sname === "Up next") continue;
+    for (const x of names) {
+      const pr = project(sec, x.name), n = stay.get(`${sname}|${x.name}`) || 0;
+      const nothing = pr?.paras.find((q) => q.text === "Nothing.");
+      const incoming = work.some((o) => (o.to?.section || o.section) === sname && (o.to?.project || o.project) === x.name);
+      if (!n && !incoming && !nothing) tail.push({ op: "insertNothing", section: sname, project: x.name, afterId: pr?.last ?? null });
+      else if ((n || incoming) && nothing) tail.push({ op: "removeNode", section: sname, id: nothing.id, why: "the project has items again" });
+    }
+  }
+
+  /* 3. Up next */
+  const upSec = section("Up next"), upOps = [];
   for (const x of names) {
     let lines = [], launch = null;
     const dir = x.backlog ? dirname(x.backlog) : null, base0 = dir ? basename(dir) : null;
@@ -105,27 +139,25 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     }
     if (!lines.length) lines = ["Nothing."];
     const pr = project(upSec, x.name);
-    const have = (pr?.items || []).map((i) => `- ${i.text}`.replace(/^- Nothing\.$/, "Nothing.").replace(/^- (\*\*)?/, "- "));
-    const same = pr && have.length === lines.length && have.every((h, i) => h === lines[i] || h === lines[i].replace(/^- /, "- "));
-    if (!upSec || !same) ops.push({ op: "setUpNext", section: "Up next", project: x.name, replaceId: pr?.listIds[0] ?? null, afterId: pr ? pr.id : null, lines });
+    const have = (pr?.items || []).map((i) => (i.text === "Nothing." ? "Nothing." : `- ${i.text}`));
+    if (!upSec || !pr || have.length !== lines.length || have.some((h, i) => h !== lines[i])) upOps.push({ op: "setUpNext", section: "Up next", project: x.name, replaceId: pr?.listIds[0] ?? null, afterId: pr ? pr.id : null, lines });
     if (launch) {
       const have2 = pr?.paras.find((q) => q.text.startsWith("Launch:"));
-      if (!upSec || !have2 || have2.text !== launch) ops.push({ op: "setLaunchLine", section: "Up next", project: x.name, id: have2?.id ?? null, text: launch });
+      if (!have2 || have2.text !== launch) upOps.push({ op: "setLaunchLine", section: "Up next", project: x.name, id: have2?.id ?? null, text: launch });
     }
   }
 
-  /* Done this session: no note line. Go-live: gone (it lives in the vault file). */
-  for (const q of section("Done this session")?.paras || []) ops.push({ op: "removeNode", section: "Done this session", id: q.id, why: "the explanatory note line goes" });
-  const gl = section("Go-live");
-  if (gl) ops.push({ op: "removeSection", name: "Go-live", id: gl.id, nodeIds: gl.nodeIds, why: "the go-live list lives in the vault file; its From you part duplicated Waiting on you" });
-
+  /* 4. clean-up: the Done note, the sections the layout replaced, the backlog links */
+  const clean = [];
+  for (const q of section("Done this session")?.paras || []) if (q.text !== "Nothing.") clean.push({ op: "removeNode", section: "Done this session", id: q.id, why: "the explanatory note line goes" });
+  for (const old of OLD_SECTIONS) { const sec = section(old); if (sec) clean.push({ op: "removeSection", name: old, id: sec.id, nodeIds: sec.nodeIds, why: old === "Go-live" ? "the go-live list lives in the vault file; its From you part duplicated the Ready for you items" : "the sections are the chip values now (items moved above)" }); }
   const bk = section("Backlogs");
   if (base && names.every((x) => x.backlog)) {
     const links = names.map((x) => ({ label: x.name, url: `${base}/${x.backlog}` }));
     const have = (bk?.items || []).map((i) => i.text);
-    if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) ops.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links });
+    if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) clean.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links });
   }
-  return { ops, unplaced, launch: names.length ? null : null };
+  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)] };
 }
 
 function main() {

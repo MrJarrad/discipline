@@ -35,44 +35,72 @@ test("the date line is set to today when it differs", () => {
   assert.deepEqual(ops(plan(), "setDate"), [{ op: "setDate", id: ".16", value: "2026-11-12", why: "the doc's date line reads 2026-11-10" }]);
   assert.deepEqual(ops(plan({ docXml: LIVE.replace("2026-11-10", "2026-11-12") }), "setDate"), []);
 });
-test("Waiting on you: a ticked item or one whose row is closed MOVES to Done (never ticked in place); a missing open row is inserted under its project", () => {
+// DISC-310 amendment (operator s82): the sections ARE the chip values: Ready for you, You're on it, Claude's on it, Up next, Done this session.
+const move = (p, id) => p.ops.find((o) => o.op === "moveItem" && o.id === id);
+test("every section is a chip value, in order, each with the three project headings; the sections they replace are removed once their items moved", () => {
   const p = plan();
-  const moves = ops(p, "moveToDone").filter((o) => o.section === "Waiting on you");
-  assert.deepEqual(moves.map((o) => [o.id, o.rowId, o.reason]), [[".40753", "PF-1598", "ticked"], [".38335", "DISC-303", "ticked"]]);
-  assert.deepEqual(ops(p, "insertItem").filter((o) => o.section === "Waiting on you").map((o) => [o.project, o.afterId, o.rowId]), [["Portfolio", ".32090", "PF-1600"]]);
+  assert.deepEqual(ops(p, "insertSection").map((o) => [o.name, o.afterSection, o.projects]), [
+    ["Ready for you", null, ["Portfolio", "Discipline", "Handoff toolkit"]], ["You're on it", "Ready for you", ["Portfolio", "Discipline", "Handoff toolkit"]],
+    ["Claude's on it", "You're on it", ["Portfolio", "Discipline", "Handoff toolkit"]], ["Up next", "Claude's on it", ["Portfolio", "Discipline", "Handoff toolkit"]]]);
+  assert.deepEqual(ops(p, "removeSection").map((o) => o.name), ["Waiting on you", "Running now", "Go-live"]);
+  assert.ok(p.ops.findIndex((o) => o.op === "moveItem") < p.ops.findIndex((o) => o.op === "removeSection"), "items move before their old section goes");
+});
+test("an item's section follows its chip: Ready for you 0, You're on it 1, Claude's on it 3; a ticked item or a closed row goes to Done with chip Done", () => {
+  const p = plan();
+  const to = (id) => [move(p, id).to.section, move(p, id).to.project, move(p, id).chip, move(p, id).reason];
+  assert.deepEqual(to(".32090"), ["Ready for you", "Portfolio", "Ready for you", "layout"], "PF-797");
+  assert.deepEqual(to(".31651"), ["You're on it", "Portfolio", "You're on it", "layout"], "PF-65, nested list moves with it");
+  assert.deepEqual(to(".33589"), ["Claude's on it", "Portfolio", "Claude's on it", "layout"], "PF-1585");
+  assert.deepEqual(to(".40753"), ["Done this session", "Portfolio", "Done", "ticked"], "PF-1598");
+  assert.deepEqual(to(".38335"), ["Done this session", "Discipline", "Done", "ticked"], "DISC-303");
+  assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "Ready for you", "layout"], "DISC-311 is an open row here");
+  const landed = move(plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-999)") }), ".43205");
+  assert.deepEqual([landed.to.section, landed.chip, landed.reason], ["Done this session", "Done", "landed"], "a Ready item whose row is no longer open goes to Done");
+  assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "Ready for you", "layout"], "HT-95");
+});
+test("running lines: a ticked one goes to Done; one with no chip lands in Claude's on it with the chip set", () => {
+  const p = plan();
+  assert.deepEqual([move(p, ".39741").to.section, move(p, ".39877").to.section], ["Done this session", "Done this session"]);
+  const bare = move(p, ".42857");
+  assert.deepEqual([bare.to.section, bare.to.project, bare.chip, bare.rowId], ["Claude's on it", "Portfolio", "Claude's on it", "PF-1496"]);
+  assert.equal(move(p, ".43689").to.section, "Claude's on it");
+});
+test("an open row the doc lacks is inserted under Ready for you in the item format; one already on the doc with its bold id in runs is not", () => {
+  const p = plan();
+  assert.deepEqual(ops(p, "insertItem").map((o) => [o.section, o.project, o.rowId]), [["Ready for you", "Portfolio", "PF-1600"]]);
   assert.match(ops(p, "insertItem")[0].markdown, /^- \[ \] \[Ready for you\] \*\*\(PF-1600\) Look at the new header\. Waiting on you\.\*\*/);
 });
-test("Waiting on you: an open row already on the doc, with its bold id split into runs, is NOT added again", () => {
+test("an empty project in a section gets Nothing.", () => {
   const p = plan();
-  for (const id of ["PF-1585", "PF-797", "PF-65", "DISC-311", "HT-95"]) assert.ok(!ops(p, "insertItem").some((o) => o.rowId === id), id);
+  const n = ops(p, "insertNothing").map((o) => `${o.section}|${o.project}`);
+  assert.ok(n.includes("You're on it|Discipline") && n.includes("You're on it|Handoff toolkit") && n.includes("Claude's on it|Handoff toolkit") && n.includes("Done this session|Handoff toolkit"), n.join(", "));
+  assert.ok(!n.includes("Ready for you|Portfolio"), "Portfolio has Ready items");
 });
-test("Running now: a ticked line moves to Done; a missing project heading is inserted with Nothing.; a line with no id is reported unplaced only when it sits under no project", () => {
-  const p = plan();
-  assert.deepEqual(ops(p, "moveToDone").filter((o) => o.section === "Running now").map((o) => o.id), [".39741", ".39877"]);
-  assert.deepEqual(ops(p, "insertProjectHeading").filter((o) => o.section === "Running now").map((o) => [o.name, o.afterId]), [["Handoff toolkit", ".39876"]]);
-  assert.ok(ops(p, "insertNothing").some((o) => o.section === "Running now" && o.project === "Handoff toolkit"));
-  assert.deepEqual(p.unplaced, []);
+test("the operator flips a chip in the doc: the item moves to the matching section and an open queue row is banked as answered", () => {
+  const flipped = `<doc node='n'><paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='d'><date id='dd' value='2026-11-12'/><text id='t'> · </text></paragraph>`
+    + `<paragraph id='s1' heading='2'><text id='t'>Ready for you</text></paragraph><paragraph id='pp' heading='3'><text id='t'>Portfolio</text></paragraph><list id='l1' kind='check'><listItem id='i1'><paragraph id='x1'><dropdown id='dd1' enum='e' index='2'>Done</dropdown><text id='t'> </text><text id='t2'><bold>(PF-797) Your final review.</bold></text></paragraph></listItem><listItem id='i2'><paragraph id='x2'><dropdown id='dd2' enum='e' index='1'>You're on it</dropdown><text id='t'> </text><text id='t2'><bold>(PF-65) Media.</bold></text></paragraph></listItem><listItem id='i3'><paragraph id='x3'><dropdown id='dd3' enum='e' index='0'>Ready for you</dropdown><text id='t'> </text><text id='t2'><bold>(PF-1585) Look.</bold></text></paragraph></listItem></list></doc>`;
+  const p = plan({ docXml: flipped });
+  assert.deepEqual([move(p, "i1").to.section, move(p, "i1").reason], ["Done this session", "chip"]);
+  assert.deepEqual([move(p, "i2").to.section, move(p, "i2").reason], ["You're on it", "chip"]);
+  assert.equal(move(p, "i3"), undefined, "a Ready item with a Ready chip stays");
+  assert.deepEqual(p.answered.sort(), ["PF-65", "PF-797"], "PF-1585 is untouched");
 });
-test("Up next: a section after Running now with each project's heading; Discipline reads the ordered ## Up next of its backlog, top five with their titles", () => {
+test("Up next: Discipline reads the ordered ## Up next of its backlog, top five with titles, skipping rows already Ready, You're on it or Claude's on it (DISC-310 is Claude's on it)", () => {
   const p = plan();
-  assert.deepEqual(ops(p, "insertSection").map((o) => [o.name, o.afterId]), [["Up next", ".39876"]]);
   const disc = ops(p, "setUpNext").find((o) => o.project === "Discipline");
   assert.deepEqual(disc.lines, ["- (DISC-306) Plugin stale: more clearly", "- (DISC-309) Another item", "- (DISC-312) Twelfth", "- (DISC-313) Thirteenth", "- (DISC-314) Fourteenth, past the top five"]);
-  const ht = ops(p, "setUpNext").find((o) => o.project === "Handoff toolkit");
-  assert.deepEqual(ht.lines, ["Nothing."]);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Handoff toolkit").lines, ["Nothing."]);
 });
-test("Up next: Portfolio comes from the go-live file (first unticked lines, never one already Waiting or Running: PF-1531 is Running) and carries the launch count with a link", () => {
+test("Up next: Portfolio comes from the go-live file (first unticked lines, never one already in play: PF-1531 is Claude's on it) with the launch count and a link", () => {
   const p = plan();
-  const pf = ops(p, "setUpNext").find((o) => o.project === "Portfolio");
-  assert.deepEqual(pf.lines, ["- (PF-1505) Time Circuits still laggy", "- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live"]);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1505) Time Circuits still laggy", "- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live"]);
   assert.deepEqual(ops(p, "setLaunchLine").map((o) => o.text), [`Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`]);
 });
-test("Done this session: the explanatory note goes; the Go-live section goes whole (its From you part duplicated Waiting on you)", () => {
+test("Done this session: the explanatory note goes; the Go-live section goes whole", () => {
   const p = plan();
   assert.deepEqual(ops(p, "removeNode").map((o) => o.id), [".11418"]);
-  const rs = ops(p, "removeSection");
-  assert.deepEqual(rs.map((o) => o.name), ["Go-live"]);
-  assert.ok(rs[0].nodeIds.includes(".6675") && rs[0].nodeIds.includes(".9041") && rs[0].nodeIds.includes(".9213"));
+  const rs = ops(p, "removeSection").find((o) => o.name === "Go-live");
+  assert.ok(rs.nodeIds.includes(".6675") && rs.nodeIds.includes(".9041") && rs.nodeIds.includes(".9213"));
 });
 test("Backlogs: one link per session project, in order, replacing a list that misses one", () => {
   const b = ops(plan(), "setBacklogLinks");
@@ -81,19 +109,23 @@ test("Backlogs: one link per session project, in order, replacing a list that mi
   assert.equal(b[0].id, ".1613");
 });
 test("a doc already in the layout produces no ops (a second run is empty)", () => {
-  const p = (t, lvl) => `<paragraph id='x${t}' heading='${lvl}'><text id='t'>${t}</text></paragraph>`;
+  let hn = 0;
+  const h = (t, lvl) => `<paragraph id='h${++hn}' heading='${lvl}'><text id='t'>${t}</text></paragraph>`;
   const plain = (id, t) => `<paragraph id='${id}'><text id='t'>${t}</text></paragraph>`;
-  const li = (id, t, extra = "") => `<listItem id='${id}'${extra}><paragraph id='p${id}'><text id='t${id}'>${t}</text></paragraph></listItem>`;
-  const bullets = (id, ...items) => `<list id='${id}' kind='bullet'>${items.join("")}</list>`;
+  const chipLi = (id, idx, label, text) => `<listItem id='${id}'><paragraph id='p${id}'><dropdown id='d${id}' enum='e' index='${idx}'>${label}</dropdown><text id='t'> </text><text id='t2'><bold>${text}</bold></text></paragraph></listItem>`;
+  const li = (id, t) => `<listItem id='${id}'><paragraph id='p${id}'><text id='t${id}'>${t}</text></paragraph></listItem>`;
+  const list = (id, kind, ...items) => `<list id='${id}' kind='${kind}'>${items.join("")}</list>`;
+  const projs = (sec, byProject) => ["Portfolio", "Discipline", "Handoff toolkit"].map((n) => h(n, 3) + (byProject[n] || plain(`n${sec}${n}`, "Nothing."))).join("");
   const ok = `<doc node='n'><paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='d'><date id='dd' value='2026-11-12'/><text id='t'> · </text></paragraph>`
-    + p("Waiting on you", 2) + p("Portfolio", 3) + `<list id='lw1' kind='check'>${li("a", "**(PF-1585) Look at glow round 4. Waiting on you.**")}${li("b", "**(PF-797) Your final review before the holding screen lifts. Waiting on you.**")}${li("c", "**(PF-65) Media for each case study. Waiting on you.**")}${li("e", "**(PF-1600) Look at the new header. Waiting on you.**")}</list>`
-    + p("Discipline", 3) + `<list id='lw2' kind='check'>${li("f", "**(DISC-311) One short extra round on the Status item fix. Waiting on you.**")}</list>` + p("Handoff toolkit", 3) + `<list id='lw3' kind='check'>${li("g", "**(HT-95) Invite your friend to the toolkit. Waiting on you.**")}</list>`
-    + p("Running now", 2) + p("Portfolio", 3) + bullets("r1", li("r1a", "Nothing.")) + p("Discipline", 3) + bullets("r2", li("r2a", "Nothing.")) + p("Handoff toolkit", 3) + bullets("r3", li("r3a", "Nothing."))
-    + p("Up next", 2) + p("Portfolio", 3) + plain("l", `Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`)
-    + bullets("u1", ...["(PF-1505) Time Circuits still laggy", "(PF-1531) Glow sits on each piece of media", "(PF-1475) Grid on a phone: one image paints late", "(PF-1464) Import checklist records film length", "(PF-1391) Safari and iPhone"].map((t, i) => li(`u1${i}`, t)))
-    + p("Discipline", 3) + bullets("u2", ...["(DISC-306) Plugin stale: more clearly", "(DISC-309) Another item", "(DISC-310) Status doc restructure", "(DISC-312) Twelfth", "(DISC-313) Thirteenth"].map((t, i) => li(`u2${i}`, t)))
-    + p("Handoff toolkit", 3) + bullets("u3", li("u3a", "Nothing."))
-    + p("Done this session", 2) + p("Backlogs", 2) + bullets("bk", ...["portfolio/portfolio", "jhd-discipline/jhd-discipline", "handoff-toolkit/handoff-toolkit"].map((x, i) => li(`bk${i}`, `<link href='${BASE}/projects/${x}-backlog.md'>${["Portfolio", "Discipline", "Handoff toolkit"][i]}</link>`)))
+    + h("Ready for you", 2) + projs("r", { Portfolio: list("lr1", "check", chipLi("a", 0, "Ready for you", "(PF-1585) Look at glow round 4. Waiting on you."), chipLi("b", 0, "Ready for you", "(PF-797) Your final review before the holding screen lifts. Waiting on you."), chipLi("e", 0, "Ready for you", "(PF-1600) Look at the new header. Waiting on you.")), Discipline: list("lr2", "check", chipLi("f", 0, "Ready for you", "(DISC-311) One short extra round on the Status item fix. Waiting on you.")), "Handoff toolkit": list("lr3", "check", chipLi("g", 0, "Ready for you", "(HT-95) Invite your friend to the toolkit. Waiting on you.")) })
+    + h("You're on it", 2) + projs("y", { Portfolio: list("ly1", "check", chipLi("m", 1, "You're on it", "(PF-65) Media for each case study. Waiting on you.")) })
+    + h("Claude's on it", 2) + projs("c", {})
+    + h("Up next", 2) + h("Portfolio", 3) + plain("l", `Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`)
+    + list("u1", "bullet", ...["(PF-1505) Time Circuits still laggy", "(PF-1531) Glow sits on each piece of media", "(PF-1475) Grid on a phone: one image paints late", "(PF-1464) Import checklist records film length", "(PF-1391) Safari and iPhone"].map((t, i) => li(`u1${i}`, t)))
+    + h("Discipline", 3) + list("u2", "bullet", ...["(DISC-306) Plugin stale: more clearly", "(DISC-309) Another item", "(DISC-310) Status doc restructure", "(DISC-312) Twelfth", "(DISC-313) Thirteenth"].map((t, i) => li(`u2${i}`, t)))
+    + h("Handoff toolkit", 3) + list("u3", "bullet", li("u3a", "Nothing."))
+    + h("Done this session", 2) + projs("d", {})
+    + h("Backlogs", 2) + list("bk", "bullet", ...["portfolio/portfolio", "jhd-discipline/jhd-discipline", "handoff-toolkit/handoff-toolkit"].map((x, i) => li(`bk${i}`, `<link href='${BASE}/projects/${x}-backlog.md'>${["Portfolio", "Discipline", "Handoff toolkit"][i]}</link>`)))
     + "</doc>";
   assert.deepEqual(plan({ docXml: ok }).ops, []);
 });
