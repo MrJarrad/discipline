@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /* PreToolUse (mcp__.*__archive_session, whatever the MCP server is called) — DISC-262 (operator 2026-11-07: "just archive the
-   helpers we don't archive parent sessions"; s61 archived three wrapped parents by hand). A session may be
+   helpers we don't archive parents"; s61 archived three wrapped parents by hand). A session may be
    archived only when this session's transcript has shown it as a helper: a get_session / list_sessions result
    carrying that id with a "Helper ·" title AND a parent_session_id. Anything else, a wrapped parent included,
    is denied with the step to take. Fails closed: unreadable input or transcript denies.
-   DISC-280 (s71: archiving the Safari helper closed its open draft PR two seconds later): a helper is also
-   refused while any PR it opened is unmerged. Its PRs are the create-record tool_results (JSON {url} or a bare PR url) in the transcript's
-   list_events reads of that helper (get_session carries none), paged to has_more: false; each needs a pull_request_read
-   (method get) in the transcript showing it merged or closed. No list_events read of the helper at all is a refusal, never an allow.
-   DISC-284 (s76): reads made by a subagent of this same session count (subagentLines).
-   DISC-285: "complete" comes only from an unfiltered backward read chained to the newest page (see unmergedPrs).   */
+   DISC-280 (s71: archiving the Safari helper closed its open draft PR two seconds later): a helper is refused while it has an
+   open PR. DISC-315 (operator s84: "we were able to do this easily previously and now it's impossible"): that is checked by a
+   direct open-PR lookup, not by paging the helper's whole event history (DISC-280/281/285). The transcript must hold, for the
+   helper, (1) a lookup of open PRs naming its session id (descriptions carry the opening session's link) and (2) one naming each
+   branch get_session shows for it (PRs without the link). A lookup is a `gh api` / `gh pr list` call or a list/search
+   pull-requests MCP call restricted to open PRs, whose result parsed and was not truncated. Any open PR it returns for the id or a
+   branch refuses; a lookup that is missing, unreadable or truncated refuses. DISC-284 (s76): reads made by a subagent of this
+   same session count (subagentLines).   */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
@@ -41,10 +43,21 @@ export function shownSession(lines, id) {
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
       const parsed = extractJson(text);
       if (parsed === undefined) continue;
-      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null };
+      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)] };
     }
   }
   return found;
+}
+
+/* Branch names anywhere inside a get_session object (session_context.outcomes[].git_info.branches, outcome_branch). */
+function* branchesIn(v) {
+  if (Array.isArray(v)) { for (const x of v) yield* branchesIn(x); return; }
+  if (!v || typeof v !== "object") return;
+  for (const [k, x] of Object.entries(v)) {
+    if (k === "branches" && Array.isArray(x)) for (const b of x) { if (typeof b === "string" && b) yield b; }
+    else if (k === "outcome_branch" && typeof x === "string" && x) yield x;
+    else yield* branchesIn(x);
+  }
 }
 
 /* Results of tool calls whose name matches `nameRe`, as { input, text }. */
@@ -61,74 +74,45 @@ function* results(lines, nameRe) {
   }
 }
 
-/* PRs the helper itself opened, read from the REAL list_events shape (DISC-281): events are
-   { user: { internal_anthropic_catchall: { message: { content: [{ type: "tool_result", tool_use_id, content:
-   [{ type: "text", text }] }] } } } }, user-kind pages carry no tool_use. A tool_result is the helper's own PR when
-   its text parses to JSON with a top-level `url` that is exactly a PR url (create_pull_request prints
-   {"id","url"}), or its WHOLE trimmed text is one PR url (what `gh pr create` prints). A url embedded in other text
-   never counts, nor does the JSON of a PR read (it carries number/state/head: a PR the helper only reviewed). */
-function* walk(v) {
-  if (Array.isArray(v)) { for (const x of v) yield* walk(x); return; }
-  if (!v || typeof v !== "object") return;
-  yield v;
-  for (const x of Object.values(v)) yield* walk(x);
-}
-const PR_URL = /^https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)$/;
-const PR_READ_KEYS = ["number", "state", "head", "base", "merged", "title"];
-const textOf = (c) => (typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "");
-
-function createdPr(text) {
-  const t = text.trim();
-  let url = t;
-  if (t.startsWith("{")) {
-    let j; try { j = JSON.parse(t); } catch { return null; }
-    if (!j || typeof j !== "object" || typeof j.url !== "string" || PR_READ_KEYS.some((k) => k in j)) return null;
-    url = j.url;
-  }
-  const m = PR_URL.exec(url);
-  return m ? `${m[1]}/${m[2]}#${m[3]}`.toLowerCase() : null;
-}
-
-/* A pull_request_read result clears its PR when it is a `get` showing merged, or closed (archiving cannot close
-   what is already closed). The result is parsed: a string quoted inside a diff or comment clears nothing. */
-const clears = (input, text) => {
-  if (input.method !== "get") return false;
-  const j = extractJson(text);
-  return !!j && typeof j === "object" && (j.merged === true || (typeof j.merged_at === "string" && j.merged_at !== "") || j.state === "closed");
+/* An open-PR lookup: a gh call (api search/pulls, pr list) or a list/search pull-requests MCP call, restricted to open PRs. */
+const LOOKUP_TOOL = /^Bash$|__(list_pull_requests|search_pull_requests)$/;
+const inputText = (input) => JSON.stringify(input ?? {});
+const isOpenLookup = (input) => {
+  const t = inputText(input);
+  if (typeof input.command === "string") return /\bgh (api|pr list)\b/.test(input.command) && /is:open|state=open|--state[ =]open/.test(input.command);
+  return input.state === "open" || /is:open/.test(t);
 };
 
-/* { read, complete, open }: read = a list_events page of the helper parsed; complete = some page reached the end of
-   its history (has_more false), i.e. the helper's events were paged to the oldest; open = PRs not shown merged/closed. */
-export function unmergedPrs(lines, id) {
-  const reads = [...results(lines, /__list_events$/)].filter((r) => r.input.session_id === id).map((r) => ({ input: r.input, j: extractJson(r.text) })).filter((r) => r.j !== undefined);
-  if (!reads.length) return { read: false, complete: false, open: [] };
-  const opened = new Set();
-  /* DISC-285: complete means the whole history was read. Only an unfiltered backward read counts: no after_id (a forward page
-     reaches the NEWEST end, #177 A1) and no kinds filter (has_more describes the unfiltered page, and the filter can drop the
-     create-PR record). The newest page has no before_id; an older page counts only when its before_id is the first_id of a
-     page already in the chain, so a lone before_id read near the oldest end proves nothing. */
-  const eligible = [];
-  for (const { input, j } of reads) {
-    for (const o of walk(j)) if (o.type === "tool_result") { const pr = createdPr(textOf(o.content)); if (pr) opened.add(pr); }
-    if (input.after_id || (Array.isArray(input.kinds) ? input.kinds.length : input.kinds)) continue;
-    eligible.push({ before: input.before_id ? String(input.before_id) : null, body: j.ccr ?? j });
+/* The PRs a lookup result lists, or null when the result is unreadable or truncated (search: total_count above the items
+   returned, or incomplete_results). */
+function listed(text) {
+  const j = extractJson(text);
+  if (Array.isArray(j)) return j;
+  if (!j || typeof j !== "object" || !Array.isArray(j.items)) return null;
+  if (j.incomplete_results === true || (typeof j.total_count === "number" && j.total_count > j.items.length)) return null;
+  return j.items;
+}
+
+/* { open, missing }: open = PRs a lookup returned for the helper (named by its id or a branch in the lookup's input, or whose
+   description holds the id or whose head is one of its branches); missing = what no readable, untruncated lookup covered. */
+export function openPrLookup(lines, id, branches = []) {
+  const want = [id, ...branches];
+  const covered = new Set(), open = new Set();
+  for (const { input, text } of results(lines, LOOKUP_TOOL)) {
+    if (!isOpenLookup(input)) continue;
+    const prs = listed(text);
+    if (!prs) continue;
+    const named = want.filter((w) => inputText(input).includes(w));
+    for (const w of named) covered.add(w);
+    for (const p of prs) {
+      const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
+      const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
+      const ref = p?.head?.ref ?? p?.head;
+      const hit = named.length || String(p?.body ?? "").includes(id) || (typeof ref === "string" && branches.includes(ref));
+      if (hit && (p?.state === undefined || p.state === "open")) open.add(m ? `${m[1]}#${m[2]}` : url);
+    }
   }
-  /* A2: resolve the chain from ALL eligible pages, not in transcript order (two subagents' files sort by name): start from the
-     page with no before_id and keep adding pages whose before_id is a first_id already in the chain, until nothing is added. */
-  const chain = new Set(), used = new Set();
-  let complete = false, grew = true;
-  while (grew) {
-    grew = false;
-    eligible.forEach((e, k) => {
-      if (used.has(k) || (e.before !== null && !chain.has(e.before))) return;
-      used.add(k); grew = true;
-      if (e.body.first_id !== undefined) chain.add(String(e.body.first_id));
-      if (e.body.has_more === false) complete = true;
-    });
-  }
-  for (const r of results(lines, /__pull_request_read$/))
-    if (clears(r.input, r.text)) opened.delete(`${r.input.owner}/${r.input.repo}#${r.input.pullNumber}`.toLowerCase());
-  return { read: true, complete, open: [...opened] };
+  return { open: [...open], missing: want.filter((w) => !covered.has(w)) };
 }
 
 /* DISC-284: transcripts of this session's subagents, at <transcript dir>/<transcript name>/subagents/agent-*.jsonl.
@@ -146,10 +130,9 @@ export function verdict(lines, id, subLines = []) {
   const s = shownSession(lines, id);
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
-  const { read, complete, open } = unmergedPrs([...lines, ...subLines], id);
-  if (!read) return `archive_session refused (DISC-280): read the helper's events first (list_events on ${id}); archiving closes any open PR it opened, and this session has not seen which PRs those are.`;
-  if (open.length) return `archive_session refused (DISC-280): ${id} opened ${open.join(", ")}, not shown merged or closed; archiving a helper closes its open draft PR (s71). Merge it (pull_request_read, method get, to show it) before archiving.`;
-  if (!complete) return `archive_session refused (DISC-281): read the helper's remaining events first (list_events on ${id} reports has_more: true; page back with before_id until it reports false); an unread page may hold a PR it opened.`;
+  const { open, missing } = openPrLookup([...lines, ...subLines], id, s.branches);
+  if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
+  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, e.g. gh api -X GET search/issues -f q='is:pr is:open <session id or head:<branch>>' (one call per name), then archive.`;
   return null;
 }
 
