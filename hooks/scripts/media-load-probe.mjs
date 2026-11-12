@@ -103,6 +103,8 @@ import {
   clippedVisibleRect,
   scaleRect,
   parseCssColor,
+  isSampleStable,
+  isSlotPainted,
   MIN_PAINTED_STDDEV,
   MIN_STRUCTURE_EDGE_JUMP,
   MIN_VISIBLE_AREA_FRACTION,
@@ -119,6 +121,9 @@ export const STEP_PACE_MS = 500;
 
 // `load`'s own fixed-frame cadence (`driveInteraction`'s load branch).
 export const LOAD_FRAME_INTERVAL_MS = 50;
+
+// PF-1475: wait between re-samples while the page is still scrolling under a screenshot.
+export const STABLE_RETRY_MS = 100;
 
 // `driveFlingSession`'s own default cadence between gestures.
 export const FLING_SAMPLE_EVERY_MS = 250;
@@ -147,7 +152,7 @@ export const USAGE =
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
   "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
-  "[--min-visible-area 0-1] | --help";
+  "[--min-visible-area 0-1] [--max-dropped-share 0-1] | --help";
 
 export function parseArgs(argv) {
   const [url, ...rest] = argv;
@@ -174,6 +179,7 @@ export function parseArgs(argv) {
     minStructureEdge: MIN_STRUCTURE_EDGE_JUMP,
     arrivalWindowMs: DEFAULT_ARRIVAL_WINDOW_MS,
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
+    maxDroppedShare: 0.25,
   };
   const keyMap = {
     "gap-tolerance": "gapTolerance",
@@ -185,6 +191,7 @@ export function parseArgs(argv) {
     "min-structure-edge": "minStructureEdge",
     "arrival-window-ms": "arrivalWindowMs",
     "min-visible-area": "minVisibleArea",
+    "max-dropped-share": "maxDroppedShare",
   };
   for (let i = 0; i < rest.length; i++) {
     const raw = rest[i].replace(/^--/, "");
@@ -220,6 +227,7 @@ export function parseArgs(argv) {
     minStructureEdge: Number(opts.minStructureEdge),
     arrivalWindowMs: Number(opts.arrivalWindowMs),
     minVisibleArea: Number(opts.minVisibleArea),
+    maxDroppedShare: Number(opts.maxDroppedShare),
     placeholderColors: opts.placeholderColors
       ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
       : [],
@@ -339,6 +347,47 @@ async function throttle(page, network) {
   }
 }
 
+// PF-1475: one frame whose DOM read and screenshot describe the same moment. Reads
+// the boxes, takes the screenshot, reads again; if anything moved between the two
+// (the page was still scrolling) it waits and retries. `null` after `maxAttempts`
+// means the page never held still — the frame is dropped, never judged on a
+// mismatched pair. `read`/`capture`/`wait` are injected so no browser is needed to test it.
+export async function takeStableSample({ read, capture, wait, maxAttempts = 6 }) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const elements = await read();
+    const shot = await capture();
+    const after = await read();
+    if (isSampleStable(elements, after)) return { elements, shot };
+    await wait();
+  }
+  return null;
+}
+
+// PF-1475 review: a rep is green only if it judged frames. Frames dropped for never
+// holding still are not judged, so a page that never settles (frames=0) or drops more
+// than `maxDroppedShare` of its samples cannot pass on "0 paint, 0 gaps" alone.
+export function repVerdict({ paint, gaps, frames, dropped }, maxDroppedShare = 0.25) {
+  if (frames === 0) return { ok: false, reason: `no frame was judged (${dropped} dropped: the page never held still)` };
+  const share = dropped / (frames + dropped);
+  if (share > maxDroppedShare) return { ok: false, reason: `dropped ${dropped} of ${frames + dropped} frames (${(share * 100).toFixed(0)}% > ${(maxDroppedShare * 100).toFixed(0)}%)` };
+  if (paint > 0 || gaps > 0) return { ok: false, reason: `paint=${paint} gaps=${gaps}` };
+  return { ok: true, reason: "" };
+}
+
+// One frame's elements reduced to what the classifier needs: each slot's own
+// `painted` verdict, computed from its screenshot crop and then dropped. A long
+// session keeps one small object per slot per frame, never the crops themselves
+// (each crop is thousands of pixel objects; keeping all of them ran a 60 s session
+// out of the default 2 GB heap).
+export function judgeFrameElements(elements, image, viewport, emptyColors, paintClassifyOptions) {
+  const scale = image.width / viewport.width;
+  return elements.map((el) => {
+    const clipped = el.tag === "text" || isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
+    const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
+    return { ...el, painted: el.tag === "text" ? undefined : isSlotPainted(el, pixels, emptyColors, paintClassifyOptions) };
+  });
+}
+
 // The default sampler: plain DOM state only, no screenshot — what the
 // interaction-driving tests below exercise against a fake `page`. `run()`
 // supplies its own sampler (below) that also screenshots and crops.
@@ -348,7 +397,10 @@ const defaultSampleFn = (page) => page.evaluate(sampleMediaStateInPage);
 // checks. `--duration` switches to `driveFlingSession` instead (below).
 export async function driveInteraction(page, interaction, frames, sampleFn = defaultSampleFn) {
   const samples = [];
-  const sample = async () => samples.push(await sampleFn(page));
+  const sample = async () => {
+    const s = await sampleFn(page);
+    if (s) samples.push(s);
+  };
   await sample(); // first paint
 
   if (interaction === "load") {
@@ -408,7 +460,10 @@ export async function driveFlingSession(page, { interaction, durationMs, settleM
   }
   const vp = page.viewportSize();
   const samples = [];
-  const sample = async () => samples.push(await sampleFn(page));
+  const sample = async () => {
+    const s = await sampleFn(page);
+    if (s) samples.push(s);
+  };
   const start = Date.now();
   await sample(); // first paint
 
@@ -477,16 +532,18 @@ async function run(opts) {
   // The real sampler: DOM state (rects/clip/visibility) plus a full-page
   // screenshot, decoded and cropped per element into `pixels` — never
   // a canvas source-bitmap read of the element's own bitmap.
+  let droppedFrames = 0;
   const sampleFn = async (p) => {
-    const { elements } = await p.evaluate(sampleMediaStateInPage);
-    const screenshotBuffer = await p.screenshot();
-    const image = decodePng(screenshotBuffer);
-    const scale = image.width / viewport.width;
-    return elements.map((el) => {
-      const clipped = el.tag === "text" || isVisibilityHidden(el) ? null : clippedVisibleRect(el, viewport);
-      const pixels = clipped ? cropRegionPixels(image, scaleRect(clipped, scale)) : [];
-      return { ...el, pixels };
+    const stable = await takeStableSample({
+      read: async () => (await p.evaluate(sampleMediaStateInPage)).elements,
+      capture: () => p.screenshot(),
+      wait: () => p.waitForTimeout(STABLE_RETRY_MS),
     });
+    if (!stable) {
+      droppedFrames++;
+      return null;
+    }
+    return judgeFrameElements(stable.elements, decodePng(stable.shot), viewport, emptyColors, paintClassifyOptions);
   };
 
   // Fix round 3: `scroll`/`drag` default to a realistic fling SESSION, never
@@ -528,7 +585,7 @@ async function run(opts) {
   });
 
   await browser.close();
-  return { paint, gaps, frames: frames.length, mode: driveMode.mode };
+  return { paint, gaps, frames: frames.length, dropped: droppedFrames, mode: driveMode.mode };
 }
 
 async function main() {
@@ -545,7 +602,9 @@ async function main() {
   for (let i = 0; i < opts.reps; i++) {
     const r = await run(opts);
     reps.push(r);
-    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} mode=${r.mode}`);
+    const v = repVerdict(r, opts.maxDroppedShare);
+    r.verdict = v;
+    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} dropped=${r.dropped} mode=${r.mode}${v.ok ? "" : ` NOT GREEN: ${v.reason}`}`);
   }
   const paintSum = reps.reduce((s, r) => s + r.paint, 0);
   const gapSum = reps.reduce((s, r) => s + r.gaps, 0);
@@ -560,7 +619,7 @@ async function main() {
       "NOTE: headless/synthetic run is a FLOOR, not proof — confirm with --headed --channel chrome or a real device before closing a lane.",
     );
   }
-  process.exit(paintSum === 0 && gapSum === 0 ? 0 : 1);
+  process.exit(paintSum === 0 && gapSum === 0 && reps.every((r) => r.verdict.ok) ? 0 : 1);
 }
 
 // Only run when invoked as a CLI, never on import from the tests.
