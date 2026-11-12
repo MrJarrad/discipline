@@ -26,8 +26,8 @@ export const CONDITIONAL_INSTALL = (() => {
   const gone = String.raw`(?:missing|absent|not (?:already )?(?:installed|present)|(?:does ?n[o']t|doesn't) exist|no node_modules)\b`;
   const clause = String.raw`(?:(?!\.\s)[^\n])*`; // stays inside one sentence
   return new RegExp([
-    `${inst}(?:\\s+-\\S+)*\\s+${cond}${clause}${gone}`, // "npm ci only if node_modules is missing"
-    `${cond}${clause}${gone}${clause},\\s*(?:then\\s+)?(?:run\\s+)?\`?${inst}`, // "If node_modules does not exist, run npm ci"
+    `${inst}(?:\\s+-\\S+)*\`?\\s+${cond}${clause}${gone}`, // "npm ci only if node_modules is missing", "\`npm ci\` if the dependency is not installed"
+    `${cond}${clause}${gone}${clause}(?:,\\s*(?:then\\s+)?|\\s+then\\s+)(?:run\\s+)?\`?${inst}`, // "If node_modules does not exist, run npm ci", "If node_modules is absent then npm ci"
     String.raw`-d\s+\S*node_modules\b[^\n]*\bnpm (?:ci|install|i)\b`, // "[ -d node_modules ] || npm ci"
   ].join("|"), "i");
 })();
