@@ -13,7 +13,7 @@ const HARD = "skills/routing/references/HARD-RULES.md";
 
 test("DISC-293: the verdict's first line is a markdown heading, never bold text, naming Review and the head sha", () => {
   has("agents/reviewer.md", "The heading is markdown `##`, never bold text. DON'T: `**Reviewer — round 1 …** head 773a711` (the gate refused it, s79)");
-  has("skills/dispatch-brief/SKILL.md", "Its first line is a `##` Review heading, never bold (s79)");
+  has("skills/dispatch-brief/SKILL.md", "Its first line is the heading `## Review — round N of 2, tier X, head <40-hex>`, never bold (s79, s83)");
 });
 test("DISC-294: a wake-event turn that changed nothing sends the parent nothing", () => {
   has(HARD, "A wake-event turn (a GitHub bot edit, a green check suite) is a return only when it made an edit, a push, a commit or a GitHub write, or says `next: parent`");

@@ -1,0 +1,37 @@
+// s83 parent lessons (vault fleet/lessons/2026-11-12-s83-parent-lessons.md). One verbatim assertion per lesson, in the file that owns it.
+// Mechanism lessons (5, 6, and the path message of 2) have red-first tests in their own *.test.mjs; this pins the prose.
+// Run: node --test hooks/scripts/session83-law.test.mjs
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+
+test("s83 1: the verdict heading is spelled with the full 40-hex sha, and the parent re-reads comments after the last post", () => {
+  assert.ok(flat("agents/reviewer.md").includes("spelled `## Review — round N of 2, tier X, head <40-hex>`"));
+  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Its first line is the heading `## Review — round N of 2, tier X, head <40-hex>`"));
+  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("Re-read the PR's comments after the last post, then merge (s83)"));
+});
+
+test("s83 2: merging the PR that adds a review/ job is the go, after the operator's yes when it takes over the Mac", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Merging the PR that adds a `queue/mac/review/` job is the go** (s83): the runner reads `review/` on main within minutes, so no `git mv` to `pending/` follows. A job that takes over the Mac does not merge before the operator's yes."));
+});
+
+test("s83 3: cloud pushes branches, never tags or branch deletes; the tag goes as a Mac job", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Cloud pushes branches, never tags or branch deletes** (s83): the proxy refuses both. A tag is a review-first Mac job at once, and the merged commit is pinned"));
+});
+
+test("s83 4: a plugin schema bump releases the checker first; shipped strings are checked at the source", () => {
+  assert.ok(flat("skills/release-deploy/references/RELEASE-PATH.md").includes("A plugin's schema test reads the installed checker, so a schema bump ships only after the checker release is out."));
+});
+
+test("s83 5: a reviewer brief names the reviewer's own session id source", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("**A reviewer brief names the id to sign with** (s83: reviewers copied the parent's id from `~/.claude/helper-session` into `reviewer:`)"));
+});
+
+test("s83 6: a reinstall job says npm ci outright", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**A reinstall job says `npm ci` outright** (s83): \"`npm ci` only if missing\" left a 0.12.0 checker from an earlier install in place"));
+});

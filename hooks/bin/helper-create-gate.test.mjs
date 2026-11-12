@@ -37,7 +37,17 @@ test("s71 lesson 4: a line-size or reviewer brief needs no block", () => {
   assert.equal(withMode("Reviewer brief. Size: line"), null);
 });
 test("s71 lesson 4 (review R1): a reviewer-persona brief quoting a lane's size needs no block", () => {
-  assert.equal(withMode("Persona: reviewer (sonnet)\n## Contract\nSize: component\nthe lane under review\n"), null);
-  assert.equal(withMode("- **Persona**: reviewer\nSize: system\n"), null);
+  assert.equal(withMode("Persona: reviewer (sonnet)\n## Contract\nSize: component\nthe lane under review\nreviewer: session_<id from your own get_session>\n"), null);
+  assert.equal(withMode("- **Persona**: reviewer\nSize: system\nreviewer: session_<id from your own get_session>\n"), null);
   assert.equal(withMode("Persona: engineer (sonnet)\nSize: component\n")?.permissionDecision, "deny");
+});
+
+// s83 lesson 5: reviewers copied the parent's session id (the one in ~/.claude/helper-session) into their `reviewer:` line.
+// A reviewer-persona helper brief names the reviewer's own id source: get_session.
+test("s83 5: a reviewer-persona helper brief must name get_session for its own session id; with it, allowed", () => {
+  const out = withMode("Persona: reviewer (sonnet)\nSize: line\nPost the verdict with a reviewer: line.\n");
+  assert.equal(out.permissionDecision, "deny");
+  assert.match(out.permissionDecisionReason, /get_session/);
+  assert.equal(withMode("- **Persona**: reviewer\nSize: line\nreviewer: session_<the id your own get_session returns, never ~/.claude/helper-session>\n"), null);
+  assert.equal(withMode("Persona: engineer (sonnet)\nSize: line\n"), null);
 });

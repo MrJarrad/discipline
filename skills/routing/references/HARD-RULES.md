@@ -307,6 +307,8 @@ Run the proof command plain (s75): run the proof command plain, exactly as the g
 
 Helpers never merge (s77): a helper brief ends at "PR open, review-ready" and never asks for a merge; the parent merges reviewed PRs itself, after `add_repo` with `access: "push"`. DO: end the brief at the PR rung and merge from the parent. DON'T: message a helper "now merge it" (G1 pf #579 and H1 discipline #176 both refused, correctly: a session message is not the operator's go).
 
+Re-read the PR's comments after the last post, then merge (s83): the merge gate reads the verdict's heading line from a comment read made after the final post. DO: `get_comments` again, then `merge_pull_request` with `expectedHeadSha`. DON'T: merge on a read taken before the verdict or a re-post (handoff-css #81, refused twice).
+
 Newest plugin copy runs the scripts (s77): in a cloud session run list and gate scripts from the newest plugin copy on disk, or name the version that ran. DO: `ls` the plugin cache and pick the highest version. DON'T: file a row for a bug the newest copy already fixed (DISC-286 was filed from 1.181.0 and fixed in 1.183.0).
 
 Session start banks the Status doc's unread answers (s78): before the first status, read the Status doc's comment threads addressed to Claude, answered or not, since the last wrap, and bank each (`vault-write`, `lane-end.mjs --id`). DO: bank first, then report. DON'T: report a row open that the operator answered on the doc after the wrap (PF-1566 "4" and PF-1507 "chrome and safari" were missed).
