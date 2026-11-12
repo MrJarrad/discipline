@@ -338,3 +338,16 @@ test("DISC-314 review: 'running' alone in a finished title is not an in-flight c
   assert.equal(word("fixed, running order restored").staleText, false);
   assert.equal(word("tests still running").staleText, true);
 });
+
+// DISC-314 follow-up (round-2 notes on #195)
+const TICK399 = (text) => LIVE.replace("<listItem id='.39877'", "<listItem id='.39877' checked='true'").replace("writing the step into the rules", text);
+test("DISC-314 follow-up 2: 'writing' is an in-flight cue: the live DISC-299/303 lane text 'writing the step into the rules' is rewritten on its way to Done", () => {
+  const o = plan({ docXml: TICK399("writing the step into the rules") }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.op, "replaceItem");
+  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session (DISC-299/303). Done.**");
+});
+test("DISC-314 follow-up 1: a headline is never left with an open parenthesis: it is cut at the last unbalanced '(' (no '(#188. Done.')", () => {
+  const o = plan({ docXml: TICK399("writing the step into the rules").replace("Latest plugin in every session (DISC-299/303)", "Latest plugin in every session (follow-up to #188. Then the rest) and more (see #188. Other") }).ops.find((x) => x.id === ".39877");
+  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session. Done.**");
+  assert.ok((o.markdown.match(/\(/g) || []).length === (o.markdown.match(/\)/g) || []).length, o.markdown);
+});
