@@ -109,7 +109,7 @@ test("DISC-297 (c): two open Waiting items on one lane are flagged for one combi
 test("DISC-297 (d): an answered item leaves Waiting on you the same turn: ticked or closed items are listed in leaveWaiting", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
   assert.deepEqual(p.leaveWaiting, ["PF-4", "PF-9", "PF-10"], "PF-4 ticked; PF-9 and PF-10 are not open rows in this vault");
-  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC.replace("- [ ] **PF-4**", "- [ ] **PF-4**") });
+  const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
   assert.deepEqual(q.leaveWaiting, ["PF-6", "PF-4"], "the ticked PF-6 (answered, row still open) and the closed PF-4");
 });
 test("DISC-297: a plan against no doc carries the new fields empty", () => {

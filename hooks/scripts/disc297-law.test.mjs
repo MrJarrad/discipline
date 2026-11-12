@@ -27,3 +27,22 @@ test("DISC-297: the always-on style and wrap point at the rule, they do not rest
   assert.ok(flat("output-styles/discipline.md").includes("(DISC-297, `routing` HARD-RULES)"));
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`leaveWaiting`"));
 });
+
+// DISC-299 (s81): the release path proposes the setup-script refresh-line bump; s80 Mac wording lives where Mac-job asks live.
+test("DISC-299: RELEASE-PATH names the refresh-line bump after each discipline release tag", () => {
+  const r = flat("skills/release-deploy/references/RELEASE-PATH.md");
+  for (const s of ["setup-refresh-line.mjs", "# plugin refresh", "the parent proposes it to the operator"]) assert.ok(r.includes(s), s);
+});
+test("s80 Mac wording: ask 'Is now a good time for me to take over your Mac (about N minutes)?' before a job that uses the screen", () => {
+  const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");
+  assert.ok(m.includes("Is now a good time for me to take over your Mac (about N minutes)?"));
+  assert.ok(m.includes("never ask whether he is at the Mac"));
+});
+// Review notes on #187.
+test("#187 notes: fromDocsRead decodes &amp;#39; and keeps link urls when stripping tags", async () => {
+  const { fromDocsRead } = await import("./queue-page-sync.mjs");
+  const doc = "&lt;listItem id='.1'&gt;&lt;paragraph&gt;&lt;text&gt; **PF-5** you&amp;#39;re &lt;link href='https://a.example/x'&gt;one&lt;/link&gt; and &lt;link href='https://a.example/y'&gt;two&lt;/link&gt;&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;";
+  const out = fromDocsRead(doc);
+  assert.ok(out.includes("you're"), out);
+  assert.ok(out.includes("https://a.example/x") && out.includes("https://a.example/y"), out);
+});

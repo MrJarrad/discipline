@@ -34,12 +34,12 @@ const clean = (t) => t.replace(/<br>/g, " ").replace(/\s+/g, " ").trim();
    and each section a <heading>. Rewrite that shape to the checklist lines the plan reads below, the chip kept as `[Status]`; markdown input passes through. */
 export function fromDocsRead(t) {
   if (!/(<|&lt;)listItem\b/.test(t)) return t;
-  const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  const doc = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&#39;/g, "'");
   return doc.replace(/<heading\b[^>]*>([\s\S]*?)<\/heading>/g, (_, h) => `\n## ${h.replace(/<[^>]+>/g, "").trim()}\n`)
     .replace(/<listItem\b([^>]*)>([\s\S]*?)<\/listItem>/g, (_, attrs, body) => {
       const box = /checked=['"]?true/i.test(attrs) ? "x" : " ";
       const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(body)?.[1].trim();
-      const text = body.replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const text = body.replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
       return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n`;
     });
 }

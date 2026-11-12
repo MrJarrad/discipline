@@ -16,3 +16,8 @@ Operator, 2026-10-15, on a "Release again?" row: "yes, ( can we fix this type of
 **Still the operator's:** anything that changes what production visitors may see (SITE_MODE holding -> live, a new public route, removing the holding page), and a release whose promote checks fail and auto-roll back twice. A row that carries one of these passes the guard; name the call in the row. Applies to jhd-portfolio now, other products once their release path has the same auto-rollback.
 
 **"Release follows merge" means the product's own live path: read the product handover's release note before dispatching release-ops.** Portfolio main merges go live on preview.jarrad.design via Workers Builds; `release:promote` only updates jarrad.design (go-live, PF-797), so there is no per-merge release lane for it (s73: one was dispatched).
+
+
+## After a discipline release tag: bump the setup-script refresh line (DISC-299, s81)
+
+A cloud session loads the plugin as of the Default environment image, which is rebuilt only when its setup script changes (DISC-298). After each discipline release tag, the releasing session runs `node <plugin>/hooks/scripts/setup-refresh-line.mjs --date <today> --release <version> --line` and gives the printed `# plugin refresh <date> (discipline <version>)` line to the parent, who reads the environment's script with `get_environment` and proposes the one-line change (first line of the script) to the operator; the environment is never edited by the helper. Once approved (the parent proposes it to the operator), the next fresh session starts on the new release. DON'T: edit the environment from a release lane, or skip the line because the previous one is still in place.
