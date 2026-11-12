@@ -124,7 +124,7 @@ export function fromDocsRead(t) {
       const k = body.indexOf("\n- [");
       const own = k === -1 ? body : body.slice(0, k), kids = k === -1 ? "" : body.slice(k);
       const chip = /<dropdown\b[^>]*>([\s\S]*?)<\/dropdown>/.exec(own)?.[1].trim();
-      const text = own.replace(/<bold>([\s\S]*?)<\/bold>/g, "**$1**").replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+      const text = own.replace(/<\/bold>\s*<\/text>\s*<text\b[^>]*>\s*<bold>/g, "").replace(/<\/bold>\s*<bold>/g, "").replace(/<bold>([\s\S]*?)<\/bold>/g, (_, t) => (t.trim() ? `${/^\s/.test(t) ? " " : ""}**${t.trim()}**${/\s$/.test(t) ? " " : ""}` : t)).replace(/<(?:link|a)\b[^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/(?:link|a)>/g, "$2 $1").replace(/<dropdown\b[^>]*>[\s\S]*?<\/dropdown>/g, "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
       return `\n- [${box}] ${text}${chip ? ` [${chip}]` : ""}\n${kids.split("\n").map((l) => (/^- \[[ x]\] /.test(l) ? l.replace(/^- \[[ x]\] /, "  - ") : /^\s+- /.test(l) ? `  ${l}` : l)).join("\n").replace(/^\n+/, "")}`;
     });
   }

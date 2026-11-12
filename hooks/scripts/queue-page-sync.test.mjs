@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -324,4 +324,18 @@ test("DISC-307 r3 NOTE: no stray </list>, a nested bullet's own children keep th
   const plain = long.split("\n")[1];
   assert.ok(plain.length <= 260, `${plain.length}`);
   assert.match(plain, /…$/);
+});
+
+// DISC-307 round 4 (operator s82 "yes" to DISC-311): the real PF-1585 title arrives as separate bold runs; joined first, so the id is one id.
+test("DISC-311: a bold id split into runs ('(PF-15' + '85' + ')') reads as one bold span, so it is seen and not added again", () => {
+  const runs = "&lt;listItem id='.33589'&gt;&lt;paragraph id='.33590'&gt;&lt;dropdown id='.36925' enum='e' index='3'&gt;Claude's on it&lt;/dropdown&gt;&lt;text id='.33592'&gt; &lt;/text&gt;&lt;text id='a'&gt;&lt;bold&gt;(PF-15&lt;/bold&gt;&lt;/text&gt;&lt;text id='b'&gt;&lt;bold&gt;85&lt;/bold&gt;&lt;/text&gt;&lt;text id='c'&gt;&lt;bold&gt;)&lt;/bold&gt;&lt;/text&gt;&lt;text id='d'&gt;&lt;bold&gt; &lt;/bold&gt;&lt;/text&gt;&lt;text id='e'&gt;&lt;bold&gt;Glow on images, round 4: ready for your look&lt;/bold&gt;&lt;/text&gt;&lt;text id='f'&gt;&lt;bold&gt;. &lt;/bold&gt;&lt;/text&gt;&lt;/paragraph&gt;&lt;/listItem&gt;";
+  const doc = [heading("Waiting on you"), heading("Portfolio", 3), runs].join("\n");
+  const out = fromDocsReadSync(doc);
+  assert.match(out, /^- \[ \] \*\*\(PF-1585\) Glow on images, round 4: ready for your look\.\*\* \[Claude's on it\]$/m, out);
+  assert.ok(!out.includes("****"), "no empty bold join left behind: " + out);
+  const v = vault();
+  writeFileSync(join(v, "projects/portfolio/portfolio-queue.md"), readFileSync(join(v, "projects/portfolio/portfolio-queue.md"), "utf8") + "| PF-1585 | Look at glow round 4 | | | |\n");
+  const p = syncPlan({ vault: v, prefixes: ["PF"], docText: doc });
+  assert.ok(!p.toAdd.some((l) => l.includes("(PF-1585)")), "PF-1585 is an open row already on the doc: it is not added again");
+  assert.ok(p.toAdd.some((l) => l.includes("(PF-5)")), "an open row that is not on the doc is still added");
 });
