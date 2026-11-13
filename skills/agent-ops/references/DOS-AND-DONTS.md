@@ -12,7 +12,7 @@ better.
 - **Write tool descriptions as prompts** — state WHAT and WHEN, plus the anti-trigger for when *not* to fire.
 - **Turn each correction into a scenario** — so the gate catches the regression next time.
 - **Name the sync step** — merging to `skills/` is publish; importing to the store + `desiredSkills` is what makes it live.
-- **State the per-use cost when you tighten a gate** (s84: the archive guard grew until 27 finished helpers could not be archived in a session). A PR about a gate or guard carries `Per-use cost: <calls one use takes now, and before>`; `pr-row-gate.mjs` refuses it without. A check costing more than a few calls needs a cheaper evidence source (DISC-315: one open-PR lookup).
+- **State the per-use cost when you tighten a gate** (s84: the archive guard grew until 27 finished helpers could not be archived in a session). A PR about a gate or guard carries `Per-use cost: <calls one use takes now, and before>`; `pr-row-gate.mjs` refuses it without. A check costing more than a few calls needs a cheaper evidence source (DISC-315: one open-PR lookup). The gate matches the words gate or guard in the title or branch, so a gate change under another name goes unchecked: state the cost anyway.
 
 ## Don't
 - **Don't ship a mechanism change un-evaluated** — "reads better" is not evidence.

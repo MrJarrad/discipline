@@ -91,3 +91,18 @@ test("s84 1: a PR that is not about a gate or guard is untouched by the cost lin
   assert.equal(run(pr({ repo: "discipline", title: "DISC-301: reword the wrap checklist", body: "Closes DISC-301." })), null);
   assert.equal(run(pr({ repo: "jhd-portfolio", title: "PF-5: gate the hero video", body: "Closes PF-5." })), null, "product repos are not plugin gates");
 });
+
+// Review round 1 on #206: the cost line is accepted in the forms a PR body is written in, and its value is on the same line.
+test("s84 1: bold, list and quoted forms of the Per-use cost line pass", () => {
+  const t = { repo: "discipline", title: "DISC-315: archive guard reads an open-PR lookup" };
+  for (const line of ["**Per-use cost:** 2 calls per helper", "- Per-use cost: 2 calls per helper", "* **Per-use cost:** none", "> Per-use cost: 2 calls", "__Per-use cost:__ 2 calls"]) {
+    assert.equal(run(pr({ ...t, body: `Closes DISC-315.\n${line}` })), null, line);
+  }
+});
+
+test("s84 1: a Per-use cost label with its value on the next line, or only bold markers after it, is denied", () => {
+  const t = { repo: "discipline", title: "DISC-315: archive guard reads an open-PR lookup" };
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\nPer-use cost:\n2 calls per helper" }))?.permissionDecision, "deny");
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\n**Per-use cost:**\n2 calls" }))?.permissionDecision, "deny");
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\n**Per-use cost:**" }))?.permissionDecision, "deny");
+});

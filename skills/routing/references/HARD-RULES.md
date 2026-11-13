@@ -62,7 +62,7 @@ and queued the chat as the doer — that hatch is deleted.
    against live PR/branch state before any dispatch (`resume-reads-vault-main-first-2026-10-10`).
    **One review per change; LIGHT is the standing tier** — see `agents/reviewer.md`
    for the tier and round-cap law.
-   **A design-system merge that changes an API the portfolio uses is followed, in the same session, by the portfolio's pin bump** (s84: DS main merged ahead of the pin broke every portfolio lane's setup until the pin moved; `scripts/cloud-start.sh` now checks out the pin, vault DISC-317). DO: queue the pin-bump lane before reporting the DS merge done. DON'T: report the DS merge done while the portfolio pin still points at the old commit.
+   **A design-system merge that changes an API the portfolio uses is followed, in the same session, by the portfolio's pin bump** (s84: DS main merged ahead of the pin broke every portfolio lane's setup until the pin moved; `scripts/cloud-start.sh` in MrJarrad/jhd-vault now checks out the pin, DISC-317). DO: queue the pin-bump lane before reporting the DS merge done. DON'T: report the DS merge done while the portfolio pin still points at the old commit.
 7. **Grill before dispatch.** Non-trivial build/design: if the decision frontier is
    not empty, load `grilling` and lock the tree (experience questions, recommended
    answers) before `Agent`. Cannot write ACs without inventing requirements → grill,
