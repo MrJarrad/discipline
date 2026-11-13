@@ -178,6 +178,10 @@ generating or updating that folder's `<folder>-manifest.md` with path-qualified 
 every file in the same action; an attachment nothing points at is a straggler same as an
 unlinked note.
 
+**A new evidence-folder README is born with `kind: evidence` and `up: "[[<owner>]]"`** (the
+note that lists the folder, e.g. its manifest or lane note) in the same action; the vault's
+`orchestrator/intake-discipline.md` rule 1 carries the full text.
+
 ---
 ## Create properly — graph wiring is the write (ruling 2026-08-03)
 
