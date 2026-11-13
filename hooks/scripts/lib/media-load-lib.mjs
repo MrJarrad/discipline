@@ -201,8 +201,12 @@ export function coveringRect(state, viewport) {
 // One frame's covering rects for the gap scan: every media element AND every
 // text block (`tag: "text"`) that has a visible area. A text block between two
 // media covers that span, so it is not a hole.
+// PF-1475 r2: a text block inside a fixed ancestor (`fixed: true`, set by the page sampler:
+// a skip link at rest, the footer nav pills) overlays the page rather than filling its flow.
+// It stays a covering rect for nothing: counted, it anchors a column at its own x and the
+// row spacing beside or under it reads as a hole.
 export function frameCoveringRects(states, viewport) {
-  return states.map((s) => coveringRect(s, viewport)).filter(Boolean);
+  return states.filter((s) => !(s.tag === "text" && s.fixed)).map((s) => coveringRect(s, viewport)).filter(Boolean);
 }
 
 export function isVisibilityHidden(state) {

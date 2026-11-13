@@ -718,3 +718,41 @@ test("the covered-gap allowance follows --gap-tolerance: 4x the tolerance, and a
   assert.ok(scanFrameForColumnGaps(rects, vp, { tolerancePx: 12 }).some((g) => g.left === 0), "tolerance 12 -> allowance 48 -> 60px is a hole");
   assert.deepEqual(scanFrameForColumnGaps(rects, vp, { tolerancePx: 12, rowSpacingPx: 96 }), [], "an explicit rowSpacingPx wins");
 });
+
+// --- PF-1475 r2: fixed chrome never anchors a column ---------------------------------
+// A fixed box (a skip link at rest, the footer nav pills) sits over the page, not in its
+// flow. Counted as a text block it anchors a column at its own x, and the ordinary row
+// spacing under it (or the page's bottom padding above it) reads as a hole.
+// Frames below are real /grid phone frames (390x844) from the preview, Mac-run shape.
+const gridFrame = (extra) => {
+  const box = (tag, l, t, r, b, more = {}) => ({ tag, rect: rectOf(l, t, r, b), clipRects: [], ...more });
+  return [
+    box("img", 24, 0, 183, 17), box("video", 207, 0, 366, 149),
+    box("text", 24, 198, 366, 220), box("text", 24, 220, 366, 268), box("img", 24, 284, 183, 390),
+    box("text", 24, 439, 366, 461), box("text", 24, 461, 366, 509), box("img", 24, 525, 183, 630),
+    box("text", 24, 679, 366, 701), box("text", 24, 701, 366, 749), box("img", 24, 765, 183, 844),
+    ...extra(box),
+  ];
+};
+const VP844 = { width: 390, height: 844 };
+
+test("PF-1475: a fixed skip link above row spacing is not a column anchor — no gap", () => {
+  const frame = gridFrame((box) => [box("text", 24, 51, 25, 71, { fixed: true })]);
+  assert.equal(scanFrameForColumnGaps(frameCoveringRects(frame, VP844), VP844).length, 0);
+});
+
+test("PF-1475: the page's bottom padding above the fixed nav pills is not a gap", () => {
+  const end = [
+    { tag: "img", rect: rectOf(24, 0, 175, 61), clipRects: [] }, { tag: "text", rect: rectOf(24, 109, 351, 131), clipRects: [] },
+    { tag: "text", rect: rectOf(24, 131, 351, 179), clipRects: [] }, { tag: "img", rect: rectOf(24, 195, 175, 296), clipRects: [] },
+    { tag: "text", rect: rectOf(24, 345, 351, 367), clipRects: [] }, { tag: "text", rect: rectOf(24, 367, 351, 415), clipRects: [] },
+    { tag: "img", rect: rectOf(24, 431, 175, 532), clipRects: [] },
+    { tag: "text", rect: rectOf(16, 788, 128, 832), clipRects: [], fixed: true },
+  ].map((s) => ({ clipRects: [], ...s }));
+  assert.equal(scanFrameForColumnGaps(frameCoveringRects(end, VP844), VP844).length, 0);
+});
+
+test("PF-1475: the same hole made by FLOW text is still a gap (only fixed boxes are set aside)", () => {
+  const frame = gridFrame((box) => [box("text", 24, 51, 25, 71)]);
+  assert.equal(scanFrameForColumnGaps(frameCoveringRects(frame, VP844), VP844).length, 1);
+});

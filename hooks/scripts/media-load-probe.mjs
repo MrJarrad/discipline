@@ -381,6 +381,7 @@ export function sampleMediaStateInPage() {
     if (r.width <= 0 || r.height <= 0 || cs.visibility === "hidden" || Number(cs.opacity) === 0) continue;
     elements.push({
       tag: "text",
+      fixed: (() => { for (let a = el; a && a !== document.documentElement; a = a.parentElement) if (getComputedStyle(a).position === "fixed") return true; return false; })(),
       rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
       src: null,
       opacity: Number(cs.opacity),
