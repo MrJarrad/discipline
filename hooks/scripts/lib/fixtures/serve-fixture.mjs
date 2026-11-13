@@ -10,11 +10,12 @@ import { fileURLToPath } from "node:url";
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const html = readFileSync(join(dir, "media-load-probe-fixture.html"));
+const glideHtml = readFileSync(join(dir, "media-load-probe-glide-fixture.html"));
 const port = Number(process.argv[2] || 3241);
 
 const server = createServer((req, res) => {
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-  res.end(html);
+  res.end(req.url.startsWith("/glide") ? glideHtml : html);
 });
 
 server.listen(port, () => {
