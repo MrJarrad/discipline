@@ -157,10 +157,23 @@ test("DISC-315 red 5: a bare array of PRs (a 30-item page) is not an accepted lo
   deniedNaming(run(ID("r5"), [...helperB(ID("r5")), ...ghSearch(`is:pr is:open ${ID("r5")}`, thirty, "l0")]), /open-PR lookup/);
 });
 test("DISC-315 red 6: a helper still working is refused (a PR it opens next is not yet visible to a body search)", () => {
-  const working = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), status_bucket: "working" } }, "g1");
+  const working = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), session_status: "SESSION_STATUS_RUNNING", status_bucket: "SESSION_STATUS_BUCKET_WORKING" } }, "g1");
   deniedNaming(run(ID("r6"), [...working, ...ghSearch(`is:pr is:open ${ID("r6")}`, search(), "l0")]), /still working/);
-  const done = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), status_bucket: "completed" } }, "g1");
+  const done = call("get_session", {}, { ccr: { ...sess(ID("r6"), "Helper · x — no action needed", "session_p"), session_status: "SESSION_STATUS_IDLE", status_bucket: "SESSION_STATUS_BUCKET_REVIEW_READY" } }, "g1");
   assert.equal(run(ID("r6"), [...done, ...ghSearch(`is:pr is:open ${ID("r6")}`, search(), "l0")]), null);
+});
+test("DISC-315 round 3 red A: the MCP search form with any scoping param besides query (owner, repo) is not a lookup", () => {
+  const scoped = (extra) => call("search_pull_requests", { query: `is:pr is:open ${ID("t1")}`, ...extra }, JSON.stringify(search()), "m1").map((x) => JSON.parse(JSON.stringify(x).replace("mcp__claude-code-remote__search_pull_requests", "mcp__github__search_pull_requests")));
+  deniedNaming(run(ID("t1"), [...helperB(ID("t1")), ...scoped({ owner: "o", repo: "nothing" })]), /open-PR lookup/);
+  deniedNaming(run(ID("t1"), [...helperB(ID("t1")), ...scoped({ perPage: 1 })]), /open-PR lookup/);
+  assert.equal(run(ID("t1"), [...helperB(ID("t1")), ...scoped({})]), null, "query alone is accepted");
+});
+test("DISC-315 round 3 red B: the real get_session status enums (SESSION_STATUS_RUNNING / ..._BUCKET_WORKING) mark a helper as working", () => {
+  const withStatus = (extra) => call("get_session", {}, { ccr: { ...sess(ID("t2"), "Helper · x — no action needed", "session_p"), ...extra } }, "g1");
+  const look = ghSearch(`is:pr is:open ${ID("t2")}`, search(), "l0");
+  deniedNaming(run(ID("t2"), [...withStatus({ session_status: "SESSION_STATUS_RUNNING" }), ...look]), /still working/);
+  deniedNaming(run(ID("t2"), [...withStatus({ status_bucket: "SESSION_STATUS_BUCKET_WORKING" }), ...look]), /still working/);
+  assert.equal(run(ID("t2"), [...withStatus({ session_status: "SESSION_STATUS_IDLE", status_bucket: "SESSION_STATUS_BUCKET_COMPLETED" }), ...look]), null);
 });
 test("DISC-315 amber: a lookup made before the get_session, or inside an echo, is not a lookup", () => {
   deniedNaming(run(ID("r7"), [...ghSearch(`is:pr is:open ${ID("r7")}`, search(), "l0"), ...helperB(ID("r7"))]), /open-PR lookup/);

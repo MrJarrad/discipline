@@ -43,7 +43,7 @@ export function shownSession(lines, id) {
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
       const parsed = extractJson(text);
       if (parsed === undefined) continue;
-      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], working: s.status_bucket === "working" || s.status === "running", at };
+      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], working: /(WORKING|RUNNING)$/i.test(String(s.status_bucket ?? "")) || /(WORKING|RUNNING)$/i.test(String(s.session_status ?? s.status ?? "")), at };
     }
   }
   return found;
@@ -85,7 +85,7 @@ const LOOKUP_TOOL = /^Bash$|__search_pull_requests$/;
 const GH_SEARCH = /^\s*gh api -X GET search\/issues -f q=(?:'([^']*)'|"([^"]*)")\s*$/;
 const queryOf = (input) => {
   if (typeof input.command === "string") { const m = GH_SEARCH.exec(input.command); return m ? (m[1] ?? m[2]) : null; }
-  return typeof input.query === "string" ? input.query : null;
+  return typeof input.query === "string" && Object.keys(input).length === 1 ? input.query : null; /* any scoping param (owner, repo) makes it another lookup */
 };
 /* The term of an accepted query, or null. */
 function termOf(query) {
