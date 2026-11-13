@@ -46,10 +46,21 @@ export function prRowProblem({ owner, repo, title, body }) {
   return `pr-row-gate: ${owner || "?"}/${repo} PR names no backlog row id (DISC-255). Put the row id the PR closes or advances in the title or body (for example "PF-934"), or add a line "No backlog row: <reason>" for work with no row. A row no PR names stays open after the work merges.`;
 }
 
+/* s84 lesson 1: a PR to this plugin whose title or branch is about a gate or guard states what the check costs per use
+   (the archive guard grew until 27 finished helpers could not be archived in a session). A line `Per-use cost: <text>`. */
+const GATE_WORDS = /\b(gate|guard)s?\b/i;
+const PER_USE_COST = /^[\s>*_-]*Per-use cost:\**_*[ \t]*[^\s*_]/im; // bold, list and quote forms; the value starts on the same line
+export function gateCostProblem({ repo, title, head, body }) {
+  if (!/^discipline$/i.test(String(repo ?? ""))) return null;
+  if (!GATE_WORDS.test(`${title ?? ""} ${String(head ?? "").replace(/[-_/]/g, " ")}`)) return null;
+  if (PER_USE_COST.test(String(body ?? ""))) return null;
+  return "pr-row-gate: this PR changes a gate or guard, so its body needs a line \"Per-use cost: <calls or reads one use now takes, and what it cost before>\" (s84: a guard tightened round by round priced its own job out). A check that costs more than a few calls needs a cheaper evidence source; \"Per-use cost: none, no new check\" is allowed when nothing was added.";
+}
+
 function main() {
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (!/__create_pull_request$/.test(input?.tool_name || "")) return;
-  const problem = prRowProblem(input.tool_input || {});
+  const problem = prRowProblem(input.tool_input || {}) || gateCostProblem(input.tool_input || {});
   if (problem) console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: problem } }));
 }
 
