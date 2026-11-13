@@ -18,6 +18,8 @@ import {
   driveFlingSession,
   resolveDriveMode,
   takeStableSample,
+  waitForScrollSettled,
+  formatRepLine,
   repVerdict,
   judgeFrameElements,
   buildContextOptions,
@@ -375,7 +377,7 @@ test("the file documents the round-14 WebKit-has-no-real-iOS-decoder-cap limitat
 
 test("main() reports every rep and prints a combined paint + gap total", () => {
   const src = readFileSync(script, "utf8");
-  assert.match(src, /rep \$\{i \+ 1\}\/\$\{opts\.reps\}/);
+  assert.ok(src.includes("rep ${i + 1}/${reps}"));
   assert.match(src, /paintSum === 0 && gapSum === 0/);
 });
 
@@ -574,4 +576,95 @@ test("CLI: a bad header option prints one `error:` line and exits 2, with no sta
   assert.equal(r.status, 2);
   assert.match(r.stderr, /^error: unknown --header\* option/);
   assert.doesNotMatch(r.stderr, /\bat \w+.*\.mjs/);
+});
+
+// --- glide wait: a smooth-scroll page is judged only once it stops moving ------
+
+// A page whose scrollY eases toward a target on a virtual clock: each wait() advances time.
+const glidingPage = ({ from = 0, to = 1000, ease = 0.9 } = {}) => {
+  let y = from;
+  return { readScrollY: async () => y, wait: async (ms) => { for (let t = 0; t < ms; t += 16) y = to + (y - to) * ease; } };
+};
+
+test("waitForScrollSettled waits out an easing glide and reports settled once scrollY holds within 1px", async () => {
+  const page = glidingPage();
+  const r = await waitForScrollSettled({ ...page, quietMs: 150, maxMs: 5000, pollMs: 50 });
+  assert.equal(r.settled, true);
+  assert.ok(Math.abs((await page.readScrollY()) - 1000) < 5, "it waited until the glide landed");
+});
+
+test("waitForScrollSettled gives up at maxMs on a glide that outlasts it, reporting not settled", async () => {
+  const page = glidingPage({ ease: 0.999 });
+  const r = await waitForScrollSettled({ ...page, quietMs: 150, maxMs: 500, pollMs: 50 });
+  assert.equal(r.settled, false);
+});
+
+test("waitForScrollSettled on a page that is not scrolling settles after one quiet window and never waits longer", async () => {
+  let waited = 0;
+  const r = await waitForScrollSettled({ readScrollY: async () => 300, wait: async (ms) => { waited += ms; }, quietMs: 150, maxMs: 2000, pollMs: 50 });
+  assert.equal(r.settled, true);
+  assert.equal(waited, 150);
+});
+
+test("waitForScrollSettled with quietMs 0 is off: no waiting, settled", async () => {
+  let waited = 0;
+  const r = await waitForScrollSettled({ readScrollY: async () => Math.random(), wait: async (ms) => { waited += ms; }, quietMs: 0, maxMs: 2000, pollMs: 50 });
+  assert.deepEqual([r.settled, waited], [true, 0]);
+});
+
+test("takeStableSample: a page still gliding at the cap yields a glide drop, not a plain drop, and takes no screenshot", async () => {
+  let shots = 0;
+  const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box(0) }], capture: async () => ++shots, wait: async () => {}, settleScroll: async () => ({ settled: false }) });
+  assert.deepEqual(out, { glide: true });
+  assert.equal(shots, 0);
+});
+
+test("takeStableSample: once the glide has settled, boxes that still move are a plain drop (null), not a glide drop", async () => {
+  let t = 0;
+  const out = await takeStableSample({ read: async () => [{ tag: "img", rect: box((t += 50)) }], capture: async () => 1, wait: async () => {}, settleScroll: async () => ({ settled: true }), maxAttempts: 3 });
+  assert.equal(out, null);
+});
+
+test("a gliding strip is judged only after it lands: the sample is taken at the settled position", async () => {
+  const page = glidingPage({ to: 600 });
+  const out = await takeStableSample({
+    read: async () => [{ tag: "img", rect: box(await page.readScrollY() * -1) }],
+    capture: async () => "shot",
+    wait: async () => {},
+    settleScroll: () => waitForScrollSettled({ ...page, quietMs: 150, maxMs: 5000, pollMs: 50 }),
+  });
+  assert.ok(out, "judged, not dropped");
+  assert.ok(Math.abs(out.elements[0].rect.top + 600) < 5);
+});
+
+test("repVerdict: glide-dropped frames stay out of the dropped share, so a smooth-scroll site is not scored broken for gliding", () => {
+  assert.equal(repVerdict({ paint: 0, gaps: 0, frames: 4, dropped: 0, glideDropped: 6 }, 0.25).ok, true);
+});
+
+test("repVerdict: paint/gaps on the judged frames still fail whatever was glide-dropped", () => {
+  assert.equal(repVerdict({ paint: 2, gaps: 0, frames: 4, dropped: 0, glideDropped: 6 }, 0.25).ok, false);
+});
+
+test("repVerdict: every frame glide-dropped is not green, and the reason names the glide", () => {
+  const v = repVerdict({ paint: 0, gaps: 0, frames: 0, dropped: 0, glideDropped: 5 }, 0.25);
+  assert.equal(v.ok, false);
+  assert.match(v.reason, /still gliding/);
+});
+
+test("repVerdict without glideDropped behaves exactly as before", () => {
+  assert.equal(repVerdict({ paint: 0, gaps: 0, frames: 14, dropped: 6 }, 0.25).ok, false);
+  assert.match(repVerdict({ paint: 0, gaps: 0, frames: 0, dropped: 12 }, 0.25).reason, /never held still/);
+});
+
+test("formatRepLine: no glide drops, no new field (byte-identical to the old line); glide drops add glide-dropped=N", () => {
+  const r = { paint: 0, gaps: 0, frames: 10, dropped: 0, mode: "fling", glideDropped: 0 };
+  assert.equal(formatRepLine(0, 1, r, { ok: true, reason: "" }), "rep 1/1: paint=0 gaps=0 frames=10 dropped=0 mode=fling");
+  assert.equal(formatRepLine(0, 1, { ...r, glideDropped: 3 }, { ok: true, reason: "" }), "rep 1/1: paint=0 gaps=0 frames=10 dropped=0 glide-dropped=3 mode=fling");
+});
+
+test("parseArgs: glide flags default to 150 / 2000 ms and read values; 0 turns the wait off", () => {
+  const d = parseArgs(["https://x.test"]);
+  assert.deepEqual([d.glideQuietMs, d.glideMaxMs], [150, 2000]);
+  const o = parseArgs(["https://x.test", "--glide-quiet-ms", "0", "--glide-max-ms", "900"]);
+  assert.deepEqual([o.glideQuietMs, o.glideMaxMs], [0, 900]);
 });

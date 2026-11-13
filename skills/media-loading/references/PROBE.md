@@ -99,6 +99,7 @@ throttled screenshot) it waits 100 ms and retries, and drops the frame after six
 **Drop rule:** a dropped frame is not judged, so a rep is green only if at least one frame was judged and
 dropped frames are at most `--max-dropped-share` (default `0.25`) of all samples; otherwise the rep prints
 `NOT GREEN` and the run exits 1, whatever paint and gaps read.
+**Smooth-scroll sites:** before each frame the probe waits until `window.scrollY` has held within 1 px for `--glide-quiet-ms` (default 150), for at most `--glide-max-ms` (default 2000). A frame whose page is still gliding at that cap is not judged and is counted as `glide-dropped=N` in the rep line (shown only when N > 0), apart from `dropped=`; glide-dropped frames stay out of the `--max-dropped-share` maths, but a rep where every frame glide-dropped is still not green (raise `--glide-max-ms`). A site that eases with transforms instead of moving `scrollY` is not detected. Each judged frame now waits at least one quiet window (default 150 ms), so a long fling run covers fewer frames. `--glide-quiet-ms 0` turns the wait off. Fixture: `lib/fixtures/media-load-probe-glide-fixture.html` (served at `/glide`, `?smooth=0` for native scroll).
 Without this a healthy tile read as blank because its box no longer matched the pixels. The gap scan
 explains only the whitespace a row layout really covers: a taller neighbour whose top matches the tile above
 the gap, and blocks wider than the gap that sit in it. A row neighbour counts only if it ends inside the gap (a column running past the gap's lower edge is a column, not a row). A gap whose longest uncovered run is more than 4× `--gap-tolerance` (96 px at the default 24)
@@ -132,6 +133,8 @@ still flags, so a missing tile above or around a full-width heading is still a h
 | `--header "Name: value"` | (none) | Repeatable. Sent with every request as the browser context's `extraHTTPHeaders`, so it works for chromium, webkit and `--channel chrome` (for a page behind an access token, for example `--header "CF-Access-Client-Id: …" --header "CF-Access-Client-Secret: …"`). Only the header names are printed (`headers sent: …`); values never reach the output. A header not in `Name: value` form stops the run, and so does any `--header*` token that is not exactly `--header` or `--header-file` (a typo would otherwise run unauthenticated). |
 | `--header-file PATH` | (none) | Repeatable. One `Name: value` per line (blank lines and `#` comments skipped), merged with any `--header`; use it so an access secret never sits on a command line or in shell history. Refuses a file readable by group or other (`chmod 600` it first); errors name the path or the line number, never the contents. Not checked on Windows. |
 | `--max-dropped-share 0-1` | `0.25` | Share of samples that may be dropped for never holding still before the rep stops being green (and `frames=0` is never green). |
+| `--glide-quiet-ms N` | `150` | How long `window.scrollY` must hold within 1 px before a frame is judged; `0` turns the glide wait off. |
+| `--glide-max-ms N` | `2000` | Longest wait per frame for the glide to land; a frame still gliding then is counted `glide-dropped`. |
 | `--help`, `-h` | — | Print usage and exit `0`. Recognised anywhere in argv, including as the URL slot — never navigated to as a URL. |
 
 ## Worked examples

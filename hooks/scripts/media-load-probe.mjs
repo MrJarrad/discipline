@@ -153,7 +153,7 @@ export const USAGE =
   "[--frames N] [--duration MS] [--settle MS] [--reps N] [--gap-tolerance PX] [--gap-width-ratio N] " +
   "[--placeholder-colors \"#eee,#f2f2f2\"] [--color-tolerance N] [--min-painted-fraction 0-1] " +
   "[--min-painted-stddev N] [--min-structure-edge N] [--arrival-window-ms MS] " +
-  "[--min-visible-area 0-1] [--max-dropped-share 0-1] [--header \"Name: value\" ...] [--header-file PATH] | --help";
+  "[--min-visible-area 0-1] [--max-dropped-share 0-1] [--glide-quiet-ms 150] [--glide-max-ms 2000] [--header \"Name: value\" ...] [--header-file PATH] | --help";
 
 // `--header "Name: value"` (repeatable): split at the first colon. A malformed one
 // throws naming the flag only, never echoing the text, since values can be secrets.
@@ -234,6 +234,8 @@ export function parseArgs(argv) {
     arrivalWindowMs: DEFAULT_ARRIVAL_WINDOW_MS,
     minVisibleArea: MIN_VISIBLE_AREA_FRACTION,
     maxDroppedShare: 0.25,
+    glideQuietMs: 150,
+    glideMaxMs: 2000,
     header: [],
     headerFile: [],
   };
@@ -248,6 +250,8 @@ export function parseArgs(argv) {
     "arrival-window-ms": "arrivalWindowMs",
     "min-visible-area": "minVisibleArea",
     "max-dropped-share": "maxDroppedShare",
+    "glide-quiet-ms": "glideQuietMs",
+    "glide-max-ms": "glideMaxMs",
     "header-file": "headerFile",
   };
   for (let i = 0; i < rest.length; i++) {
@@ -294,6 +298,8 @@ export function parseArgs(argv) {
     arrivalWindowMs: Number(opts.arrivalWindowMs),
     minVisibleArea: Number(opts.minVisibleArea),
     maxDroppedShare: Number(opts.maxDroppedShare),
+    glideQuietMs: Number(opts.glideQuietMs),
+    glideMaxMs: Number(opts.glideMaxMs),
     placeholderColors: opts.placeholderColors
       ? opts.placeholderColors.split(",").map((s) => s.trim()).filter(Boolean)
       : [],
@@ -419,8 +425,13 @@ async function throttle(page, network) {
 // (the page was still scrolling) it waits and retries. `null` after `maxAttempts`
 // means the page never held still — the frame is dropped, never judged on a
 // mismatched pair. `read`/`capture`/`wait` are injected so no browser is needed to test it.
-export async function takeStableSample({ read, capture, wait, maxAttempts = 6 }) {
+// A smooth-scroll site keeps easing toward its target after a gesture, so boxes and pixels
+// keep moving for a second or more. `settleScroll` (optional) runs before every attempt;
+// when the scroll position is still moving at its cap the frame is a glide drop
+// (`{ glide: true }`), counted apart from a plain drop (`null`).
+export async function takeStableSample({ read, capture, wait, maxAttempts = 6, settleScroll }) {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (settleScroll && !(await settleScroll()).settled) return { glide: true };
     const elements = await read();
     const shot = await capture();
     const after = await read();
@@ -430,15 +441,42 @@ export async function takeStableSample({ read, capture, wait, maxAttempts = 6 })
   return null;
 }
 
+// Waits until `readScrollY` has moved by at most `epsilonPx` for `quietMs`, polling every
+// `pollMs`, for at most `maxMs`. `quietMs` 0 turns it off. A page that is not scrolling
+// settles after exactly one quiet window.
+export async function waitForScrollSettled({ readScrollY, wait, quietMs, maxMs, pollMs = 50, epsilonPx = 1 }) {
+  if (!(quietMs > 0)) return { settled: true };
+  let waited = 0;
+  let still = 0;
+  let last = await readScrollY();
+  while (still < quietMs) {
+    if (waited >= maxMs) return { settled: false };
+    await wait(pollMs);
+    waited += pollMs;
+    const y = await readScrollY();
+    still = Math.abs(y - last) <= epsilonPx ? still + pollMs : 0;
+    last = y;
+  }
+  return { settled: true };
+}
+
 // PF-1475 review: a rep is green only if it judged frames. Frames dropped for never
 // holding still are not judged, so a page that never settles (frames=0) or drops more
 // than `maxDroppedShare` of its samples cannot pass on "0 paint, 0 gaps" alone.
-export function repVerdict({ paint, gaps, frames, dropped }, maxDroppedShare = 0.25) {
+// Glide-dropped frames (page still easing under a smooth-scroll layer) stay out of the
+// share: they say nothing about paint or gaps. Every frame glide-dropped is still not green.
+export function repVerdict({ paint, gaps, frames, dropped, glideDropped = 0 }, maxDroppedShare = 0.25) {
+  if (frames === 0 && dropped === 0 && glideDropped > 0) return { ok: false, reason: `no frame was judged (${glideDropped} dropped while the page was still gliding: raise --glide-max-ms)` };
   if (frames === 0) return { ok: false, reason: `no frame was judged (${dropped} dropped: the page never held still)` };
   const share = dropped / (frames + dropped);
   if (share > maxDroppedShare) return { ok: false, reason: `dropped ${dropped} of ${frames + dropped} frames (${(share * 100).toFixed(0)}% > ${(maxDroppedShare * 100).toFixed(0)}%)` };
   if (paint > 0 || gaps > 0) return { ok: false, reason: `paint=${paint} gaps=${gaps}` };
   return { ok: true, reason: "" };
+}
+
+export function formatRepLine(i, reps, r, v) {
+  const glide = r.glideDropped > 0 ? ` glide-dropped=${r.glideDropped}` : "";
+  return `rep ${i + 1}/${reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} dropped=${r.dropped}${glide} mode=${r.mode}${v.ok ? "" : ` NOT GREEN: ${v.reason}`}`;
 }
 
 // One frame's elements reduced to what the classifier needs: each slot's own
@@ -597,12 +635,24 @@ async function run(opts) {
   // screenshot, decoded and cropped per element into `pixels` — never
   // a canvas source-bitmap read of the element's own bitmap.
   let droppedFrames = 0;
+  let glideDroppedFrames = 0;
   const sampleFn = async (p) => {
     const stable = await takeStableSample({
       read: async () => (await p.evaluate(sampleMediaStateInPage)).elements,
       capture: () => p.screenshot(),
       wait: () => p.waitForTimeout(STABLE_RETRY_MS),
+      settleScroll: () =>
+        waitForScrollSettled({
+          readScrollY: () => p.evaluate(() => window.scrollY),
+          wait: (ms) => p.waitForTimeout(ms),
+          quietMs: opts.glideQuietMs,
+          maxMs: opts.glideMaxMs,
+        }),
     });
+    if (stable?.glide) {
+      glideDroppedFrames++;
+      return null;
+    }
     if (!stable) {
       droppedFrames++;
       return null;
@@ -649,7 +699,7 @@ async function run(opts) {
   });
 
   await browser.close();
-  return { paint, gaps, frames: frames.length, dropped: droppedFrames, mode: driveMode.mode };
+  return { paint, gaps, frames: frames.length, dropped: droppedFrames, glideDropped: glideDroppedFrames, mode: driveMode.mode };
 }
 
 async function main() {
@@ -676,7 +726,7 @@ async function main() {
     reps.push(r);
     const v = repVerdict(r, opts.maxDroppedShare);
     r.verdict = v;
-    console.log(`rep ${i + 1}/${opts.reps}: paint=${r.paint} gaps=${r.gaps} frames=${r.frames} dropped=${r.dropped} mode=${r.mode}${v.ok ? "" : ` NOT GREEN: ${v.reason}`}`);
+    console.log(formatRepLine(i, opts.reps, r, v));
   }
   const paintSum = reps.reduce((s, r) => s + r.paint, 0);
   const gapSum = reps.reduce((s, r) => s + r.gaps, 0);
