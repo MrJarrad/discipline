@@ -69,3 +69,25 @@ test("with the vault's project lists readable, only a known prefix counts", () =
   assert.equal(run(pr({ title: "ZZ-12 fix", body: "" }), undefined, env)?.permissionDecision, "deny", "unknown prefix");
   assert.equal(run(pr({ title: "ZZ-12 fix", body: "" })), null, "no vault: any non-look-alike id passes");
 });
+
+// s84 lesson 1 (vault fleet/lessons/2026-11-12-s84-parent-lessons.md): a gate tightened round by round priced its own job out
+// (archive guard DISC-280/281/285: 27 helpers could not be archived in a session). A PR that tightens a gate states the per-use cost.
+test("s84 1: a gate or guard PR with no 'Per-use cost:' line is denied, naming what to state", () => {
+  const d = run(pr({ repo: "discipline", title: "DISC-300: archive guard also requires the branch lookup", body: "Closes DISC-300." }));
+  assert.equal(d?.permissionDecision, "deny");
+  assert.match(d.permissionDecisionReason, /Per-use cost:/);
+  assert.match(d.permissionDecisionReason, /calls/);
+  assert.equal(run(pr({ repo: "discipline", title: "DISC-300: tighten a thing", head: "s84-merge-gate-tighten", body: "Closes DISC-300." }))?.permissionDecision, "deny", "the branch name counts");
+});
+
+test("s84 1: a 'Per-use cost: <n calls, what it reads>' line passes; a bare one does not", () => {
+  const t = { repo: "discipline", title: "DISC-315: archive guard reads an open-PR lookup" };
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\nPer-use cost: 2 calls per helper (one search per id, one per branch); was a full history page-through." })), null);
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\nPer-use cost: none, no new check." })), null);
+  assert.equal(run(pr({ ...t, body: "Closes DISC-315.\nPer-use cost:" }))?.permissionDecision, "deny");
+});
+
+test("s84 1: a PR that is not about a gate or guard is untouched by the cost line", () => {
+  assert.equal(run(pr({ repo: "discipline", title: "DISC-301: reword the wrap checklist", body: "Closes DISC-301." })), null);
+  assert.equal(run(pr({ repo: "jhd-portfolio", title: "PF-5: gate the hero video", body: "Closes PF-5." })), null, "product repos are not plugin gates");
+});
