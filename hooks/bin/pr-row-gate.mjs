@@ -49,7 +49,7 @@ export function prRowProblem({ owner, repo, title, body }) {
 /* s84 lesson 1: a PR to this plugin whose title or branch is about a gate or guard states what the check costs per use
    (the archive guard grew until 27 finished helpers could not be archived in a session). A line `Per-use cost: <text>`. */
 const GATE_WORDS = /\b(gate|guard)s?\b/i;
-const PER_USE_COST = /^[\s>*_-]*Per-use cost:\**_*[ \t]*[^\s*_]/im; // bold, list and quote forms; the value starts on the same line
+const PER_USE_COST = /^[\s>*_`#-]*(?:\d+[.)][ \t]+)?[*_`]*Per-use cost[*_`]*:[*_`]*[ \t]*[^\s*_`]/im; // bold (colon in or out), list, numbered, heading, quote and backticked forms; the value starts on the same line
 export function gateCostProblem({ repo, title, head, body }) {
   if (!/^discipline$/i.test(String(repo ?? ""))) return null;
   if (!GATE_WORDS.test(`${title ?? ""} ${String(head ?? "").replace(/[-_/]/g, " ")}`)) return null;
