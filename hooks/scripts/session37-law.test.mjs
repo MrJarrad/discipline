@@ -16,7 +16,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
 const gate = join(root, "hooks", "bin", "agent-dispatch-gate.mjs");
 const sweep = join(here, "lane-sweep.mjs");
-const GOOD_JOB = "---\nrepo: ~/JHD/hoverboard\n---\nDo it. No background tasks, no subagents.\n";
+const GOOD_JOB = "---\nrepo: ~/JHD/hoverboard\n---\nDo it. No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n";
 
 function runGate(tool_input, cwd) {
   const r = spawnSync("node", [gate], { input: JSON.stringify({ tool_name: "Bash", tool_input, cwd }), encoding: "utf8" });

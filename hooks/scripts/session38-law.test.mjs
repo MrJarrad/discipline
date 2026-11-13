@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { checkBashKillByName, checkBashForcePush, checkBashMacJob } from "../bin/agent-dispatch-gate.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const GOOD_JOB = "---\nrepo: ~/JHD/hoverboard\n---\nDo it. No background tasks, no subagents.\n";
+const GOOD_JOB = "---\nrepo: ~/JHD/hoverboard\n---\nDo it. No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n";
 const BAD_JOB = "---\nrepo: ~\n---\nx\n";
 const tmp = (p) => mkdtempSync(join(realpathSync(tmpdir()), p));
 
