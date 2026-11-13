@@ -17,3 +17,8 @@ test("s84 1: a gate-tightening PR states the per-use cost, and pr-row-gate refus
 test("s84 2: a design-system merge that changes a portfolio-used API is followed in the same session by the pin bump", () => {
   assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("**A design-system merge that changes an API the portfolio uses is followed, in the same session, by the portfolio's pin bump** (s84:"));
 });
+
+test("s84 3: a design-system review needing handoff-css is a cloud reviewer with it attached read, or a local one (Local because: (c))", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("is a cloud reviewer with `handoff-css` attached `read`, or a local one** (s84 → s85)"));
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("with `Local because: (c)`"));
+});
