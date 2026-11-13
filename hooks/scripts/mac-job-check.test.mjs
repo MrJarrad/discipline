@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { macJobProblems } from "./mac-job-check.mjs";
 
-const job = (fm, body = "You ARE the job. No background tasks, no subagents.\n") => `---\n${fm}\n---\n${body}`;
+const job = (fm, body = "You ARE the job. No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n") => `---\n${fm}\n---\n${body}`;
 
 test("a job with a repo: line under /Users or ~ is clean", () => {
   assert.deepEqual(macJobProblems(job("repo: /Users/jarrad.harvey/JHD/hoverboard/main")), []);
@@ -44,14 +44,14 @@ test("a brief must say no background tasks, no subagents (600 s ceiling)", () =>
 });
 
 test("DISC-279: xcodebuild or softwareupdate in a job is named unless the job is purpose: xcode", () => {
-  const body = "No background tasks, no subagents.\nRun `xcodebuild -version` and report.\n";
+  const body = "No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\nRun `xcodebuild -version` and report.\n";
   assert.match(macJobProblems(job("repo: ~/x", body))[0], /xcodebuild.*DISC-279/);
-  assert.match(macJobProblems(job("repo: ~/x", "No background tasks, no subagents.\nsudo softwareupdate -l\n"))[0], /softwareupdate/);
+  assert.match(macJobProblems(job("repo: ~/x", "No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\nsudo softwareupdate -l\n"))[0], /softwareupdate/);
   assert.deepEqual(macJobProblems(job("repo: ~/x\npurpose: xcode", body)), []);
 });
 
 test("DISC-279: a read-only version read is clean", () => {
-  const body = "No background tasks, no subagents.\nplutil -extract CFBundleShortVersionString raw /Applications/Xcode.app/Contents/Info.plist\nxcrun simctl list runtimes\n";
+  const body = "No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\nplutil -extract CFBundleShortVersionString raw /Applications/Xcode.app/Contents/Info.plist\nxcrun simctl list runtimes\n";
   assert.deepEqual(macJobProblems(job("repo: ~/x", body)), []);
 });
 
@@ -129,21 +129,21 @@ test("s83 2: the pending/-on-a-branch refusal names merging as the go and promis
 // A reinstall job says `npm ci` outright.
 test("s83 6: a brief that runs npm ci only if node_modules or the dependency is missing is named; a plain npm ci is clean", () => {
   const bad = [
-    "Run npm ci only if node_modules is missing.\nNo background tasks, no subagents.",
-    "If node_modules does not exist, run `npm ci`.\nNo background tasks, no subagents.",
-    "[ -d node_modules ] || npm ci\nNo background tasks, no subagents.",
-    "Install with npm ci when the checker is absent.\nNo background tasks, no subagents.",
-    "test -d node_modules || npm install\nNo background tasks, no subagents.",
+    "Run npm ci only if node_modules is missing.\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.",
+    "If node_modules does not exist, run `npm ci`.\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.",
+    "[ -d node_modules ] || npm ci\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.",
+    "Install with npm ci when the checker is absent.\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.",
+    "test -d node_modules || npm install\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.",
   ];
   for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body))[0], /npm ci outright/, body);
-  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Run `npm ci` in the clone.\nNo background tasks, no subagents.\n")), []);
-  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Clone fresh, then npm ci.\nIf the test fails, report it. No background tasks, no subagents.\n")), []);
+  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Run `npm ci` in the clone.\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n")), []);
+  assert.deepEqual(macJobProblems(job("repo: ~/a/b", "Clone fresh, then npm ci.\nIf the test fails, report it. No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n")), []);
   // s84 (review of #201): a condition that does not guard the install is not a conditional install.
   for (const body of [
     "Run `npm ci`. If package-lock.json is missing, stop and report.",
     "Run npm ci. If the install fails because a package is missing from the registry, report it.",
     "Clone fresh. If the commit is missing from the remote, stop. Then run npm ci and npm test.",
-  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n")), [], body);
+  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n")), [], body);
 });
 
 // s84 amber (review of #202): a backtick-quoted command and a "then" joiner are the same guarded install.
@@ -153,12 +153,23 @@ test("s84 amber: a backtick-quoted guarded npm ci and an \"absent then npm ci\" 
     "Run `npm ci` if the dependency is not installed.",
     "If node_modules is absent then npm ci",
   ];
-  for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n"))[0], /npm ci outright/, body);
+  for (const body of bad) assert.match(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n"))[0], /npm ci outright/, body);
   for (const body of [
     "Run npm ci, then npm test. If the lockfile is missing, stop.",
     "Run npm ci. If the job fails because a font is missing, report it.",
     "If the screenshot is missing, report it. Then run npm ci.",
     "Run npm ci; when it finishes, report if any file is missing.",
     "Run npm ci. When the test output is missing, say so.",
-  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents.\n")), [], body);
+  ]) assert.deepEqual(macJobProblems(job("repo: ~/a/b", body + "\nNo background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n")), [], body);
+});
+
+test("a PART heading with no body after it is named; a filled PART passes", () => {
+  const intro = "No background tasks, no subagents. Stop if `pmset -g batt` shows battery power.\n";
+  assert.match(macJobProblems(job("repo: ~/x", `${intro}\nPART 1 (measure the wave)\n`))[0], /PART 1.*no body/);
+  assert.match(macJobProblems(job("repo: ~/x", `${intro}\nPART 1 (a)\nrun it\n\nPART 2 (b)\n---\n`))[0], /PART 2.*no body/);
+  assert.deepEqual(macJobProblems(job("repo: ~/x", `${intro}\nPART 1 (a)\nrun it\n\nPART 2 (b)\nreport it\n`)), []);
+});
+
+test("a job without the pmset battery stop rule is named", () => {
+  assert.match(macJobProblems(job("repo: ~/x", "No background tasks, no subagents. Do the thing.\n"))[0], /pmset/);
 });

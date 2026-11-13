@@ -32,6 +32,20 @@ export const CONDITIONAL_INSTALL = (() => {
   ].join("|"), "i");
 })();
 
+export const PMSET_STOP = /pmset\s+-g\s+batt/i;
+// A "PART n" line opens a section; it is empty when only blank or `---` lines precede the next PART line or the end.
+function emptyParts(body) {
+  const out = [];
+  let open = null, filled = false;
+  const close = () => { if (open && !filled) out.push(open); };
+  for (const l of body.split("\n")) {
+    const m = l.match(/^\W*(PART \d+)\b/);
+    if (m) { close(); open = m[1]; filled = false; } else if (l.trim() && l.trim() !== "---") filled = true;
+  }
+  close();
+  return out;
+}
+
 export function macJobProblems(text) {
   const t = String(text);
   // run.sh parses with awk `/^---$/` — a CRLF file has no frontmatter to it (exit 97).
@@ -55,6 +69,9 @@ export function macJobProblems(text) {
   if (!body.trim()) problems.push("empty brief (runner exit 98)");
   else if (!NO_BACKGROUND.test(body))
     problems.push('brief lacks "no background tasks, no subagents" (a headless job that backgrounds work is killed at the 600 s ceiling)');
+  else if (!PMSET_STOP.test(body))
+    problems.push('brief lacks the battery stop rule (`pmset -g batt` showing battery power: stop, run nothing): a job on battery gives unfair numbers and can be killed mid-run');
+  for (const part of emptyParts(body)) problems.push(`${part} has no body: a PART heading must be followed by its steps before the next PART or the end`);
   if (CONDITIONAL_INSTALL.test(body))
     problems.push("brief installs only if node_modules or the dependency is missing: a stale install stays in place (s83: a 0.12.0 checker left from an earlier install failed the pull job 14/30). Say npm ci outright");
   // purpose: xcode in the frontmatter marks a job that is for Xcode or system updates; any other job may not name them.
