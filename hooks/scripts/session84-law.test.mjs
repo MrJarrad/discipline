@@ -22,3 +22,7 @@ test("s84 3: a design-system review needing handoff-css is a cloud reviewer with
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("is a cloud reviewer with `handoff-css` attached `read`, or a local one** (s84 → s85)"));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("with `Local because: (c)`"));
 });
+
+test("s84 4: a follow-up after a lane lands is a fresh helper; messaging a live one works only as a re-point naming the new parent id", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("**A follow-up after a lane lands is a fresh helper, not a message to the old one** (s84 HT-128 docs:"));
+});
