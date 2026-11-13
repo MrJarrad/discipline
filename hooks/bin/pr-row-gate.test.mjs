@@ -100,6 +100,16 @@ test("s84 1: bold, list and quoted forms of the Per-use cost line pass", () => {
   }
 });
 
+test("the other common spellings of the Per-use cost line pass: colon outside bold, heading, numbered, backticked", () => {
+  const t = { repo: "discipline", title: "DISC-315: archive guard reads an open-PR lookup" };
+  for (const line of ["**Per-use cost**: 2 calls per helper", "### Per-use cost: 2 calls", "1. Per-use cost: 2 calls", "`Per-use cost:` 2 calls", "`Per-use cost: 2 calls`", "- 2) Per-use cost: none", "1. **Per-use cost**: none"]) {
+    assert.equal(run(pr({ ...t, body: `Closes DISC-315.\n${line}` })), null, line);
+  }
+  for (const line of ["**Per-use cost**:", "### Per-use cost:", "1. Per-use cost:", "`Per-use cost:`"]) {
+    assert.equal(run(pr({ ...t, body: `Closes DISC-315.\n${line}\n2 calls` }))?.permissionDecision, "deny", line);
+  }
+});
+
 test("s84 1: a Per-use cost label with its value on the next line, or only bold markers after it, is denied", () => {
   const t = { repo: "discipline", title: "DISC-315: archive guard reads an open-PR lookup" };
   assert.equal(run(pr({ ...t, body: "Closes DISC-315.\nPer-use cost:\n2 calls per helper" }))?.permissionDecision, "deny");
