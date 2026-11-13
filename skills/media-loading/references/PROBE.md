@@ -42,7 +42,10 @@ Two independent counts, both must be **0**:
      overhang still crosses it; a header rising from below the fold) shows
      nothing and is not judged (`isClippedOutOfView`, DISC-276). The gap scan
      likewise uses each element's clipped rect and counts visible text blocks
-     as covering, so a text block between two media is not a gap.
+     as covering, so a text block between two media is not a gap. A text block
+     inside a `position: fixed` ancestor (a skip link at rest, a footer nav) is
+     never covering: it overlays the page, and counted it would anchor a column
+     and make ordinary row spacing read as a hole (PF-1475).
   4. Crop that rect (scaled to the screenshot's own pixel size) out of the
      decoded image (`cropRegionPixels`).
   5. Classify the crop painted once EITHER (a) more than
