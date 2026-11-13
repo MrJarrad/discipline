@@ -43,7 +43,7 @@ export function shownSession(lines, id) {
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
       const parsed = extractJson(text);
       if (parsed === undefined) continue;
-      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], working: /(WORKING|RUNNING)$/i.test(String(s.status_bucket ?? "")) || /(WORKING|RUNNING)$/i.test(String(s.session_status ?? s.status ?? "")), at };
+      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], ts: e.timestamp, working: /(WORKING|RUNNING)$/i.test(String(s.status_bucket ?? "")) || /(WORKING|RUNNING)$/i.test(String(s.session_status ?? s.status ?? "")), at };
     }
   }
   return found;
@@ -72,7 +72,7 @@ function* results(lines, nameRe, from = 0) {
       if (part?.type === "tool_use" && nameRe.test(part.name || "")) calls.set(part.id, part.input || {});
       if (part?.type !== "tool_result" || !calls.has(part.tool_use_id)) continue;
       const c = part.content;
-      yield { input: calls.get(part.tool_use_id), text: typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "" };
+      yield { input: calls.get(part.tool_use_id), ts: e.timestamp, text: typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "" };
     }
   }
 }
@@ -103,9 +103,13 @@ function listed(text) {
 
 /* { open, missing }: open = PRs an accepted lookup returned for the helper's id or a branch; missing = names with no accepted
    lookup. `from`: lookups in the parent's own transcript count only after its last get_session of the helper. */
-export function openPrLookup(lines, id, branches = [], subLines = [], from = 0) {
+export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, since = null) {
   const covered = new Set(), open = new Set();
-  for (const { input, text } of [...results(lines, LOOKUP_TOOL, from), ...results(subLines, LOOKUP_TOOL)]) {
+  /* A subagent's lines carry no position relative to the parent's, so they are ordered by their time stamps: a lookup with no
+     stamp, or earlier than the parent's last get_session of the helper (or with no stamp on that sighting), does not count. */
+  const later = (ts) => !!since && !!ts && Date.parse(ts) >= Date.parse(since);
+  const subs = [...results(subLines, LOOKUP_TOOL)].filter((r) => later(r.ts));
+  for (const { input, text } of [...results(lines, LOOKUP_TOOL, from), ...subs]) {
     const q = queryOf(input), term = q && termOf(q);
     const name = term === id ? id : branches.find((b) => term === `head:${b}`);
     const prs = name && listed(text);
@@ -137,7 +141,7 @@ export function verdict(lines, id, subLines = []) {
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
   if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
-  const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at);
+  const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at, s.ts);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
   if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
   return null;

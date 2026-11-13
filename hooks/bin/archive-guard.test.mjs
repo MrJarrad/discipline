@@ -204,11 +204,20 @@ const runWithSub = (session_id, parentLines, subLines) => {
   assert.equal(r.status, 0, r.stderr);
   return r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : null;
 };
+const stamp = (lines, iso) => lines.map((l) => ({ ...l, timestamp: iso }));
+const T1 = "2026-11-13T10:00:00.000Z", T2 = "2026-11-13T10:05:00.000Z";
 test("DISC-284: lookups a subagent of this session ran count, and its open-PR result still refuses", () => {
-  assert.equal(runWithSub(ID("d1"), helperB(ID("d1")), ghSearch(`is:pr is:open ${ID("d1")}`, search(), "s1")), null);
-  deniedNaming(runWithSub(ID("d2"), helperB(ID("d2")), ghSearch(`is:pr is:open ${ID("d2")}`, search("", [pr(602)]), "s1")), /#602/);
+  assert.equal(runWithSub(ID("d1"), stamp(helperB(ID("d1")), T1), stamp(ghSearch(`is:pr is:open ${ID("d1")}`, search(), "s1"), T2)), null);
+  deniedNaming(runWithSub(ID("d2"), stamp(helperB(ID("d2")), T1), stamp(ghSearch(`is:pr is:open ${ID("d2")}`, search("", [pr(602)]), "s1"), T2)), /#602/);
+});
+test("DISC-318: a subagent lookup made before the parent's last get_session of the helper, or carrying no time, is not a lookup", () => {
+  const lookup = (iso) => (iso ? stamp : (l) => l)(ghSearch(`is:pr is:open ${ID("d4")}`, search(), "s1"), iso);
+  deniedNaming(runWithSub(ID("d4"), stamp(helperB(ID("d4")), T2), lookup(T1)), /open-PR lookup/);
+  deniedNaming(runWithSub(ID("d4"), stamp(helperB(ID("d4")), T2), lookup(null)), /open-PR lookup/);
+  deniedNaming(runWithSub(ID("d4"), helperB(ID("d4")), lookup(T2)), /open-PR lookup/);
+  assert.equal(runWithSub(ID("d4"), stamp(helperB(ID("d4")), T1), lookup(T2)), null);
 });
 test("DISC-284: a subagent cannot make a parent session look like a helper", () => {
-  const sub = [...helperB(ID("d3")), ...ghSearch(`is:pr is:open ${ID("d3")}`, search(), "s1")];
+  const sub = stamp([...helperB(ID("d3")), ...ghSearch(`is:pr is:open ${ID("d3")}`, search(), "s1")], T2);
   assert.equal(runWithSub(ID("d3"), [], sub)?.permissionDecision, "deny");
 });
