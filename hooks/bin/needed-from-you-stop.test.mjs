@@ -369,3 +369,13 @@ test("DISC-324 CLI: a textless wake turn that merged a PR without writing the St
   const out = spawnSync("node", [hook], { input: JSON.stringify({ transcript_path: tr }), encoding: "utf8", env: { PATH: process.env.PATH, DISCIPLINE_VAULT_ROOT: v } });
   assert.match(JSON.parse(out.stdout).reason, /DISC-324[^]*no chat text/);
 });
+// DISC-324 round 2 (review amber): a Bash command that only NAMES a state script is not a state change; an actual `node … <script>` invocation is.
+test("DISC-324: a Bash call that only names row-add, lane-end or go-live-tick (grep, sed -n, git diff, --dry-run) is not a state change; a real invocation anywhere in a compound command is", () => {
+  const bash = (command) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "x", name: "Bash", input: { command } }] } });
+  const t = (command) => lastTurn(turn(bash(command), reply("ok")), [DOC_ID]).stateChanges;
+  for (const c of ["grep -rn row-add.mjs hooks/", "sed -n 1,40p hooks/scripts/lane-end.mjs", "git diff -- hooks/scripts/row-add.mjs", "cat hooks/scripts/go-live-tick.mjs --apply",
+    "node hooks/scripts/row-add.mjs --vault v --prefix PF --to queue --text x --dry-run", "node hooks/scripts/lane-end.mjs --vault v --id PF-5 --dry-run", "node hooks/scripts/go-live-tick.mjs --vault v --rows PF-5 --apply --dry-run"])
+    assert.deepEqual(t(c), [], c);
+  assert.deepEqual(t("cd /v && node /p/hooks/scripts/lane-end.mjs --vault v --id PF-5 | tail -3"), ["lane-end"]);
+  assert.deepEqual(t("git pull -q; DISCIPLINE_X=1 node hooks/scripts/row-add.mjs --vault v --prefix PF --to backlog --text x"), ["row-add"]);
+});

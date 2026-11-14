@@ -14,10 +14,13 @@ export function reprintedIds(block, newIds) {
 const LIST_FILE = /(?:^|\/)projects\/[^/]+\/[^/]+-(?:queue|backlog)\.md$/;
 export function stateChangeOf(name, input = {}) {
   if (name === "Bash") {
-    const c = String(input.command || "");
-    if (/row-add\.mjs/.test(c)) return "row-add";
-    if (/lane-end\.mjs/.test(c)) return "lane-end";
-    if (/go-live-tick\.mjs[^\n]*--apply/.test(c)) return "go-live-tick";
+    /* only an actual `node … <script>` invocation counts, per command segment; a grep, sed, git diff or --dry-run that merely names the script does not */
+    for (const seg of String(input.command || "").split(/&&|\|\||[;|\n]/)) {
+      const m = /^\s*(?:[A-Za-z_]\w*=\S*\s+)*node\s+(?:-\S+\s+)*\S*?(row-add|lane-end|go-live-tick)\.mjs(?=\s|$)/.exec(seg);
+      if (!m || /--dry-run\b/.test(seg)) continue;
+      if (m[1] === "go-live-tick" && !/--apply\b/.test(seg)) continue;
+      return m[1];
+    }
     return null;
   }
   if (name === "mcp__github__merge_pull_request") return "merge";
