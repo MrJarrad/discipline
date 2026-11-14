@@ -14,6 +14,7 @@
    same session count (subagentLines).   */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
 
 const deny = (reason) => {
@@ -94,11 +95,35 @@ function termOf(query) {
   return rest.length === 1 ? rest[0] : null;
 }
 /* The PRs an accepted lookup returned, or null when the result is not the untruncated search object. */
-function listed(text) {
+export function listed(text) {
   const j = extractJson(text);
   if (!j || typeof j !== "object" || Array.isArray(j) || !Array.isArray(j.items)) return null;
   if (j.incomplete_results === true || typeof j.total_count !== "number" || j.total_count > j.items.length) return null;
   return j.items;
+}
+
+/* "owner/repo#n" for a search item (its URL when it is not a pull URL). */
+export function prName(p) {
+  const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
+  const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
+  return m ? `${m[1]}#${m[2]}` : url;
+}
+
+/* DISC-325: the second accepted lookup form. `node "<this plugin's scripts dir>/archive-prep.mjs" --session <id> [--branches a,b]`,
+   alone (no pipe, wrapper or substitution), prints { lookups: [{ query, result }] }: the same searches, run by the script. The
+   command is pinned to the one archive-prep.mjs beside this guard (a script at any other path could print a fake clear lookup,
+   review A1), and its output is read from the harness-written tool_result, so a typed-in echo is not it; each lookup then goes
+   through the same termOf / listed checks as a gh search. Not covered: an agent that rewrites the plugin's own archive-prep.mjs. */
+const PREP_SCRIPT = fileURLToPath(new URL("../scripts/archive-prep.mjs", import.meta.url));
+const PREP_CMD = new RegExp(`^\\s*node "${PREP_SCRIPT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" --session [\\w./:-]+(?: --branches [\\w./:,-]+)?\\s*$`);
+/* [{ query, text }] for one Bash/MCP call: its single gh search, or each lookup an archive-prep run printed. */
+function lookupsOf(input, text) {
+  if (typeof input.command === "string" && PREP_CMD.test(input.command)) {
+    const j = extractJson(text);
+    return Array.isArray(j?.lookups) ? j.lookups.map((l) => ({ query: String(l?.query ?? ""), text: JSON.stringify(l?.result) })) : [];
+  }
+  const q = queryOf(input);
+  return q ? [{ query: q, text }] : [];
 }
 
 /* { open, missing }: open = PRs an accepted lookup returned for the helper's id or a branch; missing = names with no accepted
@@ -109,17 +134,15 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
      stamp, or earlier than the parent's last get_session of the helper (or with no stamp on that sighting), does not count. */
   const later = (ts) => !!since && !!ts && Date.parse(ts) >= Date.parse(since);
   const subs = [...results(subLines, LOOKUP_TOOL)].filter((r) => later(r.ts));
-  for (const { input, text } of [...results(lines, LOOKUP_TOOL, from), ...subs]) {
-    const q = queryOf(input), term = q && termOf(q);
+  for (const { input, text: raw } of [...results(lines, LOOKUP_TOOL, from), ...subs]) for (const { query: q, text } of lookupsOf(input, raw)) {
+    const term = termOf(q);
     const name = term === id ? id : branches.find((b) => term === `head:${b}`);
     const prs = name && listed(text);
     if (!prs) continue;
     covered.add(name);
     for (const p of prs) {
       if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
-      const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
-      const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
-      open.add(m ? `${m[1]}#${m[2]}` : url);
+      open.add(prName(p));
     }
   }
   return { open: [...open], missing: [id, ...branches].filter((w) => !covered.has(w)) };

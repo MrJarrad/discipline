@@ -221,3 +221,49 @@ test("DISC-284: a subagent cannot make a parent session look like a helper", () 
   const sub = stamp([...helperB(ID("d3")), ...ghSearch(`is:pr is:open ${ID("d3")}`, search(), "s1")], T2);
   assert.equal(runWithSub(ID("d3"), [], sub)?.permissionDecision, "deny");
 });
+
+// DISC-325: archive-prep.mjs runs the open-PR lookups for a helper in one call; its printed JSON, read from the harness-written
+// tool_result, is a lookup. Only the exact command form counts, and every other guard check still applies to it.
+const SCRIPTS = fileURLToPath(new URL("../scripts/", import.meta.url)); // the plugin's own scripts dir, as the guard pins it
+const PREP_AT = (dir, id, branches) => `node "${dir}archive-prep.mjs" --session ${id}${branches?.length ? ` --branches ${branches.join(",")}` : ""}`;
+const PREP = (id, branches) => PREP_AT(SCRIPTS, id, branches);
+
+const prepOut = (id, branches = [], openFor = {}) => JSON.stringify({ ok: true, session: id, branches, open: [], lookups: [id, ...branches.map((b) => `head:${b}`)].map((t) => ({ query: `is:pr is:open ${t}`, result: search("", openFor[t] ?? []) })) });
+const prepCall = (command, out, cid = "p1") => call("Bash", { command }, out, cid).map((e) => JSON.parse(JSON.stringify(e).replace("mcp__claude-code-remote__Bash", "Bash")));
+test("DISC-325: archive-prep output covering the session id and each branch clears a helper", () => {
+  assert.equal(run(ID("p1"), [...helperB(ID("p1"), ["claude/x"]), ...prepCall(PREP(ID("p1"), ["claude/x"]), prepOut(ID("p1"), ["claude/x"]))]), null);
+});
+test("DISC-325: an open PR inside archive-prep output refuses, naming it", () => {
+  deniedNaming(run(ID("p2"), [...helperB(ID("p2"), ["b"]), ...prepCall(PREP(ID("p2"), ["b"]), prepOut(ID("p2"), ["b"], { "head:b": [pr(41)] }))]), /#41/);
+});
+test("DISC-325: archive-prep run without a branch get_session shows refuses, naming the branch", () => {
+  deniedNaming(run(ID("p3"), [...helperB(ID("p3"), ["claude/y"]), ...prepCall(PREP(ID("p3")), prepOut(ID("p3")))]), /claude\/y/);
+});
+test("DISC-325: archive-prep run before the get_session does not count", () => {
+  assert.equal(run(ID("p4"), [...prepCall(PREP(ID("p4")), prepOut(ID("p4")), "p0"), ...helperB(ID("p4"))])?.permissionDecision, "deny");
+});
+test("DISC-325: archive-prep output for another session id does not clear this helper", () => {
+  deniedNaming(run(ID("p5"), [...helperB(ID("p5")), ...prepCall(PREP(ID("p6")), prepOut(ID("p6")))]), /open-PR lookup/);
+});
+test("DISC-325: a piped, wrapped, echoed or other-script command is not archive-prep", () => {
+  for (const cmd of [`${PREP(ID("p7"))} | cat`, `echo '${prepOut(ID("p7"))}'`, `bash -c '${PREP(ID("p7"))}'`, `${PREP(ID("p7"))}; true`, `node "/tmp/archive-prep.mjs.evil" --session ${ID("p7")}`, `node "/tmp/x/archive-prep.mjs" --session ${ID("p7")} --branches $(id)`])
+    deniedNaming(run(ID("p7"), [...helperB(ID("p7")), ...prepCall(cmd, prepOut(ID("p7")))]), /open-PR lookup/);
+});
+test("DISC-325: archive-prep output that is truncated, incomplete or unreadable refuses (fail closed)", () => {
+  const mk = (result) => JSON.stringify({ lookups: [{ query: `is:pr is:open ${ID("p8")}`, result }] });
+  for (const result of [{ total_count: 99, incomplete_results: false, items: [] }, search("", [], { incomplete_results: true }), { error: "HTTP 403" }, "x"])
+    deniedNaming(run(ID("p8"), [...helperB(ID("p8")), ...prepCall(PREP(ID("p8")), mk(result))]), /open-PR lookup/);
+  deniedNaming(run(ID("p8"), [...helperB(ID("p8")), ...prepCall(PREP(ID("p8")), "not json")]), /open-PR lookup/);
+});
+test("DISC-325: a parent session or a working helper is refused even with a clear archive-prep", () => {
+  const parent = [...call("get_session", {}, { ccr: sess(ID("p9"), "Orchestrator · x ← talk here", null) }, "g1"), ...prepCall(PREP(ID("p9")), prepOut(ID("p9")))];
+  deniedNaming(run(ID("p9"), parent), /parent session/);
+  const working = [...call("get_session", {}, { ccr: { ...sess(ID("pa"), "Helper · x", "session_p"), status_bucket: "SESSION_STATUS_BUCKET_WORKING" } }, "g1"), ...prepCall(PREP(ID("pa")), prepOut(ID("pa")))];
+  deniedNaming(run(ID("pa"), working), /still working/);
+});
+
+test("DISC-325 A1: an archive-prep at any other path (a look-alike script printing a fake clear lookup) is not a lookup", () => {
+  for (const dir of ["/tmp/evil/hooks/scripts/", "/home/user/work/hooks/scripts/", `${SCRIPTS}../scripts/../../x/hooks/scripts/`, "/root/.claude/plugins/cache/discipline/discipline/1.203.0/hooks/scripts/"])
+    deniedNaming(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP_AT(dir, ID("f1")), prepOut(ID("f1")))]), /open-PR lookup/);
+  assert.equal(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP(ID("f1")), prepOut(ID("f1")))]), null);
+});

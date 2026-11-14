@@ -514,3 +514,31 @@ test("DISC-268: --helper <session id> records the landed helper in <session-dir>
   assert.match(r.stdout, /session_h9/);
   rmSync(vault, { recursive: true, force: true });
 });
+
+// DISC-325: one comma list of helper + reviewer ids; lane-end prints the ordered calls so the parent archives in the same turn.
+import { archiveSequence } from "./lane-end.mjs";
+test("DISC-325: archiveSequence orders every get_session, then one archive-prep per session, then every archive_session", () => {
+  const s = archiveSequence(["session_a", "session_b"], "/plug/hooks/scripts");
+  const at = (re) => s.findIndex((l) => re.test(l));
+  assert.ok(at(/get_session session_a/) < at(/archive-prep.*--session session_a/) && at(/get_session session_b/) < at(/archive-prep.*--session session_b/));
+  assert.ok(Math.max(at(/get_session session_a/), at(/get_session session_b/)) < Math.min(at(/archive-prep.*session_a/), at(/archive-prep.*session_b/)));
+  assert.ok(Math.max(at(/archive-prep.*session_a/), at(/archive-prep.*session_b/)) < Math.min(at(/archive_session session_a/), at(/archive_session session_b/)));
+  assert.match(s.join("\n"), /node "\/plug\/hooks\/scripts\/archive-prep\.mjs" --session session_a --branches <branches/);
+});
+test("DISC-325: --helper takes a comma list: each id lands in landed-helpers and the sequence prints for each", () => {
+  const vault = makeVaultWithQueue();
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |", "--helper", "session_h1,session_r1"], { encoding: "utf8" });
+  const landed = readFileSync(join(sessionDir, "landed-helpers"), "utf8").split("\n").filter(Boolean);
+  assert.deepEqual(landed, ["session_h1", "session_r1"], r.stderr);
+  assert.match(r.stdout, /archive_session session_h1/);
+  assert.match(r.stdout, /archive_session session_r1/);
+  rmSync(vault, { recursive: true, force: true });
+});
+test("DISC-325: no --helper prints no archive sequence", () => {
+  const vault = makeVaultWithQueue();
+  const sessionDir = mkdtempSync(join(tmpdir(), "lane-end-session-"));
+  const r = spawnSync("node", [scriptPath, "--session-dir", sessionDir, "--vault", vault, "--id", "TP-1", "--text", "| TP-1 | landed |"], { encoding: "utf8" });
+  assert.doesNotMatch(r.stdout, /archive_session/);
+  rmSync(vault, { recursive: true, force: true });
+});
