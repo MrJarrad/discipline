@@ -310,3 +310,72 @@ test("s81 (review AMBER 2): a real operator message is never a wake, even if it 
   assert.equal(wk([{ type: "text", text: "check the footer" }, { type: "text", text: WAKE }]), false);
   assert.equal(wk([{ type: "text", text: WAKE }, { type: "text", text: `<task-notification><status>done</status></task-notification>` }]), true);
 });
+
+// DISC-309 (operator s82, verbatim: "why is this still apearing?"): a reply names only rows that did not exist before this turn.
+// A row with no row-add marker this turn existed already, so it is on the Status doc and must not be printed again.
+test("DISC-309: the short block refuses a printed row ID that was not added this turn, naming it", () => {
+  const v = vaultWithChecklist();
+  process.env.DISCIPLINE_MARKER_DIR = mkdtempSync(join(tmpdir(), "mk-"));
+  try {
+    writeMarker(v, { prefix: "DISC", id: "DISC-308", to: "queue", ts: "2026-10-16T10:05:00.000Z" });
+    const again = SHORT("1. **Footer round** PF-5 look again.\n2. **New** DISC-308 decide.\n\n");
+    assert.match(check({ text: again, userTs: T, vault: v }), /DISC-309[^]*PF-5[^]*already on the Status doc/);
+    assert.doesNotMatch(check({ text: again, userTs: T, vault: v }), /DISC-308/);
+  } finally { delete process.env.DISCIPLINE_MARKER_DIR; }
+});
+test("DISC-309: a reply that names no row IDs passes, so the 'still open' reminder line is allowed", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: SHORT("Your decisions are still open on the doc.\n\n"), userTs: T, vault: v }), null);
+});
+
+// DISC-324 (operator s87, verbatim: "i need to you ensure the status doc is always up to date and need this to go across sessions"):
+// a turn that changed queue, backlog or merge state must also write the Status doc in that turn. stateChanges is what lastTurn read from the turn's tool calls.
+test("DISC-324: a state change with no Status doc write this turn is refused, whatever the reply says", () => {
+  const v = vaultWithChecklist();
+  assert.match(check({ text: "Merged.", userTs: T, vault: v, docWritten: false, stateChanges: ["merge"] }), /DISC-324[^]*merge[^]*Status doc/);
+});
+test("DISC-324: the same state change passes once the doc was written this turn, or when the vault has no Status doc", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: "Merged.", userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), null);
+  assert.equal(check({ text: "Merged.", userTs: T, vault: vault(), stateChanges: ["merge"] }), null);
+});
+test("DISC-324: a textless wake that changed state is refused, and the reason asks for no chat text; a wake with no state change is untouched", () => {
+  const v = vaultWithChecklist();
+  const r = check({ text: null, userTs: T, vault: v, docWritten: false, wake: true, stateChanges: ["merge"] });
+  assert.match(r, /DISC-324/);
+  assert.match(r, /no chat text/);
+  assert.equal(check({ text: null, userTs: T, vault: v, docWritten: false, wake: true, stateChanges: [] }), null);
+});
+test("DISC-324: lastTurn reads state changes from this turn's tool calls only (row-add, lane-end, go-live-tick --apply, a merge, a queue or backlog edit)", () => {
+  const use = (name, input) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "x", name, input }] } });
+  const bash = (command) => use("Bash", { command });
+  const t = (...l) => lastTurn(turn(...l, reply("ok")), [DOC_ID]).stateChanges;
+  assert.deepEqual(t(bash("node hooks/scripts/row-add.mjs --vault v --prefix PF --to queue --text x")), ["row-add"]);
+  assert.deepEqual(t(bash("node hooks/scripts/lane-end.mjs --vault v --id PF-5")), ["lane-end"]);
+  assert.deepEqual(t(bash("node hooks/scripts/go-live-tick.mjs --vault v --rows PF-5 --apply")), ["go-live-tick"]);
+  assert.deepEqual(t(use("mcp__github__merge_pull_request", { owner: "mrjarrad", repo: "jhd-vault", pullNumber: 4 })), ["merge"]);
+  assert.deepEqual(t(use("Edit", { file_path: "/v/projects/portfolio/portfolio-queue.md" })), ["queue-or-backlog-edit"]);
+  assert.deepEqual(t(use("mcp__github__create_or_update_file", { path: "projects/jhd-discipline/jhd-discipline-backlog.md" })), ["queue-or-backlog-edit"]);
+  assert.deepEqual(t(bash("node hooks/scripts/go-live-tick.mjs --vault v --rows PF-5"), bash("grep -n PF-5 projects/portfolio/portfolio-queue.md"), use("Edit", { file_path: "/v/projects/portfolio/notes.md" })), [], "dry run, read and unrelated edit are not state changes");
+  const earlier = [JSON.stringify({ type: "user", timestamp: T, message: { content: "first" } }), use("mcp__github__merge_pull_request", {}), reply("done"), JSON.stringify({ type: "user", timestamp: T, message: { content: "again" } }), reply("ok")].join("\n");
+  assert.deepEqual(lastTurn(earlier, [DOC_ID]).stateChanges, []);
+});
+test("DISC-324 CLI: a textless wake turn that merged a PR without writing the Status doc is blocked", () => {
+  const v = vaultWithChecklist();
+  const d = mkdtempSync(join(tmpdir(), "tr-"));
+  const tr = join(d, "t.jsonl");
+  const wake = "<system-reminder>\nnotification\n</system-reminder>";
+  writeFileSync(tr, [{ type: "user", timestamp: T, message: { content: wake } }, { type: "assistant", message: { content: [{ type: "tool_use", id: "m", name: "mcp__github__merge_pull_request", input: { pullNumber: 4 } }] } }].map((x) => JSON.stringify(x)).join("\n"));
+  const out = spawnSync("node", [hook], { input: JSON.stringify({ transcript_path: tr }), encoding: "utf8", env: { PATH: process.env.PATH, DISCIPLINE_VAULT_ROOT: v } });
+  assert.match(JSON.parse(out.stdout).reason, /DISC-324[^]*no chat text/);
+});
+// DISC-324 round 2 (review amber): a Bash command that only NAMES a state script is not a state change; an actual `node … <script>` invocation is.
+test("DISC-324: a Bash call that only names row-add, lane-end or go-live-tick (grep, sed -n, git diff, --dry-run) is not a state change; a real invocation anywhere in a compound command is", () => {
+  const bash = (command) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "x", name: "Bash", input: { command } }] } });
+  const t = (command) => lastTurn(turn(bash(command), reply("ok")), [DOC_ID]).stateChanges;
+  for (const c of ["grep -rn row-add.mjs hooks/", "sed -n 1,40p hooks/scripts/lane-end.mjs", "git diff -- hooks/scripts/row-add.mjs", "cat hooks/scripts/go-live-tick.mjs --apply",
+    "node hooks/scripts/row-add.mjs --vault v --prefix PF --to queue --text x --dry-run", "node hooks/scripts/lane-end.mjs --vault v --id PF-5 --dry-run", "node hooks/scripts/go-live-tick.mjs --vault v --rows PF-5 --apply --dry-run"])
+    assert.deepEqual(t(c), [], c);
+  assert.deepEqual(t("cd /v && node /p/hooks/scripts/lane-end.mjs --vault v --id PF-5 | tail -3"), ["lane-end"]);
+  assert.deepEqual(t("git pull -q; DISCIPLINE_X=1 node hooks/scripts/row-add.mjs --vault v --prefix PF --to backlog --text x"), ["row-add"]);
+});
