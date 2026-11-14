@@ -86,17 +86,11 @@ export function lastTurn(transcriptText, docIds) {
   return docId ? { userTs, text, docWritten, answered, docWrites, wake, stateChanges, docReadBack: readBack } : { userTs, text, wake };
 }
 
-/* DISC-302 (review AMBER 4; real payload from the parent, s81): the real chip change is ONE update call whose ops swap a dropdown block
-   {"type":"dropdown","enum":…,"index":N} into a chars range (index 0 Ready for you, 1 You're on it, 2 Done, 3 Claude's on it), and the
-   answered row's id rides in a sibling op of the same call (the lead-words rewrite). So per call: it sets a dropdown to index 1, 2 or 3 AND
-   names the row id. The index is read, never a label. A read-side `<dropdown …>Done</dropdown>` element in a call that names the row also
-   counts. The word Done elsewhere, a Ready index, or the id in a different call does not. */
-const CHIP_LABEL = "(?:Done|You're on it|Claude's on it)";
-const CHIP_INDEX_RE = /"type"\s*:\s*"dropdown"[^{}]*?"index"\s*:\s*[123]\b|"index"\s*:\s*[123]\b[^{}]*?"type"\s*:\s*"dropdown"/;
-const CHIP_ELEMENT_RE = new RegExp(`<dropdown\\b[^>]*>\\s*${CHIP_LABEL}\\s*</dropdown>`);
-export function chipChangedFor(id, docWrites) {
+/* DISC-302 / DISC-334 (operator s90: "we have to be much more on top of moving items to where they should be"): a row answered this turn must be named in a doc write
+   of this turn (its item was moved or re-written to Done). There is no chip to change any more: an item's section is its status. */
+export function rowWrittenFor(id, docWrites) {
   const idRe = new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`);
-  return (docWrites || []).some((call) => { const t = JSON.stringify(call || {}); return idRe.test(t) && (CHIP_INDEX_RE.test(t) || CHIP_ELEMENT_RE.test(t.replace(/\\"/g, '"'))); });
+  return (docWrites || []).some((call) => idRe.test(JSON.stringify(call || {})));
 }
 function checkReply({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false, stateChanges = [], docReadBack }) {
   // a heading inside a fenced code block is not a heading
@@ -134,9 +128,9 @@ function checkReply({ text: raw, userTs, vault, sessionId, docWritten, answered 
     const old = reprintedIds(block, markers.map((m) => m.id).filter(Boolean));
     if (old.length) return `Stop check (DISC-309): ${old.join(", ")} already on the Status doc, so the reply must not print it again. Update the item on the doc only and name just the rows added this turn, plus the Full list link.`;
     if (docWritten === false) return `Stop check (DISC-288): a status reply comes after the Status doc is brought current this turn. Run \`queue-page-sync.mjs\`, apply its lines to the doc (Running now checked with get_session, Done this session, Waiting on you), then reply with the new asks and the Full list link.`;
-    /* DISC-302: a row answered this turn (lane-end --id) needs its Status chip changed in this turn's doc write. */
-    const unchipped = answered.filter((id) => !chipChangedFor(id, docWrites));
-    if (unchipped.length) return `Stop check (DISC-302): ${unchipped.join(", ")} answered this turn, but no update call to the Status doc this turn both names that row (the lead-words rewrite carries its id) and swaps its dropdown to index 1, 2 or 3 (You're on it, Done, Claude's on it), so its chip still reads Ready for you. Replace the item's dropdown with Done (a chars-range replace carrying a new dropdown chip; queue-page-sync prints each as chipChanges) and drop its "Look now:" lead, then reply.`;
+    /* DISC-302 / DISC-334: a row answered this turn (lane-end --id) has its item moved in this turn's doc write. */
+    const unmoved = answered.filter((id) => !rowWrittenFor(id, docWrites));
+    if (unmoved.length) return `Stop check (DISC-302): ${unmoved.join(", ")} answered this turn, but no update call to the Status doc this turn names that row. Run \`status-layout.mjs --set ${unmoved[0]}=done --line ${unmoved[0]}="<one plain line>"\` (an item is moved, never relabelled: the section is its status), apply its ops, then reply.`;
     return null;
   }
   if (url) return `Stop check (DISC-288): the vault names a Status doc, so a status reply carries only this turn's new asks plus the exact line \`Full list: [Status](${url})\`, not the queue reprinted inline. Update the doc first (Running now, Done this session, Waiting on you), then reply.`;

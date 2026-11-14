@@ -14,17 +14,17 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 test("DISC-297: the pinned-doc rule lives once in HARD-RULES and names all four parts", () => {
   const h = flat("skills/routing/references/HARD-RULES.md");
   for (const s of [
-    "**One look row per lane, and every item shows its Status** (DISC-297",
+    "**One look row per lane, and every item sits in its Status section** (DISC-297",
     "a new round of the same lane REPLACES that row's text and link, never appends",
     "related asks on one lane or screen are presented together for one review",
     "an answered item leaves \"Waiting on you\" in the same turn",
-    "every item carries the Status chip: Ready for you / You're on it / Claude's on it / Done",
-    "`queue-page-sync.mjs` flags `noStatus`, `appended`, `sameLane` and `leaveWaiting`",
+    "no top-level item carries a Status chip (DISC-334, operator s90, ruling `2026-11-14-s90-status-labels-only-on-project-checklist`: *\"we can remove them from everywhere else\"*", "only the per-project checklist nested under a You're on it item keeps a chip per project",
+    "`queue-page-sync.mjs` flags `appended`, `sameLane` and `leaveWaiting` against the live doc (`noStatus` and `chipChanges` are retired and always empty)",
   ]) assert.ok(h.includes(s), s);
 });
 
 test("DISC-297: the always-on style and wrap point at the rule, they do not restate it", () => {
-  assert.ok(flat("output-styles/discipline.md").includes("(DISC-297, `routing` HARD-RULES)"));
+  assert.ok(flat("output-styles/discipline.md").includes("(DISC-297, DISC-334, `routing` HARD-RULES)"));
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`leaveWaiting`"));
 });
 

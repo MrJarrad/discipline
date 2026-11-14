@@ -22,9 +22,9 @@ const inLayout = (over = {}) => layoutDoc({ base: "https://x", upNext: { Portfol
 test("a doc already in the layout has no issue", () => {
   assert.equal(docLayoutIssue({ vault: vault(), docXml: inLayout(), today: "2026-11-12" }), null);
 });
-test("an item with no chip is an issue, named by its row", () => {
+test("DISC-334: an item with no chip is in layout (no top-level item carries one); its section is its status", () => {
   const bare = inLayout().replace("<dropdown id='dr5' enum='e' index='0'>Ready for you</dropdown>", "");
-  assert.match(docLayoutIssue({ vault: vault(), docXml: bare, today: "2026-11-12" }), /out of layout[^]*PF-5/);
+  assert.equal(docLayoutIssue({ vault: vault(), docXml: bare, today: "2026-11-12" }), null);
 });
 test("an open row the doc lacks is an issue", () => {
   assert.match(docLayoutIssue({ vault: vault(), docXml: inLayout({ sections: {} }), today: "2026-11-12" }), /out of layout[^]*PF-5/);
