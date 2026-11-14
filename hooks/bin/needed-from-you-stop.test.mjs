@@ -381,6 +381,25 @@ test("DISC-324: a Bash call that only names row-add, lane-end or go-live-tick (g
   assert.deepEqual(t("cd /v && node /p/hooks/scripts/lane-end.mjs --vault v --id PF-5 | tail -3"), ["lane-end"]);
   assert.deepEqual(t("git pull -q; DISCIPLINE_X=1 node hooks/scripts/row-add.mjs --vault v --prefix PF --to backlog --text x"), ["row-add"]);
 });
+// DISC-327 (review of #215, round 2 notes): the split and the script match are quote-aware.
+test("DISC-327: a quoted script path, a timeout/command prefix and a --dry-run inside a quoted argument are read as the real invocation they are", () => {
+  const bash = (command) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "x", name: "Bash", input: { command } }] } });
+  const t = (command) => lastTurn(turn(bash(command), reply("ok")), [DOC_ID]).stateChanges;
+  const RA = "--vault v --prefix PF --to queue --text";
+  assert.deepEqual(t(`node "$PLUGIN/hooks/scripts/row-add.mjs" ${RA} x`), ["row-add"], "a double-quoted script path");
+  assert.deepEqual(t(`node '\${CLAUDE_PLUGIN_ROOT}/hooks/scripts/lane-end.mjs' --vault v --id PF-5`), ["lane-end"], "a single-quoted script path");
+  assert.deepEqual(t("timeout 60 node hooks/scripts/lane-end.mjs --vault v --id PF-5"), ["lane-end"], "timeout before node");
+  assert.deepEqual(t(`timeout -k 5 60 node "$P/hooks/scripts/row-add.mjs" ${RA} x`), ["row-add"], "timeout with an option, and a quoted path");
+  assert.deepEqual(t("command node hooks/scripts/lane-end.mjs --vault v --id PF-5"), ["lane-end"], "command before node");
+  assert.deepEqual(t(`node hooks/scripts/row-add.mjs ${RA} "lane-end --dry-run prints the wrong row"`), ["row-add"], "--dry-run inside the row's own text is text, not the flag");
+  assert.deepEqual(t(`node hooks/scripts/row-add.mjs ${RA} "--dry-run"`), ["row-add"], "a quoted argument that is exactly --dry-run is a value");
+  assert.deepEqual(t(`node hooks/scripts/row-add.mjs ${RA} "a; b && c | d"`), ["row-add"], "separators inside a quoted argument do not split the command");
+  assert.deepEqual(t(`node "$PLUGIN/hooks/scripts/row-add.mjs" ${RA} x --dry-run`), [], "a real --dry-run flag still skips, with a quoted path");
+  assert.deepEqual(t(`timeout 60 node hooks/scripts/lane-end.mjs --vault v --id PF-5 --dry-run`), [], "and after a timeout prefix");
+  assert.deepEqual(t('echo "done; node hooks/scripts/lane-end.mjs --id X"'), [], "a printed literal that carries a full invocation after a separator is not one");
+  assert.deepEqual(t('grep "a; node hooks/scripts/row-add.mjs" notes.md'), []);
+  assert.deepEqual(t("timeout 5 grep -n row-add.mjs hooks/scripts/x.mjs"), [], "a wrapped command that is not node");
+});
 
 // DISC-328 (operator s88: "I still don't feel like we're cleanly, consistently and dependably using the status doc."): a turn that wrote the Status doc
 // must leave it in the agreed layout. The hook cannot call the connector, so it runs the layout plan on the last doc read AFTER the turn's last write.
