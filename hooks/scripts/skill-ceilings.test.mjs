@@ -75,7 +75,7 @@ const CEILINGS = [
   // (ruling `follow-ups-before-wrap`); the rule text lives in references/REPORT-AND-LEARN.md.
   // Ceiling raised 930 -> 980 at 1.123.0: § Last step (wrapped sessions go quiet, ruling
   // `2026-10-09-wrapped-sessions-go-quiet`); the procedure lives in references/CLOSING-CHECKS.md.
-  { skill: "wrap", ceiling: 1023, /* DISC-295 +7 (measured 1023): Lane capacity row in the closing-checks table, procedure in CLOSING-CHECKS.md; 1.162.0 +12 (measured 1015): the queue lives in the queue files, cockpit-check (DISC-224 C); 1.152.1 +8 (measured): DISC Open empty at wrap pointer; 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
+  { skill: "wrap", ceiling: 1031, /* DISC-320 +8 (measured 1031): wrap starts the next orchestrator session, procedure in CLOSING-CHECKS.md 6b; DISC-295 +7 (measured 1023): Lane capacity row in the closing-checks table, procedure in CLOSING-CHECKS.md; 1.162.0 +12 (measured 1015): the queue lives in the queue files, cockpit-check (DISC-224 C); 1.152.1 +8 (measured): DISC Open empty at wrap pointer; 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
   // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
   // precondition/flag line, offloaded to references/ for the elaboration.
   // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
