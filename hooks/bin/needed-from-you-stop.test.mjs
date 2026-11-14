@@ -234,7 +234,9 @@ const chipWrite = (payload) => wrote(undefined, { container: { kind: "doc", id: 
 const chipOp = (index) => ({ op: "replace", target: { kind: "chars", range: ["mvz0r93rszj.37884", "mvz0r93rszj.37884"] }, with: { as: "markdown", blocks: { v: { type: "dropdown", enum: "bc09b9b4-c14e", index } }, from: { kind: "inline", content: "&lt;?claude block v?&gt;" } } });
 const leadOp = (id) => ({ op: "replace", target: { kind: "find", text: `Look now: footer (${id}), in review…` }, with: { as: "text", from: { kind: "inline", content: `Answered (${id})` } } });
 const callOf = (...ops) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, ops });
-const answeredTurn = (...writes) => lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]);
+/* these tests are about the chip rule; the layout read-back (DISC-328) has its own tests below, so the read-back and the state-change fields are left out here */
+const noReadBack = ({ docReadBack, stateChanges, ...r }) => r;
+const answeredTurn = (...writes) => noReadBack(lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]));
 test("DISC-302 (review AMBER 4, real payload): a call that sets a dropdown to index 1/2/3 and names the answered row passes; the index is read, not a label", () => {
   const v = vaultWithChecklist();
   for (const index of [1, 2, 3]) assert.equal(check({ ...answeredTurn(callOf(chipOp(index), leadOp("PF-6"))), vault: v }), null, `index ${index}`);
@@ -258,7 +260,7 @@ test("DISC-302: no row answered this turn adds no chip requirement", () => {
   const v = vaultWithChecklist();
   const r = lastTurn(turn(wrote(), reply(SHORT())), [DOC_ID]);
   assert.deepEqual(r.answered, []);
-  assert.equal(check({ ...r, vault: v }), null);
+  assert.equal(check({ ...noReadBack(r), vault: v }), null);
 });
 
 // s81 (operator, verbatim: "you've started status updates in the thread again"): an automated wake (GitHub event, helper message,
@@ -296,7 +298,7 @@ test("CLI: an automated wake with reply text is blocked; an answered row with a 
   const run = (lines) => { const tr = join(d, "t.jsonl"); writeFileSync(tr, lines.join("\n")); return spawnSync("node", [hook], { input: JSON.stringify({ transcript_path: tr, session_id: "s" }), encoding: "utf8", env: { PATH: process.env.PATH, DISCIPLINE_VAULT_ROOT: v } }); };
   const w = run([wakeUser(WAKE), reply("The PR merged.")]);
   assert.match(JSON.parse(w.stdout).reason, /automated wake/);
-  const stale = run([JSON.stringify({ type: "user", timestamp: T, message: { content: "done" } }), bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "moved to Done section" }), reply(SHORT())]);
+  const stale = run([JSON.stringify({ type: "user", timestamp: T, message: { content: "done" } }), bash("node lane-end.mjs --id PF-6"), wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload: "moved to Done section" }), ...fullRead("rb", IN_LAYOUT()), reply(SHORT())]);
   assert.match(JSON.parse(stale.stdout).reason, /DISC-302/);
 });
 
@@ -378,4 +380,51 @@ test("DISC-324: a Bash call that only names row-add, lane-end or go-live-tick (g
     assert.deepEqual(t(c), [], c);
   assert.deepEqual(t("cd /v && node /p/hooks/scripts/lane-end.mjs --vault v --id PF-5 | tail -3"), ["lane-end"]);
   assert.deepEqual(t("git pull -q; DISCIPLINE_X=1 node hooks/scripts/row-add.mjs --vault v --prefix PF --to backlog --text x"), ["row-add"]);
+});
+
+// DISC-328 (operator s88: "I still don't feel like we're cleanly, consistently and dependably using the status doc."): a turn that wrote the Status doc
+// must leave it in the agreed layout. The hook cannot call the connector, so it runs the layout plan on the last doc read AFTER the turn's last write.
+import { layoutDoc } from "../scripts/fixtures/status-doc-live.mjs";
+const READ = "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read";
+const doc = (id) => ({ id, chip: 0, text: `(${id}) Look at it. Waiting on you.` });
+const IN_LAYOUT = () => layoutDoc({ base: "https://x", upNext: { Portfolio: ["Nothing."] }, sections: { "Ready for you": { Portfolio: [doc("PF-5"), doc("PF-6"), doc("PF-8")].map((d) => ({ ...d, id: `i${d.id.replace("-", "")}` })) } } });
+const OUT_OF_LAYOUT = () => IN_LAYOUT().replace(/<dropdown id='diPF5'[^>]*>Ready for you<\/dropdown>/, "");
+const readCall = (id) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id, name: READ, input: { ref: { object: "node", id: "doc" }, container: { kind: "doc", id: DOC_ID }, payload: { kind: "view" } } }] } });
+const readResult = (id, data) => JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: JSON.stringify({ verdict: "allow", rev: 9, data }) }] } });
+const fullRead = (id, xml) => [readCall(id), readResult(id, { rev: 9, xml, complete: true })];
+const gapsRead = (id) => [readCall(id), readResult(id, { rev: 10, xml: "<doc node='n' rev='10' sinceRev='9'><gap blocks='43'/></doc>", complete: true })];
+
+test("DISC-328 c: lastTurn reports the last full doc read after the turn's last doc write; a read before the write does not count", () => {
+  const after = lastTurn(turn(wrote(), ...fullRead("r1", IN_LAYOUT()), reply("ok")), [DOC_ID]);
+  assert.equal(after.docReadBack.xml, IN_LAYOUT());
+  const before = lastTurn(turn(...fullRead("r1", IN_LAYOUT()), wrote(), reply("ok")), [DOC_ID]);
+  assert.equal(before.docReadBack.xml, null, "the write came after the read, so the doc was not read back");
+});
+test("DISC-328 c: a sinceRev read that holds only gaps means unchanged since the last full read; a partial one cannot be judged", () => {
+  const full = turn(...fullRead("r1", IN_LAYOUT()), wrote(), ...gapsRead("r2"), reply("ok"));
+  assert.equal(lastTurn(full, [DOC_ID]).docReadBack.xml, IN_LAYOUT());
+  const partial = turn(wrote(), readCall("r3"), readResult("r3", { rev: 11, xml: "<doc node='n' rev='11' sinceRev='9'><paragraph id='x'><text id='t'>hi</text></paragraph></doc>", complete: true }), reply("ok"));
+  assert.equal(lastTurn(partial, [DOC_ID]).docReadBack.partial, true);
+});
+test("DISC-328 c: a turn that wrote the doc and never read it back is refused; one whose read-back is out of layout is refused naming the row; one in layout passes", () => {
+  const v = vaultWithChecklist();
+  const c = (...lines) => { const t = lastTurn(turn(wrote(), ...lines, reply("Merged.")), [DOC_ID]); return check({ text: t.text, userTs: t.userTs, vault: v, docWritten: t.docWritten, docReadBack: t.docReadBack }); };
+  assert.match(c(), /DISC-328[^]*never read it back/);
+  assert.match(c(...fullRead("r1", OUT_OF_LAYOUT())), /DISC-328[^]*out of layout[^]*PF-5/);
+  assert.equal(c(...fullRead("r1", IN_LAYOUT())), null);
+});
+test("DISC-328 c: with no read-back field at all (older caller) or an unparsable read, the check allows", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ text: "Merged.", userTs: T, vault: v, docWritten: true }), null);
+  assert.equal(check({ text: "Merged.", userTs: T, vault: v, docWritten: true, docReadBack: { xml: "not xml at all" } }), null);
+});
+
+// DISC-328 lock row (operator s88, verbatim: "the idea is to use the status doc as much as possible for tasks, so the thread can clean for discussion or new things/conversation").
+// A turn that only changed task state and raised no new ask gets no status reply in the thread; a plain answer to the operator is never held.
+test("DISC-328 thread: a status-shaped reply after a state-only turn with no new row is held; a plain reply is not, and neither is a status reply when no task state changed", () => {
+  const v = vaultWithChecklist();
+  const status = `Merged.\n\n## Needed from you\n\nFull list: [Status](${URL_})\n`;
+  assert.match(check({ text: status, userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), /DISC-328[^]*thread/);
+  assert.equal(check({ text: "That is merged; want the next lane to be the footer?", userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), null, "discussion is the thread's job");
+  assert.equal(check({ text: status, userTs: T, vault: v, docWritten: true, stateChanges: [] }), null, "no task-state change this turn: the operator asked for the queue");
 });

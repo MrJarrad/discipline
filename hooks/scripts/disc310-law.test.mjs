@@ -22,7 +22,7 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "one row is one section: a row on the doc twice keeps the live lane's item (`removeDuplicate`), and a row with Mac work still queued (`holds`) is never Done",
     "when the operator flips a chip the next run moves the item and banks an open queue row as answered (`answered`)",
     "Each section has a `###` heading per session project (Portfolio, Discipline, Handoff toolkit), \"Nothing.\" when a project is empty",
-    "Up next is each project's first five from its backlog's `## Up next` ordered list (Portfolio: `projects/portfolio/portfolio-go-live.md`, with \"Launch: N of M done\" and a link)",
+    "Up next is each project's first five from its backlog's `## Up next` ordered list (one source for every project, DISC-328; Portfolio's go-live file feeds only the \"Launch: N of M done\" line and its link)",
     "A ticked item MOVES to \"Done this session\" (never ticked in place), which is cleared at wrap with no note line; the doc has no Go-live section",
     "`status-layout.mjs --vault <vault> --projects <PFX,...> --doc <file with the xml of the doc's body node>` prints the edit ops and the session applies them with the connector, never by hand",
     "**Refill from Up next:** the moment a lane lands or parks on the operator, start the top Up next item of that project, with no asking",

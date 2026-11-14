@@ -30,6 +30,7 @@ import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
 import { reprintedIds, stateChangeOf } from "../scripts/lib/doc-sync-check.mjs";
+import { docLayoutIssue } from "../scripts/lib/doc-layout-check.mjs";
 import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
 /* s81: a turn started by the harness, not the operator: a notification wrapper, a GitHub wake, a helper's message. */
@@ -51,20 +52,38 @@ export function lastTurn(transcriptText, docIds) {
   const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean);
   const docId = ids.length ? ids : null;
   let userTs = "", text = null, docWritten = false, answered = [], docWrites = [], wake = false, stateChanges = [];
+  /* DISC-328: the last doc read after this turn's last doc write. A full read is { xml }; a sinceRev read holding only gaps means "unchanged since the last
+     full read" (any earlier turn); a sinceRev read with content is { partial: true } and cannot be judged; no read after the write is { xml: null }. */
+  let readBack = { xml: null }, lastFull = null;
+  const readCalls = new Map();
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; stateChanges = []; wake = isWake(textOf(c)); }
+    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; stateChanges = []; wake = isWake(textOf(c)); readBack = { xml: null }; }
+    else if (e.type === "user" && Array.isArray(c)) {
+      for (const b of c) {
+        const call = b?.type === "tool_result" ? readCalls.get(b.tool_use_id) : null;
+        if (!call) continue;
+        let data; try { data = JSON.parse(textOf(b.content)).data; } catch { continue; }
+        const xml = data?.xml;
+        if (typeof xml !== "string") continue;
+        if (!call.named && !/heading='1'[^>]*>\s*<text[^>]*>Status</.test(xml)) continue;
+        if (!/sinceRev=/.test(xml)) { lastFull = xml; readBack = { xml }; }
+        else if (!/<(?:paragraph|list|listItem)\b/.test(xml)) readBack = lastFull ? { xml: lastFull } : { xml: null };
+        else readBack = { xml: null, partial: true };
+      }
+    }
     else if (e.type === "assistant") {
       const t = textOf(c); if (t.trim()) text = t;
       if (Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && b.name === "Bash") for (const m of String(b.input?.command || "").matchAll(/lane-end\.mjs[^\n]*?--id\s+([A-Z]{2,4}-\d+[a-z]?)/g)) if (!answered.includes(m[1])) answered.push(m[1]);
       if (Array.isArray(c)) for (const b of c) if (b?.type === "tool_use") { const k = stateChangeOf(b.name, b.input); if (k && !stateChanges.includes(k)) stateChanges.push(k); }
-      if (docId && Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id))) docWrites.push(b.input || {});
+      if (docId && Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && /^mcp__.*__read$/.test(b.name || "")) readCalls.set(b.id, { named: ids.some((id) => JSON.stringify(b.input || {}).includes(id)) });
+      if (docId && Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id))) { docWrites.push(b.input || {}); readBack = { xml: null }; }
       if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id)))) docWritten = true;
     }
   }
-  return docId ? { userTs, text, docWritten, answered, docWrites, wake, stateChanges } : { userTs, text, wake };
+  return docId ? { userTs, text, docWritten, answered, docWrites, wake, stateChanges, docReadBack: readBack } : { userTs, text, wake };
 }
 
 /* DISC-302 (review AMBER 4; real payload from the parent, s81): the real chip change is ONE update call whose ops swap a dropdown block
@@ -79,13 +98,20 @@ export function chipChangedFor(id, docWrites) {
   const idRe = new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`);
   return (docWrites || []).some((call) => { const t = JSON.stringify(call || {}); return idRe.test(t) && (CHIP_INDEX_RE.test(t) || CHIP_ELEMENT_RE.test(t.replace(/\\"/g, '"'))); });
 }
-export function check({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false, stateChanges = [] }) {
+function checkReply({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false, stateChanges = [], docReadBack }) {
   // a heading inside a fenced code block is not a heading
   const text = raw && raw.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
   if (text && /^\s*This session is wrapped/i.test(text)) return null;
   /* DISC-324 (operator s87): runs before the empty-text exit, because a wake that merged something has no text. The reason asks for the doc write and
      never for a reply: a wake with no new ask still ends with no chat text (lesson 2026-11-14-s87-parent-lessons item 1). */
   if (stateChanges.length && docWritten === false) return `Stop check (DISC-324): this turn changed state (${stateChanges.join(", ")}) but never wrote to the Status doc. Run \`status-layout.mjs\` and apply its ops to the doc now (queue-page-sync.mjs for row-level lines), then end the turn${wake ? " with no chat text" : "; add chat text only if this turn raised a new ask"}.`;
+  /* DISC-328: a turn that wrote the Status doc leaves it in the agreed layout. The hook cannot call the connector, so it judges the last doc read after the
+     turn's last write (docReadBack, from lastTurn). A caller that passes no docReadBack (older callers) is not judged; an unjudgeable read (partial) is allowed. */
+  if (docWritten === true && docReadBack && !docReadBack.partial) {
+    if (!docReadBack.xml) return `Stop check (DISC-328): this turn wrote the Status doc but never read it back after the last write, so its layout is unchecked. Read the doc back (view), run \`status-layout.mjs\` on it and apply any ops, then end the turn${wake ? " with no chat text" : ""}.`;
+    const issue = docLayoutIssue({ vault, docXml: docReadBack.xml });
+    if (issue) return issue;
+  }
   if (!text) return null;
   const markers = readMarkers(vault).filter((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId));
   /* s81 (operator: "you've started status updates in the thread again"): an automated wake that raised no new ask gets no chat text. */
@@ -126,6 +152,20 @@ export function check({ text: raw, userTs, vault, sessionId, docWritten, answere
   return null;
 }
 
+/* DISC-328 lock row (operator s88: "the idea is to use the status doc as much as possible for tasks, so the thread can clean for discussion or new things/conversation"):
+   a turn that only changed task state and raised no new ask (no row-add marker) leaves its result on the doc; a status-shaped reply in the thread is held. It is judged last, so a
+   wrong doc or a missing chip is still named first. A plain answer to the operator is never held. */
+export function check(args) {
+  const reason = checkReply(args);
+  if (reason !== null) return reason;
+  const { text, userTs, vault, sessionId, stateChanges = [] } = args;
+  if (!text || !stateChanges.length || /^\s*This session is wrapped/i.test(text)) return null;
+  const body = text.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
+  if (!(HEAD.test(body) || /^## (Build in Progress|Upcoming)\s*$/m.test(body))) return null;
+  if (readMarkers(vault).some((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId))) return null;
+  return `Stop check (DISC-328): this turn only changed task state (${stateChanges.join(", ")}) and raised no new ask, so the result lives on the Status doc, not in the thread. End the turn with no status reply; speak only to discuss something or raise a new ask.`;
+}
+
 function main() {
   const vaultEnv = process.env.DISCIPLINE_VAULT_ROOT;
   if (!vaultEnv) return;
@@ -133,8 +173,8 @@ function main() {
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
   const vault = resolve(vaultEnv);
-  const { userTs, text, docWritten, answered, docWrites, wake, stateChanges } = lastTurn(t, pinnedChecklistIds(vault));
-  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWrites, wake, stateChanges }); } catch { return; }
+  const { userTs, text, docWritten, answered, docWrites, wake, stateChanges, docReadBack } = lastTurn(t, pinnedChecklistIds(vault));
+  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWrites, wake, stateChanges, docReadBack }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 

@@ -8,9 +8,9 @@
    + insert with the item's new chip: the connector cannot set a chip in place, so an item's section always matches its chip), insertNothing, removeNode,
    setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
    already in the layout. `unplaced` lists items naming no project.
-   Up next sources: a project's backlog `## Up next` (an ordered list of row ids, first five), or, when `projects/<p>/<p>-go-live.md` exists, its
-   first unticked lines; neither -> "Nothing.". A row already in Ready for you, You're on it or Claude's on it is never also Up next. The launch count is the go-live file's
-   groups 1-4 (ticked of all).
+   Up next source (DISC-328, one for every project): the backlog's `## Up next` (an ordered list of row ids, first five); none -> "Nothing.". A row already in Ready for you,
+   You're on it or Claude's on it is never also Up next. The go-live file feeds only the launch count (its groups 1-4, ticked of all).
+   A chip-less item (DISC-328) is flagged in `chipless` and re-chipped in the section it sits in; it is never moved or read as Claude's on it.
    Usage: node status-layout.mjs --vault <root> --projects PF,DISC,HT --doc <file with the xml of the doc's body node, or - for stdin> | --doc-json <the connector's JSON result, file or ->  [--today YYYY-MM-DD]  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, basename, join } from "node:path";
@@ -60,6 +60,7 @@ export const SECTIONS = ["Ready for you", "You're on it", "Claude's on it", "Up 
 const CHIP_SECTION = { 0: "Ready for you", 1: "You're on it", 2: "Done this session", 3: "Claude's on it" };
 const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're on it", "Claude's on it": "Claude's on it", "Done this session": "Done" };
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
+const OLD_SECTION_HOME = { "Waiting on you": "Ready for you", "Running now": "Claude's on it" };
 
 const LIVE_SECTIONS = ["Running now", "Claude's on it", "You're on it"];
 const STALE = /\b(building|measuring|being built|in review|helper session_[A-Za-z0-9]+|fixing review|writing (?:the|a|an|up)|(?:is|are|now|still) (?:running|writing)|running now)\b/i;
@@ -68,7 +69,7 @@ const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault) }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
-  const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [], refused = [], droppedComments = [], holds = [];
+  const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [], refused = [], droppedComments = [], holds = [], chipless = [];
   const names = r.projects.map((p) => ({ prefix: p.prefix, name: displayName(p.project), backlog: p.backlog.file }));
   const { open, formatted } = openItems(r);
   /* every row id the run can see, open or struck or done: a row in none of these files is UNKNOWN (a stale vault checkout), never "landed" */
@@ -135,8 +136,11 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const sessionRow = mirrorsQueue && it.rowId && byPrefix(prefixOf(it.rowId));
     if (sessionRow && !known.has(it.rowId) && !unknown.includes(it.rowId)) unknown.push(it.rowId);
     const landed = sessionRow && !open.has(it.rowId) && known.has(it.rowId);
-    let to = it.ticked || landed ? "Done this session" : CHIP_SECTION[it.chip?.index] ?? "Claude's on it";
-    let reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chip" : null;
+    /* DISC-328: an item with no chip is FLAGGED, never reclassified: it keeps the section it sits in (an old section maps to its chip-value section) and gets that section's chip */
+    const keepSection = (SECTIONS.includes(sname) && sname !== "Up next" ? sname : OLD_SECTION_HOME[sname]) ?? "Claude's on it";
+    let to = it.ticked || landed ? "Done this session" : it.chip ? CHIP_SECTION[it.chip.index] ?? "Claude's on it" : keepSection;
+    let reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chipless" : null;
+    if (!it.chip && !it.ticked && !landed && sname === to && home === proj) chipless.push({ id: it.id, rowId: it.rowId, section: sname });
     if (to === "Done this session" && job) { to = "Claude's on it"; reason = "pending"; }
     if (sname === to && home === proj && it.chip && reason === null) { bump(sname, home); continue; }
     /* DISC-314 1: a ticked item already in Done under its project is where it belongs; moving it again never converges */
@@ -213,10 +217,9 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     let lines = [], launch = null;
     const dir = x.backlog ? dirname(x.backlog) : null, base0 = dir ? basename(dir) : null;
     const gl = dir && existsSync(join(vault, dir, `${base0}-go-live.md`)) ? parseGoLive(readFileSync(join(vault, dir, `${base0}-go-live.md`), "utf8")) : null;
-    if (gl) {
-      lines = gl.lines.filter((l) => !l.ticked && !busy.has(l.id)).slice(0, 5).map((l) => `- (${l.id}) ${shortTitle(l.title)}`);
-      launch = `Launch: ${gl.done} of ${gl.total} done · ${base ? `[Full go-live list](${base}/${dir}/${base0}-go-live.md)` : "full list in the vault"}`;
-    } else if (x.backlog) {
+    /* DISC-328: Up next is ONE source for every project: the backlog's ordered `## Up next`. The go-live file only feeds the launch count. */
+    if (gl) launch = `Launch: ${gl.done} of ${gl.total} done · ${base ? `[Full go-live list](${base}/${dir}/${base0}-go-live.md)` : "full list in the vault"}`;
+    if (x.backlog) {
       const text = readFileSync(join(vault, x.backlog), "utf8");
       lines = (upNextIds(text) || []).filter((id) => !busy.has(id)).slice(0, 5).map((id) => `- (${id}) ${rowTitle(text, id) || id}`);
     }
@@ -261,7 +264,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const have = (bk?.items || []).map((i) => i.text);
     if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) clean.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links, dropped: droppedLinks });
   }
-  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], unknown, refused, droppedComments, holds };
+  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], chipless, unknown, refused, droppedComments, holds };
 }
 
 /* DISC-314 8: the doc read arrives inline in the session, never as a file: `-` reads stdin; --doc-json takes the connector's JSON result ({ xml }, or the xml as a JSON string) */
