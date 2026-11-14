@@ -90,7 +90,7 @@ const queryOf = (input) => {
 };
 /* DISC-330: only PRs in this owner's repos count; a generic branch name matches other people's public PRs. */
 export const OWNER = "mrjarrad";
-export const isOurs = (p) => { const m = /github\.com\/([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept, fails closed */
+export const isOurs = (p) => { const m = /github\.com\/(?:repos\/)?([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept, fails closed */
 /* The term of an accepted query, or null. */
 function termOf(query) {
   const rest = query.trim().split(/\s+/).filter(Boolean);

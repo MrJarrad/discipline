@@ -282,3 +282,9 @@ test("DISC-330: a lookup written with user:MrJarrad counts, and an open PR in a 
 test("DISC-330: user:<someone else> is another lookup and does not clear the helper", () => {
   deniedNaming(run(ID("s3"), [...helperB(ID("s3")), ...ghSearch(`is:pr is:open user:someone-else ${ID("s3")}`, search(), "l0")]), /open-PR lookup/);
 });
+test("DISC-330 amber: the owner is read from the API form of url (api.github.com/repos/<owner>/...) when html_url is absent", () => {
+  const apiPr = (owner, n) => ({ url: `https://api.github.com/repos/${owner}/discipline/pulls/${n}`, number: n, state: "open" });
+  const t = (owner) => [...helperB(ID("s4"), ["pr208"]), ...ghSearch(`is:pr is:open ${ID("s4")}`, search(), "l0"), ...ghSearch("is:pr is:open head:pr208", search("", [apiPr(owner, 208)]), "l1")];
+  deniedNaming(run(ID("s4"), t("MrJarrad")), /open PR/);
+  assert.equal(run(ID("s4"), t("someone-else")), null);
+});
