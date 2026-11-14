@@ -267,3 +267,24 @@ test("DISC-325 A1: an archive-prep at any other path (a look-alike script printi
     deniedNaming(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP_AT(dir, ID("f1")), prepOut(ID("f1")))]), /open-PR lookup/);
   assert.equal(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP(ID("f1")), prepOut(ID("f1")))]), null);
 });
+
+// DISC-330 (s88: a generic branch name such as pr208 or main matched other people's public PRs and refused the archive): only
+// PRs in MrJarrad's repos count. The accepted form may carry exactly `user:MrJarrad`; the filter also drops any other owner.
+const foreign = (n) => pr(n, { html_url: `https://github.com/someone-else/webapp/pull/${n}` });
+test("DISC-330 red: an unrelated public repo's open PR on a generic branch name does not refuse the archive", () => {
+  const t = [...helperB(ID("s1"), ["pr208"]), ...ghSearch(`is:pr is:open ${ID("s1")}`, search(), "l0"), ...ghSearch("is:pr is:open head:pr208", search("", [foreign(208)]), "l1")];
+  assert.equal(run(ID("s1"), t), null);
+});
+test("DISC-330: a lookup written with user:MrJarrad counts, and an open PR in a MrJarrad repo still refuses", () => {
+  const t = [...helperB(ID("s2"), ["pr208"]), ...ghSearch(`is:pr is:open user:MrJarrad ${ID("s2")}`, search(), "l0"), ...ghSearch("is:pr is:open user:MrJarrad head:pr208", search("", [foreign(1), pr(208)]), "l1")];
+  deniedNaming(run(ID("s2"), t), /mrjarrad\/discipline#208/);
+});
+test("DISC-330: user:<someone else> is another lookup and does not clear the helper", () => {
+  deniedNaming(run(ID("s3"), [...helperB(ID("s3")), ...ghSearch(`is:pr is:open user:someone-else ${ID("s3")}`, search(), "l0")]), /open-PR lookup/);
+});
+test("DISC-330 amber: the owner is read from the API form of url (api.github.com/repos/<owner>/...) when html_url is absent", () => {
+  const apiPr = (owner, n) => ({ url: `https://api.github.com/repos/${owner}/discipline/pulls/${n}`, number: n, state: "open" });
+  const t = (owner) => [...helperB(ID("s4"), ["pr208"]), ...ghSearch(`is:pr is:open ${ID("s4")}`, search(), "l0"), ...ghSearch("is:pr is:open head:pr208", search("", [apiPr(owner, 208)]), "l1")];
+  deniedNaming(run(ID("s4"), t("MrJarrad")), /open PR/);
+  assert.equal(run(ID("s4"), t("someone-else")), null);
+});
