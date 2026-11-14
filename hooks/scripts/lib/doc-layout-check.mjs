@@ -31,7 +31,9 @@ export function docLayoutIssue({ vault, docXml, today = new Date().toISOString()
     const ops = plan.ops.filter((o) => o.op !== "setDate");
     if (!ops.length && !plan.chipless.length && !plan.handWritten.length) return null;
     const shown = [...ops.map(describe), ...plan.chipless.filter((c) => !ops.some((o) => o.id === c.id)).map((c) => `chipless ${c.rowId ?? c.id}`), ...plan.handWritten.map((h) => `hand-written ${h.rowId}`)];
-    const hand = plan.handWritten.length ? ` and ${plan.handWritten.length} item(s) are hand-written (rewrite each with \`--set ${plan.handWritten[0].rowId}=<ready|yours|claude|done>\`, never by hand)` : "";
+    /* DISC-329 amber 1: name the way out that works: --set clears a plain hand-written item; an unanswered thread must be answered first; a row this checkout lacks needs a vault pull */
+    const way = (h) => (h.blockedBy === "unanswered comment thread" ? `${h.rowId}: answer the comment thread on it first, then \`--set\`` : h.blockedBy === "unknown row" ? `${h.rowId}: pull the vault first (this checkout does not hold the row), then \`--set\`` : `\`--set ${h.rowId}=<ready|yours|claude|done> --line ${h.rowId}="<one plain line>"\``);
+    const hand = plan.handWritten.length ? ` and ${plan.handWritten.length} item(s) are hand-written (rewrite each, never by hand: ${plan.handWritten.slice(0, 3).map(way).join("; ")}${plan.handWritten.length > 3 ? "; …" : ""})` : "";
     return `Stop check (DISC-328, DISC-329): the Status doc is out of layout: the layout plan still wants ${ops.length} op(s)${plan.chipless.length ? ` and ${plan.chipless.length} item(s) have no chip` : ""}${hand} (${shown.slice(0, 3).join("; ")}${shown.length > 3 ? "; …" : ""}). Run \`status-layout.mjs --vault <vault> --projects ${known.join(",")} --doc-json -\` on a fresh read of the doc (pass the read's \`data\` object), apply its ops with the Claude Docs connector, read the doc back, then end the turn.`;
   } catch { return null; }
 }

@@ -11,8 +11,8 @@
    Up next source (DISC-328, one for every project): the backlog's `## Up next` (an ordered list of row ids, first five); none -> "Nothing.". A row already in Ready for you,
    You're on it or Claude's on it is never also Up next. The go-live file feeds only the launch count (its groups 1-4, ticked of all).
    A chip-less item (DISC-328) is flagged in `chipless` and re-chipped in the section it sits in; it is never moved or read as Claude's on it.
-   DISC-329 (operator s88: "this needs to be bullet proof so it's alway formatted correctly"): the script owns every item's text and chip. `--set ROW=ready|yours|claude|done` (repeatable, `--line ROW=<one plain
-   line>` optional) re-creates that row's item with the new chip, tick and section together and the script's own text; Up next skips done and moot rows; a struck or closed row's item goes to Done from You're on it,
+   DISC-329 (operator s88: "this needs to be bullet proof so it's alway formatted correctly"): the script owns every item's text and chip. `--set ROW=ready|yours|claude|done` (repeatable; `--line ROW=<one plain
+   line>` required for done, claude and any row that is not an open ask) re-creates that row's item with the new chip, tick and section together and the script's own text; Up next skips done and moot rows; a struck or closed row's item goes to Done from You're on it,
    Ready for you or Waiting (a live lane in Claude's on it waits for its backlog row to close); `handWritten` lists Ready / You're on it / Done items whose bold line is not "(ID) Title. <state>.".
    Usage: node status-layout.mjs --vault <root> --projects PF,DISC,HT --doc <file with the xml of the doc's body node, or - for stdin> | --doc-json <the connector's JSON result, file or ->  [--today YYYY-MM-DD]  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -86,7 +86,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   /* DISC-329: rows that are finished (struck in a queue, or a backlog row done or moot; a struck QUEUE ask alone does not end the lane in Claude's on it, only a closed backlog row does) and every row's first text cell, to title an item the script writes */
   const closed = new Set(), backlogClosed = new Set(), cell1 = new Map();
   for (const p of r.projects) {
-    if (p.queue.file) for (const l of readFileSync(join(vault, p.queue.file), "utf8").split(/\r?\n/)) { const m = /^\|\s*(~~)?([A-Z]{2,4}-\d+[a-z]?)(?:~~)?\s*\|([^|]*)\|/.exec(l); if (m) { cell1.set(m[2], m[3].trim()); if (m[1]) closed.add(m[2]); } }
+    if (p.queue.file) for (const l of readFileSync(join(vault, p.queue.file), "utf8").split(/\r?\n/)) { const m = /^\|\s*(~~)?([A-Z]{2,4}-\d+[a-z]?)(?:~~)?\s*\|([^|]*)\|/.exec(l); if (m) { cell1.set(m[2], m[3].replace(/~~/g, "").trim()); if (m[1]) closed.add(m[2]); } }
     if (p.backlog.file) for (const b of parseBacklog(readFileSync(join(vault, p.backlog.file), "utf8"))) { if (!cell1.has(b.id)) cell1.set(b.id, b.cells[1] ?? ""); if (b.struck || b.section === "done" || /^(?:done|moot)\b/i.test(b.status ?? "")) { closed.add(b.id); backlogClosed.add(b.id); } }
   }
   const unknown = [];
@@ -115,14 +115,16 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   for (const [id, s] of Object.entries(set)) {
     if (!SET_STATES[s.state]) throw new Error(`--set ${id}=${s.state}: the state is one of ${Object.keys(SET_STATES).join(", ")}`);
     if (!known.has(id) || !byPrefix(prefixOf(id))) throw new Error(`--set ${id}: no such row in this vault checkout (or not a session project's row)`);
+    /* the item format is the chip, the bold "(ID) Title. <state>." and ONE plain line: done and claude have no row text to take it from, nor does a ready or yours row that is not an open ask */
+    if (!s.line && (s.state === "done" || s.state === "claude" || !formatted.has(id))) throw new Error(`--set ${id}=${s.state} needs its one plain line: add --line ${id}="<what happened, in one sentence>"`);
   }
   /* DISC-329: the item the SCRIPT writes for a row set to a state. The parent supplies a state and at most one plain line; every other word is the row's own title and the item format. */
   const scriptItem = (rowId, state, line) => {
     const chip = SECTION_CHIP[SET_STATES[state]], title = itemTitle(cell1.get(rowId) || rowId);
-    if (state === "done") return `- [x] [${chip}] **(${rowId}) ${title}. Done.**${line ? `\n  - ${line}` : ""}`;
-    if (state === "claude") return `- [ ] [${chip}] **(${rowId}) ${title}. Claude's on it.**${line ? `\n  - ${line}` : ""}`;
+    if (state === "done") return `- [x] [${chip}] **(${rowId}) ${title}. Done.**\n  - ${line}`;
+    if (state === "claude") return `- [ ] [${chip}] **(${rowId}) ${title}. Claude's on it.**\n  - ${line}`;
     if (formatted.has(rowId)) return formatted.get(rowId).replace("[Ready for you]", `[${chip}]`);
-    return `- [ ] [${chip}] **(${rowId}) ${title}. Waiting on you.**${line ? `\n  - ${line}` : ""}`;
+    return `- [ ] [${chip}] **(${rowId}) ${title}. Waiting on you.**\n  - ${line}`;
   };
   /* 1. every existing item: where it is, where its chip (or tick, or closed row) says it belongs */
   const itemSections = [...SECTIONS.filter((n) => n !== "Up next"), "Waiting on you", "Running now"];
@@ -173,7 +175,11 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
       if (open.has(it.rowId) && (forced.state === "done" || forced.state === "claude")) answered.push(it.rowId);
       continue;
     }
-    if (["Ready for you", "You're on it", "Done this session"].includes(sname) && it.rowId && owner && !SCRIPT_LINE(it.rowId).test(it.text.replace(/\*\*/g, "").trim())) handWritten.push({ id: it.id, rowId: it.rowId, section: sname });
+    if (["Ready for you", "You're on it", "Done this session"].includes(sname) && it.rowId && owner && !SCRIPT_LINE(it.rowId).test(it.text.replace(/\*\*/g, "").trim())) {
+      /* when --set cannot rewrite it, say why: an unanswered thread would be dropped, a row this checkout does not hold is unknown to --set */
+      const blockedBy = it.comments.some((c) => !c.answered) ? "unanswered comment thread" : !known.has(it.rowId) ? "unknown row" : null;
+      handWritten.push({ id: it.id, rowId: it.rowId, section: sname, ...(blockedBy ? { blockedBy } : {}) });
+    }
     /* DISC-328: an item with no chip is FLAGGED, never reclassified: it keeps the section it sits in (an old section maps to its chip-value section) and gets that section's chip */
     const keepSection = (SECTIONS.includes(sname) && sname !== "Up next" ? sname : OLD_SECTION_HOME[sname]) ?? "Claude's on it";
     let to = it.ticked || landed ? "Done this session" : it.chip ? CHIP_SECTION[it.chip.index] ?? "Claude's on it" : keepSection;

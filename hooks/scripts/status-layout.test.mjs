@@ -423,11 +423,11 @@ test("DISC-329 3b: a backlog row marked done is landed from Claude's on it; an o
 const setOf = (state, line) => ({ "PF-1585": { state, ...(line ? { line } : {}) } });
 const itemOp = (p, id) => p.ops.find((o) => o.id === id && (o.op === "replaceItem" || o.op === "move"));
 test("DISC-329 1+2: --set done re-creates the item with script text and chip Done, ticked, in Done this session (never a move that keeps the old chip)", () => {
-  const p = plan({ docXml: doc(), set: setOf("done") });
+  const p = plan({ docXml: doc(), set: setOf("done", "Glow round 4 looked at and approved.") });
   const x = itemOp(p, "a");
   assert.equal(x.op, "replaceItem");
   assert.deepEqual([x.to.section, x.chip, x.reason, x.ticked], ["Done this session", "Done", "set", true]);
-  assert.equal(x.markdown, "- [x] [Done] **(PF-1585) Look at glow round 4. Done.**");
+  assert.equal(x.markdown, "- [x] [Done] **(PF-1585) Look at glow round 4. Done.**\n  - Glow round 4 looked at and approved.");
   assert.ok(p.answered.includes("PF-1585"), "the row is still open in the queue: it is banked as answered");
 });
 test("DISC-329 1+2: --set claude and --set yours: section and chip change together; the one plain line the parent gives is the only prose it supplies", () => {
@@ -462,4 +462,25 @@ test("DISC-329 CLI: --set ROW=state and --line ROW=text reach the plan", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(JSON.parse(r.stdout).ops.find((o) => o.id === "a").markdown, /\[Claude's on it\] \*\*\(PF-1585\)[^\n]*\n  - Engineer on it\.$/);
   assert.notEqual(runCli(doc(), ["--doc", "-", "--set", "PF-1585=bogus"]).status, 0);
+});
+
+// DISC-329 ambers (review of #218): the item format always carries its one plain line, and the Stop reason names the real way out
+test("DISC-329 amber 2: --set done and --set claude need their one plain line (the ruling's item format); --set yours on an open ask does not", () => {
+  assert.throws(() => plan({ docXml: doc(), set: setOf("done") }), /--line PF-1585/);
+  assert.throws(() => plan({ docXml: doc(), set: setOf("claude") }), /--line PF-1585/);
+  assert.match(itemOp(plan({ docXml: doc(), set: setOf("yours") }), "a").markdown, /\[You're on it\]/, "an open ask carries its own Problem/Solution/Look lines from the row");
+});
+test("DISC-329 amber 2: --set ready or yours on a row that is not an open ask needs its line too, so no item is ever the bare 'Waiting on you.'", () => {
+  assert.throws(() => plan({ docXml: LIVE, set: { "PF-1598": { state: "yours" } } }), /--line PF-1598/);
+  const x = plan({ docXml: LIVE, set: { "PF-1598": { state: "yours", line: "Your call on the header." } } }).ops.find((o) => /\(PF-1598\)/.test(o.markdown || "") && /You're on it/.test(o.markdown));
+  assert.equal(x.markdown, "- [ ] [You're on it] **(PF-1598) Header flicker. Waiting on you.**\n  - Your call on the header.");
+});
+const withThread = (xml) => xml.replace("<paragraph id='pa'>", "<paragraph id='pa'><comment id='c1' to='claude'/>");
+const handItem = [{ id: "a", chip: 0, text: "(PF-1585) my own wording of the ask" }];
+test("DISC-329 amber 1: a hand-written item that --set cannot rewrite says why: an unanswered thread, or a row this vault checkout does not hold", () => {
+  const thread = plan({ docXml: withThread(doc({ sections: { "Ready for you": { Portfolio: handItem } } })) });
+  assert.deepEqual(thread.handWritten.map((h) => [h.rowId, h.blockedBy]), [["PF-1585", "unanswered comment thread"]]);
+  const unknown = plan({ docXml: doc({ sections: { "Ready for you": { Portfolio: [{ id: "a", chip: 0, text: "(PF-9999) my own wording" }] } } }) });
+  assert.deepEqual(unknown.handWritten.map((h) => [h.rowId, h.blockedBy]), [["PF-9999", "unknown row"]]);
+  assert.deepEqual(plan({ docXml: doc({ sections: { "Ready for you": { Portfolio: handItem } } }) }).handWritten.map((h) => h.blockedBy ?? null), [null], "a plain hand-written item has no blocker: --set clears it");
 });
