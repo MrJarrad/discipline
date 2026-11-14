@@ -45,3 +45,11 @@ test("DISC-329: an item whose text is not the script's item form is an issue, na
   assert.match(issue, /hand-written/);
   assert.match(issue, /--set/);
 });
+test("DISC-329 amber 1: the reason names the real way out when --set cannot rewrite the item: answer the thread, or pull the vault", () => {
+  const hand = inLayout({ sections: { "Ready for you": { Portfolio: [{ ...ask, text: "(PF-5) my own wording of the footer ask" }] } } });
+  const thread = docLayoutIssue({ vault: vault(), docXml: hand.replace("<paragraph id='pr5'>", "<paragraph id='pr5'><comment id='c1' to='claude'/>"), today: "2026-11-12" });
+  assert.match(thread, /answer the comment thread/);
+  assert.doesNotMatch(thread, /rewrite each with/);
+  const unknown = docLayoutIssue({ vault: vault(), docXml: inLayout({ sections: { "Ready for you": { Portfolio: [ask, { id: "r9", chip: 0, text: "(PF-9999) my own wording" }] } } }), today: "2026-11-12" });
+  assert.match(unknown, /pull the vault/);
+});
