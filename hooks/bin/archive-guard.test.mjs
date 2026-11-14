@@ -224,7 +224,10 @@ test("DISC-284: a subagent cannot make a parent session look like a helper", () 
 
 // DISC-325: archive-prep.mjs runs the open-PR lookups for a helper in one call; its printed JSON, read from the harness-written
 // tool_result, is a lookup. Only the exact command form counts, and every other guard check still applies to it.
-const PREP = (id, branches) => `node "/root/.claude/plugins/cache/discipline/discipline/1.203.0/hooks/scripts/archive-prep.mjs" --session ${id}${branches?.length ? ` --branches ${branches.join(",")}` : ""}`;
+const SCRIPTS = fileURLToPath(new URL("../scripts/", import.meta.url)); // the plugin's own scripts dir, as the guard pins it
+const PREP_AT = (dir, id, branches) => `node "${dir}archive-prep.mjs" --session ${id}${branches?.length ? ` --branches ${branches.join(",")}` : ""}`;
+const PREP = (id, branches) => PREP_AT(SCRIPTS, id, branches);
+
 const prepOut = (id, branches = [], openFor = {}) => JSON.stringify({ ok: true, session: id, branches, open: [], lookups: [id, ...branches.map((b) => `head:${b}`)].map((t) => ({ query: `is:pr is:open ${t}`, result: search("", openFor[t] ?? []) })) });
 const prepCall = (command, out, cid = "p1") => call("Bash", { command }, out, cid).map((e) => JSON.parse(JSON.stringify(e).replace("mcp__claude-code-remote__Bash", "Bash")));
 test("DISC-325: archive-prep output covering the session id and each branch clears a helper", () => {
@@ -257,4 +260,10 @@ test("DISC-325: a parent session or a working helper is refused even with a clea
   deniedNaming(run(ID("p9"), parent), /parent session/);
   const working = [...call("get_session", {}, { ccr: { ...sess(ID("pa"), "Helper · x", "session_p"), status_bucket: "SESSION_STATUS_BUCKET_WORKING" } }, "g1"), ...prepCall(PREP(ID("pa")), prepOut(ID("pa")))];
   deniedNaming(run(ID("pa"), working), /still working/);
+});
+
+test("DISC-325 A1: an archive-prep at any other path (a look-alike script printing a fake clear lookup) is not a lookup", () => {
+  for (const dir of ["/tmp/evil/hooks/scripts/", "/home/user/work/hooks/scripts/", `${SCRIPTS}../scripts/../../x/hooks/scripts/`, "/root/.claude/plugins/cache/discipline/discipline/1.203.0/hooks/scripts/"])
+    deniedNaming(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP_AT(dir, ID("f1")), prepOut(ID("f1")))]), /open-PR lookup/);
+  assert.equal(run(ID("f1"), [...helperB(ID("f1")), ...prepCall(PREP(ID("f1")), prepOut(ID("f1")))]), null);
 });

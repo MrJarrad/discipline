@@ -43,6 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { canMerge, gateRunTail, trustedLogins } from "./merge-after-review.mjs";
 import { addRow, crossFileDupIds, setRowStatus } from "./list-drift-check.mjs";
 import { raiseMarkers } from "./row-add.mjs";
@@ -146,7 +147,7 @@ function main() {
     process.exit(1);
   }
 
-  const scriptDir = new URL(".", import.meta.url).pathname;
+  const scriptDir = fileURLToPath(new URL(".", import.meta.url));
   const failures = [];
 
   // 1. Sweep.

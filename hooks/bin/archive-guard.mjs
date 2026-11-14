@@ -14,6 +14,7 @@
    same session count (subagentLines).   */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
 
 const deny = (reason) => {
@@ -108,11 +109,13 @@ export function prName(p) {
   return m ? `${m[1]}#${m[2]}` : url;
 }
 
-/* DISC-325: the second accepted lookup form. `node "<…>/hooks/scripts/archive-prep.mjs" --session <id> [--branches a,b]`, alone (no
-   pipe, wrapper or substitution), prints { lookups: [{ query, result }] }: the same searches, run by the script. Its output is
-   read from the harness-written tool_result, so it cannot be typed in by the agent; each lookup then goes through the same
-   termOf / listed checks as a gh search. */
-const PREP_CMD = /^\s*node "[^"$`\\|;&<>\n]*\/hooks\/scripts\/archive-prep\.mjs" --session [\w./:-]+(?: --branches [\w./:,-]+)?\s*$/;
+/* DISC-325: the second accepted lookup form. `node "<this plugin's scripts dir>/archive-prep.mjs" --session <id> [--branches a,b]`,
+   alone (no pipe, wrapper or substitution), prints { lookups: [{ query, result }] }: the same searches, run by the script. The
+   command is pinned to the one archive-prep.mjs beside this guard (a script at any other path could print a fake clear lookup,
+   review A1), and its output is read from the harness-written tool_result, so a typed-in echo is not it; each lookup then goes
+   through the same termOf / listed checks as a gh search. Not covered: an agent that rewrites the plugin's own archive-prep.mjs. */
+const PREP_SCRIPT = fileURLToPath(new URL("../scripts/archive-prep.mjs", import.meta.url));
+const PREP_CMD = new RegExp(`^\\s*node "${PREP_SCRIPT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" --session [\\w./:-]+(?: --branches [\\w./:,-]+)?\\s*$`);
 /* [{ query, text }] for one Bash/MCP call: its single gh search, or each lookup an archive-prep run printed. */
 function lookupsOf(input, text) {
   if (typeof input.command === "string" && PREP_CMD.test(input.command)) {
