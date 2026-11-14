@@ -10,7 +10,7 @@
    already in the layout. `unplaced` lists items naming no project.
    Up next source (DISC-328, one for every project): the backlog's `## Up next` (an ordered list of row ids, first five); none -> "Nothing.". A row already in Ready for you,
    You're on it or Claude's on it is never also Up next. The go-live file feeds only the launch count (its groups 1-4, ticked of all).
-   A chip-less item (DISC-328) is flagged in `chipless` and re-chipped in the section it sits in; it is never moved or read as Claude's on it.
+   DISC-334 (operator s90): no top-level item carries a chip; the section an item sits in is its status. Only the per-project checklist nested under a You're on it item keeps its chips (toMarkdown prints a chip at depth > 0 only). An old top-level chip is dropped when the item is re-written anyway (a move that would have changed its chip, --set, a stale lane text); an item with an unanswered thread is moved whole and listed in `staleChips`.
    DISC-329 (operator s88: "this needs to be bullet proof so it's alway formatted correctly"): the script owns every item's text and chip. `--set ROW=ready|yours|claude|done` (repeatable; `--line ROW=<one plain
    line>` required for done, claude and any row that is not an open ask) re-creates that row's item with the new chip, tick and section together and the script's own text; Up next skips done and moot rows; a struck or closed row's item goes to Done from You're on it,
    Ready for you or Waiting (a live lane in Claude's on it waits for its backlog row to close); `handWritten` lists Ready / You're on it / Done items whose bold line is not "(ID) Title. <state>.".
@@ -61,8 +61,8 @@ const rowTitle = (text, id) => shortTitle(new RegExp(`^\\|\\s*(?:~~)?${id}(?:~~)
 /* DISC-310 amendment (operator s82: "would it be better to perhaps group by status and sub group by project? ... we don't really need running now as a
    specific section if there's a claude's on it status"): the top-level sections ARE the chip values. An item's section always matches its chip. */
 export const SECTIONS = ["Ready for you", "You're on it", "Claude's on it", "Up next", "Done this session"];
+/* the chip of an item still in an OLD section (Waiting on you, Running now) is the only status it carries: read once, to place it in the new layout */
 const CHIP_SECTION = { 0: "Ready for you", 1: "You're on it", 2: "Done this session", 3: "Claude's on it" };
-const SECTION_CHIP = { "Ready for you": "Ready for you", "You're on it": "You're on it", "Claude's on it": "Claude's on it", "Done this session": "Done" };
 const OLD_SECTIONS = ["Waiting on you", "Running now", "Go-live"];
 const OLD_SECTION_HOME = { "Waiting on you": "Ready for you", "Running now": "Claude's on it" };
 
@@ -77,7 +77,7 @@ const MAC_DIRS = ["queue/mac/pending", "queue/mac/review", "queue/mac/running"];
 export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBase(vault), set = {} }) {
   const r = neededFromYou(vault, prefixes);
   if (!r.ok) throw new Error(r.reason);
-  const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [], refused = [], droppedComments = [], holds = [], chipless = [], handWritten = [];
+  const doc = parseStatusDoc(docXml), structure = [], work = [], tail = [], unplaced = [], answered = [], refused = [], droppedComments = [], holds = [], staleChips = [], handWritten = [];
   const names = r.projects.map((p) => ({ prefix: p.prefix, name: displayName(p.project), backlog: p.backlog.file }));
   const { open, formatted } = openItems(r);
   /* every row id the run can see, open or struck or done: a row in none of these files is UNKNOWN (a stale vault checkout), never "landed" */
@@ -120,11 +120,11 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   }
   /* DISC-329: the item the SCRIPT writes for a row set to a state. The parent supplies a state and at most one plain line; every other word is the row's own title and the item format. */
   const scriptItem = (rowId, state, line) => {
-    const chip = SECTION_CHIP[SET_STATES[state]], title = itemTitle(cell1.get(rowId) || rowId);
-    if (state === "done") return `- [x] [${chip}] **(${rowId}) ${title}. Done.**\n  - ${line}`;
-    if (state === "claude") return `- [ ] [${chip}] **(${rowId}) ${title}. Claude's on it.**\n  - ${line}`;
-    if (formatted.has(rowId)) return formatted.get(rowId).replace("[Ready for you]", `[${chip}]`);
-    return `- [ ] [${chip}] **(${rowId}) ${title}. Waiting on you.**\n  - ${line}`;
+    const title = itemTitle(cell1.get(rowId) || rowId);
+    if (state === "done") return `- [x] **(${rowId}) ${title}. Done.**\n  - ${line}`;
+    if (state === "claude") return `- [ ] **(${rowId}) ${title}. Claude's on it.**\n  - ${line}`;
+    if (formatted.has(rowId)) return formatted.get(rowId);
+    return `- [ ] **(${rowId}) ${title}. Waiting on you.**\n  - ${line}`;
   };
   /* 1. every existing item: where it is, where its chip (or tick, or closed row) says it belongs */
   const itemSections = [...SECTIONS.filter((n) => n !== "Up next"), "Waiting on you", "Running now"];
@@ -168,8 +168,15 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const forced = it.rowId && set[it.rowId];
     if (forced) {
       const fromTo = { section: sname, project: proj }, dest0 = { section: SET_STATES[forced.state], project: home };
-      if (it.comments.some((c) => !c.answered)) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
-      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from: fromTo, to: dest0, chip: SECTION_CHIP[dest0.section], reason: "set", markdown: scriptItem(it.rowId, forced.state, forced.line), comments: it.comments, ...(forced.state === "done" ? { ticked: true } : {}) });
+      /* DISC-334 (review amber 2): an item with an unanswered thread is moved whole, never re-written: its text (and any old chip) is stale until the thread is answered, so it is named in staleChips */
+      if (it.comments.some((c) => !c.answered)) {
+        staleChips.push({ id: it.id, rowId: it.rowId, label: it.chip?.label ?? null, to: dest0.section, text: it.text });
+        work.push({ op: "move", id: it.id, rowId: it.rowId, from: fromTo, to: dest0, reason: "set", kids: it.kids.length, ...(forced.state === "done" ? { staleText: false, ticked: true } : {}) });
+        bump(dest0.section, home);
+        if (open.has(it.rowId) && (forced.state === "done" || forced.state === "claude")) answered.push(it.rowId);
+        continue;
+      }
+      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from: fromTo, to: dest0, reason: "set", markdown: scriptItem(it.rowId, forced.state, forced.line), comments: it.comments, ...(forced.state === "done" ? { ticked: true } : {}) });
       drop(it.comments, "replaceItem", it.id);
       bump(dest0.section, home);
       if (open.has(it.rowId) && (forced.state === "done" || forced.state === "claude")) answered.push(it.rowId);
@@ -180,32 +187,32 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
       const blockedBy = it.comments.some((c) => !c.answered) ? "unanswered comment thread" : !known.has(it.rowId) ? "unknown row" : null;
       handWritten.push({ id: it.id, rowId: it.rowId, section: sname, ...(blockedBy ? { blockedBy } : {}) });
     }
-    /* DISC-328: an item with no chip is FLAGGED, never reclassified: it keeps the section it sits in (an old section maps to its chip-value section) and gets that section's chip */
-    const keepSection = (SECTIONS.includes(sname) && sname !== "Up next" ? sname : OLD_SECTION_HOME[sname]) ?? "Claude's on it";
-    let to = it.ticked || landed ? "Done this session" : it.chip ? CHIP_SECTION[it.chip.index] ?? "Claude's on it" : keepSection;
-    let reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? (OLD_SECTIONS.includes(sname) ? "layout" : "chip") : home !== proj ? "misfiled" : !it.chip ? "chipless" : null;
-    if (!it.chip && !it.ticked && !landed && sname === to && home === proj) chipless.push({ id: it.id, rowId: it.rowId, section: sname });
+    /* DISC-334 (operator s90): the section an item sits in IS its status; no top-level item carries a chip, so the chip never moves or flags an item. */
+    const keepSection = (SECTIONS.includes(sname) && sname !== "Up next" ? sname : (it.chip ? CHIP_SECTION[it.chip.index] : null) ?? OLD_SECTION_HOME[sname]) ?? "Claude's on it";
+    let to = it.ticked || landed ? "Done this session" : keepSection;
+    let reason = it.ticked ? "ticked" : landed ? "landed" : sname !== to ? "layout" : home !== proj ? "misfiled" : null;
     if (to === "Done this session" && job) { to = "Claude's on it"; reason = "pending"; }
-    if (sname === to && home === proj && it.chip && reason === null) { bump(sname, home); continue; }
+    if (sname === to && home === proj && reason === null) { bump(sname, home); continue; }
     /* DISC-314 1: a ticked item already in Done under its project is where it belongs; moving it again never converges */
-    if (sname === "Done this session" && it.ticked && to === sname && home === proj && it.chip?.label === "Done") { bump(sname, home); if (open.has(it.rowId)) answered.push(it.rowId); continue; }
-    if (reason === null) reason = "chip";
-    const chipLabel = SECTION_CHIP[to], chipOk = it.chip?.label === chipLabel;
+    if (sname === "Done this session" && it.ticked && to === sname && home === proj) { bump(sname, home); if (open.has(it.rowId)) answered.push(it.rowId); continue; }
+    if (reason === null) reason = "layout";
     /* DISC-314 5: lane text that says the work is still going must not reach Done verbatim: the item is re-created as the row's title + "Done." */
     const rewrite = to === "Done this session" && STALE.test(it.text);
-    const recreate = !chipOk || rewrite;
-    if (recreate && it.comments.some((c) => !c.answered)) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
+    const threaded = it.comments.some((c) => !c.answered);
+    if (rewrite && threaded) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
+    /* an old top-level chip is dropped only when the item is re-written anyway; a thread is never detached for it: the item moves whole and the chip is named in staleChips */
+    const recreate = rewrite || (!!it.chip && !threaded);
+    if (it.chip && threaded && !rewrite) staleChips.push({ id: it.id, rowId: it.rowId, label: it.chip.label, to, text: it.text });
     const from = { section: sname, project: proj }, dest = { section: to, project: home };
     const isDone = to === "Done this session";
     if (!recreate) work.push({ op: "move", id: it.id, rowId: it.rowId, from, to: dest, reason, kids: it.kids.length, ...(isDone ? { staleText: false, ticked: true } : {}) });
     else {
       /* DISC-314 4: everything that enters Done is ticked, the ones the operator did not tick (landed) included */
       const body = rewrite ? { ...it, text: `**${headline(it)}. Done.**` } : it;
-      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from, to: dest, chip: chipLabel, reason, markdown: toMarkdown({ ...body, ticked: isDone || it.ticked, chip: { label: chipLabel }, listKind: "check" }), comments: it.comments, ...(isDone ? { staleText: STALE.test(it.text), ticked: true } : {}) });
+      work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from, to: dest, reason, markdown: toMarkdown({ ...body, ticked: isDone || it.ticked, listKind: "check" }), comments: it.comments, ...(isDone ? { staleText: STALE.test(it.text), ticked: true } : {}) });
       drop(it.comments, "replaceItem", it.id);
     }
     bump(to, home);
-    if (sname === "Ready for you" && reason === "chip" && it.rowId && open.has(it.rowId)) answered.push(it.rowId);
     if (it.ticked && open.has(it.rowId)) answered.push(it.rowId);
   }
   /* DISC-329: a row set to a state that the doc does not hold yet is inserted in that state */
@@ -316,7 +323,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const have = (bk?.items || []).map((i) => i.text);
     if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) clean.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links, dropped: droppedLinks });
   }
-  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], chipless, handWritten, unknown, refused, droppedComments, holds };
+  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], staleChips, handWritten, unknown, refused, droppedComments, holds };
 }
 
 /* DISC-314 8: the doc read arrives inline in the session, never as a file: `-` reads stdin; --doc-json takes the connector's JSON result ({ xml }, or the xml as a JSON string) */

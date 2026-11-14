@@ -48,30 +48,30 @@ test("every section is a chip value, in order, each with the three project headi
   assert.deepEqual(ops(p, "removeSection").map((o) => o.name), ["Waiting on you", "Running now", "Go-live"]);
   assert.ok(p.ops.findIndex((o) => o.op === "moveItem") < p.ops.findIndex((o) => o.op === "removeSection"), "items move before their old section goes");
 });
-test("an item's section follows its chip: Ready for you 0, You're on it 1, Claude's on it 3; a ticked item or a closed row goes to Done with chip Done", () => {
+test("an item in an old section is placed by its old chip once (Ready for you 0, You're on it 1, Claude's on it 3); a ticked item or a closed row goes to Done, chip-less (DISC-334)", () => {
   const p = plan();
-  const to = (id) => [move(p, id).to.section, move(p, id).to.project, move(p, id).chip ?? "kept", move(p, id).reason];
-  assert.deepEqual(to(".32090"), ["Ready for you", "Portfolio", "kept", "layout"], "PF-797: its chip already says Ready, so the block just moves");
-  assert.deepEqual(to(".31651"), ["You're on it", "Portfolio", "kept", "layout"], "PF-65, nested list moves with it");
-  assert.deepEqual(to(".33589"), ["Claude's on it", "Portfolio", "kept", "layout"], "PF-1585");
-  assert.deepEqual(to(".40753"), ["Done this session", "Portfolio", "Done", "ticked"], "PF-1598");
-  assert.deepEqual(to(".38335"), ["Done this session", "Discipline", "Done", "ticked"], "DISC-303");
-  assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "kept", "layout"], "DISC-311 is an open row here");
+  const to = (id) => [move(p, id).to.section, move(p, id).to.project, move(p, id).reason];
+  assert.deepEqual(to(".32090"), ["Ready for you", "Portfolio", "layout"], "PF-797: its chip already says Ready, so the block just moves");
+  assert.deepEqual(to(".31651"), ["You're on it", "Portfolio", "layout"], "PF-65, nested list moves with it");
+  assert.deepEqual(to(".33589"), ["Claude's on it", "Portfolio", "layout"], "PF-1585");
+  assert.deepEqual(to(".40753"), ["Done this session", "Portfolio", "ticked"], "PF-1598");
+  assert.deepEqual(to(".38335"), ["Done this session", "Discipline", "ticked"], "DISC-303");
+  assert.deepEqual(to(".43205"), ["Ready for you", "Discipline", "layout"], "DISC-311 is an open row here");
   const landed = move(plan({ docXml: LIVE.replace("(DISC-311)", "(DISC-999)") }), ".43205");
-  assert.deepEqual([landed.to.section, landed.chip, landed.reason], ["Done this session", "Done", "landed"], "a Ready item whose row is struck in the vault goes to Done");
-  assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "kept", "layout"], "HT-95");
+  assert.deepEqual([landed.to.section, topChips(landed.markdown), landed.reason], ["Done this session", [], "landed"], "a Ready item whose row is struck in the vault goes to Done");
+  assert.deepEqual(to(".39286"), ["Ready for you", "Handoff toolkit", "layout"], "HT-95");
 });
-test("running lines: a ticked one goes to Done; one with no chip lands in Claude's on it with the chip set", () => {
+test("running lines: a ticked one goes to Done; one with no chip lands in Claude's on it", () => {
   const p = plan();
   assert.deepEqual([move(p, ".39741").to.section, move(p, ".39877").to.section], ["Done this session", "Done this session"]);
   const bare = move(p, ".42857");
-  assert.deepEqual([bare.to.section, bare.to.project, bare.chip, bare.rowId], ["Claude's on it", "Portfolio", "Claude's on it", "PF-1496"]);
+  assert.deepEqual([bare.to.section, bare.to.project, bare.rowId], ["Claude's on it", "Portfolio", "PF-1496"]);
   assert.equal(move(p, ".43689").to.section, "Claude's on it");
 });
 test("an open row the doc lacks is inserted under Ready for you in the item format; one already on the doc with its bold id in runs is not", () => {
   const p = plan();
   assert.deepEqual(ops(p, "insertItem").map((o) => [o.section, o.project, o.rowId]), [["Ready for you", "Portfolio", "PF-1600"]]);
-  assert.match(ops(p, "insertItem")[0].markdown, /^- \[ \] \[Ready for you\] \*\*\(PF-1600\) Look at the new header\. Waiting on you\.\*\*/);
+  assert.match(ops(p, "insertItem")[0].markdown, /^- \[ \] \*\*\(PF-1600\) Look at the new header\. Waiting on you\.\*\*/);
 });
 test("an empty project in a section gets Nothing.", () => {
   const p = plan();
@@ -79,14 +79,12 @@ test("an empty project in a section gets Nothing.", () => {
   assert.ok(n.includes("You're on it|Discipline") && n.includes("You're on it|Handoff toolkit") && n.includes("Claude's on it|Handoff toolkit") && n.includes("Done this session|Handoff toolkit"), n.join(", "));
   assert.ok(!n.includes("Ready for you|Portfolio"), "Portfolio has Ready items");
 });
-test("the operator flips a chip in the doc: the item moves to the matching section and an open queue row is banked as answered", () => {
+test("DISC-334: a chip changed in a current section moves nothing and banks nothing: the section is the status; moving is the script's --set", () => {
   const flipped = `<doc node='n'><paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='d'><date id='dd' value='2026-11-12'/><text id='t'> · </text></paragraph>`
     + `<paragraph id='s1' heading='2'><text id='t'>Ready for you</text></paragraph><paragraph id='pp' heading='3'><text id='t'>Portfolio</text></paragraph><list id='l1' kind='check'><listItem id='i1'><paragraph id='x1'><dropdown id='dd1' enum='e' index='2'>Done</dropdown><text id='t'> </text><text id='t2'><bold>(PF-797) Your final review.</bold></text></paragraph></listItem><listItem id='i2'><paragraph id='x2'><dropdown id='dd2' enum='e' index='1'>You're on it</dropdown><text id='t'> </text><text id='t2'><bold>(PF-65) Media.</bold></text></paragraph></listItem><listItem id='i3'><paragraph id='x3'><dropdown id='dd3' enum='e' index='0'>Ready for you</dropdown><text id='t'> </text><text id='t2'><bold>(PF-1585) Look.</bold></text></paragraph></listItem></list></doc>`;
   const p = plan({ docXml: flipped });
-  assert.deepEqual([move(p, "i1").to.section, move(p, "i1").reason], ["Done this session", "chip"]);
-  assert.deepEqual([move(p, "i2").to.section, move(p, "i2").reason], ["You're on it", "chip"]);
-  assert.equal(move(p, "i3"), undefined, "a Ready item with a Ready chip stays");
-  assert.deepEqual(p.answered.sort(), ["PF-65", "PF-797"], "PF-1585 is untouched");
+  for (const id of ["i1", "i2", "i3"]) assert.equal(move(p, id), undefined, `${id} stays in Ready for you whatever its chip says`);
+  assert.deepEqual(p.answered, []);
 });
 test("Up next: Discipline reads the ordered ## Up next of its backlog, top five with titles, skipping rows already Ready, You're on it or Claude's on it (DISC-310 is Claude's on it)", () => {
   const p = plan();
@@ -143,18 +141,20 @@ test("a doc already in the layout produces no ops (a second run is empty)", () =
 test("RED 1: a delete+insert op carries the WHOLE item (every child, chip and tick) so nothing is lost at the destination; PF-65's checklist and PF-1598's Problem/Decision travel", () => {
   const ticked = LIVE.replace("<listItem id='.31651' rev='269' h='3a0af54e'>", "<listItem id='.31651' rev='269' h='3a0af54e' checked='true'>");
   const pf65 = plan({ docXml: ticked }).ops.find((o) => o.op === "replaceItem" && o.id === ".31651");
-  assert.equal(pf65.chip, "Done");
-  assert.ok(pf65.markdown.startsWith("- [x] [Done] **(PF-65) Media for each case study.**"), pf65.markdown);
+  assert.deepEqual(topChips(pf65.markdown), []);
+  assert.ok(pf65.markdown.startsWith("- [x] **(PF-65) Media for each case study.**"), pf65.markdown);
   assert.ok(pf65.markdown.includes("\n  - [x] [Done] Yardsale") && pf65.markdown.includes("\n  - [ ] [You're on it] Sabina Savage"), "the nested checklist keeps its ticks and chips");
   const pf1598 = plan().ops.find((o) => o.op === "replaceItem" && o.id === ".40753");
   for (const t of ["\n  - **Problem:** the card title shown in the header caught the pointer.", "\n  - **Decision:** while a card is held", "\n    - **Recommended:** keep it unclickable.", "\n    - **Alternative:** keep it clickable another way."]) assert.ok(pf1598.markdown.includes(t), t);
 });
-test("amber 3: a section move that needs no new chip is the connector's `move` (keeps block ids, children, comment threads); delete+insert (`replaceItem`) only where the chip itself changes", () => {
+test("amber 3 / DISC-334: a chipped item leaving an old section is re-written chip-less (`replaceItem`, children carried); a chip-less one is the connector's `move` (keeps block ids and threads)", () => {
   const p = plan();
   const pf65 = p.ops.find((o) => o.id === ".31651"), pf797 = p.ops.find((o) => o.id === ".32090"), pf1598 = p.ops.find((o) => o.id === ".40753");
-  assert.deepEqual([pf65.op, pf65.to.section, pf65.kids], ["move", "You're on it", 2]);
-  assert.deepEqual([pf797.op, pf797.to.section, pf797.kids], ["move", "Ready for you", 0]);
-  assert.equal(pf1598.op, "replaceItem", "its chip must become Done");
+  assert.deepEqual([pf65.op, pf65.to.section, topChips(pf65.markdown), pf65.markdown.split("\n").length], ["replaceItem", "You're on it", [], 3]);
+  assert.deepEqual([pf797.op, pf797.to.section, topChips(pf797.markdown)], ["replaceItem", "Ready for you", []]);
+  assert.equal(pf1598.op, "replaceItem");
+  const bare = plan({ docXml: LIVE.replace(/<dropdown id='\.32092'[^>]*>Ready for you<\/dropdown>/, "") }).ops.find((o) => o.id === ".32090");
+  assert.deepEqual([bare.op, bare.to.section], ["move", "Ready for you"]);
 });
 test("amber 3: the plan names every comment thread an op would drop; an answered one is listed, an UNANSWERED one refuses the op", () => {
   const p = plan();
@@ -255,7 +255,7 @@ test("DISC-314 4: every item that goes to Done is ticked (landed ones too), in t
   assert.equal(landed.reason, "landed");
   assert.equal(landed.ticked, true);
   const pf1598 = plan().ops.find((o) => o.id === ".40753");
-  assert.ok(pf1598.markdown.startsWith("- [x] [Done]"), pf1598.markdown);
+  assert.ok(pf1598.markdown.startsWith("- [x] **"), pf1598.markdown);
   const ready = plan().ops.find((o) => o.id === ".32090");
   assert.notEqual(ready.ticked, true, "a move to an open section is not ticked");
 });
@@ -263,7 +263,7 @@ test("DISC-314 5: a stale in-flight lane text going to Done is its headline rewr
   const building = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") });
   const o = building.ops.find((x) => x.id === ".42857");
   assert.equal(o.op, "replaceItem");
-  assert.match(o.markdown, /^- \[x\] \[Done\] \*\*\(PF-1496\) [^\n]*\. Done\.\*\*$/, o.markdown);
+  assert.match(o.markdown, /^- \[x\] \*\*\(PF-1496\) [^\n]*\. Done\.\*\*$/, o.markdown);
   assert.ok(!/building|helper session/i.test(o.markdown), o.markdown);
 });
 test("DISC-314 6: Up next titles keep a whole sentence up to 120 characters, else cut at a word before 120", () => {
@@ -318,11 +318,11 @@ test("DISC-314 review RED: an item naming several rows (rowId null) keeps its ow
   const o = plan({ docXml: multi }).ops.find((x) => x.id === ".39877");
   assert.equal(o.op, "replaceItem");
   assert.ok(!o.markdown.includes("null"), o.markdown);
-  assert.match(o.markdown, /^- \[x\] \[Done\] \*\*Latest plugin in every session \(DISC-299\/303\)\. Done\.\*\*$/, o.markdown);
+  assert.match(o.markdown, /^- \[x\] \*\*Latest plugin in every session \(DISC-299\/303\)\. Done\.\*\*$/, o.markdown);
 });
 test("DISC-314 review 2: the rewritten headline is the item's short own title: no trailing …, no doubled period, no queue-ask detail, cut at the in-flight clause", () => {
   const o = plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>") }).ops.find((x) => x.id === ".42857");
-  assert.equal(o.markdown, "- [x] [Done] **(PF-1496) Copying a text page leaves out the nav labels. Done.**");
+  assert.equal(o.markdown, "- [x] **(PF-1496) Copying a text page leaves out the nav labels. Done.**");
   const cut = (text) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("Copying a text page leaves out the nav labels", text) }).ops.find((x) => x.id === ".42857").markdown;
   const long = cut("Copying a text page leaves out the nav labels after the import step in a very long sentence with plenty more words added so it runs past one hundred and twenty characters in total");
   assert.ok(!/(?:…|\.\.)\. Done|\.\. Done/.test(long) && /\*\*[^*]*\. Done\.\*\*$/.test(long), long);
@@ -330,7 +330,7 @@ test("DISC-314 review 2: the rewritten headline is the item's short own title: n
 test("DISC-314 review: a rewritten headline still carries the item's children (PF-1598's Problem and Decision)", () => {
   const o = plan().ops.find((x) => x.id === ".40753");
   assert.equal(o.op, "replaceItem");
-  assert.ok(o.markdown.startsWith("- [x] [Done] **(PF-1598) Header flicker fix. Done.**\n"), o.markdown);
+  assert.ok(o.markdown.startsWith("- [x] **(PF-1598) Header flicker fix. Done.**\n"), o.markdown);
   for (const t of ["\n  - **Problem:**", "\n  - **Decision:**", "\n    - **Recommended:**"]) assert.ok(o.markdown.includes(t), t);
 });
 test("DISC-314 review: 'running' alone in a finished title is not an in-flight clause; 'still running' is", () => {
@@ -344,20 +344,19 @@ const TICK399 = (text) => LIVE.replace("<listItem id='.39877'", "<listItem id='.
 test("DISC-314 follow-up 2: 'writing' is an in-flight cue: the live DISC-299/303 lane text 'writing the step into the rules' is rewritten on its way to Done", () => {
   const o = plan({ docXml: TICK399("writing the step into the rules") }).ops.find((x) => x.id === ".39877");
   assert.equal(o.op, "replaceItem");
-  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session (DISC-299/303). Done.**");
+  assert.equal(o.markdown, "- [x] **Latest plugin in every session (DISC-299/303). Done.**");
 });
 test("DISC-314 follow-up 1: a headline is never left with an open parenthesis: it is cut at the last unbalanced '(' (no '(#188. Done.')", () => {
   const o = plan({ docXml: TICK399("writing the step into the rules").replace("Latest plugin in every session (DISC-299/303)", "Latest plugin in every session (follow-up to #188. Then the rest) and more (see #188. Other") }).ops.find((x) => x.id === ".39877");
-  assert.equal(o.markdown, "- [x] [Done] **Latest plugin in every session. Done.**");
+  assert.equal(o.markdown, "- [x] **Latest plugin in every session. Done.**");
   assert.ok((o.markdown.match(/\(/g) || []).length === (o.markdown.match(/\)/g) || []).length, o.markdown);
 });
 test("DISC-314 follow-up review: 'writing' inside a finished title is not an in-flight cue; only the verb form is ('writing the…', 'now/still writing')", () => {
   const item = (t) => plan({ docXml: LIVE.replace("<listItem id='.42857' rev='309' h='f01939b7'>", "<listItem id='.42857' rev='309' h='f01939b7' checked='true'>").replace("Copying a text page leaves out the nav labels (PF-1496): building, helper session_019vvsL33CSwXZah39dApWeL.", t) }).ops.find((x) => x.id === ".42857");
   const done = item("Brand writing guide for the footer, published (PF-1496).");
-  assert.equal(done.staleText, false);
-  assert.ok(done.markdown.includes("Brand writing guide for the footer, published"), "a finished title keeps its own words, not 'Brand. Done.': " + done.markdown);
+  assert.deepEqual([done.op, done.staleText], ["move", false], "a finished title is not re-written ('Brand. Done.'): the chip-less item moves whole with its own words");
   assert.equal(item("Footer copy (PF-1496): still writing the guide.").op, "replaceItem");
-  assert.match(item("Footer copy (PF-1496): writing the guide.").markdown, /^- \[x\] \[Done\] \*\*\(PF-1496\) Footer copy\. Done\.\*\*$/);
+  assert.match(item("Footer copy (PF-1496): writing the guide.").markdown, /^- \[x\] \*\*\(PF-1496\) Footer copy\. Done\.\*\*$/);
 });
 
 // DISC-328 (operator s88: "I still don't feel like we're cleanly, consistently and dependably using the status doc."): one Up next source,
@@ -374,23 +373,6 @@ test("DISC-328 a: Up next is the backlog's ordered ## Up next for every project,
 });
 const CHIPLESS_ASK = { id: "a", chip: 0, text: "(PF-1585) Look at glow round 4. Waiting on you." };
 const chipless = () => layoutDoc({ base: BASE, sections: { "Ready for you": { Portfolio: [CHIPLESS_ASK] } } }).replace("<dropdown id='da' enum='e' index='0'>Ready for you</dropdown>", "");
-test("DISC-328 b: a chip-less item stays in its section and is flagged; it is re-chipped in place, never moved to Claude's on it, and a Ready ask is not banked as answered", () => {
-  const p = plan({ docXml: chipless() });
-  assert.deepEqual(ops(p, "move").filter((o) => o.id === "a"), []);
-  const fix = ops(p, "replaceItem").filter((o) => o.id === "a");
-  assert.equal(fix.length, 1);
-  assert.deepEqual([fix[0].from.section, fix[0].to.section, fix[0].chip, fix[0].reason], ["Ready for you", "Ready for you", "Ready for you", "chipless"]);
-  assert.match(fix[0].markdown, /\[Ready for you\]/);
-  assert.deepEqual(p.chipless, [{ id: "a", rowId: "PF-1585", section: "Ready for you" }]);
-  assert.ok(!p.answered.includes("PF-1585"), "a chip-less Ready ask is still open");
-});
-test("DISC-328 b: re-chipping converges: apply the plan, plan again, no chip-less item and no replaceItem for it", () => {
-  const once = applyToXml(chipless(), plan({ docXml: chipless() }).ops.filter((o) => o.id === "a"));
-  const again = plan({ docXml: once });
-  assert.deepEqual(again.chipless, []);
-  assert.deepEqual(ops(again, "replaceItem").filter((o) => o.id === "a"), []);
-});
-
 // DISC-329 (operator s88: "the formatting for the status doc seems to keep getting dropped. this needs to be bullet proof so it's alway formatted
 // correctly"): the script owns every item's text and chip. Seam: layoutPlan's returned plan (and its `set` input), and the CLI's --set flag.
 const withBacklog = (v, file, extra, upNext) => {
@@ -408,8 +390,8 @@ test("DISC-329 3a: Up next skips a row whose backlog status is done or moot; the
 test("DISC-329 3b: a row struck in the queue sends its item to Done from You're on it (a stale chip), not only from Ready for you; a live lane in Claude's on it stays until its backlog row closes", () => {
   const x = ops(plan({ docXml: doc({ sections: { "You're on it": { Portfolio: [{ id: "z", chip: 1, text: "(PF-1598) Header flicker. Waiting on you." }] } } }) }), "replaceItem").find((o) => o.id === "z");
   assert.ok(x, "PF-1598 is struck, so the You're on it item is re-created");
-  assert.deepEqual([x.to.section, x.chip, x.reason, x.ticked], ["Done this session", "Done", "landed", true]);
-  assert.match(x.markdown, /^- \[x\] \[Done\] /);
+  assert.deepEqual([x.to.section, topChips(x.markdown), x.reason, x.ticked], ["Done this session", [], "landed", true]);
+  assert.match(x.markdown, /^- \[x\] /);
   assert.deepEqual(plan({ docXml: inClaude("z", "PF-1598", "Header flicker") }).ops.filter((o) => o.id === "z"), [], "a struck queue ask does not end the lane (amber 4)");
 });
 test("DISC-329 3b: a backlog row marked done is landed from Claude's on it; an open backlog row in flight there stays a live lane", () => {
@@ -426,21 +408,21 @@ test("DISC-329 1+2: --set done re-creates the item with script text and chip Don
   const p = plan({ docXml: doc(), set: setOf("done", "Glow round 4 looked at and approved.") });
   const x = itemOp(p, "a");
   assert.equal(x.op, "replaceItem");
-  assert.deepEqual([x.to.section, x.chip, x.reason, x.ticked], ["Done this session", "Done", "set", true]);
-  assert.equal(x.markdown, "- [x] [Done] **(PF-1585) Look at glow round 4. Done.**\n  - Glow round 4 looked at and approved.");
+  assert.deepEqual([x.to.section, x.reason, x.ticked], ["Done this session", "set", true]);
+  assert.equal(x.markdown, "- [x] **(PF-1585) Look at glow round 4. Done.**\n  - Glow round 4 looked at and approved.");
   assert.ok(p.answered.includes("PF-1585"), "the row is still open in the queue: it is banked as answered");
 });
 test("DISC-329 1+2: --set claude and --set yours: section and chip change together; the one plain line the parent gives is the only prose it supplies", () => {
   const c = itemOp(plan({ docXml: doc(), set: setOf("claude", "Engineer is fixing the glow.") }), "a");
-  assert.deepEqual([c.to.section, c.chip, c.reason], ["Claude's on it", "Claude's on it", "set"]);
-  assert.equal(c.markdown, "- [ ] [Claude's on it] **(PF-1585) Look at glow round 4. Claude's on it.**\n  - Engineer is fixing the glow.");
+  assert.deepEqual([c.to.section, c.reason], ["Claude's on it", "set"]);
+  assert.equal(c.markdown, "- [ ] **(PF-1585) Look at glow round 4. Claude's on it.**\n  - Engineer is fixing the glow.");
   const y = itemOp(plan({ docXml: doc(), set: setOf("yours") }), "a");
-  assert.deepEqual([y.to.section, y.chip], ["You're on it", "You're on it"]);
-  assert.match(y.markdown, /^- \[ \] \[You're on it\] \*\*\(PF-1585\) Look at glow round 4\./);
+  assert.equal(y.to.section, "You're on it");
+  assert.match(y.markdown, /^- \[ \] \*\*\(PF-1585\) Look at glow round 4\./);
 });
 test("DISC-329 1+2: --set on a row the doc does not hold inserts the script's item; an unknown row id is refused", () => {
   const p = plan({ docXml: LIVE, set: { "PF-1600": { state: "claude", line: "Engineer on it." } } });
-  assert.ok(p.ops.some((o) => (o.op === "insertItem" || o.op === "replaceItem") && /\[Claude's on it\] \*\*\(PF-1600\)/.test(o.markdown)));
+  assert.ok(p.ops.some((o) => (o.op === "insertItem" || o.op === "replaceItem") && /^- \[ \] \*\*\(PF-1600\) .*Claude's on it\./.test(o.markdown)));
   assert.throws(() => plan({ docXml: LIVE, set: { "PF-99999": { state: "done" } } }), /PF-99999/);
 });
 test("DISC-329 1+2: --set converges: apply the ops, plan again with no --set, nothing is left to do for that item", () => {
@@ -460,7 +442,7 @@ test("DISC-329 1: an item in Ready, You're on it or Done whose bold line is not 
 test("DISC-329 CLI: --set ROW=state and --line ROW=text reach the plan", () => {
   const r = runCli(doc(), ["--doc", "-", "--set", "PF-1585=claude", "--line", "PF-1585=Engineer on it."]);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(JSON.parse(r.stdout).ops.find((o) => o.id === "a").markdown, /\[Claude's on it\] \*\*\(PF-1585\)[^\n]*\n  - Engineer on it\.$/);
+  assert.match(JSON.parse(r.stdout).ops.find((o) => o.id === "a").markdown, /^- \[ \] \*\*\(PF-1585\)[^\n]*Claude's on it\.\*\*\n  - Engineer on it\.$/);
   assert.notEqual(runCli(doc(), ["--doc", "-", "--set", "PF-1585=bogus"]).status, 0);
 });
 
@@ -468,12 +450,12 @@ test("DISC-329 CLI: --set ROW=state and --line ROW=text reach the plan", () => {
 test("DISC-329 amber 2: --set done and --set claude need their one plain line (the ruling's item format); --set yours on an open ask does not", () => {
   assert.throws(() => plan({ docXml: doc(), set: setOf("done") }), /--line PF-1585/);
   assert.throws(() => plan({ docXml: doc(), set: setOf("claude") }), /--line PF-1585/);
-  assert.match(itemOp(plan({ docXml: doc(), set: setOf("yours") }), "a").markdown, /\[You're on it\]/, "an open ask carries its own Problem/Solution/Look lines from the row");
+  assert.equal(itemOp(plan({ docXml: doc(), set: setOf("yours") }), "a").to.section, "You're on it", "an open ask carries its own Problem/Solution/Look lines from the row");
 });
 test("DISC-329 amber 2: --set ready or yours on a row that is not an open ask needs its line too, so no item is ever the bare 'Waiting on you.'", () => {
   assert.throws(() => plan({ docXml: LIVE, set: { "PF-1598": { state: "yours" } } }), /--line PF-1598/);
-  const x = plan({ docXml: LIVE, set: { "PF-1598": { state: "yours", line: "Your call on the header." } } }).ops.find((o) => /\(PF-1598\)/.test(o.markdown || "") && /You're on it/.test(o.markdown));
-  assert.equal(x.markdown, "- [ ] [You're on it] **(PF-1598) Header flicker. Waiting on you.**\n  - Your call on the header.");
+  const x = plan({ docXml: LIVE, set: { "PF-1598": { state: "yours", line: "Your call on the header." } } }).ops.find((o) => /\(PF-1598\)/.test(o.markdown || ""));
+  assert.equal(x.markdown, "- [ ] **(PF-1598) Header flicker. Waiting on you.**\n  - Your call on the header.");
 });
 const withThread = (xml) => xml.replace("<paragraph id='pa'>", "<paragraph id='pa'><comment id='c1' to='claude'/>");
 const handItem = [{ id: "a", chip: 0, text: "(PF-1585) my own wording of the ask" }];
@@ -483,4 +465,54 @@ test("DISC-329 amber 1: a hand-written item that --set cannot rewrite says why: 
   const unknown = plan({ docXml: doc({ sections: { "Ready for you": { Portfolio: [{ id: "a", chip: 0, text: "(PF-9999) my own wording" }] } } }) });
   assert.deepEqual(unknown.handWritten.map((h) => [h.rowId, h.blockedBy]), [["PF-9999", "unknown row"]]);
   assert.deepEqual(plan({ docXml: doc({ sections: { "Ready for you": { Portfolio: handItem } } }) }).handWritten.map((h) => h.blockedBy ?? null), [null], "a plain hand-written item has no blocker: --set clears it");
+});
+
+// DISC-334 (operator s90, fleet/rulings/2026-11-14-s90-status-labels-only-on-project-checklist): no chip on any top-level item; a nested per-project item keeps its chip.
+// Seam: layoutPlan's ops (markdown the connector writes, op kind, staleChips), formatItem's output.
+const TOP_CHIP = /^- (?:\[[ x]\] )?\[(?:Ready for you|You're on it|Claude's on it|Done)\]/;
+const topChips = (md) => String(md).split("\n").filter((l) => TOP_CHIP.test(l));
+test("DISC-334 row 1: nothing the script writes carries a chip on a top-level item: insert, --set and every replace", () => {
+  const p = plan({ set: { "PF-1600": { state: "claude", line: "Engineer on it." }, "HT-95": { state: "done", line: "Friend invited." } } });
+  const written = p.ops.filter((o) => typeof o.markdown === "string");
+  assert.ok(written.some((o) => o.op === "insertItem") && written.some((o) => o.op === "replaceItem"), "the sample writes both kinds");
+  for (const o of written) assert.deepEqual(topChips(o.markdown), [], `${o.op} ${o.rowId}`);
+  assert.ok(written.every((o) => o.chip === undefined), "the op no longer names a chip");
+});
+test("DISC-334 row 2: a ticked PF-65 moves to Done chip-less, its nested per-project items keep their chips", () => {
+  const ticked = LIVE.replace("<listItem id='.31651' rev='269' h='3a0af54e'>", "<listItem id='.31651' rev='269' h='3a0af54e' checked='true'>");
+  const md = plan({ docXml: ticked }).ops.find((o) => o.op === "replaceItem" && o.id === ".31651").markdown;
+  assert.ok(md.startsWith("- [x] **(PF-65) Media for each case study.**"), md);
+  assert.ok(md.includes("\n  - [x] [Done] Yardsale") && md.includes("\n  - [ ] [You're on it] Sabina Savage"), md);
+  assert.deepEqual(topChips(md), []);
+});
+test("DISC-334 row 3: a chipped item that must move and has no thread is re-written chip-less; one with an unanswered thread is moved whole, keeps its old chip and is named in staleChips", () => {
+  const clean = plan(), pf797 = clean.ops.find((o) => o.id === ".32090");
+  assert.deepEqual([pf797.op, pf797.to.section, topChips(pf797.markdown)], ["replaceItem", "Ready for you", []]);
+  assert.deepEqual(clean.staleChips, [], "no commented item moved, nothing stale");
+  const threaded = plan({ docXml: LIVE.replace("<dropdown id='.32092' enum='bc09b9b4-c14e' index='0'>Ready for you</dropdown>", "<dropdown id='.32092' enum='bc09b9b4-c14e' index='0'>Ready for you</dropdown><comment id='thr1' to='claude'/>") });
+  assert.deepEqual(threaded.ops.filter((o) => o.id === ".32090").map((o) => [o.op, o.to.section]), [["move", "Ready for you"]]);
+  assert.deepEqual(threaded.staleChips.map((x) => [x.id, x.rowId, x.label, x.to]), [[".32090", "PF-797", "Ready for you", "Ready for you"]]);
+  assert.ok(!threaded.droppedComments.some((c) => c.item === ".32090") && !threaded.refused.some((r) => r.id === ".32090"), "the thread is never detached or refused");
+});
+test("DISC-334: a chipped item already in the right section is left alone (no mass rewrite); a chip-less one is not flagged", () => {
+  const chipped = layoutDoc({ base: BASE, sections: { "Ready for you": { Portfolio: [CHIPLESS_ASK] } } });
+  assert.deepEqual(plan({ docXml: chipped }).ops.filter((o) => o.id === "a"), []);
+  const bare = chipped.replace("<dropdown id='da' enum='e' index='0'>Ready for you</dropdown>", "");
+  const p = plan({ docXml: bare });
+  assert.deepEqual([p.ops.filter((o) => o.id === "a"), p.answered.includes("PF-1585"), "chipless" in p], [[], false, false]);
+});
+test("DISC-334 convergence: apply the plan, plan again, nothing left; the written items are chip-less", () => {
+  const first = plan(), once = applyToXml(LIVE, first.ops.filter((o) => !first.refused.some((r) => r.id && r.id === o.id)));
+  assert.deepEqual(plan({ docXml: once }).ops, []);
+});
+test("DISC-334 review amber 2: --set on an item with an unanswered thread moves it whole (never re-written), keeps its stale text, and is named in staleChips", () => {
+  const p = plan({ docXml: withThread(doc()), set: setOf("done", "Glow round 4 looked at and approved.") });
+  const x = p.ops.filter((o) => o.id === "a");
+  assert.deepEqual(x.map((o) => [o.op, o.from.section, o.to.section, o.reason, o.ticked]), [["move", "Ready for you", "Done this session", "set", true]]);
+  assert.ok(!x[0].markdown, "a move carries no re-written text");
+  assert.deepEqual(p.staleChips.map((s) => [s.id, s.rowId, s.to, s.text]), [["a", "PF-1585", "Done this session", "**(PF-1585) Look at glow round 4. Waiting on you.**"]]);
+  assert.ok(!p.refused.some((r) => r.id === "a") && !p.droppedComments.some((c) => c.item === "a"), "the thread is neither refused nor dropped");
+  assert.ok(p.answered.includes("PF-1585"), "the open row is still banked as answered");
+  const claude = plan({ docXml: withThread(doc()), set: setOf("claude", "Engineer is fixing the glow.") }).ops.find((o) => o.id === "a");
+  assert.deepEqual([claude.op, claude.to.section], ["move", "Claude's on it"]);
 });

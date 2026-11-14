@@ -82,13 +82,13 @@ test("sections and their paragraphs carry their comment threads (the Done note, 
   assert.deepEqual(section("Done this session").comments, [{ id: "b60a38fc-e0cf", answered: true }]);
   assert.deepEqual(section("Go-live").comments, [{ id: "6686672e-610e", answered: true }]);
 });
-test("toMarkdown renders an item with ALL its children: chips, ticks, bullets and nested checklists, two levels deep", () => {
+test("toMarkdown renders an item with ALL its children: ticks, bullets and nested checklists, two levels deep; DISC-334: the chip prints on nested items only", () => {
   const [glow, header, media] = ["PF-1585", "PF-1598", "PF-65"].map((id) => row("Waiting on you", "Portfolio", id));
   assert.equal(toMarkdown(media), [
-    "- [ ] [You're on it] **(PF-65) Media for each case study.** Drop: media/projects/<project>/ with grid row order.",
+    "- [ ] **(PF-65) Media for each case study.** Drop: media/projects/<project>/ with grid row order.",
     "  - [x] [Done] Yardsale",
     "  - [ ] [You're on it] Sabina Savage"].join("\n"));
-  assert.deepEqual(toMarkdown(header).split("\n").slice(0, 2), ["- [x] [Claude's on it] **(PF-1598) Header flicker fix. You said yes (title stays unclickable); in review, then merge.**", "  - **Problem:** the card title shown in the header caught the pointer."]);
+  assert.deepEqual(toMarkdown(header).split("\n").slice(0, 2), ["- [x] **(PF-1598) Header flicker fix. You said yes (title stays unclickable); in review, then merge.**", "  - **Problem:** the card title shown in the header caught the pointer."]);
   assert.ok(toMarkdown(header).includes("\n    - **Recommended:** keep it unclickable.\n    - **Alternative:** keep it clickable another way."));
   assert.ok(toMarkdown(glow).includes("\n  - [Open round 4](https://preview-pf-1531-media-layer-glow-r4-jhd-preview-staging.jh-229.workers.dev/?time-circuits=on), let Time Circuits land."));
 });

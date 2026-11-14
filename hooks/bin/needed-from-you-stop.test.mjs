@@ -231,32 +231,23 @@ test("DISC-302: lastTurn reports the rows answered this turn and the text of thi
 // The REAL chip change (parent s81): one update call with ops; the dropdown is a block {"type":"dropdown","enum":…,"index":N} swapped into a chars
 // range (index 0 Ready for you, 1 You're on it, 2 Done, 3 Claude's on it), and the row id rides in a SIBLING op (the lead-words rewrite) of the same call.
 const chipWrite = (payload) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, payload });
-const chipOp = (index) => ({ op: "replace", target: { kind: "chars", range: ["mvz0r93rszj.37884", "mvz0r93rszj.37884"] }, with: { as: "markdown", blocks: { v: { type: "dropdown", enum: "bc09b9b4-c14e", index } }, from: { kind: "inline", content: "&lt;?claude block v?&gt;" } } });
 const leadOp = (id) => ({ op: "replace", target: { kind: "find", text: `Look now: footer (${id}), in review…` }, with: { as: "text", from: { kind: "inline", content: `Answered (${id})` } } });
 const callOf = (...ops) => wrote(undefined, { container: { kind: "doc", id: DOC_ID }, ops });
 /* these tests are about the chip rule; the layout read-back (DISC-328) has its own tests below, so the read-back and the state-change fields are left out here */
 const noReadBack = ({ docReadBack, stateChanges, ...r }) => r;
 const answeredTurn = (...writes) => noReadBack(lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, reply(SHORT())), [DOC_ID]));
-test("DISC-302 (review AMBER 4, real payload): a call that sets a dropdown to index 1/2/3 and names the answered row passes; the index is read, not a label", () => {
+test("DISC-302 / DISC-334: a call that names the answered row passes; no chip or dropdown is needed", () => {
   const v = vaultWithChecklist();
-  for (const index of [1, 2, 3]) assert.equal(check({ ...answeredTurn(callOf(chipOp(index), leadOp("PF-6"))), vault: v }), null, `index ${index}`);
-  assert.equal(check({ ...answeredTurn(callOf(leadOp("PF-6"), chipOp(2))), vault: v }), null, "op order does not matter");
+  assert.equal(check({ ...answeredTurn(callOf(leadOp("PF-6"))), vault: v }), null);
+  assert.equal(check({ ...answeredTurn(chipWrite("moved PF-6 to the Done this session section")), vault: v }), null);
 });
-test("DISC-302: no pass for a Ready index, no dropdown, no row id in the call, or another row's call", () => {
+test("DISC-302 / DISC-334: no pass when no doc call names the row, or only another row's call does", () => {
   const v = vaultWithChecklist();
   const no = (t) => assert.match(check({ ...t, vault: v }), /DISC-302.*PF-6/);
-  no(answeredTurn(callOf(chipOp(0), leadOp("PF-6"))));                         // still Ready for you
-  no(answeredTurn(callOf(leadOp("PF-6"))));                                    // lead words only
-  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9"))));                         // another row's call
-  no(answeredTurn(callOf(chipOp(2))));                                         // no row id anywhere in the call
-  no(answeredTurn(chipWrite("moved the item to the Done this session section"))); // the word Done, no dropdown
-  no(answeredTurn(callOf(chipOp(2), leadOp("PF-9")), callOf(leadOp("PF-6"))));  // chip in one call, id in another
+  no(answeredTurn(callOf(leadOp("PF-9"))));
+  no(answeredTurn(chipWrite("moved the item to the Done this session section")));
 });
-test("DISC-302: a read-side label shape in the call (a <dropdown> element) still counts when the row id is in the call", () => {
-  const v = vaultWithChecklist();
-  assert.equal(check({ ...answeredTurn(chipWrite("replace PF-6 with <dropdown id='.2' enum='e' index='2'>Done</dropdown>")), vault: v }), null);
-});
-test("DISC-302: no row answered this turn adds no chip requirement", () => {
+test("DISC-302: no row answered this turn adds no move requirement", () => {
   const v = vaultWithChecklist();
   const r = lastTurn(turn(wrote(), reply(SHORT())), [DOC_ID]);
   assert.deepEqual(r.answered, []);
@@ -407,7 +398,7 @@ import { layoutDoc } from "../scripts/fixtures/status-doc-live.mjs";
 const READ = "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__read";
 const doc = (id) => ({ id, chip: 0, text: `(${id}) Look at it. Waiting on you.` });
 const IN_LAYOUT = () => layoutDoc({ base: "https://x", upNext: { Portfolio: ["Nothing."] }, sections: { "Ready for you": { Portfolio: [doc("PF-5"), doc("PF-6"), doc("PF-8")].map((d) => ({ ...d, id: `i${d.id.replace("-", "")}` })) } } });
-const OUT_OF_LAYOUT = () => IN_LAYOUT().replace(/<dropdown id='diPF5'[^>]*>Ready for you<\/dropdown>/, "");
+const OUT_OF_LAYOUT = () => layoutDoc({ base: "https://x", upNext: { Portfolio: ["Nothing."] }, sections: { "Ready for you": { Portfolio: [doc("PF-6"), doc("PF-8")].map((d) => ({ ...d, id: `i${d.id.replace("-", "")}` })) } } }); // the open row PF-5 is missing from the doc
 const readCall = (id) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id, name: READ, input: { ref: { object: "node", id: "doc" }, container: { kind: "doc", id: DOC_ID }, payload: { kind: "view" } } }] } });
 const readResult = (id, data) => JSON.stringify({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: JSON.stringify({ verdict: "allow", rev: 9, data }) }] } });
 const fullRead = (id, xml) => [readCall(id), readResult(id, { rev: 9, xml, complete: true })];
@@ -446,4 +437,12 @@ test("DISC-328 thread: a status-shaped reply after a state-only turn with no new
   assert.match(check({ text: status, userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), /DISC-328[^]*thread/);
   assert.equal(check({ text: "That is merged; want the next lane to be the footer?", userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), null, "discussion is the thread's job");
   assert.equal(check({ text: status, userTs: T, vault: v, docWritten: true, stateChanges: [] }), null, "no task-state change this turn: the operator asked for the queue");
+});
+
+// DISC-334 review amber 1: a plain `move` is addressed by block id (the connector keeps ids on a move), so the row id is not in its call; the read-back's item id satisfies DISC-302.
+const movedTurn = (...writes) => { const { stateChanges, ...r } = lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, ...fullRead("rb", IN_LAYOUT()), reply(SHORT())), [DOC_ID]); return r; };
+test("DISC-302 / DISC-334 review: a move op by the answered item's block id satisfies the check; a move of another row's block id does not", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ ...movedTurn(callOf({ op: "move", id: "iPF6", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), null);
+  assert.match(check({ ...movedTurn(callOf({ op: "move", id: "iPF8", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), /DISC-302.*PF-6/);
 });

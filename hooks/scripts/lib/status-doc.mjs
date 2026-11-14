@@ -94,10 +94,11 @@ export function parseStatusDoc(xml) {
   return out;
 }
 
-/* An item and every child as markdown, chips and ticks kept: what an op that re-creates the item must carry. */
+/* An item and every child as markdown, ticks kept: what an op that re-creates the item must carry. DISC-334 (operator s90): the chip prints only on a NESTED
+   item (the per-project checklist under a "You're on it" item); a top-level item is written chip-less. */
 export function toMarkdown(it, depth = 0) {
   const pad = "  ".repeat(depth);
-  const chip = it.chip ? `[${it.chip.label}] ` : "";
+  const chip = it.chip && depth > 0 ? `[${it.chip.label}] ` : "";
   const box = it.listKind === "check" ? `[${it.ticked ? "x" : " "}] ` : "";
   return [`${pad}- ${box}${chip}${it.text}`, ...it.kids.map((k) => toMarkdown(k, depth + 1))].join("\n");
 }

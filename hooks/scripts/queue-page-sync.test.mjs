@@ -42,7 +42,7 @@ test("open queue and waiting-backlog rows become checklist lines, row id first i
 });
 test("against the live doc: missing open rows to add, landed rows to tick, his ticks to bank as answers", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
-  assert.deepEqual(p.toAdd, ["- [ ] [Ready for you] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."], "DISC-307: toAdd emits the item format");
+  assert.deepEqual(p.toAdd, ["- [ ] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."], "DISC-307: toAdd emits the item format");
   assert.deepEqual(p.toTick, ["PF-4"], "unticked on the page but no longer open in the queue");
   assert.deepEqual(p.answered, ["PF-6"], "ticked on the page while the queue row is still open");
 });
@@ -94,9 +94,9 @@ const DOC297 = `# Needed from you
 
 - [x] **PF-3** earlier — Status: Done
 `;
-test("DISC-297 (a): a Waiting or Running item with no Status chip is flagged; Done items need none", () => {
+test("DISC-297 (a) / DISC-334: nothing is flagged for a missing Status chip: no top-level item carries one", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
-  assert.deepEqual(p.noStatus, ["PF-8", "a lane with no chip (session_019vvsKyTCE2owmQkRCwS64c)"]);
+  assert.deepEqual(p.noStatus, []);
 });
 test("DISC-297 (b): a Waiting item carrying two links is an appended round, flagged to be replaced", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC297 });
@@ -126,13 +126,13 @@ const CHIPDOC = [heading("Waiting on you"), li("Ready for you", "**PF-5** look a
   heading("Running now"), li("Claude's on it", "footer round 4 (session_019vvsKxkt4YUc2iRJhzm8jJ)"), li(null, "a lane with no chip")].join("\n");
 test("DISC-297: the Status chip is read from the dropdown shape of a Claude Docs read", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: CHIPDOC });
-  assert.deepEqual(p.noStatus, ["PF-8", "a lane with no chip"]);
+  assert.deepEqual(p.noStatus, []);
   assert.deepEqual(p.running.map((r) => r.sessions), [["session_019vvsKxkt4YUc2iRJhzm8jJ"], []]);
   assert.deepEqual(p.leaveWaiting, ["PF-4"], "a checked item leaves Waiting");
 });
 test("DISC-297: an unescaped dropdown read gives the same plan", () => {
   const raw = CHIPDOC.replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-  assert.deepEqual(syncPlan({ vault: vault(), prefixes: ["PF"], docText: raw }).noStatus, ["PF-8", "a lane with no chip"]);
+  assert.deepEqual(syncPlan({ vault: vault(), prefixes: ["PF"], docText: raw }).noStatus, []);
 });
 test("DISC-297: end to end, a Claude Docs item holding two links is flagged appended and one holding a single link is not", () => {
   const two = li("Ready for you", "**PF-5** round 1 &lt;link href='https://p.example/a'&gt;a&lt;/link&gt; round 2 &lt;link href='https://p.example/b'&gt;b&lt;/link&gt;");
@@ -179,15 +179,10 @@ test("DISC-312: the layout's section names are read: Ready for you and You're on
   assert.deepEqual(p.answered, ["PF-6"], "ticked in Ready for you while its row is open");
   assert.deepEqual(p.clearAtWrap, ["- [x] **PF-3** earlier [Done]"]);
   const noChip = syncPlan({ vault: vault(), prefixes: ["PF"], docText: "## You're on it\n\n- [ ] **PF-5** look, no chip\n\n## Claude's on it\n\n- [ ] a lane, no chip\n" });
-  assert.deepEqual(noChip.noStatus, ["PF-5", "a lane, no chip"]);
+  assert.deepEqual(noChip.noStatus, []);
 });
-test("DISC-302: every answered or landed Waiting item whose chip is not Done gets a chip change to Done", () => {
-  const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED });
-  assert.deepEqual(p.chipChanges, [
-    { id: "PF-6", from: "Ready for you", to: "Done", why: "answered" },
-    { id: "PF-4", from: "Claude's on it", to: "Done", why: "landed" },
-    { id: "PF-9", from: "Ready for you", to: "Done", why: "landed" },
-  ], "PF-9 is not an open row in this vault, so it reads as landed");
+test("DISC-302 / DISC-334: chipChanges is retired (an item's section is its status; status-layout moves it)", () => {
+  assert.deepEqual(syncPlan({ vault: vault(), prefixes: ["PF"], docText: GROUPED }).chipChanges, []);
 });
 test("DISC-305: fromDocsRead reads the real heading shape at levels 1-3 and leaves a plain paragraph alone", async () => {
   const { fromDocsRead } = await import("./queue-page-sync.mjs");
@@ -201,13 +196,13 @@ test("DISC-305: fromDocsRead reads the real heading shape at levels 1-3 and leav
 import { formatItem, fromDocsRead as fromDocsReadSync } from "./queue-page-sync.mjs";
 test("DISC-307: a short item is chip + bold (ID) Title. state + one plain line", () => {
   assert.equal(formatItem({ id: "PF-5", needed: "look at footer", why: "the spacing changed" }),
-    "- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - the spacing changed.");
-  assert.equal(formatItem({ id: "PF-5", needed: "look at footer" }), "- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.");
+    "- [ ] **(PF-5) Look at footer. Waiting on you.**\n  - the spacing changed.");
+  assert.equal(formatItem({ id: "PF-5", needed: "look at footer" }), "- [ ] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.");
 });
 test("DISC-307: a fix carries Problem, Solution, then Look (link + steps, ending 'Say yes, or what's off.') in that order", () => {
   const out = formatItem({ id: "PF-1598", needed: "Header flicker fix. Problem: the title caught the pointer. Solution: it no longer catches it.", where: "scroll so the header hides, rest the cursor on a card under it", why: "https://p.example/preview" });
   assert.equal(out, [
-    "- [ ] [Ready for you] **(PF-1598) Header flicker fix. Ready for your look.**",
+    "- [ ] **(PF-1598) Header flicker fix. Ready for your look.**",
     "  - **Problem:** the title caught the pointer.",
     "  - **Solution:** it no longer catches it.",
     "  - **Look:** [Open the preview](https://p.example/preview) scroll so the header hides, rest the cursor on a card under it. Say yes, or what's off.",
@@ -216,7 +211,7 @@ test("DISC-307: a fix carries Problem, Solution, then Look (link + steps, ending
 test("DISC-307: a choice carries Decision with Recommended and Alternative as their own nested bullets, before Look", () => {
   const out = formatItem({ id: "PF-7", needed: "Pick the hero crop", recommended: "Recommended: the tight crop. Alternative: the wide crop (a bigger change)." });
   assert.equal(out, [
-    "- [ ] [Ready for you] **(PF-7) Pick the hero crop. Needs your decision.**",
+    "- [ ] **(PF-7) Pick the hero crop. Needs your decision.**",
     "  - **Decision:** Pick the hero crop",
     "    - **Recommended:** the tight crop.",
     "    - **Alternative:** the wide crop (a bigger change).",
@@ -225,9 +220,9 @@ test("DISC-307: a choice carries Decision with Recommended and Alternative as th
 });
 test("DISC-307: toAdd emits the new shape, items keeps the one-line form, and the parser reads the (ID) form", () => {
   const p = syncPlan({ vault: vault(), prefixes: ["PF"], docText: DOC });
-  assert.deepEqual(p.toAdd, ["- [ ] [Ready for you] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."]);
+  assert.deepEqual(p.toAdd, ["- [ ] **(PF-8) Idea. Waiting on you.**\n  - Needs your answer."]);
   assert.deepEqual(p.items[2], "- [ ] **(PF-8)** idea");
-  const doc = "## Waiting on you\n\n- [x] [Done] **(PF-6) Pick hero. Waiting on you.**\n  - Needs your answer.\n- [ ] [Ready for you] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.\n";
+  const doc = "## Waiting on you\n\n- [x] [Done] **(PF-6) Pick hero. Waiting on you.**\n  - Needs your answer.\n- [ ] **(PF-5) Look at footer. Waiting on you.**\n  - Needs your answer.\n";
   const q = syncPlan({ vault: vault(), prefixes: ["PF"], docText: doc });
   assert.deepEqual(q.answered, ["PF-6"], "the (ID) form is read as the row id");
   assert.deepEqual(q.toAdd.map((l) => l.split("\n")[0].match(/PF-\d+/)[0]), ["PF-8"]);
@@ -240,7 +235,7 @@ const ROW_1596 = { id: "PF-1596", needed: "Look at board sharpness, try-out (pf 
 const ROW_65 = { id: "PF-65", needed: "Project media per case study: all media (every previous file replaced), the grid row (from the Glimpse order) and the share image (file labelled \"share\"). Operator 2026-11-08, verbatim: \"i will adding the media for each project\"." };
 test("DISC-307 r2 (real PF-1585): the title stops at the first colon, no link or URL in it; Problem, Solution (no duplicated Say yes), Look with its steps; no Decision for a bare 'yes (halo cut)'", () => {
   const out = formatItem(ROW_1585).split("\n");
-  assert.equal(out[0], "- [ ] [Ready for you] **(PF-1585) Look at the Time Circuits glow on images, round 3 (PF-1531, pf #592). Ready for your look.**");
+  assert.equal(out[0], "- [ ] **(PF-1585) Look at the Time Circuits glow on images, round 3 (PF-1531, pf #592). Ready for your look.**");
   assert.match(out[1], /^ {2}- \*\*Problem:\*\* images in dark mode change the colours inside them.*most visibly on arrival\.$/);
   assert.match(out[2], /^ {2}- \*\*Solution:\*\* the glow now takes its colour from the page itself.*to see it spill\.$/);
   assert.ok(!out[2].includes("Say yes"), "the closing line lives in Look only");
@@ -250,14 +245,14 @@ test("DISC-307 r2 (real PF-1585): the title stops at the first colon, no link or
 });
 test("DISC-307 r2 (real PF-1596): 'Solution (try-out):' is split, the title is not cut inside a link or parenthesis, the row's own closing 'Say which looks right.' ends Look", () => {
   const out = formatItem(ROW_1596).split("\n");
-  assert.equal(out[0], "- [ ] [Ready for you] **(PF-1596) Look at board sharpness, try-out (pf #597). Ready for your look.**");
+  assert.equal(out[0], "- [ ] **(PF-1596) Look at board sharpness, try-out (pf #597). Ready for your look.**");
   assert.match(out[2], /^ {2}- \*\*Solution:\*\* \?board=fine draws the board alone at 4x/);
   assert.ok(!out.some((l) => l.includes("Solution (try-out)")));
   assert.match(out[3], /^ {2}- \*\*Look:\*\* Compare \[default\]\(https:\/\/preview-board-fine-jhd-preview-staging\.jh-229\.workers\.dev\/\) with \[sharper\]\(.*\?board=fine\), Time Circuits on\. Say which looks right\.$/);
 });
 test("DISC-307 r2 (real PF-65, a backlog row): the title is a clean cut and the row's text stays as its plain line, no placeholder", () => {
   const out = formatItem(ROW_65).split("\n");
-  assert.equal(out[0], "- [ ] [Ready for you] **(PF-65) Project media per case study. Waiting on you.**");
+  assert.equal(out[0], "- [ ] **(PF-65) Project media per case study. Waiting on you.**");
   assert.match(out[1], /^ {2}- all media \(every previous file replaced\), the grid row/);
   assert.ok(!out.join("\n").includes("Needs your answer"));
 });
