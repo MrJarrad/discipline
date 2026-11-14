@@ -7,7 +7,7 @@ export const LIVE = readFileSync(fileURLToPath(new URL("./status-doc-live.xml", 
    `sections` is { "Ready for you": { Portfolio: [item…] }, … }; an item is { id, chip: 0..3, ticked, text }. A project absent from a section's map gets
    "Nothing."; `noList: ["Done this session|Discipline"]` leaves that project with a heading and "Nothing." only; `omit` drops a project's heading. */
 const CHIP_LABEL = ["Ready for you", "You're on it", "Done", "Claude's on it"];
-export function layoutDoc({ today = "2026-11-12", base, launch = `Launch: 2 of 8 done · [Full go-live list](${base}/projects/portfolio/portfolio-go-live.md)`, sections = {}, omit = [] } = {}) {
+export function layoutDoc({ today = "2026-11-12", base, launch = `Launch: 2 of 8 done · [Full go-live list](${base}/projects/portfolio/portfolio-go-live.md)`, sections = {}, omit = [], upNext = {} } = {}) {
   let n = 0;
   const id = (p) => `${p}${++n}`;
   const h = (t, lvl) => `<paragraph id='${id("h")}' heading='${lvl}'><text id='${id("t")}'>${t}</text></paragraph>`;
@@ -24,8 +24,8 @@ export function layoutDoc({ today = "2026-11-12", base, launch = `Launch: 2 of 8
   return `<doc node='n'><paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='d'><date id='dd' value='${today}'/><text id='t'> · </text></paragraph>`
     + ["Ready for you", "You're on it", "Claude's on it"].map((s) => h(s, 2) + projs(s)).join("")
     + h("Up next", 2) + h("Portfolio", 3) + plain(launch)
-    + `<list id='u1' kind='bullet'>${["(PF-1505) Time Circuits still laggy", "(PF-1531) Glow sits on each piece of media", "(PF-1475) Grid on a phone: one image paints late", "(PF-1464) Import checklist records film length", "(PF-1391) Safari and iPhone"].map(li).join("")}</list>`
-    + up("Discipline", ["(DISC-306) Plugin stale: more clearly", "(DISC-309) Another item", "(DISC-310) Status doc restructure", "(DISC-312) Twelfth", "(DISC-313) Thirteenth"]) + up("Handoff toolkit", ["Nothing."])
+    + `<list id='u1' kind='bullet'>${(upNext.Portfolio || ["(PF-1505) Time Circuits still laggy", "(PF-1531) Glow sits on each piece of media", "(PF-1475) Grid on a phone: one image paints late", "(PF-1464) Import checklist records film length", "(PF-1391) Safari and iPhone"]).map(li).join("")}</list>`
+    + up("Discipline", upNext.Discipline || ["(DISC-306) Plugin stale: more clearly", "(DISC-309) Another item", "(DISC-310) Status doc restructure", "(DISC-312) Twelfth", "(DISC-313) Thirteenth"]) + up("Handoff toolkit", upNext["Handoff toolkit"] || ["Nothing."])
     + h("Done this session", 2) + projs("Done this session")
     + h("Backlogs", 2) + `<list id='bk' kind='bullet'>${["portfolio/portfolio", "jhd-discipline/jhd-discipline", "handoff-toolkit/handoff-toolkit"].map((x, i) => li(`<link href='${base}/projects/${x}-backlog.md'>${names[i]}</link>`)).join("")}</list></doc>`;
 }

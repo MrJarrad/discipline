@@ -16,7 +16,7 @@ function vault({ hbOpen = true } = {}) {
   const v = mkdtempSync(join(tmpdir(), "sl-"));
   const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
   put("projects/portfolio/portfolio-queue.md", FM("PF", "queue") + Q + "| PF-1585 | Look at glow round 4 | | | |\n| PF-797 | Your final review before the holding screen lifts | | | |\n| PF-65 | Media for each case study | | | |\n| PF-1600 | Look at the new header | reply here | | |\n| ~~PF-1598~~ | ~~Header flicker~~ | | | |\n| ~~PF-1596~~ | ~~Sharper board~~ | | | |\n");
-  put("projects/portfolio/portfolio-backlog.md", FM("PF", "backlog") + "## Open\n\n" + B + "| PF-1505 | Time Circuits lag | d | open |\n");
+  put("projects/portfolio/portfolio-backlog.md", FM("PF", "backlog") + "## Up next\n\n1. PF-1505\n2. PF-1531\n3. PF-1475\n4. PF-1464\n5. PF-1391\n6. PF-1412\n7. PF-1396\n\n## Open\n\n" + B + "| PF-1505 | Time Circuits still laggy | d | open |\n| PF-1531 | Glow sits on each piece of media | d | open |\n| PF-1475 | Grid on a phone: one image paints late | d | open |\n| PF-1464 | Import checklist records film length | d | open |\n| PF-1391 | Safari and iPhone | d | open |\n| PF-1412 | Switch to live | d | open |\n| PF-1396 | Raise HTTPS setting | d | open |\n");
   put("projects/portfolio/portfolio-go-live.md", "---\nname: portfolio go-live\nkind: checklist\n---\n# Go-live\n\n## 1. Site bugs and polish\n\n- [x] PF-1507 · Glide fill\n- [ ] PF-1505 · Time Circuits still laggy\n- [ ] PF-1531 · Glow sits on each piece of media\n- [ ] PF-1475 · Grid on a phone: one image paints late\n\n## 2. Tests and tooling\n\n- [x] PF-1420 · Media import\n- [ ] PF-1464 · Import checklist records film length\n\n## 3. Checks before launch\n\n- [ ] PF-1391 · Safari and iPhone\n\n## 4. Launch steps\n\n- [ ] PF-1412 · Switch to live\n\n## 5. After launch\n\n- [ ] PF-1396 · Raise HTTPS setting\n");
   put("projects/jhd-discipline/jhd-discipline-queue.md", FM("DISC", "queue") + Q + "| DISC-311 | One short extra round on the Status item fix | | | |\n| ~~DISC-303~~ | ~~One tap per release~~ | | | |\n| ~~DISC-999~~ | ~~A finished ask~~ | | | |\n| ~~DISC-304~~ | ~~Delete the test branch~~ | | | |\n");
   put("projects/jhd-discipline/jhd-discipline-backlog.md", FM("DISC", "backlog") + "## Up next\n\n1. DISC-306 — first thing\n2. DISC-309\n3. DISC-310\n4. DISC-312\n5. DISC-313\n6. DISC-314\n\n## Open\n\n" + B + "| DISC-306 | Plugin stale: more clearly | d | open |\n| DISC-309 | Another item | d | open |\n| DISC-310 | Status doc restructure | d | open |\n| DISC-312 | Twelfth | d | open |\n| DISC-313 | Thirteenth | d | open |\n| DISC-314 | Vault graph model migration, the rest of decision [[2026-11-02-vault-graph-model]] after the straggler tidy (jhd-vault #878): kind: and up: on every note and many more words follow here | d | open |\n");
@@ -98,7 +98,7 @@ test("Up next: Discipline reads the ordered ## Up next of its backlog, top five 
   assert.ok(!/\bs…$/.test(long) && !/\(jhd…$/.test(long), "cut at a word boundary, not mid-word or inside a parenthesis: " + long);
   assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Handoff toolkit").lines, ["Nothing."]);
 });
-test("Up next: Portfolio comes from the go-live file (first unticked lines, never one already in play: PF-1531 and PF-1505 are named by Claude's on it lines) with the launch count and a link", () => {
+test("Up next: Portfolio comes from its backlog ## Up next (DISC-328; first five not already in play) and the launch count and link still come from the go-live file (never one already in play: PF-1531 and PF-1505 are named by Claude's on it lines) with the launch count and a link", () => {
   const p = plan();
   assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live", "- (PF-1396) Raise HTTPS setting"]);
   assert.deepEqual(ops(p, "setLaunchLine").map((o) => o.text), [`Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`]);
@@ -270,7 +270,7 @@ test("DISC-314 6: Up next titles keep a whole sentence up to 120 characters, els
   const v = vault();
   const t100 = "Grid on a phone: one image paints late until the second scroll on a slow connection in Safari today"; // 99
   const long = `${"word ".repeat(30)}end`; // 153
-  writeFileSync(join(v, "projects/portfolio/portfolio-go-live.md"), `---\nname: g\nkind: checklist\n---\n## 1. Site\n\n- [ ] PF-2001 · ${t100}.\n- [ ] PF-2002 · ${long}\n`);
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), `${FM("PF", "backlog")}## Up next\n\n1. PF-2001\n2. PF-2002\n\n## Open\n\n${B}| PF-2001 | ${t100}. | d | open |\n| PF-2002 | ${long} | d | open |\n`);
   const lines = ops(layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE }), "setUpNext").find((o) => o.project === "Portfolio").lines;
   assert.equal(lines[0], `- (PF-2001) ${t100}`);
   assert.ok(lines[1].endsWith("…") && lines[1].length <= "- (PF-2002) ".length + 121 && !/\s…$/.test(lines[1]), lines[1]);
@@ -358,4 +358,35 @@ test("DISC-314 follow-up review: 'writing' inside a finished title is not an in-
   assert.ok(done.markdown.includes("Brand writing guide for the footer, published"), "a finished title keeps its own words, not 'Brand. Done.': " + done.markdown);
   assert.equal(item("Footer copy (PF-1496): still writing the guide.").op, "replaceItem");
   assert.match(item("Footer copy (PF-1496): writing the guide.").markdown, /^- \[x\] \[Done\] \*\*\(PF-1496\) Footer copy\. Done\.\*\*$/);
+});
+
+// DISC-328 (operator s88: "I still don't feel like we're cleanly, consistently and dependably using the status doc."): one Up next source,
+// chip-less items flagged not reclassified. Seam: layoutPlan's returned plan.
+test("DISC-328 a: Up next is the backlog's ordered ## Up next for every project, even when a go-live file exists; the go-live file only feeds the launch line", () => {
+  const v = vault();
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), FM("PF", "backlog") + "## Up next\n\n1. PF-1396: HSTS to one year\n2. PF-1413: lift step, Profile indexed\n\n## Open\n\n" + B + "| PF-1396 | HSTS to one year | d | open |\n| PF-1413 | Profile indexed in the sitemap | d | open |\n| PF-1505 | Time Circuits lag | d | open |\n");
+  const p = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE });
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1396) HSTS to one year", "- (PF-1413) Profile indexed in the sitemap"]);
+  assert.equal(ops(p, "setLaunchLine").length, 1, "the go-live file still feeds the launch count");
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), FM("PF", "backlog") + "## Open\n\n" + B + "| PF-1505 | Time Circuits lag | d | open |\n");
+  const none = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE });
+  assert.deepEqual(ops(none, "setUpNext").find((o) => o.project === "Portfolio").lines, ["Nothing."], "no ## Up next in the backlog: Nothing., never the go-live lines");
+});
+const CHIPLESS_ASK = { id: "a", chip: 0, text: "(PF-1585) Look at glow round 4. Waiting on you." };
+const chipless = () => layoutDoc({ base: BASE, sections: { "Ready for you": { Portfolio: [CHIPLESS_ASK] } } }).replace("<dropdown id='da' enum='e' index='0'>Ready for you</dropdown>", "");
+test("DISC-328 b: a chip-less item stays in its section and is flagged; it is re-chipped in place, never moved to Claude's on it, and a Ready ask is not banked as answered", () => {
+  const p = plan({ docXml: chipless() });
+  assert.deepEqual(ops(p, "move").filter((o) => o.id === "a"), []);
+  const fix = ops(p, "replaceItem").filter((o) => o.id === "a");
+  assert.equal(fix.length, 1);
+  assert.deepEqual([fix[0].from.section, fix[0].to.section, fix[0].chip, fix[0].reason], ["Ready for you", "Ready for you", "Ready for you", "chipless"]);
+  assert.match(fix[0].markdown, /\[Ready for you\]/);
+  assert.deepEqual(p.chipless, [{ id: "a", rowId: "PF-1585", section: "Ready for you" }]);
+  assert.ok(!p.answered.includes("PF-1585"), "a chip-less Ready ask is still open");
+});
+test("DISC-328 b: re-chipping converges: apply the plan, plan again, no chip-less item and no replaceItem for it", () => {
+  const once = applyToXml(chipless(), plan({ docXml: chipless() }).ops.filter((o) => o.id === "a"));
+  const again = plan({ docXml: once });
+  assert.deepEqual(again.chipless, []);
+  assert.deepEqual(ops(again, "replaceItem").filter((o) => o.id === "a"), []);
 });
