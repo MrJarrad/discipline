@@ -6,9 +6,9 @@
    readable, untruncated and empty.
      node archive-prep.mjs --session <id> [--branches a,b]      run AFTER get_session <id>; the branches come from it   */
 import { execFileSync } from "node:child_process";
-import { listed, prName } from "../bin/archive-guard.mjs";
+import { listed, prName, isOurs } from "../bin/archive-guard.mjs";
 
-export const queriesFor = (id, branches = []) => [`is:pr is:open ${id}`, ...branches.map((b) => `is:pr is:open head:${b}`)];
+export const queriesFor = (id, branches = []) => [`is:pr is:open user:MrJarrad ${id}`, ...branches.map((b) => `is:pr is:open user:MrJarrad head:${b}`)];
 
 /** search(query) -> the parsed search object (it may throw). Returns { ok, open, lookups: [{ query, result }] }. */
 export function prep(id, branches, search) {
@@ -20,7 +20,7 @@ export function prep(id, branches, search) {
     lookups.push({ query, result });
     const prs = listed(JSON.stringify(result));
     if (!prs) { ok = false; continue; }
-    for (const p of prs) if (String(p?.state ?? "open").toLowerCase() === "open") open.add(prName(p));
+    for (const p of prs) if (isOurs(p) && String(p?.state ?? "open").toLowerCase() === "open") open.add(prName(p));
   }
   return { ok: ok && open.size === 0, session: id, branches, open: [...open], lookups };
 }

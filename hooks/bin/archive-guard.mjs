@@ -88,9 +88,14 @@ const queryOf = (input) => {
   if (typeof input.command === "string") { const m = GH_SEARCH.exec(input.command); return m ? (m[1] ?? m[2]) : null; }
   return typeof input.query === "string" && Object.keys(input).length === 1 ? input.query : null; /* any scoping param (owner, repo) makes it another lookup */
 };
+/* DISC-330: only PRs in this owner's repos count; a generic branch name matches other people's public PRs. */
+export const OWNER = "mrjarrad";
+export const isOurs = (p) => { const m = /github\.com\/([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept, fails closed */
 /* The term of an accepted query, or null. */
 function termOf(query) {
   const rest = query.trim().split(/\s+/).filter(Boolean);
+  const u = rest.findIndex((w) => w.toLowerCase() === `user:${OWNER}`); /* DISC-330: the one scoping qualifier, ours */
+  if (u >= 0) rest.splice(u, 1);
   for (const need of ["is:pr", "is:open"]) { const k = rest.indexOf(need); if (k < 0) return null; rest.splice(k, 1); }
   return rest.length === 1 ? rest[0] : null;
 }
@@ -142,6 +147,7 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
     covered.add(name);
     for (const p of prs) {
       if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
+      if (!isOurs(p)) continue;
       open.add(prName(p));
     }
   }
@@ -166,7 +172,7 @@ export function verdict(lines, id, subLines = []) {
   if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
   const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at, s.ts);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
-  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
+  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
   return null;
 }
 

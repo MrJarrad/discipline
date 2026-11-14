@@ -8,12 +8,12 @@ const found = (n) => ({ total_count: 1, incomplete_results: false, items: [{ num
 const none = { total_count: 0, incomplete_results: false, items: [] };
 
 test("queries: the session id, then head:<branch> for each branch, all open PRs", () => {
-  assert.deepEqual(queriesFor("session_x", ["a/b", "c"]), ["is:pr is:open session_x", "is:pr is:open head:a/b", "is:pr is:open head:c"]);
+  assert.deepEqual(queriesFor("session_x", ["a/b", "c"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:a/b", "is:pr is:open user:MrJarrad head:c"]);
 });
 test("a clear helper: ok, every query listed with its raw result", () => {
   const r = prep("session_x", ["b1"], () => none);
   assert.equal(r.ok, true);
-  assert.deepEqual(r.lookups.map((l) => l.query), ["is:pr is:open session_x", "is:pr is:open head:b1"]);
+  assert.deepEqual(r.lookups.map((l) => l.query), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:b1"]);
   assert.deepEqual(r.open, []);
 });
 test("an open PR found by the session id is named and the verdict is not ok", () => {
@@ -35,5 +35,12 @@ test("a search that throws or returns something unreadable is not ok", () => {
   assert.equal(prep("session_x", [], () => "nope").ok, false);
 });
 test("a branch name is passed as data: queries are exact strings, never a shell line", () => {
-  assert.deepEqual(queriesFor("session_x", ["a;rm -rf x"]), ["is:pr is:open session_x", "is:pr is:open head:a;rm -rf x"]);
+  assert.deepEqual(queriesFor("session_x", ["a;rm -rf x"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:a;rm -rf x"]);
+});
+// DISC-330: the lookup is scoped to MrJarrad's repos, and a PR from any other owner (a generic branch name matching a public repo) is not ours.
+test("DISC-330: an unrelated repo's open PR does not make the helper not-ok", () => {
+  const other = { total_count: 1, incomplete_results: false, items: [{ number: 208, state: "open", html_url: "https://github.com/someone-else/webapp/pull/208" }] };
+  const r = prep("session_x", ["pr208"], (q) => (q.includes("head:pr208") ? other : none));
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.open, []);
 });
