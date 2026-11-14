@@ -438,3 +438,11 @@ test("DISC-328 thread: a status-shaped reply after a state-only turn with no new
   assert.equal(check({ text: "That is merged; want the next lane to be the footer?", userTs: T, vault: v, docWritten: true, stateChanges: ["merge"] }), null, "discussion is the thread's job");
   assert.equal(check({ text: status, userTs: T, vault: v, docWritten: true, stateChanges: [] }), null, "no task-state change this turn: the operator asked for the queue");
 });
+
+// DISC-334 review amber 1: a plain `move` is addressed by block id (the connector keeps ids on a move), so the row id is not in its call; the read-back's item id satisfies DISC-302.
+const movedTurn = (...writes) => { const { stateChanges, ...r } = lastTurn(turn(bash("node lane-end.mjs --id PF-6"), ...writes, ...fullRead("rb", IN_LAYOUT()), reply(SHORT())), [DOC_ID]); return r; };
+test("DISC-302 / DISC-334 review: a move op by the answered item's block id satisfies the check; a move of another row's block id does not", () => {
+  const v = vaultWithChecklist();
+  assert.equal(check({ ...movedTurn(callOf({ op: "move", id: "iPF6", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), null);
+  assert.match(check({ ...movedTurn(callOf({ op: "move", id: "iPF8", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), /DISC-302.*PF-6/);
+});

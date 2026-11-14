@@ -505,3 +505,14 @@ test("DISC-334 convergence: apply the plan, plan again, nothing left; the writte
   const first = plan(), once = applyToXml(LIVE, first.ops.filter((o) => !first.refused.some((r) => r.id && r.id === o.id)));
   assert.deepEqual(plan({ docXml: once }).ops, []);
 });
+test("DISC-334 review amber 2: --set on an item with an unanswered thread moves it whole (never re-written), keeps its stale text, and is named in staleChips", () => {
+  const p = plan({ docXml: withThread(doc()), set: setOf("done", "Glow round 4 looked at and approved.") });
+  const x = p.ops.filter((o) => o.id === "a");
+  assert.deepEqual(x.map((o) => [o.op, o.from.section, o.to.section, o.reason, o.ticked]), [["move", "Ready for you", "Done this session", "set", true]]);
+  assert.ok(!x[0].markdown, "a move carries no re-written text");
+  assert.deepEqual(p.staleChips.map((s) => [s.id, s.rowId, s.to, s.text]), [["a", "PF-1585", "Done this session", "**(PF-1585) Look at glow round 4. Waiting on you.**"]]);
+  assert.ok(!p.refused.some((r) => r.id === "a") && !p.droppedComments.some((c) => c.item === "a"), "the thread is neither refused nor dropped");
+  assert.ok(p.answered.includes("PF-1585"), "the open row is still banked as answered");
+  const claude = plan({ docXml: withThread(doc()), set: setOf("claude", "Engineer is fixing the glow.") }).ops.find((o) => o.id === "a");
+  assert.deepEqual([claude.op, claude.to.section], ["move", "Claude's on it"]);
+});

@@ -19,7 +19,7 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "No top-level item carries a chip (DISC-334, operator s90, ruling `2026-11-14-s90-status-labels-only-on-project-checklist`",
     "an item's section is its status, and every status change moves the item in the same op set",
     "A section move is the connector's `move` (it keeps block ids, children and comment threads); delete plus insert (`replaceItem`, carrying the whole item with every child) only where an old top-level chip must be dropped from an item that moves anyway",
-    "an item with an unanswered thread is moved whole (never re-written), keeps its old chip and is named in `staleChips`; only the per-project checklist nested under a You're on it item (PF-65's case studies) keeps a chip per project",
+    "an item with an unanswered thread is moved whole (never re-written), keeps its old chip and is named in `staleChips` (with its stale text; `--set` on such an item moves it too: it keeps its old text until the thread is answered, so apply the `move` and never re-write it); only the per-project checklist nested under a You're on it item (PF-65's case studies) keeps a chip per project",
     "the plan names every comment thread an op would drop (`droppedComments`) and refuses (`refused`) any op over an unanswered one",
     "one row is one section: a row on the doc twice keeps the live lane's item (`removeDuplicate`), and a row with Mac work still queued (`holds`) is never Done",
     "a ticked item moves to Done and an open queue row it answers is banked (`answered`); a chip changed by hand moves nothing",

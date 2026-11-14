@@ -30,6 +30,7 @@ import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
 import { reprintedIds, stateChangeOf } from "../scripts/lib/doc-sync-check.mjs";
+import { parseStatusDoc } from "../scripts/lib/status-doc.mjs";
 import { docLayoutIssue } from "../scripts/lib/doc-layout-check.mjs";
 import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
@@ -88,9 +89,13 @@ export function lastTurn(transcriptText, docIds) {
 
 /* DISC-302 / DISC-334 (operator s90: "we have to be much more on top of moving items to where they should be"): a row answered this turn must be named in a doc write
    of this turn (its item was moved or re-written to Done). There is no chip to change any more: an item's section is its status. */
-export function rowWrittenFor(id, docWrites) {
-  const idRe = new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`);
-  return (docWrites || []).some((call) => idRe.test(JSON.stringify(call || {})));
+export function rowWrittenFor(id, docWrites, readBackXml) {
+  /* a plain `move` is addressed by block id (the connector keeps ids on a move), so the row's block ids come from the read-back as well as its text id */
+  let blocks = [];
+  try { if (readBackXml) { const d = parseStatusDoc(readBackXml); blocks = d.sections.flatMap((x) => [...x.items, ...x.projects.flatMap((q) => q.items)]).filter((i) => i.rowId === id).map((i) => i.id); } } catch { /* an unreadable read-back falls back to the text id */ }
+  const re = (x) => new RegExp(`(?<![A-Za-z0-9.-])${x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9-])`);
+  const res = [id, ...blocks].map(re);
+  return (docWrites || []).some((call) => { const t = JSON.stringify(call || {}); return res.some((r) => r.test(t)); });
 }
 function checkReply({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false, stateChanges = [], docReadBack }) {
   // a heading inside a fenced code block is not a heading
@@ -129,7 +134,7 @@ function checkReply({ text: raw, userTs, vault, sessionId, docWritten, answered 
     if (old.length) return `Stop check (DISC-309): ${old.join(", ")} already on the Status doc, so the reply must not print it again. Update the item on the doc only and name just the rows added this turn, plus the Full list link.`;
     if (docWritten === false) return `Stop check (DISC-288): a status reply comes after the Status doc is brought current this turn. Run \`queue-page-sync.mjs\`, apply its lines to the doc (Running now checked with get_session, Done this session, Waiting on you), then reply with the new asks and the Full list link.`;
     /* DISC-302 / DISC-334: a row answered this turn (lane-end --id) has its item moved in this turn's doc write. */
-    const unmoved = answered.filter((id) => !rowWrittenFor(id, docWrites));
+    const unmoved = answered.filter((id) => !rowWrittenFor(id, docWrites, docReadBack?.xml));
     if (unmoved.length) return `Stop check (DISC-302): ${unmoved.join(", ")} answered this turn, but no update call to the Status doc this turn names that row. Run \`status-layout.mjs --set ${unmoved[0]}=done --line ${unmoved[0]}="<one plain line>"\` (an item is moved, never relabelled: the section is its status), apply its ops, then reply.`;
     return null;
   }

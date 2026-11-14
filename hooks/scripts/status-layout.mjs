@@ -168,7 +168,14 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const forced = it.rowId && set[it.rowId];
     if (forced) {
       const fromTo = { section: sname, project: proj }, dest0 = { section: SET_STATES[forced.state], project: home };
-      if (it.comments.some((c) => !c.answered)) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
+      /* DISC-334 (review amber 2): an item with an unanswered thread is moved whole, never re-written: its text (and any old chip) is stale until the thread is answered, so it is named in staleChips */
+      if (it.comments.some((c) => !c.answered)) {
+        staleChips.push({ id: it.id, rowId: it.rowId, label: it.chip?.label ?? null, to: dest0.section, text: it.text });
+        work.push({ op: "move", id: it.id, rowId: it.rowId, from: fromTo, to: dest0, reason: "set", kids: it.kids.length, ...(forced.state === "done" ? { staleText: false, ticked: true } : {}) });
+        bump(dest0.section, home);
+        if (open.has(it.rowId) && (forced.state === "done" || forced.state === "claude")) answered.push(it.rowId);
+        continue;
+      }
       work.push({ op: "replaceItem", id: it.id, rowId: it.rowId, from: fromTo, to: dest0, reason: "set", markdown: scriptItem(it.rowId, forced.state, forced.line), comments: it.comments, ...(forced.state === "done" ? { ticked: true } : {}) });
       drop(it.comments, "replaceItem", it.id);
       bump(dest0.section, home);
@@ -195,7 +202,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     if (rewrite && threaded) { refuse({ id: it.id, rowId: it.rowId, section: sname, reason: "unanswered comment thread", comments: it.comments }); stuck.add(sname); bump(sname, home); continue; }
     /* an old top-level chip is dropped only when the item is re-written anyway; a thread is never detached for it: the item moves whole and the chip is named in staleChips */
     const recreate = rewrite || (!!it.chip && !threaded);
-    if (it.chip && threaded && !rewrite) staleChips.push({ id: it.id, rowId: it.rowId, label: it.chip.label, to });
+    if (it.chip && threaded && !rewrite) staleChips.push({ id: it.id, rowId: it.rowId, label: it.chip.label, to, text: it.text });
     const from = { section: sname, project: proj }, dest = { section: to, project: home };
     const isDone = to === "Done this session";
     if (!recreate) work.push({ op: "move", id: it.id, rowId: it.rowId, from, to: dest, reason, kids: it.kids.length, ...(isDone ? { staleText: false, ticked: true } : {}) });
@@ -206,7 +213,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
       drop(it.comments, "replaceItem", it.id);
     }
     bump(to, home);
-        if (it.ticked && open.has(it.rowId)) answered.push(it.rowId);
+    if (it.ticked && open.has(it.rowId)) answered.push(it.rowId);
   }
   /* DISC-329: a row set to a state that the doc does not hold yet is inserted in that state */
   for (const [id, s] of Object.entries(set)) if (!seenIds.has(id)) {
