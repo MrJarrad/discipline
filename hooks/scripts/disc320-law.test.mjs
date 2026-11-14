@@ -39,8 +39,15 @@ test("disc320: the prompt resumes an orchestrator, not a helper", () => {
   assert.match(c, /no `~\/\.claude\/helper-session` step/);
 });
 
-test("disc320: a re-wrap never starts a second next session", () => {
-  assert.match(checks(), /if the cockpit wrap block already names a `Next session:` id, skip this step/);
+test("disc320: a re-wrap never starts a second next session, and an older wrap's id never blocks this one", () => {
+  const c = checks();
+  assert.match(c, /Record it as `Next session: <id> \(from <wrapped session id>\)`/);
+  assert.match(c, /Guard: if the cockpit wrap block already has a `Next session:` line ending `\(from <this session's id>\)`, skip this step/);
+  assert.match(c, /a line from an older wrap block \(another session id\) never counts/);
+});
+
+test("disc320: the recorded id is committed and pushed in the step, before the final push can be lost", () => {
+  assert.match(checks(), /commit and push the cockpit in this step \(the vault on `origin\/main`\), so a re-wrap after a container restart finds the id/);
 });
 
 test("disc320: the operator gets one step, the sidebar detach, and the detach result is not claimed", () => {
