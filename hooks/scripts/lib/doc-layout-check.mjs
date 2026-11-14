@@ -29,8 +29,9 @@ export function docLayoutIssue({ vault, docXml, today = new Date().toISOString()
     if (!known.length) return null;
     const plan = layoutPlan({ vault, prefixes: known, docXml, today });
     const ops = plan.ops.filter((o) => o.op !== "setDate");
-    if (!ops.length && !plan.chipless.length) return null;
-    const shown = [...ops.map(describe), ...plan.chipless.filter((c) => !ops.some((o) => o.id === c.id)).map((c) => `chipless ${c.rowId ?? c.id}`)];
-    return `Stop check (DISC-328): the Status doc is out of layout: the layout plan still wants ${ops.length} op(s)${plan.chipless.length ? ` and ${plan.chipless.length} item(s) have no chip` : ""} (${shown.slice(0, 3).join("; ")}${shown.length > 3 ? "; …" : ""}). Run \`status-layout.mjs --vault <vault> --projects ${known.join(",")} --doc-json -\` on a fresh read of the doc (pass the read's \`data\` object), apply its ops with the Claude Docs connector, read the doc back, then end the turn.`;
+    if (!ops.length && !plan.chipless.length && !plan.handWritten.length) return null;
+    const shown = [...ops.map(describe), ...plan.chipless.filter((c) => !ops.some((o) => o.id === c.id)).map((c) => `chipless ${c.rowId ?? c.id}`), ...plan.handWritten.map((h) => `hand-written ${h.rowId}`)];
+    const hand = plan.handWritten.length ? ` and ${plan.handWritten.length} item(s) are hand-written (rewrite each with \`--set ${plan.handWritten[0].rowId}=<ready|yours|claude|done>\`, never by hand)` : "";
+    return `Stop check (DISC-328, DISC-329): the Status doc is out of layout: the layout plan still wants ${ops.length} op(s)${plan.chipless.length ? ` and ${plan.chipless.length} item(s) have no chip` : ""}${hand} (${shown.slice(0, 3).join("; ")}${shown.length > 3 ? "; …" : ""}). Run \`status-layout.mjs --vault <vault> --projects ${known.join(",")} --doc-json -\` on a fresh read of the doc (pass the read's \`data\` object), apply its ops with the Claude Docs connector, read the doc back, then end the turn.`;
   } catch { return null; }
 }

@@ -37,3 +37,11 @@ test("it fails open: empty xml, unparsable input, or a doc naming no known proje
   assert.equal(docLayoutIssue({ vault: vault(), docXml: "<doc node='n'></doc>", today: "2026-11-12" }), null);
   assert.equal(docLayoutIssue({ vault: "/nonexistent", docXml: inLayout(), today: "2026-11-12" }), null);
 });
+// DISC-329: hand-written item text is a layout issue, and the reason names the script path that fixes it
+test("DISC-329: an item whose text is not the script's item form is an issue, named by its row, pointing at --set", () => {
+  const hand = inLayout({ sections: { "Ready for you": { Portfolio: [{ ...ask, text: "(PF-5) my own wording of the footer ask" }] } } });
+  const issue = docLayoutIssue({ vault: vault(), docXml: hand, today: "2026-11-12" });
+  assert.match(issue, /PF-5/);
+  assert.match(issue, /hand-written/);
+  assert.match(issue, /--set/);
+});

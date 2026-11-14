@@ -390,3 +390,76 @@ test("DISC-328 b: re-chipping converges: apply the plan, plan again, no chip-les
   assert.deepEqual(again.chipless, []);
   assert.deepEqual(ops(again, "replaceItem").filter((o) => o.id === "a"), []);
 });
+
+// DISC-329 (operator s88: "the formatting for the status doc seems to keep getting dropped. this needs to be bullet proof so it's alway formatted
+// correctly"): the script owns every item's text and chip. Seam: layoutPlan's returned plan (and its `set` input), and the CLI's --set flag.
+const withBacklog = (v, file, extra, upNext) => {
+  const f = join(v, file), t = readFileSync(f, "utf8");
+  writeFileSync(f, (upNext ? t.replace(/## Up next\n\n[\s\S]*?\n\n## Open/, `## Up next\n\n${upNext}\n\n## Open`) : t) + extra);
+};
+const inClaude = (id, rowId, title) => doc({ sections: { "Claude's on it": { Portfolio: [{ id, chip: 3, text: `(${rowId}) ${title}. Claude's on it.` }] } } });
+test("DISC-329 3a: Up next skips a row whose backlog status is done or moot; the next open row takes its place", () => {
+  const v = vault();
+  withBacklog(v, "projects/jhd-discipline/jhd-discipline-backlog.md", "| DISC-320 | Shipped long ago | d | done (abc1234) |\n| DISC-321 | Dropped idea | d | moot (superseded) |\n", "1. DISC-320\n2. DISC-321\n3. DISC-306\n4. DISC-309");
+  const p = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE });
+  const lines = ops(p, "setUpNext").find((o) => o.project === "Discipline").lines;
+  assert.deepEqual(lines, ["- (DISC-306) Plugin stale: more clearly", "- (DISC-309) Another item"]);
+});
+test("DISC-329 3b: a row struck in the queue sends its item to Done from You're on it (a stale chip), not only from Ready for you; a live lane in Claude's on it stays until its backlog row closes", () => {
+  const x = ops(plan({ docXml: doc({ sections: { "You're on it": { Portfolio: [{ id: "z", chip: 1, text: "(PF-1598) Header flicker. Waiting on you." }] } } }) }), "replaceItem").find((o) => o.id === "z");
+  assert.ok(x, "PF-1598 is struck, so the You're on it item is re-created");
+  assert.deepEqual([x.to.section, x.chip, x.reason, x.ticked], ["Done this session", "Done", "landed", true]);
+  assert.match(x.markdown, /^- \[x\] \[Done\] /);
+  assert.deepEqual(plan({ docXml: inClaude("z", "PF-1598", "Header flicker") }).ops.filter((o) => o.id === "z"), [], "a struck queue ask does not end the lane (amber 4)");
+});
+test("DISC-329 3b: a backlog row marked done is landed from Claude's on it; an open backlog row in flight there stays a live lane", () => {
+  const v = vault();
+  withBacklog(v, "projects/portfolio/portfolio-backlog.md", "| PF-1700 | Shipped fix | d | done (abc1234) |\n");
+  const run = (xml) => layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: xml, today: "2026-11-12", base: BASE });
+  assert.equal(ops(run(inClaude("z", "PF-1700", "Shipped fix")), "replaceItem").find((o) => o.id === "z")?.reason, "landed");
+  const live = run(inClaude("z", "PF-1531", "Glow on media"));
+  assert.deepEqual(live.ops.filter((o) => o.id === "z"), [], "PF-1531 is open in the backlog: its lane stays where it is");
+});
+const setOf = (state, line) => ({ "PF-1585": { state, ...(line ? { line } : {}) } });
+const itemOp = (p, id) => p.ops.find((o) => o.id === id && (o.op === "replaceItem" || o.op === "move"));
+test("DISC-329 1+2: --set done re-creates the item with script text and chip Done, ticked, in Done this session (never a move that keeps the old chip)", () => {
+  const p = plan({ docXml: doc(), set: setOf("done") });
+  const x = itemOp(p, "a");
+  assert.equal(x.op, "replaceItem");
+  assert.deepEqual([x.to.section, x.chip, x.reason, x.ticked], ["Done this session", "Done", "set", true]);
+  assert.equal(x.markdown, "- [x] [Done] **(PF-1585) Look at glow round 4. Done.**");
+  assert.ok(p.answered.includes("PF-1585"), "the row is still open in the queue: it is banked as answered");
+});
+test("DISC-329 1+2: --set claude and --set yours: section and chip change together; the one plain line the parent gives is the only prose it supplies", () => {
+  const c = itemOp(plan({ docXml: doc(), set: setOf("claude", "Engineer is fixing the glow.") }), "a");
+  assert.deepEqual([c.to.section, c.chip, c.reason], ["Claude's on it", "Claude's on it", "set"]);
+  assert.equal(c.markdown, "- [ ] [Claude's on it] **(PF-1585) Look at glow round 4. Claude's on it.**\n  - Engineer is fixing the glow.");
+  const y = itemOp(plan({ docXml: doc(), set: setOf("yours") }), "a");
+  assert.deepEqual([y.to.section, y.chip], ["You're on it", "You're on it"]);
+  assert.match(y.markdown, /^- \[ \] \[You're on it\] \*\*\(PF-1585\) Look at glow round 4\./);
+});
+test("DISC-329 1+2: --set on a row the doc does not hold inserts the script's item; an unknown row id is refused", () => {
+  const p = plan({ docXml: LIVE, set: { "PF-1600": { state: "claude", line: "Engineer on it." } } });
+  assert.ok(p.ops.some((o) => (o.op === "insertItem" || o.op === "replaceItem") && /\[Claude's on it\] \*\*\(PF-1600\)/.test(o.markdown)));
+  assert.throws(() => plan({ docXml: LIVE, set: { "PF-99999": { state: "done" } } }), /PF-99999/);
+});
+test("DISC-329 1+2: --set converges: apply the ops, plan again with no --set, nothing is left to do for that item", () => {
+  for (const state of ["done", "claude", "yours"]) {
+    const first = plan({ docXml: doc(), set: setOf(state, "On it.") });
+    const again = plan({ docXml: applyToXml(doc(), first.ops.filter((o) => !first.refused.some((r) => r.id && r.id === o.id))) });
+    assert.deepEqual(again.ops.filter((o) => ["move", "replaceItem", "insertItem", "removeDuplicate"].includes(o.op) && (o.rowId === "PF-1585" || (o.markdown || "").includes("PF-1585"))), [], state);
+    assert.deepEqual(again.handWritten, [], `${state}: the script's own item is never flagged`);
+  }
+});
+test("DISC-329 1: an item in Ready, You're on it or Done whose bold line is not the script's form is flagged handWritten; a script-form item and a lane line are not", () => {
+  const hand = doc({ sections: { "Done this session": { Portfolio: [{ id: "h", chip: 2, ticked: true, text: "(PF-1598) My own summary of what happened, no state line" }] } } });
+  assert.deepEqual(plan({ docXml: hand }).handWritten.map((x) => x.rowId), ["PF-1598"]);
+  assert.deepEqual(plan({ docXml: doc() }).handWritten, [], "READY items carry the script's state line");
+  assert.deepEqual(plan({ docXml: inClaude("z", "PF-1531", "Glow, measuring the sheen") }).handWritten, [], "a lane line is the lane's own prose");
+});
+test("DISC-329 CLI: --set ROW=state and --line ROW=text reach the plan", () => {
+  const r = runCli(doc(), ["--doc", "-", "--set", "PF-1585=claude", "--line", "PF-1585=Engineer on it."]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(JSON.parse(r.stdout).ops.find((o) => o.id === "a").markdown, /\[Claude's on it\] \*\*\(PF-1585\)[^\n]*\n  - Engineer on it\.$/);
+  assert.notEqual(runCli(doc(), ["--doc", "-", "--set", "PF-1585=bogus"]).status, 0);
+});
