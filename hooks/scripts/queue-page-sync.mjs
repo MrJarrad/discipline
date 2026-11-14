@@ -65,6 +65,8 @@ function titleOf(raw) {
   }
   return cap(t);
 }
+/* DISC-329: the title formatItem would print for a row's first text cell, so the layout script titles an item it writes the same way */
+export const itemTitle = (needed) => titleOf(splitHead(clean(needed).replace(/(?:^|\s)(?:Problem|Solution(?:\s*\([^)]*\))?|Caveat):.*$/i, "").trim())[0]);
 export function formatItem({ id, needed = "", where = "", why = "", recommended = "", chip = "Ready for you" }) {
   let text = clean(needed);
   const closing = /\s(Say [^.]*\.)\s*$/.exec(text)?.[1];
