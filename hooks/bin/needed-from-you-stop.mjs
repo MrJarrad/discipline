@@ -29,6 +29,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
 import { readMarkers } from "../scripts/lib/row-marker.mjs";
+import { reprintedIds, stateChangeOf } from "../scripts/lib/doc-sync-check.mjs";
 import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
 
 /* s81: a turn started by the harness, not the operator: a notification wrapper, a GitHub wake, a helper's message. */
@@ -49,20 +50,21 @@ const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_
 export function lastTurn(transcriptText, docIds) {
   const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean);
   const docId = ids.length ? ids : null;
-  let userTs = "", text = null, docWritten = false, answered = [], docWrites = [], wake = false;
+  let userTs = "", text = null, docWritten = false, answered = [], docWrites = [], wake = false, stateChanges = [];
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; wake = isWake(textOf(c)); }
+    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; stateChanges = []; wake = isWake(textOf(c)); }
     else if (e.type === "assistant") {
       const t = textOf(c); if (t.trim()) text = t;
       if (Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && b.name === "Bash") for (const m of String(b.input?.command || "").matchAll(/lane-end\.mjs[^\n]*?--id\s+([A-Z]{2,4}-\d+[a-z]?)/g)) if (!answered.includes(m[1])) answered.push(m[1]);
+      if (Array.isArray(c)) for (const b of c) if (b?.type === "tool_use") { const k = stateChangeOf(b.name, b.input); if (k && !stateChanges.includes(k)) stateChanges.push(k); }
       if (docId && Array.isArray(c)) for (const b of c) if (b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id))) docWrites.push(b.input || {});
       if (docId && Array.isArray(c) && c.some((b) => b?.type === "tool_use" && /^mcp__.*__(update|batch)$/.test(b.name || "") && ids.some((id) => JSON.stringify(b.input || {}).includes(id)))) docWritten = true;
     }
   }
-  return docId ? { userTs, text, docWritten, answered, docWrites, wake } : { userTs, text, wake };
+  return docId ? { userTs, text, docWritten, answered, docWrites, wake, stateChanges } : { userTs, text, wake };
 }
 
 /* DISC-302 (review AMBER 4; real payload from the parent, s81): the real chip change is ONE update call whose ops swap a dropdown block
@@ -77,10 +79,14 @@ export function chipChangedFor(id, docWrites) {
   const idRe = new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`);
   return (docWrites || []).some((call) => { const t = JSON.stringify(call || {}); return idRe.test(t) && (CHIP_INDEX_RE.test(t) || CHIP_ELEMENT_RE.test(t.replace(/\\"/g, '"'))); });
 }
-export function check({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false }) {
+export function check({ text: raw, userTs, vault, sessionId, docWritten, answered = [], docWrites = [], wake = false, stateChanges = [] }) {
   // a heading inside a fenced code block is not a heading
   const text = raw && raw.replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
-  if (!text || /^\s*This session is wrapped/i.test(text)) return null;
+  if (text && /^\s*This session is wrapped/i.test(text)) return null;
+  /* DISC-324 (operator s87): runs before the empty-text exit, because a wake that merged something has no text. The reason asks for the doc write and
+     never for a reply: a wake with no new ask still ends with no chat text (lesson 2026-11-14-s87-parent-lessons item 1). */
+  if (stateChanges.length && docWritten === false) return `Stop check (DISC-324): this turn changed state (${stateChanges.join(", ")}) but never wrote to the Status doc. Run \`status-layout.mjs\` and apply its ops to the doc now (queue-page-sync.mjs for row-level lines), then end the turn${wake ? " with no chat text" : "; add chat text only if this turn raised a new ask"}.`;
+  if (!text) return null;
   const markers = readMarkers(vault).filter((m) => m.ts > userTs && (!m.session || !sessionId || m.session === sessionId));
   /* s81 (operator: "you've started status updates in the thread again"): an automated wake that raised no new ask gets no chat text. */
   if (wake && markers.length === 0) return "Stop check (s81): this turn started from an automated wake (a GitHub event, a helper's message or a background completion) and raised no new ask, so it gets no chat text at all; the result goes to the Status doc. End the turn with no text.";
@@ -99,6 +105,8 @@ export function check({ text: raw, userTs, vault, sessionId, docWritten, answere
   if (url && block.split("\n").some((l) => [`Full list: [Status](${url})`, `Full list: [Needed from you](${url})`].includes(l.trim()))) {
     const unlisted = [...new Set(markers.map((m) => m.id).filter(Boolean))].filter((id) => !new RegExp(`(?<![A-Za-z0-9-])${id}(?![A-Za-z0-9-])`).test(block));
     if (unlisted.length) return `Stop check (DISC-288): the short Needed-from-you block omits row(s) added this turn: ${unlisted.join(", ")}. List each new ask, then the one link line to the Status doc.`;
+    const old = reprintedIds(block, markers.map((m) => m.id).filter(Boolean));
+    if (old.length) return `Stop check (DISC-309): ${old.join(", ")} already on the Status doc, so the reply must not print it again. Update the item on the doc only and name just the rows added this turn, plus the Full list link.`;
     if (docWritten === false) return `Stop check (DISC-288): a status reply comes after the Status doc is brought current this turn. Run \`queue-page-sync.mjs\`, apply its lines to the doc (Running now checked with get_session, Done this session, Waiting on you), then reply with the new asks and the Full list link.`;
     /* DISC-302: a row answered this turn (lane-end --id) needs its Status chip changed in this turn's doc write. */
     const unchipped = answered.filter((id) => !chipChangedFor(id, docWrites));
@@ -125,8 +133,8 @@ function main() {
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
   const vault = resolve(vaultEnv);
-  const { userTs, text, docWritten, answered, docWrites, wake } = lastTurn(t, pinnedChecklistIds(vault));
-  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWrites, wake }); } catch { return; }
+  const { userTs, text, docWritten, answered, docWrites, wake, stateChanges } = lastTurn(t, pinnedChecklistIds(vault));
+  let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWrites, wake, stateChanges }); } catch { return; }
   if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
 }
 
