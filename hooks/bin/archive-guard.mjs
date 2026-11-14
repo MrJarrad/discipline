@@ -94,11 +94,33 @@ function termOf(query) {
   return rest.length === 1 ? rest[0] : null;
 }
 /* The PRs an accepted lookup returned, or null when the result is not the untruncated search object. */
-function listed(text) {
+export function listed(text) {
   const j = extractJson(text);
   if (!j || typeof j !== "object" || Array.isArray(j) || !Array.isArray(j.items)) return null;
   if (j.incomplete_results === true || typeof j.total_count !== "number" || j.total_count > j.items.length) return null;
   return j.items;
+}
+
+/* "owner/repo#n" for a search item (its URL when it is not a pull URL). */
+export function prName(p) {
+  const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
+  const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
+  return m ? `${m[1]}#${m[2]}` : url;
+}
+
+/* DISC-325: the second accepted lookup form. `node "<…>/hooks/scripts/archive-prep.mjs" --session <id> [--branches a,b]`, alone (no
+   pipe, wrapper or substitution), prints { lookups: [{ query, result }] }: the same searches, run by the script. Its output is
+   read from the harness-written tool_result, so it cannot be typed in by the agent; each lookup then goes through the same
+   termOf / listed checks as a gh search. */
+const PREP_CMD = /^\s*node "[^"$`\\|;&<>\n]*\/hooks\/scripts\/archive-prep\.mjs" --session [\w./:-]+(?: --branches [\w./:,-]+)?\s*$/;
+/* [{ query, text }] for one Bash/MCP call: its single gh search, or each lookup an archive-prep run printed. */
+function lookupsOf(input, text) {
+  if (typeof input.command === "string" && PREP_CMD.test(input.command)) {
+    const j = extractJson(text);
+    return Array.isArray(j?.lookups) ? j.lookups.map((l) => ({ query: String(l?.query ?? ""), text: JSON.stringify(l?.result) })) : [];
+  }
+  const q = queryOf(input);
+  return q ? [{ query: q, text }] : [];
 }
 
 /* { open, missing }: open = PRs an accepted lookup returned for the helper's id or a branch; missing = names with no accepted
@@ -109,17 +131,15 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
      stamp, or earlier than the parent's last get_session of the helper (or with no stamp on that sighting), does not count. */
   const later = (ts) => !!since && !!ts && Date.parse(ts) >= Date.parse(since);
   const subs = [...results(subLines, LOOKUP_TOOL)].filter((r) => later(r.ts));
-  for (const { input, text } of [...results(lines, LOOKUP_TOOL, from), ...subs]) {
-    const q = queryOf(input), term = q && termOf(q);
+  for (const { input, text: raw } of [...results(lines, LOOKUP_TOOL, from), ...subs]) for (const { query: q, text } of lookupsOf(input, raw)) {
+    const term = termOf(q);
     const name = term === id ? id : branches.find((b) => term === `head:${b}`);
     const prs = name && listed(text);
     if (!prs) continue;
     covered.add(name);
     for (const p of prs) {
       if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
-      const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
-      const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
-      open.add(m ? `${m[1]}#${m[2]}` : url);
+      open.add(prName(p));
     }
   }
   return { open: [...open], missing: [id, ...branches].filter((w) => !covered.has(w)) };

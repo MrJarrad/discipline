@@ -231,7 +231,7 @@ and queued the chat as the doer — that hatch is deleted.
    discipline so it's more clear what do with helpers?"*). A helper is a `create_session` child (`cloud-dispatch` § Capacity before
    dispatch). The whole recipe (source repo and `add_repo`s, title and tags, model, read-back and go, the return on the PR, the sweep,
    the archive) is `cloud-dispatch/references/HELPER-SESSIONS.md`; read it before the first `create_session`. At lane end, after its
-   result is banked (the PR comment or evidence file is read), the parent calls `archive_session` on it. When the next round of a lane
+   result is banked (the PR comment or evidence file is read), the parent archives it in that same turn: `lane-end --helper <helper id>,<reviewer id>` prints the ordered calls (every `get_session`, then one `hooks/scripts/archive-prep.mjs` run per session, which runs the open-PR lookups the guard needs, then every `archive_session`), so nothing waits for wrap and no sequence is hand-built (DISC-325, operator s87: *"archiving sessions could happen as they're completed"*). When the next round of a lane
    starts, the superseded round's helper is archived then. A helper whose result is not yet banked is never archived.
    **The helper sweep runs at session start and at wrap** (DISC-211; DISC-212, operator 2026-10-28: *"archive it when it's task is
    complete or if another session takes over"*; 2026-10-31: *"aren't being archived when completed or possibly worse aren't being
