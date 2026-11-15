@@ -166,7 +166,9 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
       open.add(prName(p));
     }
   }
-  return { open: [...open], missing: [id, ...branches, ...(allOpen ? ["*"] : [])].filter((w) => !covered.has(w)) };
+  /* DISC-344 (s94 lesson 2, s95 lesson 3): the listing is read when it was run and is readable, never required: its date-narrowed
+     form is unreliable, and a helper on main could not be archived. The id lookup stays mandatory. */
+  return { open: [...open], missing: [id, ...branches].filter((w) => !covered.has(w)) };
 }
 
 /* DISC-284: transcripts of this session's subagents, at <transcript dir>/<transcript name>/subagents/agent-*.jsonl.
@@ -187,7 +189,7 @@ export function verdict(lines, id, subLines = []) {
   if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
   const { open, missing } = openPrLookup(lines, id, specificBranches(s.branches), subLines, s.at, s.ts, s.branches.length && !specificBranches(s.branches).length ? { keys: laneKeys(s), created: s.created } : null);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
-  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.map((m) => (m === "*" ? "every open PR (a helper on a default branch needs the listing)" : m)).join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch, and for a helper on main or another default branch also the listing of every open PR: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad created:>=<the helper's created_at date>' (un-narrowed it always truncates); after the get_session; then archive.`;
+  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.map((m) => (m === "*" ? "every open PR (a helper on a default branch needs the listing)" : m)).join(", ")}. Run it first, exactly, one command per call: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch other than main; after the get_session; then archive. A helper on main needs only the session-id lookup.`;
   return null;
 }
 

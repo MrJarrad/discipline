@@ -6,7 +6,8 @@
      start  compares the loaded plugin version with the newest release and, when older, writes ~/.claude/plugin-stale.json
             and prints a warning (additionalContext) with the exact update commands; current -> removes the marker.
      stop   blocks a status reply (a `## Needed from you` heading or the `Full list:` line) once while the loaded version
-            is still older than the recorded release; an update + reload clears it.
+            is still older than the recorded release and the reply does not already say so. DISC-342 (operator s95): the Claude app has no
+            /reload-plugins, so nothing here asks the operator for a reload or a queue row; the next fresh session picks the release up.
    The newest release comes from DISCIPLINE_LATEST_VERSION, else a 4 s fetch of the repo's plugin.json
    (DISCIPLINE_LATEST_URL overrides), else the marketplace clone on disk: the clone can be as stale as the cache (the s79
    case), so it is only the offline fallback. Unreadable -> silent, nothing claimed.
@@ -21,7 +22,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const MARKER = () => join(homedir(), ".claude", "plugin-stale.json");
 const DEFAULT_URL = "https://raw.githubusercontent.com/MrJarrad/discipline/main/.claude-plugin/plugin.json";
 const STATUS = /^##\s+Needed from you\b|^Full list:/m;
-const FIX = "claude plugin update discipline@discipline (or /plugin update discipline), then /reload-plugins or restart the session";
+const FIX = "claude plugin update discipline@discipline (puts the release on disk; the next fresh session picks it up)";
 
 const readVersion = (p) => { try { return JSON.parse(readFileSync(p, "utf8")).version || null; } catch { return null; } };
 /* The loaded plugin: CLAUDE_PLUGIN_ROOT inside the plugin's own hooks; from the vault's settings.json there is none, so the
@@ -54,10 +55,10 @@ function imageNote() {
   try {
     const m = statSync(join(homedir(), ".claude", "environment-manager", "setup-script-output")).mtime;
     if (Date.now() - m.getTime() < 864e5) return "";
-    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. The parent's fix is the setup-script refresh line, proposed after each release (RELEASE-PATH § After a discipline release); if it was bumped for this release and this still appears, say so as a queue row.`;
+    return ` The environment's setup script last ran ${m.toISOString().slice(0, 10)}: this container is a cached image, so the script's plugin update did not run this session. The parent's fix is the setup-script refresh line, proposed after each release (RELEASE-PATH § After a discipline release); if it was bumped for this release and this still appears, say so in one status line.`;
   } catch { return ""; }
 }
-const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}. Until then vault rulings win over the loaded style: where a ruling and this session's output style disagree, follow the ruling.${imageNote()}`;
+const message = (loaded, latest) => `PLUGIN STALE: discipline ${loaded} is loaded but ${latest} is released, so rules and hooks added since ${loaded} (the pinned-checklist status rules among them) are not running in this session. Run: ${FIX}. This session keeps the loaded rules and the operator does nothing: the next fresh session picks up ${latest}. Until then vault rulings win over the loaded style: where a ruling and this session's output style disagree, follow the ruling.${imageNote()}`;
 
 async function start() {
   const loaded = loadedVersion(), latest = await latestVersion();
@@ -82,7 +83,7 @@ function stop() {
     if (e.type === "user" && !(Array.isArray(c) && c.some((b) => b?.type === "tool_result"))) final = null;
     else if (e.type === "assistant") { const t = typeof c === "string" ? c : (Array.isArray(c) ? c : []).filter((b) => b?.type === "text").map((b) => b.text).join("\n"); if (t.trim()) final = t; }
   }
-  if (final && STATUS.test(final)) process.stdout.write(JSON.stringify({ decision: "block", reason: `Stop check: ${message(loaded, m.latest)} Name the gap in this status reply as a queue row, not a note.` }));
+  if (final && STATUS.test(final) && !final.includes(loaded)) process.stdout.write(JSON.stringify({ decision: "block", reason: `Stop check: ${message(loaded, m.latest)} State the gap in this status reply in one plain line (discipline ${loaded} loaded, ${m.latest} released, the next fresh session picks it up); it is not a queue row and asks nothing of the operator.` }));
 }
 
 if (process.argv[1]?.endsWith("plugin-freshness.mjs")) {

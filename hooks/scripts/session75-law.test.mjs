@@ -22,8 +22,8 @@ test("s75 3: a Figma-contract review goes to a vehicle with Figma tools", () => 
   has(HARD, "a brief that says \"read the Figma live\" goes only to a vehicle that has the Figma tools (a helper session)");
   has("skills/dispatch-brief/references/ACCURACY.md", "Figma-contract reviewer: helper session only; check the persona's tool list first");
 });
-test("s75 4: the /reload-plugins ask is a queue row in the first status reply", () => {
-  has("hooks/scripts/session-resume.mjs", "carry the /reload-plugins ask as a queue row in the first status reply, before any lane opens");
+test("s75 4 (DISC-342): a stale plugin is one status line in the first reply, never a queue row asking for a reload", () => {
+  has("hooks/scripts/session-resume.mjs", "Say so in one plain line in the first status reply, before any lane opens; it is not a queue row and nothing is asked of the operator");
 });
 test("s75 5: at the first load warning the next heavy lane goes to a helper session", () => {
   has(HARD, "at the first load warning the next heavy lane (suite, build, browser) goes to a helper session; reviewers that only read git stay in-session");

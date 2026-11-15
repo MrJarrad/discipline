@@ -319,12 +319,15 @@ test("RED 1: an open PR whose body links the helper's id in a markdown link refu
   const t = [...laned(ID("g2"), ["main"], ["helper"]), ...idLookup(ID("g2")), ...ghSearch(ALL, search("", [open(8, { body: `[session](https://claude.ai/code/${ID("g2")})` })]), "l1")];
   deniedNaming(run(ID("g2"), t), /#8/);
 });
-test("RED 1: main branch with no listing of all open PRs refuses and says which lookup to run", () => {
-  deniedNaming(run(ID("g3"), [...laned(ID("g3"), ["main"], ["helper"]), ...idLookup(ID("g3"))]), /created:>=/);
+// DISC-344 AC-4 (s94 lesson 2, s95 lesson 3): a helper on main could not be archived because the listing was mandatory and the
+// operator's own listing always truncated. The id lookup alone, run as one clean single command after get_session, now clears it;
+// a listing that IS run and readable still counts against the helper.
+test("DISC-344 AC-4 red: main branch, one clean id lookup after get_session and no listing, is archived", () => {
+  assert.equal(run(ID("g3"), [...laned(ID("g3"), ["main"], ["helper"]), ...idLookup(ID("g3"))]), null);
 });
-test("RED 1: a truncated listing refuses (fail closed)", () => {
+test("DISC-344 AC-4: a truncated listing is ignored, not a refusal, when the id lookup is clear", () => {
   const t = [...laned(ID("g4"), ["main"], ["helper"]), ...idLookup(ID("g4")), ...ghSearch(ALL, search("", [open(1)], { total_count: 140 }), "l1")];
-  deniedNaming(run(ID("g4"), t), /open-PR lookup/);
+  assert.equal(run(ID("g4"), t), null);
 });
 test("RED 1: main branch, id lookup clear and a readable listing with no PR naming the helper, is archived", () => {
   const t = [...laned(ID("g5"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("g5")), ...ghSearch(ALL, search("", [open(7, { title: "PF-1700 other", body: "x" })]), "l1")];
@@ -343,13 +346,13 @@ const lanedAt = (id, branches, tags, created = CREATED) => call("get_session", {
 const many = (n, from = 100) => Array.from({ length: n }, (_, i) => open(from + i, { title: `old progress ${i}`, body: "" }));
 test("RED A: an un-narrowed listing of 140 open PRs is truncated and refuses, the narrowed form of 11 clears the same helper", () => {
   const head = [...lanedAt(ID("n1"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n1"))];
-  deniedNaming(run(ID("n1"), [...head, ...ghSearch(ALL, search("", many(100), { total_count: 140 }), "l1")]), /open-PR lookup/);
+  assert.equal(run(ID("n1"), [...head, ...ghSearch(ALL, search("", many(100), { total_count: 140 }), "l1")]), null); /* DISC-344: ignored, the id lookup clears it */
   assert.equal(run(ID("n1"), [...head, ...ghSearch(`${ALL} created:>=2026-11-12`, search("", many(11)), "l1")]), null);
 });
 test("RED A: a listing narrowed to a date on or before the helper's created date counts; a later date does not cover it", () => {
   const head = (n) => [...lanedAt(ID(n), ["main"], ["helper"]), ...idLookup(ID(n))];
   assert.equal(run(ID("n2"), [...head("n2"), ...ghSearch(`${ALL} created:>=2026-11-01`, search(), "l1")]), null);
-  deniedNaming(run(ID("n3"), [...head("n3"), ...ghSearch(`${ALL} created:>=2026-11-13`, search(), "l1")]), /open-PR lookup/);
+  assert.equal(run(ID("n3"), [...head("n3"), ...ghSearch(`${ALL} created:>=2026-11-13`, search("", [open(9, { title: "PF-1596 board" })]), "l1")]), null); /* DISC-344: a listing that cannot cover the helper is not read at all */
 });
 test("RED A: a narrowed listing still refuses when an open PR in it names the helper's lane key", () => {
   const t = [...lanedAt(ID("n4"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n4")), ...ghSearch(`${ALL} created:>=2026-11-12`, search("", [open(646, { title: "PF-1596 board" })]), "l1")];

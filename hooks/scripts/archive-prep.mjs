@@ -24,8 +24,9 @@ export function prep(id, branches, search, created = "") {
     try { result = search(query); } catch (err) { result = { error: String(err.message || err) }; }
     lookups.push({ query, result });
     const prs = listed(JSON.stringify(result));
-    if (!prs) { ok = false; continue; }
-    if (query === ALL_OPEN || /^is:pr is:open user:MrJarrad created:>=\d{4}-\d{2}-\d{2}$/.test(query)) continue; /* read for completeness only; the guard names the PRs that concern this helper */
+    const listing = query === ALL_OPEN || /^is:pr is:open user:MrJarrad created:>=\d{4}-\d{2}-\d{2}$/.test(query);
+    if (!prs) { if (!listing) ok = false; continue; } /* DISC-344: the all-open listing is optional (it always truncates); an unreadable one does not fail the prep */
+    if (listing) continue; /* read for completeness only */
     for (const p of prs) if (isOurs(p) && String(p?.state ?? "open").toLowerCase() === "open") open.add(prName(p));
   }
   return { ok: ok && open.size === 0, session: id, branches, open: [...open], lookups };

@@ -153,10 +153,10 @@ function pluginLine({ env, installedPath, pluginRoot, released }) {
      the parent passes --released <version> read from discipline main's plugin.json. */
   const older = (a, b) => { const [x, y] = [a, b].map((v) => v.split(".").map(Number)); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); return false; };
   if (loaded && released && older(loaded, released)) {
-    return { stale: true, line: `!! plugin: discipline ${loaded} loaded; ${released} is released. Name the gap in the first status; rules added since ${loaded} are not loaded here. If installed_plugins.json points past the loaded version, ask the operator for /reload-plugins now, not at the first org-repo merge.` };
+    return { stale: true, line: `!! plugin: discipline ${loaded} loaded; ${released} is released. Name the gap in the first status; rules added since ${loaded} are not loaded here. The next fresh session picks up ${released}; nothing is asked of the operator, and a rule the loaded gate lacks is checked by hand before a merge.` };
   }
   if (loaded !== installed) {
-    return { stale: true, line: `!! plugin: this session loaded discipline ${loaded}; ${installed} is installed. The session keeps the OLD cached rules until /reload-plugins or a restart. Ask the operator for /reload-plugins now, at session start, and carry the /reload-plugins ask as a queue row in the first status reply, before any lane opens; a gate older than 1.188 cannot read verdicts on org-owned repos, and finding that out at the first org-repo merge costs a round.` };
+    return { stale: true, line: `!! plugin: this session loaded discipline ${loaded}; ${installed} is installed. The session keeps the OLD cached rules; the next fresh session picks up ${installed}. Say so in one plain line in the first status reply, before any lane opens; it is not a queue row and nothing is asked of the operator. A gate older than 1.188 cannot read verdicts on org-owned repos, so check a merge on an org repo by hand.` };
   }
   return { stale: false, line: `plugin: discipline ${loaded} loaded = installed` };
 }

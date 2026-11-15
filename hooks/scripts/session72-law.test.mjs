@@ -15,9 +15,9 @@ test("s72 1: a refused add_repo stops the helper and the parent runs the lane lo
   has("skills/cloud-dispatch/references/HELPER-SESSIONS.md", "the parent runs that lane as a local engineer in its own session");
 });
 
-test("s72 2: session-resume tells the parent to ask for /reload-plugins at session start", () => {
-  has("hooks/scripts/session-resume.mjs", "ask the operator for /reload-plugins now, not at the first org-repo merge");
-  has("hooks/scripts/session-resume.mjs", "Ask the operator for /reload-plugins now, at session start");
+test("s72 2 (DISC-342): session-resume names the stale plugin at session start and says the next fresh session picks it up, asking for no reload", () => {
+  has("hooks/scripts/session-resume.mjs", "Name the gap in the first status; rules added since");
+  has("hooks/scripts/session-resume.mjs", "the next fresh session picks up");
 });
 
 test("s72 3: a reviewer brief spells reviewer: session_<id> in full", () => {
