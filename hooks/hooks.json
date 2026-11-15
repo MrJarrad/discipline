@@ -85,6 +85,15 @@
         ]
       },
       {
+        "matcher": "Bash|mcp__claude-code-remote__get_session",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/lane-landed-nudge.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "Agent|Task|TaskCreate|TaskUpdate",
         "hooks": [
           {
@@ -208,6 +217,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/lane-capacity-stop.mjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/next-row-stop.mjs\""
           },
           {
             "type": "command",

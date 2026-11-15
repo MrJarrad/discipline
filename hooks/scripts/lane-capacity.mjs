@@ -18,8 +18,8 @@ import { discoverFiles } from "./lib/queue-ids.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
 import { parseBacklog } from "./list-drift-check.mjs";
 
-/* Lanes per project: portfolio 4–5 (ruling 2026-11-09-s70-parallel-portfolio-lanes, top of the range), one discipline lane, one handoff-toolkit lane. */
-export const CAPACITY = { PF: 5, DISC: 1, HT: 1 };
+/* Lanes per project: portfolio 8 (DISC-336: raised from 5, the s70 4–5 range, so the 8-doer target of next-row.mjs is not capped by it), one discipline lane, one handoff-toolkit lane. */
+export const CAPACITY = { PF: 8, DISC: 1, HT: 1 };
 
 const isAgentRow = (r) => r.section === "open" && !r.struck && /^open$/i.test(r.status) && /\bAgent\.?\s*$/.test(r.cells[1] || "");
 
