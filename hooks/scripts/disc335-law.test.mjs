@@ -12,7 +12,7 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 test("HARD-RULES 19 names the ledger, the Not landed rule and the --accept gate; HELPER-SESSIONS points at it", () => {
   const t = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(t.includes("helper-ledger.mjs") && t.includes("`## Not landed`") && t.includes("--accept"));
-  assert.ok(t.includes("skips `head:` for branches `main`"));
+  assert.ok(t.includes("skips `head:` for branches `main`") && t.includes("listing of every open PR") && t.includes("--waiting") && t.includes("PR not found"));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("helper-ledger.mjs"));
 });
 test("the Stop hook's sweep command is the ledger", () => {

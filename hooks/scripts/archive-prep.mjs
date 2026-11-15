@@ -8,7 +8,11 @@
 import { execFileSync } from "node:child_process";
 import { listed, prName, isOurs, specificBranches } from "../bin/archive-guard.mjs";
 
-export const queriesFor = (id, branches = []) => [`is:pr is:open user:MrJarrad ${id}`, ...specificBranches(branches).map((b) => `is:pr is:open user:MrJarrad head:${b}`)];
+export const ALL_OPEN = "is:pr is:open user:MrJarrad";
+/* DISC-335 (review of #223, RED 1): a helper whose branches are all generic has no head: lookup, and a PR body search cannot see a
+   markdown-link body, so it also gets the listing of every open PR of ours; the guard matches that listing against the helper. */
+export const queriesFor = (id, branches = []) => [`is:pr is:open user:MrJarrad ${id}`, ...specificBranches(branches).map((b) => `is:pr is:open user:MrJarrad head:${b}`),
+  ...(branches.length && !specificBranches(branches).length ? [ALL_OPEN] : [])];
 
 /** search(query) -> the parsed search object (it may throw). Returns { ok, open, lookups: [{ query, result }] }. */
 export function prep(id, branches, search) {
@@ -20,12 +24,13 @@ export function prep(id, branches, search) {
     lookups.push({ query, result });
     const prs = listed(JSON.stringify(result));
     if (!prs) { ok = false; continue; }
+    if (query === ALL_OPEN) continue; /* read for completeness only; the guard names the PRs that concern this helper */
     for (const p of prs) if (isOurs(p) && String(p?.state ?? "open").toLowerCase() === "open") open.add(prName(p));
   }
   return { ok: ok && open.size === 0, session: id, branches, open: [...open], lookups };
 }
 
-const gh = (query) => JSON.parse(execFileSync("gh", ["api", "-X", "GET", "search/issues", "-f", `q=${query}`], { encoding: "utf8" }));
+const gh = (query) => JSON.parse(execFileSync("gh", ["api", "-X", "GET", "search/issues", "-f", `q=${query}`, "-f", "per_page=100"], { encoding: "utf8" }));
 
 function main() {
   const a = process.argv.slice(2), at = (f) => (a.includes(f) ? a[a.indexOf(f) + 1] : undefined);

@@ -16,7 +16,7 @@ import { basename, join } from "node:path";
 
 const blocks = (e) => (Array.isArray(e?.message?.content) ? e.message.content : []);
 const REPOINT_HOLDS = 3;
-const SWEEP = "node <plugin>/hooks/scripts/helper-ledger.mjs --self <own id> --sessions <saved list_sessions pages, every page> --landed <session-dir>/landed-helpers --vault <vault>"; /* DISC-335: the ledger lists every helper of every parent; helper-sweep.mjs still counts */
+const SWEEP = "node <plugin>/hooks/scripts/helper-ledger.mjs --self <own id> --sessions <saved list_sessions pages, every page> --landed <session-dir>/landed-helpers --waiting <helpers waiting on an operator answer> --vault <vault>"; /* DISC-335: the ledger lists every helper of every parent; helper-sweep.mjs still counts */
 
 /* Session ids listed under the sweep output's "## Re-point" heading (the tool_result content is text or text parts). */
 function repointIds(content) {
@@ -85,7 +85,7 @@ export function sweepDue(lines) {
   }
   if (!cockpit && wrapAt < 0) return null;
   if (wrapAt >= 0 ? sweepAt <= wrapAt : sweepAt < 0) {
-    if (wrapAt >= 0) return { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} (--accept <ids> for a helper whose return is banked), call archive_session on each Archive row, say what each Not landed row was doing, and put the sweep's Helpers: line (ids of every helper still open) on the cockpit wrap block (HARD-RULES 19).` };
+    if (wrapAt >= 0) return { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} (--accept <ids> for a helper whose return is banked; the ledger's Pages line must say the list is complete), call archive_session on each Archive row, say what each Not landed row was doing, and put the sweep's Helpers: line (ids of every helper still open) on the cockpit wrap block (HARD-RULES 19).` };
     return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Save list_sessions (every page) to files, run ${SWEEP}, and call archive_session on each Archive row (HARD-RULES 19).` };
   }
   // DISC-291: the sweep ran; an Archive row is finished only when archive_session was called on it after the sweep (a refused call counts: its refusal is the named line).
