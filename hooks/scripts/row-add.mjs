@@ -5,11 +5,14 @@
    Usage: node row-add.mjs --vault <root> --prefix PF --to backlog|queue \
             --text "<item or need>" [--raised YYYY-MM-DD]          (backlog)
             [--status "waiting on operator"]  (backlog; an idea is added so)
+            [--owner Agent|Mac|Operator]      (backlog, status open: who does it; written as the Item cell's trailing label)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
             [--merge-into <ID>]  fold the text into that open row instead (dated; backlog Notes, queue Needed)
             [--searched "<what you searched>"] a queue row asking the operator for a link, file or node needs this (DISC-272)
             [--distinct]     add the row even though it resembles an open one
             [--offline]      skip the origin/main check (tests, no network)
+   An open backlog row names its owner (DISC-336): the text ends `Agent.`, `Mac.` or `Operator.`, or --owner adds it, so
+   next-row.mjs can rank it; an unlabelled one is refused. A `waiting on operator` idea needs none (its status says who).
    A new row that resembles an open backlog row or unstruck queue row (shared
    content words) is refused, naming the rows, unless --merge-into or --distinct
    says which (DISC-189, decision 2026-10-18-orderly-backlogs).
@@ -100,7 +103,10 @@ export function citedIds(text, prefix) {
   return [...new Set(String(text).match(new RegExp(`\\b${prefix}-\\d+\\b`, "g")) || [])];
 }
 
-export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct, searched }) {
+const OWNERS = ["Agent", "Mac", "Operator"];
+const OWNER_END = /\b(Agent|Mac|Operator)\.?\s*$/;
+
+export function rowAdd({ vault, prefix, to, text, raised, where, why, recommended, offline, status, mergeInto, distinct, searched, owner }) {
   const warnings = [];
   const fail = (reason) => ({ ok: false, reason, warnings });
   if (!/^[A-Z]{2,4}$/.test(String(prefix || ""))) return fail(`--prefix must be a project prefix like PF, got "${prefix ?? ""}"`);
@@ -112,6 +118,12 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   // DISC-272: a link/file/node ask is raised only after the vault was searched.
   if ((to === "queue" || status === "waiting on operator") && isLinkAsk(clean(text)) && !clean(searched)) return fail(`link-ask refused — ${LINK_ASK_REFUSAL}`);
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");
+  // DISC-336: an open backlog row names its owner so the ranker can class it; a merge folds into an existing row and needs none.
+  if (owner !== undefined && !OWNERS.includes(owner)) return fail(`--owner is Agent, Mac or Operator, not "${owner}"`);
+  if (to === "backlog" && !mergeInto && (status || "open") === "open") {
+    if (owner && !OWNER_END.test(clean(text))) text = `${clean(text).replace(/[\s.]+$/, "")}. ${owner}.`;
+    else if (!OWNER_END.test(clean(text))) return fail("unlabelled backlog row refused — end the text with `Agent.`, `Mac.` or `Operator.`, or pass --owner Agent|Mac|Operator, so next-row.mjs can rank it (a `waiting on operator` idea needs none)");
+  }
   return withVaultLock(vault, () => {
     // Resolved inside the lock: a concurrent writer's file is never read half-written.
     const owner = discoverFiles(vault).byPrefix.get(prefix);
@@ -183,7 +195,7 @@ function main() {
     console.error("usage: row-add --vault <root> --prefix PF --to backlog|queue --text \"…\" [--raised d] [--status \"waiting on operator\"] [--where w --why y --recommended r] [--merge-into ID | --distinct] [--searched \"…\"] [--offline]");
     process.exit(2);
   }
-  const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct), searched: a.searched });
+  const res = rowAdd({ vault: resolveVaultRoot(a.vault), prefix: a.prefix, to: a.to, text: a.text, raised: a.raised, where: a.where, why: a.why, recommended: a.recommended, status: a.status, offline: Boolean(a.offline), mergeInto: a["merge-into"], distinct: Boolean(a.distinct), searched: a.searched, owner: a.owner });
   for (const w of res.warnings || []) console.error(`row-add: warning — ${w}`);
   if (!res.ok) { console.error(`row-add: refused — ${res.reason}`); process.exit(1); }
   // s76 L3: the next-free marker is raised in both list files; a commit stages both.

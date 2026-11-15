@@ -25,7 +25,7 @@ const ids = (v, f) => [...readFileSync(join(v, `projects/zz/zz-${f}.md`), "utf8"
 
 test("a backlog add gets a number above the QUEUE's range too (one sequence per prefix)", () => {
   const v = mkVault();
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "new thing", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "new thing", offline: true });
   assert.equal(r.ok, true);
   assert.equal(r.id, "ZZ-601");
   assert.ok(ids(v, "backlog").includes("ZZ-601"));
@@ -51,10 +51,10 @@ test("a number typed by hand that collides across queue and backlog is reported"
 
 test("refusals: unknown prefix, bad target, pipe in text, no text", () => {
   const v = mkVault();
-  assert.match(rowAdd({ vault: v, prefix: "QQ", to: "backlog", text: "x", offline: true }).reason, /no project queue declares prefix QQ/);
+  assert.match(rowAdd({ vault: v, prefix: "QQ", to: "backlog", owner: "Agent", text: "x", offline: true }).reason, /no project queue declares prefix QQ/);
   assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "nope", text: "x", offline: true }).reason, /queue or backlog/);
-  assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "a|b", offline: true }).reason, /must not contain \|/);
-  assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: " ", offline: true }).reason, /--text is required/);
+  assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "a|b", offline: true }).reason, /must not contain \|/);
+  assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: " ", offline: true }).reason, /--text is required/);
 });
 
 test("highestUsed counts struck rows and the marker reservation", () => {
@@ -72,7 +72,7 @@ test("origin/main is part of the floor: a row another session already took is no
   const g = (cwd, ...a) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...a], { cwd });
   g(origin, "add", "-A"); g(origin, "commit", "-qm", "o");
   g(v, "init", "-q", "-b", "main"); g(v, "remote", "add", "origin", origin);
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "n" });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "n" });
   assert.equal(r.id, "ZZ-651");
   assert.deepEqual(r.warnings, []);
 });
@@ -80,7 +80,7 @@ test("origin/main is part of the floor: a row another session already took is no
 test("offline / no origin: falls back to local with a warning, still adds", () => {
   const v = mkVault();
   execFileSync("git", ["init", "-q", "-b", "main", v]);
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "n" });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "n" });
   assert.equal(r.ok, true);
   assert.match(r.warnings[0], /could not reach origin\/main/);
 });
@@ -88,7 +88,7 @@ test("offline / no origin: falls back to local with a warning, still adds", () =
 test("race: 8 parallel CLI adds get 8 distinct IDs and no duplicate lands", async () => {
   const v = mkVault();
   const run = (to) => new Promise((res) => {
-    const c = spawn("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", to, "--text", "r", "--offline"]);
+    const c = spawn("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", to, "--text", "r", "--owner", "Agent", "--offline"]);
     let out = ""; c.stdout.on("data", (d) => (out += d)); c.on("close", (code) => res({ code, id: out.trim() }));
   });
   const results = await Promise.all(Array.from({ length: 8 }, (_, i) => run(i % 2 ? "queue" : "backlog")));
@@ -105,7 +105,7 @@ test("a stale lock (older than 30 s) is broken, not waited on", () => {
   writeFileSync(lockPath(v), "999999");
   const old = new Date(Date.now() - 120_000);
   utimesSync(lockPath(v), old, old);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "n", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "n", offline: true }).ok, true);
 });
 
 test("WAIT_MS outlasts STALE_MS, so a waiter reaches a dead holder's stale break", () => {
@@ -156,7 +156,7 @@ test("row-add rolls the write back when the new ID would appear twice (seen !== 
   const saved = [env.GIT_CONFIG_COUNT, env.GIT_CONFIG_KEY_0, env.GIT_CONFIG_VALUE_0];
   env.GIT_CONFIG_COUNT = "1"; env.GIT_CONFIG_KEY_0 = "protocol.ext.allow"; env.GIT_CONFIG_VALUE_0 = "always";
   let r;
-  try { r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "n" }); } finally {
+  try { r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "n" }); } finally {
     [env.GIT_CONFIG_COUNT, env.GIT_CONFIG_KEY_0, env.GIT_CONFIG_VALUE_0] = saved;
     for (const k of ["GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0"]) if (env[k] === undefined) delete env[k];
   }
@@ -168,7 +168,7 @@ test("row-add rolls the write back when the new ID would appear twice (seen !== 
 
 test("an idea row is added as `waiting on operator` and prints under Needed from you (DISC-168)", async () => {
   const v = mkVault();
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "idea: a lightning strike", status: "waiting on operator", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "idea: a lightning strike", status: "waiting on operator", offline: true });
   assert.equal(r.ok, true);
   assert.match(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), new RegExp(`\\| ${r.id} \\| idea: a lightning strike \\| [^|]+\\| waiting on operator \\|`));
   const { neededFromYou, render } = await import("./needed-from-you.mjs");
@@ -177,7 +177,7 @@ test("an idea row is added as `waiting on operator` and prints under Needed from
 
 test("row-add refuses a status outside open / waiting on operator, and --status on a queue row", () => {
   const v = mkVault();
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "x", status: "done (#1 abc1234)", offline: true }).ok, false);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "x", status: "done (#1 abc1234)", offline: true }).ok, false);
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "x", status: "waiting on operator", offline: true }).ok, false);
 });
 
@@ -188,7 +188,7 @@ test("DISC-178: a release-only ask is refused as a queue row and as a waiting-on
     assert.equal(r.ok, false, to);
     assert.match(r.reason, /release-follows-merge/);
   }
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Release?", offline: true }).ok, true, "a plain open backlog row is not an operator ask");
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Release?", offline: true }).ok, true, "a plain open backlog row is not an operator ask");
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Release with SITE_MODE holding -> live?", offline: true }).ok, true);
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Look at the footer and say yes", offline: true }).ok, true);
 });
@@ -253,7 +253,7 @@ test("DISC-221 L1: the list-drift-check CLI leaves the stamp row-add reads", () 
 const marker = (v, f) => parseInt(/Next free number:\s*(\d+)/.exec(readFileSync(join(v, `projects/zz/zz-${f}.md`), "utf8"))[1], 10);
 test("a backlog add raises the QUEUE's marker too (DISC-259)", () => {
   const v = mkVault();
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "new thing", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "new thing", offline: true });
   assert.equal(r.id, "ZZ-601");
   assert.equal(marker(v, "queue"), 602);
   assert.equal(marker(v, "backlog"), 602);
@@ -313,5 +313,27 @@ test("s76 L3: the CLI names both of the project's list files to stage, on stderr
   const r = spawnSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--offline"], { encoding: "utf8", env: { ...process.env, DISCIPLINE_MARKER_DIR: mkdtempSync(join(tmpdir(), "marker-")) } });
   assert.match(r.stdout.trim(), /^ZZ-\d+$/);
   assert.match(r.stderr, /row-add: stage projects\/zz\/zz-queue\.md projects\/zz\/zz-backlog\.md/);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "another distinct idea about colour", offline: true }).files.length, 2);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "another distinct idea about colour", offline: true }).files.length, 2);
+});
+
+test("DISC-336: an open backlog row without an owner label is refused, with the way out named", () => {
+  const v = mkVault();
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "an unlabelled thing", offline: true });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /unlabelled backlog row refused.*Agent\.`, `Mac\.` or `Operator\.`.*--owner/);
+});
+
+test("DISC-336: --owner writes the trailing label; a text that already ends in one is kept; a bad owner is refused", () => {
+  const v = mkVault();
+  const a = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Mac", text: "check it in WebKit", offline: true });
+  assert.match(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), new RegExp(`\\| ${a.id} \\| check it in WebKit\\. Mac\\. \\|`));
+  const b = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "build the footer test now. Agent.", offline: true });
+  assert.match(readFileSync(join(v, "projects/zz/zz-backlog.md"), "utf8"), new RegExp(`\\| ${b.id} \\| build the footer test now\\. Agent\\. \\|`));
+  assert.match(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Robot", text: "x thing", offline: true }).reason, /--owner is Agent, Mac or Operator/);
+});
+
+test("DISC-336: a waiting-on-operator idea, a queue row and a merge need no owner label", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "idea: a lightning strike", status: "waiting on operator", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the colour", where: "w", why: "y", recommended: "r", offline: true }).ok, true);
 });

@@ -47,15 +47,38 @@ test("a wake turn whose run printed UNDER TARGET is held until a dispatch follow
   assert.equal(run([...ran, called("Agent", {}, "c"), result("ok", "c"), said("started")]), null);
 });
 
-test("a run at target, or one rerun with --reason, lets the turn end", () => {
+test("a run at target lets the turn end; so does a rerun with --reason, whose output no longer says UNDER TARGET", () => {
   assert.equal(run([user(WAKE), called("Bash", RUN), result(FINE), said("ok")]), null);
+  const RERUN = { command: `${RUN.command} --reason "waiting on a review slot"` };
+  const REASONED = "Doers: 6 working of target 8\nGap of 2 reasoned: waiting on a review slot";
+  const ran = [user(WAKE), called("Bash", RUN, "a"), result(UNDER, "a"), called("Bash", RERUN, "b"), result(REASONED, "b"), said("held on purpose")];
+  assert.equal(run(ran), null);
 });
 
-test("a turn that closed a lane (lane-end.mjs) or read a completed helper is held even with no wake", () => {
-  const laneEnd = called("Bash", { command: "node $P/hooks/scripts/lane-end.mjs --helper session_x --id PF-5" });
-  assert.equal(run([user("carry on"), laneEnd, said("PF-5 merged.")])?.decision, "block");
-  const done = [user("carry on"), called("mcp__claude-code-remote__get_session", { session_id: "session_x" }), result('{"status_bucket":"completed"}'), said("helper landed")];
-  assert.equal(run(done)?.decision, "block");
+test("AMBER 1: the first hold tells the parent to run next-row AND start its rows now, and says the second pass is not checked", () => {
+  const out = run([user(WAKE), said("PR merged.")]);
+  assert.match(out.reason, /next-row\.mjs/);
+  assert.match(out.reason, /start (the|its) rows/i);
+  assert.match(out.reason, /second (stop|pass).*not checked/i);
+});
+
+test("AMBER 1 pinned: after the hold, a run that prints UNDER TARGET with no dispatch is allowed on the second pass (stop_hook_active)", () => {
+  const entries = [user(WAKE), called("Bash", RUN), result(UNDER), said("noted")];
+  assert.equal(run(entries)?.decision, "block"); // run before the first Stop: the dispatch check bites
+  assert.equal(run(entries, { stopActive: true }), null); // second pass is intentionally unchecked
+});
+
+test("AMBER 3: lane-end with --helper holds the turn; lane-end --id alone (an operator answer struck a row) does not", () => {
+  const withHelper = called("Bash", { command: "node $P/hooks/scripts/lane-end.mjs --helper session_x --id PF-5" });
+  const idOnly = called("Bash", { command: "node $P/hooks/scripts/lane-end.mjs --id PF-5" });
+  assert.equal(run([user("carry on"), withHelper, said("PF-5 merged.")])?.decision, "block");
+  assert.equal(run([user("carry on"), idOnly, said("struck PF-5.")]), null);
+});
+
+test("AMBER 3: a helper read completed holds the turn once; the same helper read completed again in a later turn does not", () => {
+  const look = (id) => [called("mcp__claude-code-remote__get_session", { session_id: "session_x" }, id), result('{"status_bucket":"completed"}', id)];
+  assert.equal(run([user("carry on"), ...look("t1"), said("helper landed")])?.decision, "block");
+  assert.equal(run([user("carry on"), ...look("t1"), said("helper landed"), user("how are we looking"), ...look("t2"), said("still landed")]), null);
 });
 
 test("an ordinary operator turn with no landing is not held", () => {
