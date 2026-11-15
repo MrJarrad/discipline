@@ -205,8 +205,13 @@ export function coveringRect(state, viewport) {
 // a skip link at rest, the footer nav pills) overlays the page rather than filling its flow.
 // It stays a covering rect for nothing: counted, it anchors a column at its own x and the
 // row spacing beside or under it reads as a hole.
+// PF-1667: a visually-hidden accessibility mirror (`.sr-only`: 1 x 1 px, clipped) is a text entry that paints
+// nothing. Counted, a run of them at the page's side-padding edge forms its own column and the section between
+// two reads as a 1 px wide hole. A 1 x 1 text box covers no visible region, so it is set aside like a fixed one.
+const isHiddenTextMirror = (s) => s.tag === "text" && s.rect.width <= 1 && s.rect.height <= 1;
+
 export function frameCoveringRects(states, viewport) {
-  return states.filter((s) => !(s.tag === "text" && s.fixed)).map((s) => coveringRect(s, viewport)).filter(Boolean);
+  return states.filter((s) => !(s.tag === "text" && s.fixed) && !isHiddenTextMirror(s)).map((s) => coveringRect(s, viewport)).filter(Boolean);
 }
 
 export function isVisibilityHidden(state) {

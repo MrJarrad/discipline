@@ -756,3 +756,24 @@ test("PF-1475: the same hole made by FLOW text is still a gap (only fixed boxes 
   const frame = gridFrame((box) => [box("text", 24, 51, 25, 71)]);
   assert.equal(scanFrameForColumnGaps(frameCoveringRects(frame, VP844), VP844).length, 1);
 });
+
+// PF-1667: a visually-hidden accessibility mirror (`.sr-only`: absolute, 1 x 1 px, clipped) travels as a
+// text entry but paints nothing, so it can neither cover a region nor anchor a column. Two of them one
+// section apart, at the page's side-padding edge (x 23-24), read as a 1 px wide, section-tall hole.
+const textBox = (l, t, r, b) => ({ tag: "text", rect: rectOf(l, t, r, b), clipRects: [] });
+const hiddenMirror = (t) => textBox(23, t, 24, t + 1);
+// Ordinary row spacing (two 40 px gaps) sets the rhythm the 406 px strip is compared against.
+const spacedRows = [textBox(24, 500, 111, 520), textBox(24, 560, 111, 580), textBox(24, 620, 111, 640)];
+
+test("PF-1667: 1 x 1 px visually-hidden text mirrors at the padding edge are not a column — no gap", () => {
+  const frame = [...spacedRows, hiddenMirror(368), textBox(24, 369, 302, 400), hiddenMirror(775), textBox(24, 776, 300, 807)];
+  assert.equal(scanFrameForColumnGaps(frameCoveringRects(frame, VP844), VP844).length, 0);
+});
+
+test("PF-1667: a real hole in the same column is still a gap beside the hidden mirrors", () => {
+  const frame = [
+    ...spacedRows, hiddenMirror(368), hiddenMirror(775),
+    textBox(24, 660, 111, 680), textBox(24, 1000, 111, 1020),
+  ];
+  assert.equal(scanFrameForColumnGaps(frameCoveringRects(frame, { width: 390, height: 1100 }), { width: 390, height: 1100 }).length, 1);
+});
