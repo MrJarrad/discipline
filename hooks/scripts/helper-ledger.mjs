@@ -37,7 +37,7 @@ function matchPrs(x, prs) {
   const keys = laneKeys(x);
   return prs.filter(isOurs).flatMap((p) => {
     const text = `${p.title ?? ""}\n${p.body ?? ""}`;
-    const by = text.includes(x.id) ? "id" : mentions(text, keys) ? "lane key" : null;
+    const by = text.includes(x.id) ? "id" : mentions(p.title ?? "", keys) ? "lane key in title" : mentions(text, keys) ? "lane key in body" : null;
     return by ? [{ p, by }] : [];
   });
 }
@@ -54,7 +54,10 @@ export function buildLedger({ sessions, self, now, prs, landedIds = [], accept =
     else if (!hits.length) pr = { state: "none", text: "PR not found (searched session id and lane key)" };
     else {
       const states = hits.map((h) => stateOf(h.p));
-      pr = { state: states.includes("open") ? "open" : states.includes("merged") ? "merged" : "closed", text: hits.map((h) => `${prName(h.p)} ${stateOf(h.p)} (by ${h.by})`).join(", ") };
+      /* A merged PR proves the helper landed only on its id or its lane key in the title; a body mention of the key (a PR that
+         merely cites PF-1596) is shown but never lands a helper (dry run of #223: one vault PR cited two unrelated lanes). */
+      const proves = hits.some((h) => stateOf(h.p) === "merged" && h.by !== "lane key in body");
+      pr = { state: states.includes("open") ? "open" : proves ? "merged" : states.includes("merged") ? "cited" : "closed", text: hits.map((h) => `${prName(h.p)} ${stateOf(h.p)} (by ${h.by})`).join(", ") };
     }
     const bucket = bucketOf(x), done = bucket === "completed";
     let verdict, reason;
@@ -65,6 +68,7 @@ export function buildLedger({ sessions, self, now, prs, landedIds = [], accept =
     else if (pr.state === "merged" && done) [verdict, reason] = ["archive", "landed: PR merged, helper completed"];
     else if (accept.includes(x.id)) [verdict, reason] = ["archive", "accepted by the parent: its return is banked"];
     else if (pr.state === "merged") [verdict, reason] = ["keep", `PR merged but helper is ${bucket || "not completed"}`];
+    else if (pr.state === "cited") [verdict, reason] = ["not-landed", "a merged PR only cites its lane key in the body; confirm it is this helper's, then --accept"];
     else [verdict, reason] = ["not-landed", pr.state === "closed" ? "PR closed unmerged" : `${bucket || "idle"}, PR not found`];
     const p = byId.get(x.parent_session_id);
     return { id: x.id, title: x.title, lane: laneOf(x), parent: x.parent_session_id, parentTitle: p?.title ?? "(not in the pages)", pr: pr.text, bucket, summary: x.post_turn_summary?.recent_action || x.task_summary || "(no summary)", verdict, reason };

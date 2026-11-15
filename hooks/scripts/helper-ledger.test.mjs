@@ -26,8 +26,15 @@ test("a PR whose body carries the id inside a markdown link is found (the case s
 });
 test("a PR that names the helper's lane key in its title is matched by lane key", () => {
   const l = run([S("session_b", { tags: ["helper", "s91-PF1655"] })], [openPr(646, { title: "PF-1655 page script size" })]);
-  assert.match(row(l, "session_b").pr, /#646 open \(by lane key\)/);
+  assert.match(row(l, "session_b").pr, /#646 open \(by lane key in title\)/);
   assert.equal(row(l, "session_b").verdict, "keep");
+});
+test("a merged PR that only cites the lane key in its body never lands the helper: NOT LANDED until the parent accepts", () => {
+  const l = run([S("session_z", { tags: ["helper", "s91-PF1398"] })], [pr(1182, { title: "vault notes", body: "mentions PF-1398 in passing" })]);
+  assert.equal(row(l, "session_z").verdict, "not-landed");
+  assert.match(row(l, "session_z").reason, /cites its lane key/);
+  assert.match(row(l, "session_z").pr, /by lane key in body/);
+  assert.equal(row(run([S("session_z", { tags: ["helper", "s91-PF1398"] })], [pr(1182, { title: "PF-1398 contrast", body: "" })]), "session_z").verdict, "archive");
 });
 test("no matching PR reads 'PR not found', is NOT LANDED, and carries the last summary; never in the archive list", () => {
   const l = run([S("session_c", { post_turn_summary: { recent_action: "Built the thing, never opened a PR" } })], [openPr(1, { title: "other", body: "other" })]);
