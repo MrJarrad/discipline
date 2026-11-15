@@ -153,10 +153,11 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
     const term = termOf(q);
     /* the listing counts only un-narrowed, or narrowed to a date on or before the helper's own created date (a later date could hide its PR) */
     const cd = term === "*" ? createdOf(q) : "";
-    const name = term === id ? id : term === "*" ? (allOpen && (!cd || (allOpen.created && cd <= allOpen.created)) ? "*" : undefined) : branches.find((b) => term === `head:${b}`);
+    /* DISC-345: a listing dated after the helper cannot cover it, but when readable it is still read for naming (never as coverage) */
+    const name = term === id ? id : term === "*" ? (allOpen ? "*" : undefined) : branches.find((b) => term === `head:${b}`);
     const prs = name && listed(text);
     if (!prs) continue;
-    covered.add(name);
+    if (name !== "*" || !cd || (allOpen.created && cd <= allOpen.created)) covered.add(name);
     for (const p of prs) {
       if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
       if (!isOurs(p)) continue;
