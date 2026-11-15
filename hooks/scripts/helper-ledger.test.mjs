@@ -26,15 +26,27 @@ test("a PR whose body carries the id inside a markdown link is found (the case s
 });
 test("a PR that names the helper's lane key in its title is matched by lane key", () => {
   const l = run([S("session_b", { tags: ["helper", "s91-PF1655"] })], [openPr(646, { title: "PF-1655 page script size" })]);
-  assert.match(row(l, "session_b").pr, /#646 open \(by lane key in title\)/);
+  assert.match(row(l, "session_b").pr, /#646 open \(by lane key\)/);
   assert.equal(row(l, "session_b").verdict, "keep");
 });
-test("a merged PR that only cites the lane key in its body never lands the helper: NOT LANDED until the parent accepts", () => {
-  const l = run([S("session_z", { tags: ["helper", "s91-PF1398"] })], [pr(1182, { title: "vault notes", body: "mentions PF-1398 in passing" })]);
-  assert.equal(row(l, "session_z").verdict, "not-landed");
-  assert.match(row(l, "session_z").reason, /cites its lane key/);
-  assert.match(row(l, "session_z").pr, /by lane key in body/);
-  assert.equal(row(run([S("session_z", { tags: ["helper", "s91-PF1398"] })], [pr(1182, { title: "PF-1398 contrast", body: "" })]), "session_z").verdict, "archive");
+test("a merged PR that names only a lane key, in its title or body, never lands the helper: NOT LANDED until accepted", () => {
+  for (const o of [{ title: "vault notes", body: "mentions PF-1398 in passing" }, { title: "PF-1398 contrast", body: "" }]) {
+    const l = run([S("session_z", { tags: ["helper", "s91-PF1398"] })], [pr(1182, o)]);
+    assert.equal(row(l, "session_z").verdict, "not-landed");
+    assert.match(row(l, "session_z").reason, /sibling helpers share/);
+  }
+});
+test("RED B: two completed sibling helpers on one lane key and one merged PR titled with the key: neither is archived; the one whose id the PR carries is", () => {
+  const sib = [S("session_m", { tags: ["helper", "s91-DISC269-macqueue"] }), S("session_n", { tags: ["helper", "s91-DISC269-portfolio"] })];
+  const l = run(sib, [pr(1218, { title: "DISC-269 notes: Mac jobs filed", body: "" })]);
+  assert.deepEqual(l.archive, []);
+  assert.deepEqual(l.notLanded.map((r) => r.id).sort(), ["session_m", "session_n"]);
+  const l2 = run(sib, [pr(1218, { title: "DISC-269 notes: Mac jobs filed", body: "[s](https://claude.ai/code/session_m)" })]);
+  assert.deepEqual(l2.archive.map((r) => r.id), ["session_m"]);
+});
+test("the header says when the PR listing was not read whole", () => {
+  assert.match(renderLedger(run([S("session_q")], null), NOW), /PR listing: NOT READ WHOLE/);
+  assert.match(renderLedger(run([S("session_q")], []), NOW), /PR listing: read whole/);
 });
 test("no matching PR reads 'PR not found', is NOT LANDED, and carries the last summary; never in the archive list", () => {
   const l = run([S("session_c", { post_turn_summary: { recent_action: "Built the thing, never opened a PR" } })], [openPr(1, { title: "other", body: "other" })]);

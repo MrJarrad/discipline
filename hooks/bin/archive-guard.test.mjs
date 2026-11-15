@@ -320,7 +320,7 @@ test("RED 1: an open PR whose body links the helper's id in a markdown link refu
   deniedNaming(run(ID("g2"), t), /#8/);
 });
 test("RED 1: main branch with no listing of all open PRs refuses and says which lookup to run", () => {
-  deniedNaming(run(ID("g3"), [...laned(ID("g3"), ["main"], ["helper"]), ...idLookup(ID("g3"))]), /is:pr is:open user:MrJarrad'/);
+  deniedNaming(run(ID("g3"), [...laned(ID("g3"), ["main"], ["helper"]), ...idLookup(ID("g3"))]), /created:>=/);
 });
 test("RED 1: a truncated listing refuses (fail closed)", () => {
   const t = [...laned(ID("g4"), ["main"], ["helper"]), ...idLookup(ID("g4")), ...ghSearch(ALL, search("", [open(1)], { total_count: 140 }), "l1")];
@@ -332,4 +332,31 @@ test("RED 1: main branch, id lookup clear and a readable listing with no PR nami
 });
 test("RED 1: a helper with a specific branch does not need the listing", () => {
   assert.equal(run(ID("g6"), clear(ID("g6"), ["claude/lane-x", "main"])), null);
+});
+
+// DISC-335 round 2, RED A (review of #223): `is:pr is:open user:MrJarrad` already has 136 hits (83 old vault progress PRs), so the
+// un-narrowed listing is always truncated and a helper on main could never be archived. The listing may carry
+// `created:>=<date>`; a helper's own PR cannot predate the helper, so the guard accepts the date only when it is on or before the
+// helper's own created_at date (a later date could hide its PR).
+const CREATED = "2026-11-12T10:00:00Z";
+const lanedAt = (id, branches, tags, created = CREATED) => call("get_session", {}, { ccr: { ...withBranches(id, branches), tags, created_at: created } }, "g1");
+const many = (n, from = 100) => Array.from({ length: n }, (_, i) => open(from + i, { title: `old progress ${i}`, body: "" }));
+test("RED A: an un-narrowed listing of 140 open PRs is truncated and refuses, the narrowed form of 11 clears the same helper", () => {
+  const head = [...lanedAt(ID("n1"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n1"))];
+  deniedNaming(run(ID("n1"), [...head, ...ghSearch(ALL, search("", many(100), { total_count: 140 }), "l1")]), /open-PR lookup/);
+  assert.equal(run(ID("n1"), [...head, ...ghSearch(`${ALL} created:>=2026-11-12`, search("", many(11)), "l1")]), null);
+});
+test("RED A: a listing narrowed to a date on or before the helper's created date counts; a later date does not cover it", () => {
+  const head = (n) => [...lanedAt(ID(n), ["main"], ["helper"]), ...idLookup(ID(n))];
+  assert.equal(run(ID("n2"), [...head("n2"), ...ghSearch(`${ALL} created:>=2026-11-01`, search(), "l1")]), null);
+  deniedNaming(run(ID("n3"), [...head("n3"), ...ghSearch(`${ALL} created:>=2026-11-13`, search(), "l1")]), /open-PR lookup/);
+});
+test("RED A: a narrowed listing still refuses when an open PR in it names the helper's lane key", () => {
+  const t = [...lanedAt(ID("n4"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n4")), ...ghSearch(`${ALL} created:>=2026-11-12`, search("", [open(646, { title: "PF-1596 board" })]), "l1")];
+  deniedNaming(run(ID("n4"), t), /#646/);
+});
+test("RED A: the archive-prep route carries --created and prints the narrowed listing", () => {
+  const cmd = `${PREP(ID("n5"), ["main"])} --created 2026-11-12`;
+  const out = JSON.stringify({ ok: true, session: ID("n5"), branches: ["main"], open: [], lookups: [{ query: `is:pr is:open user:MrJarrad ${ID("n5")}`, result: search() }, { query: `${ALL} created:>=2026-11-12`, result: search("", many(11)) }] });
+  assert.equal(run(ID("n5"), [...lanedAt(ID("n5"), ["main"], ["helper"]), ...prepCall(cmd, out)]), null);
 });

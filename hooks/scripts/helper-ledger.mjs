@@ -37,7 +37,7 @@ function matchPrs(x, prs) {
   const keys = laneKeys(x);
   return prs.filter(isOurs).flatMap((p) => {
     const text = `${p.title ?? ""}\n${p.body ?? ""}`;
-    const by = text.includes(x.id) ? "id" : mentions(p.title ?? "", keys) ? "lane key in title" : mentions(text, keys) ? "lane key in body" : null;
+    const by = text.includes(x.id) ? "id" : mentions(text, keys) ? "lane key" : null;
     return by ? [{ p, by }] : [];
   });
 }
@@ -54,9 +54,10 @@ export function buildLedger({ sessions, self, now, prs, landedIds = [], accept =
     else if (!hits.length) pr = { state: "none", text: "PR not found (searched session id and lane key)" };
     else {
       const states = hits.map((h) => stateOf(h.p));
-      /* A merged PR proves the helper landed only on its id or its lane key in the title; a body mention of the key (a PR that
-         merely cites PF-1596) is shown but never lands a helper (dry run of #223: one vault PR cited two unrelated lanes). */
-      const proves = hits.some((h) => stateOf(h.p) === "merged" && h.by !== "lane key in body");
+      /* A merged PR proves the helper landed only on its own session id. A lane key is shared by sibling helpers (DISC269-macqueue and
+         DISC269-portfolio carry one key), so a key-only match, in title or body, is shown as "cited" and lands nobody (review of #223,
+         round 2, RED B). */
+      const proves = hits.some((h) => stateOf(h.p) === "merged" && h.by === "id");
       pr = { state: states.includes("open") ? "open" : proves ? "merged" : states.includes("merged") ? "cited" : "closed", text: hits.map((h) => `${prName(h.p)} ${stateOf(h.p)} (by ${h.by})`).join(", ") };
     }
     const bucket = bucketOf(x), done = bucket === "completed";
@@ -68,14 +69,14 @@ export function buildLedger({ sessions, self, now, prs, landedIds = [], accept =
     else if (pr.state === "merged" && done) [verdict, reason] = ["archive", "landed: PR merged, helper completed"];
     else if (accept.includes(x.id)) [verdict, reason] = ["archive", "accepted by the parent: its return is banked"];
     else if (pr.state === "merged") [verdict, reason] = ["keep", `PR merged but helper is ${bucket || "not completed"}`];
-    else if (pr.state === "cited") [verdict, reason] = ["not-landed", "a merged PR only cites its lane key in the body; confirm it is this helper's, then --accept"];
+    else if (pr.state === "cited") [verdict, reason] = ["not-landed", "a merged PR names only its lane key, which sibling helpers share; confirm it is this helper's, then --accept"];
     else [verdict, reason] = ["not-landed", pr.state === "closed" ? "PR closed unmerged" : `${bucket || "idle"}, PR not found`];
     const p = byId.get(x.parent_session_id);
     return { id: x.id, title: x.title, lane: laneOf(x), parent: x.parent_session_id, parentTitle: p?.title ?? "(not in the pages)", pr: pr.text, bucket, summary: x.post_turn_summary?.recent_action || x.task_summary || "(no summary)", verdict, reason };
   });
   const pick = (v) => rows.filter((r) => r.verdict === v);
   const repoint = classify({ sessions, self, now, keep: rows.filter((r) => r.verdict !== "archive").map((r) => r.id) }).repoint;
-  return { rows, archive: pick("archive"), notLanded: pick("not-landed"), keep: pick("keep"), unknown: pick("unknown"), repoint, pages };
+  return { rows, archive: pick("archive"), notLanded: pick("not-landed"), keep: pick("keep"), unknown: pick("unknown"), repoint, pages, prsOk: prs !== null && prs !== undefined };
 }
 
 /** The saved-page coverage line: the last list_sessions page must report has_more false, or helpers of older parents are missing. */
@@ -91,7 +92,8 @@ export function renderLedger(l, now) {
   return [
     `# Helper ledger (generated ${now}; overwritten by helper-ledger.mjs, never hand-edited)`, "",
     "Covers sessions titled `Helper ·` that have a parent, across every parent in the saved pages; a session without that title is not shown here and is never archived by the sweep.",
-    l.pages ? pagesLine(l.pages) : "Pages: not reported.", "",
+    l.pages ? pagesLine(l.pages) : "Pages: not reported.",
+    l.prsOk === false ? "PR listing: NOT READ WHOLE (truncated, rate-limited, or more than 1000 PRs): every helper reads unknown and none is archived." : "PR listing: read whole.", "",
     "| id | helper | lane | parent | PR | last summary | verdict |", "| --- | --- | --- | --- | --- | --- | --- |",
     ...l.rows.map((r) => `| ${cell(r.id)} | ${cell(r.title)} | ${cell(r.lane)} | ${cell(r.parent)} (${cell(r.parentTitle)}) | ${cell(r.pr)} | ${cell(r.summary)} | ${cell(r.verdict)}: ${cell(r.reason)} |`), "",
     list("Archive", l.archive, line), list("Not landed", l.notLanded, line), list("Keep", l.keep, line), list("Unknown", l.unknown, line),
