@@ -288,3 +288,18 @@ test("DISC-330 amber: the owner is read from the API form of url (api.github.com
   deniedNaming(run(ID("s4"), t("MrJarrad")), /open PR/);
   assert.equal(run(ID("s4"), t("someone-else")), null);
 });
+
+// DISC-335 (s91: helpers whose branch is main could not be archived, because the head:main search is always truncated): a PR is
+// never opened from a default branch, so a generic branch needs no head: lookup; the session-id lookup still does.
+test("DISC-335 red: a helper on branch main is archived after the session-id lookup alone", () => {
+  assert.equal(run(ID("m1"), [...helperB(ID("m1"), ["main"]), ...ghSearch(`is:pr is:open ${ID("m1")}`, search(), "l0")]), null);
+});
+test("DISC-335: a helper on main still refuses when the session-id lookup finds its open PR", () => {
+  deniedNaming(run(ID("m2"), [...helperB(ID("m2"), ["main"]), ...ghSearch(`is:pr is:open ${ID("m2")}`, search("", [pr(5, { body: ID("m2") })]), "l0")]), /#5/);
+});
+test("DISC-335: a helper on main and no session-id lookup still refuses (the id lookup stays mandatory)", () => {
+  deniedNaming(run(ID("m3"), helperB(ID("m3"), ["main"])), /open-PR lookup/);
+});
+test("DISC-335: a non-generic branch beside main still needs its own head: lookup", () => {
+  deniedNaming(run(ID("m4"), [...helperB(ID("m4"), ["main", "claude/x"]), ...ghSearch(`is:pr is:open ${ID("m4")}`, search(), "l0")]), /claude\/x/);
+});

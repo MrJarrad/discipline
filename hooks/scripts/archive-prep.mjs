@@ -6,9 +6,9 @@
    readable, untruncated and empty.
      node archive-prep.mjs --session <id> [--branches a,b]      run AFTER get_session <id>; the branches come from it   */
 import { execFileSync } from "node:child_process";
-import { listed, prName, isOurs } from "../bin/archive-guard.mjs";
+import { listed, prName, isOurs, specificBranches } from "../bin/archive-guard.mjs";
 
-export const queriesFor = (id, branches = []) => [`is:pr is:open user:MrJarrad ${id}`, ...branches.map((b) => `is:pr is:open user:MrJarrad head:${b}`)];
+export const queriesFor = (id, branches = []) => [`is:pr is:open user:MrJarrad ${id}`, ...specificBranches(branches).map((b) => `is:pr is:open user:MrJarrad head:${b}`)];
 
 /** search(query) -> the parsed search object (it may throw). Returns { ok, open, lookups: [{ query, result }] }. */
 export function prep(id, branches, search) {

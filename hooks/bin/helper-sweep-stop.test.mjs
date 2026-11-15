@@ -24,7 +24,7 @@ const sweep = use("Bash", sweepCmd, "ok");
 const lines = (...parts) => parts.flat().map((e) => JSON.stringify(e));
 
 test("an orchestrator session (cockpit Read) that never swept is due at the start", () => {
-  assert.match(sweepDue(lines(cockpit)).reason, /helper-sweep/);
+  assert.match(sweepDue(lines(cockpit)).reason, /helper-ledger/);
   assert.equal(sweepDue(lines(cockpit)).phase, "start");
 });
 test("after a successful sweep, nothing is due", () => {
@@ -170,9 +170,9 @@ test("R1: a --cockpit call does not count as the sweep, at start or at wrap", ()
 test("R1: a sweep command without --sessions does not count either", () => {
   assert.equal(sweepDue(lines(cockpit, use("Bash", { command: "node /p/hooks/scripts/helper-sweep.mjs --self session_a" }, "ok")))?.phase, "start");
 });
-test("note 1: the start reason names --keep and --waiting so the parent passes them", () => {
+test("note 1 (DISC-335): the start reason asks for every list_sessions page; the ledger finds open PRs itself, so no --keep", () => {
   const r = sweepDue(lines(cockpit)).reason;
-  assert.match(r, /--keep/); assert.match(r, /--waiting/); assert.match(r, /--cockpit/);
+  assert.match(r, /every page/); assert.doesNotMatch(r, /--keep/);
 });
 
 // A1: judge only the last cockpit write that carries a Helpers: line, and only the lines it adds.
@@ -207,4 +207,13 @@ test("DISC-292: a read-only Bash command naming cockpit.md and Helpers: after th
     `echo '${bad}' | tee -a orchestrator/cockpit.md`,
     `sed -i 's/x/${bad}/' orchestrator/cockpit.md`,
   ]) assert.equal(sweepDue(lines(cockpit, wrap, sweep, use("Bash", { command }, "ok")))?.phase, "helpers", command);
+});
+
+// DISC-335: helper-ledger.mjs (every helper of every parent, with PR state) counts as the sweep, at start and at wrap.
+test("DISC-335: a successful helper-ledger.mjs run satisfies the start sweep", () => {
+  const ledger = use("Bash", { command: "node /p/hooks/scripts/helper-ledger.mjs --self session_a --sessions /tmp/s.json" }, "ok", "## Archive (0)\n\n## Re-point (0)\n");
+  assert.equal(sweepDue(lines(cockpit, ledger)), null);
+});
+test("DISC-335: the start reminder names the ledger", () => {
+  assert.match(sweepDue(lines(cockpit)).reason, /helper-ledger\.mjs/);
 });

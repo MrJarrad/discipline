@@ -90,6 +90,10 @@ const queryOf = (input) => {
 };
 /* DISC-330: only PRs in this owner's repos count; a generic branch name matches other people's public PRs. */
 export const OWNER = "mrjarrad";
+/* DISC-335 (s91: helpers on `main` could not be archived, the head:main search is always truncated): a PR is never opened from a
+   default branch, so these get no head: lookup; the session-id lookup stays mandatory. */
+export const GENERIC_BRANCHES = new Set(["main", "master", "head", "develop"]);
+export const specificBranches = (bs = []) => bs.filter((b) => !GENERIC_BRANCHES.has(String(b).toLowerCase()));
 export const isOurs = (p) => { const m = /github\.com\/(?:repos\/)?([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept, fails closed */
 /* The term of an accepted query, or null. */
 function termOf(query) {
@@ -170,7 +174,7 @@ export function verdict(lines, id, subLines = []) {
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
   if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
-  const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at, s.ts);
+  const { open, missing } = openPrLookup(lines, id, specificBranches(s.branches), subLines, s.at, s.ts);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
   if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
   return null;

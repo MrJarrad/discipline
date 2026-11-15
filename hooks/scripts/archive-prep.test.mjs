@@ -44,3 +44,9 @@ test("DISC-330: an unrelated repo's open PR does not make the helper not-ok", ()
   assert.equal(r.ok, true);
   assert.deepEqual(r.open, []);
 });
+
+// DISC-335: a generic branch (main, master, HEAD, develop) gets no head: query; the session-id query is always run.
+test("DISC-335: queries skip generic branches and keep the session id and the other branches", () => {
+  assert.deepEqual(queriesFor("session_x", ["main", "c", "master", "HEAD", "develop"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:c"]);
+  assert.deepEqual(queriesFor("session_x", ["main"]), ["is:pr is:open user:MrJarrad session_x"]);
+});
