@@ -44,3 +44,21 @@ test("DISC-330: an unrelated repo's open PR does not make the helper not-ok", ()
   assert.equal(r.ok, true);
   assert.deepEqual(r.open, []);
 });
+
+// DISC-335: a generic branch (main, master, HEAD, develop) gets no head: query; the session-id query is always run.
+test("DISC-335: queries skip generic branches and keep the session id and the other branches", () => {
+  assert.deepEqual(queriesFor("session_x", ["main", "c", "master", "HEAD", "develop"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:c"]);
+  const r = prep("session_x", ["main"], (q) => (q.endsWith("session_x") ? { total_count: 0, incomplete_results: false, items: [] } : { total_count: 1, incomplete_results: false, items: [{ number: 3, state: "open", html_url: "https://github.com/mrjarrad/discipline/pull/3" }] }));
+  assert.equal(r.ok, true); /* the listing's PRs are the guard's to match, not prep's */
+  assert.deepEqual(queriesFor("session_x", ["main", "c"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad head:c"]);
+  assert.deepEqual(queriesFor("session_x", ["main"]), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad"]); /* all-generic: plus the listing of every open PR */
+  assert.deepEqual(queriesFor("session_x", []), ["is:pr is:open user:MrJarrad session_x"]);
+});
+
+// DISC-335 round 2, RED A: the all-open listing is narrowed to the helper's created date, or it always truncates (136 open PRs today).
+test("DISC-335 RED A: the listing for an all-generic helper carries created:>= when a date is given, and its PRs still do not make prep not-ok", () => {
+  assert.deepEqual(queriesFor("session_x", ["main"], "2026-11-12"), ["is:pr is:open user:MrJarrad session_x", "is:pr is:open user:MrJarrad created:>=2026-11-12"]);
+  const r = prep("session_x", ["main"], (q) => (q.endsWith("session_x") ? { total_count: 0, incomplete_results: false, items: [] } : { total_count: 1, incomplete_results: false, items: [{ number: 3, state: "open", html_url: "https://github.com/mrjarrad/discipline/pull/3" }] }), "2026-11-12");
+  assert.equal(r.ok, true);
+  assert.equal(r.lookups[1].query, "is:pr is:open user:MrJarrad created:>=2026-11-12");
+});

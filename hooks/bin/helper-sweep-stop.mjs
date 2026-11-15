@@ -16,7 +16,7 @@ import { basename, join } from "node:path";
 
 const blocks = (e) => (Array.isArray(e?.message?.content) ? e.message.content : []);
 const REPOINT_HOLDS = 3;
-const SWEEP = "node <plugin>/hooks/scripts/helper-sweep.mjs --self <own id> --sessions <saved get_session/list_sessions files> --landed <session-dir>/landed-helpers";
+const SWEEP = "node <plugin>/hooks/scripts/helper-ledger.mjs --self <own id> --sessions <saved list_sessions pages, every page> --landed <session-dir>/landed-helpers --waiting <helpers waiting on an operator answer> --vault <vault>"; /* DISC-335: the ledger lists every helper of every parent; helper-sweep.mjs still counts */
 
 /* Session ids listed under the sweep output's "## Re-point" heading (the tool_result content is text or text parts). */
 function repointIds(content) {
@@ -70,7 +70,7 @@ export function sweepDue(lines) {
         const inp = p.input || {};
         if (p.name === "Read" && /orchestrator\/cockpit\.md$/.test(inp.file_path || "")) { cockpit = true; cockpitReads.add(p.id); }
         if (p.name === "Skill" && /(^|:)wrap$/.test(inp.skill || "")) wrapAt = i;
-        if (p.name === "Bash" && /helper-sweep\.mjs/.test(inp.command || "") && /--sessions/.test(inp.command) && !/--cockpit/.test(inp.command)) sweeps.set(p.id, i); // R1: --cockpit only prints ids
+        if (p.name === "Bash" && /helper-(?:sweep|ledger)\.mjs/.test(inp.command || "") && /--sessions/.test(inp.command) && !/--cockpit/.test(inp.command)) sweeps.set(p.id, i); // R1: --cockpit only prints ids
         if (p.name === "Bash" && /orchestrator\/cockpit\.md/.test(inp.command || "") && /Helpers:/.test(inp.command) && writesCockpit(inp.command)) cockpitEdits.push({ text: inp.command, old: "", at: i }); // A1: vault-write through the shell
         if (/send_message$/.test(p.name || "") && inp.session_id) sent.push({ id: String(inp.session_id), at: i });
         if (/archive_session$/.test(p.name || "") && inp.session_id) archived.push({ id: String(inp.session_id), at: i });
@@ -85,8 +85,8 @@ export function sweepDue(lines) {
   }
   if (!cockpit && wrapAt < 0) return null;
   if (wrapAt >= 0 ? sweepAt <= wrapAt : sweepAt < 0) {
-    if (wrapAt >= 0) return { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} --keep <…> --waiting <…> --merged <…>, call archive_session on each Archive row, and put the sweep's Helpers: line (ids of every helper still open) on the cockpit wrap block (HARD-RULES 19).` };
-    return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Run helper-sweep.mjs --cockpit <cockpit.md> for the ids to get_session (the last five Helpers: lines), save each result, run ${SWEEP} --keep <helpers whose PR is open> --waiting <helpers waiting on an operator answer in the queue>, and call archive_session on each Archive row (HARD-RULES 19).` };
+    if (wrapAt >= 0) return { phase: "wrap", reason: `Stop check (DISC-262): the wrap skill ran but the helper sweep has not run successfully after it. Save list_sessions (every page) to files, run ${SWEEP} (--accept <ids> for a helper whose return is banked; the ledger's Pages line must say the list is complete), call archive_session on each Archive row, say what each Not landed row was doing, and put the sweep's Helpers: line (ids of every helper still open) on the cockpit wrap block (HARD-RULES 19).` };
+    return { phase: "start", reason: `Stop check (DISC-262): this orchestrator session has not run the helper sweep. Save list_sessions (every page) to files, run ${SWEEP}, and call archive_session on each Archive row (HARD-RULES 19).` };
   }
   // DISC-291: the sweep ran; an Archive row is finished only when archive_session was called on it after the sweep (a refused call counts: its refusal is the named line).
   const unarchived = archive.filter((id) => !archived.some((a) => a.id === id && a.at > sweepAt));

@@ -288,3 +288,75 @@ test("DISC-330 amber: the owner is read from the API form of url (api.github.com
   deniedNaming(run(ID("s4"), t("MrJarrad")), /open PR/);
   assert.equal(run(ID("s4"), t("someone-else")), null);
 });
+
+// DISC-335 (s91: helpers whose branch is main could not be archived, because the head:main search is always truncated): a PR is
+// never opened from a default branch, so a generic branch needs no head: lookup; the session-id lookup still does.
+test("DISC-335 red: a helper on branch main is archived after the session-id lookup and the listing of open PRs (no head:main lookup)", () => {
+  assert.equal(run(ID("m1"), [...helperB(ID("m1"), ["main"]), ...ghSearch(`is:pr is:open ${ID("m1")}`, search(), "l0"), ...ghSearch("is:pr is:open user:MrJarrad", search(), "l1")]), null);
+});
+test("DISC-335: a helper on main still refuses when the session-id lookup finds its open PR", () => {
+  deniedNaming(run(ID("m2"), [...helperB(ID("m2"), ["main"]), ...ghSearch(`is:pr is:open ${ID("m2")}`, search("", [pr(5, { body: ID("m2") })]), "l0")]), /#5/);
+});
+test("DISC-335: a helper on main and no session-id lookup still refuses (the id lookup stays mandatory)", () => {
+  deniedNaming(run(ID("m3"), helperB(ID("m3"), ["main"])), /open-PR lookup/);
+});
+test("DISC-335: a non-generic branch beside main still needs its own head: lookup", () => {
+  deniedNaming(run(ID("m4"), [...helperB(ID("m4"), ["main", "claude/x"]), ...ghSearch(`is:pr is:open ${ID("m4")}`, search(), "l0")]), /claude\/x/);
+});
+
+// DISC-335 round 1, RED 1 (review of #223): a helper on `main` whose open PR does not carry its own id in the body was archivable
+// once the head:main lookup went. A helper whose branches are all generic also needs an untruncated listing of every open PR of
+// ours, and an open PR naming its id or its lane key (PF-1596) in title or body refuses.
+const laned = (id, branches, tags) => call("get_session", {}, { ccr: { ...withBranches(id, branches), tags } }, "g1");
+const ALL = "is:pr is:open user:MrJarrad";
+const open = (n, extra = {}) => pr(n, { title: "unrelated", body: "", ...extra });
+const idLookup = (id) => ghSearch(`is:pr is:open ${id}`, search(), "l0");
+test("RED 1: main branch, empty id lookup, an open PR naming the helper's lane key refuses, naming the PR", () => {
+  const t = [...laned(ID("g1"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("g1")), ...ghSearch(ALL, search("", [open(646, { title: "PF-1596 board", body: "session of the parent" })]), "l1")];
+  deniedNaming(run(ID("g1"), t), /#646/);
+});
+test("RED 1: an open PR whose body links the helper's id in a markdown link refuses (the search cannot see that form)", () => {
+  const t = [...laned(ID("g2"), ["main"], ["helper"]), ...idLookup(ID("g2")), ...ghSearch(ALL, search("", [open(8, { body: `[session](https://claude.ai/code/${ID("g2")})` })]), "l1")];
+  deniedNaming(run(ID("g2"), t), /#8/);
+});
+test("RED 1: main branch with no listing of all open PRs refuses and says which lookup to run", () => {
+  deniedNaming(run(ID("g3"), [...laned(ID("g3"), ["main"], ["helper"]), ...idLookup(ID("g3"))]), /created:>=/);
+});
+test("RED 1: a truncated listing refuses (fail closed)", () => {
+  const t = [...laned(ID("g4"), ["main"], ["helper"]), ...idLookup(ID("g4")), ...ghSearch(ALL, search("", [open(1)], { total_count: 140 }), "l1")];
+  deniedNaming(run(ID("g4"), t), /open-PR lookup/);
+});
+test("RED 1: main branch, id lookup clear and a readable listing with no PR naming the helper, is archived", () => {
+  const t = [...laned(ID("g5"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("g5")), ...ghSearch(ALL, search("", [open(7, { title: "PF-1700 other", body: "x" })]), "l1")];
+  assert.equal(run(ID("g5"), t), null);
+});
+test("RED 1: a helper with a specific branch does not need the listing", () => {
+  assert.equal(run(ID("g6"), clear(ID("g6"), ["claude/lane-x", "main"])), null);
+});
+
+// DISC-335 round 2, RED A (review of #223): `is:pr is:open user:MrJarrad` already has 136 hits (83 old vault progress PRs), so the
+// un-narrowed listing is always truncated and a helper on main could never be archived. The listing may carry
+// `created:>=<date>`; a helper's own PR cannot predate the helper, so the guard accepts the date only when it is on or before the
+// helper's own created_at date (a later date could hide its PR).
+const CREATED = "2026-11-12T10:00:00Z";
+const lanedAt = (id, branches, tags, created = CREATED) => call("get_session", {}, { ccr: { ...withBranches(id, branches), tags, created_at: created } }, "g1");
+const many = (n, from = 100) => Array.from({ length: n }, (_, i) => open(from + i, { title: `old progress ${i}`, body: "" }));
+test("RED A: an un-narrowed listing of 140 open PRs is truncated and refuses, the narrowed form of 11 clears the same helper", () => {
+  const head = [...lanedAt(ID("n1"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n1"))];
+  deniedNaming(run(ID("n1"), [...head, ...ghSearch(ALL, search("", many(100), { total_count: 140 }), "l1")]), /open-PR lookup/);
+  assert.equal(run(ID("n1"), [...head, ...ghSearch(`${ALL} created:>=2026-11-12`, search("", many(11)), "l1")]), null);
+});
+test("RED A: a listing narrowed to a date on or before the helper's created date counts; a later date does not cover it", () => {
+  const head = (n) => [...lanedAt(ID(n), ["main"], ["helper"]), ...idLookup(ID(n))];
+  assert.equal(run(ID("n2"), [...head("n2"), ...ghSearch(`${ALL} created:>=2026-11-01`, search(), "l1")]), null);
+  deniedNaming(run(ID("n3"), [...head("n3"), ...ghSearch(`${ALL} created:>=2026-11-13`, search(), "l1")]), /open-PR lookup/);
+});
+test("RED A: a narrowed listing still refuses when an open PR in it names the helper's lane key", () => {
+  const t = [...lanedAt(ID("n4"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n4")), ...ghSearch(`${ALL} created:>=2026-11-12`, search("", [open(646, { title: "PF-1596 board" })]), "l1")];
+  deniedNaming(run(ID("n4"), t), /#646/);
+});
+test("RED A: the archive-prep route carries --created and prints the narrowed listing", () => {
+  const cmd = `${PREP(ID("n5"), ["main"])} --created 2026-11-12`;
+  const out = JSON.stringify({ ok: true, session: ID("n5"), branches: ["main"], open: [], lookups: [{ query: `is:pr is:open user:MrJarrad ${ID("n5")}`, result: search() }, { query: `${ALL} created:>=2026-11-12`, result: search("", many(11)) }] });
+  assert.equal(run(ID("n5"), [...lanedAt(ID("n5"), ["main"], ["helper"]), ...prepCall(cmd, out)]), null);
+});

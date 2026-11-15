@@ -16,6 +16,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractJson } from "../scripts/lib/extract-json.mjs";
+import { laneKeys, mentions } from "../scripts/lib/lane-key.mjs";
 
 const deny = (reason) => {
   console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason } }));
@@ -44,7 +45,7 @@ export function shownSession(lines, id) {
       const text = typeof c === "string" ? c : Array.isArray(c) ? c.map((x) => (typeof x?.text === "string" ? x.text : "")).join("") : "";
       const parsed = extractJson(text);
       if (parsed === undefined) continue;
-      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], ts: e.timestamp, working: /(WORKING|RUNNING)$/i.test(String(s.status_bucket ?? "")) || /(WORKING|RUNNING)$/i.test(String(s.session_status ?? s.status ?? "")), at };
+      for (const s of sessionsIn(parsed)) if (s.id === id) found = { title: s.title, parent: s.parent_session_id || null, branches: [...branchesIn(s)], tags: Array.isArray(s.tags) ? s.tags : [], created: typeof s.created_at === "string" ? s.created_at.slice(0, 10) : "", ts: e.timestamp, working: /(WORKING|RUNNING)$/i.test(String(s.status_bucket ?? "")) || /(WORKING|RUNNING)$/i.test(String(s.session_status ?? s.status ?? "")), at };
     }
   }
   return found;
@@ -90,6 +91,10 @@ const queryOf = (input) => {
 };
 /* DISC-330: only PRs in this owner's repos count; a generic branch name matches other people's public PRs. */
 export const OWNER = "mrjarrad";
+/* DISC-335 (s91: helpers on `main` could not be archived, the head:main search is always truncated): a PR is never opened from a
+   default branch, so these get no head: lookup; the session-id lookup stays mandatory. */
+export const GENERIC_BRANCHES = new Set(["main", "master", "head", "develop"]);
+export const specificBranches = (bs = []) => bs.filter((b) => !GENERIC_BRANCHES.has(String(b).toLowerCase()));
 export const isOurs = (p) => { const m = /github\.com\/(?:repos\/)?([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept, fails closed */
 /* The term of an accepted query, or null. */
 function termOf(query) {
@@ -97,8 +102,13 @@ function termOf(query) {
   const u = rest.findIndex((w) => w.toLowerCase() === `user:${OWNER}`); /* DISC-330: the one scoping qualifier, ours */
   if (u >= 0) rest.splice(u, 1);
   for (const need of ["is:pr", "is:open"]) { const k = rest.indexOf(need); if (k < 0) return null; rest.splice(k, 1); }
-  return rest.length === 1 ? rest[0] : null;
+  const c = rest.findIndex((w) => CREATED.test(w)); /* DISC-335 round 2: the listing alone may be narrowed by creation date */
+  if (c >= 0) { rest.splice(c, 1); if (rest.length) return null; }
+  return rest.length === 0 ? "*" : rest.length === 1 ? rest[0] : null; /* DISC-335: no term = the listing of every open PR of ours */
 }
+const CREATED = /^created:>=\d{4}-\d{2}-\d{2}$/;
+/** The YYYY-MM-DD of a listing's created:>= qualifier, or "". */
+export const createdOf = (query) => (/(?:^|\s)created:>=(\d{4}-\d{2}-\d{2})(?:\s|$)/.exec(query) ?? [])[1] ?? "";
 /* The PRs an accepted lookup returned, or null when the result is not the untruncated search object. */
 export function listed(text) {
   const j = extractJson(text);
@@ -120,7 +130,7 @@ export function prName(p) {
    review A1), and its output is read from the harness-written tool_result, so a typed-in echo is not it; each lookup then goes
    through the same termOf / listed checks as a gh search. Not covered: an agent that rewrites the plugin's own archive-prep.mjs. */
 const PREP_SCRIPT = fileURLToPath(new URL("../scripts/archive-prep.mjs", import.meta.url));
-const PREP_CMD = new RegExp(`^\\s*node "${PREP_SCRIPT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" --session [\\w./:-]+(?: --branches [\\w./:,-]+)?\\s*$`);
+const PREP_CMD = new RegExp(`^\\s*node "${PREP_SCRIPT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}" --session [\\w./:-]+(?: --branches [\\w./:,-]+)?(?: --created \\d{4}-\\d{2}-\\d{2})?\\s*$`);
 /* [{ query, text }] for one Bash/MCP call: its single gh search, or each lookup an archive-prep run printed. */
 function lookupsOf(input, text) {
   if (typeof input.command === "string" && PREP_CMD.test(input.command)) {
@@ -133,7 +143,7 @@ function lookupsOf(input, text) {
 
 /* { open, missing }: open = PRs an accepted lookup returned for the helper's id or a branch; missing = names with no accepted
    lookup. `from`: lookups in the parent's own transcript count only after its last get_session of the helper. */
-export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, since = null) {
+export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, since = null, allOpen = null) {
   const covered = new Set(), open = new Set();
   /* A subagent's lines carry no position relative to the parent's, so they are ordered by their time stamps: a lookup with no
      stamp, or earlier than the parent's last get_session of the helper (or with no stamp on that sighting), does not count. */
@@ -141,17 +151,22 @@ export function openPrLookup(lines, id, branches = [], subLines = [], from = 0, 
   const subs = [...results(subLines, LOOKUP_TOOL)].filter((r) => later(r.ts));
   for (const { input, text: raw } of [...results(lines, LOOKUP_TOOL, from), ...subs]) for (const { query: q, text } of lookupsOf(input, raw)) {
     const term = termOf(q);
-    const name = term === id ? id : branches.find((b) => term === `head:${b}`);
+    /* the listing counts only un-narrowed, or narrowed to a date on or before the helper's own created date (a later date could hide its PR) */
+    const cd = term === "*" ? createdOf(q) : "";
+    const name = term === id ? id : term === "*" ? (allOpen && (!cd || (allOpen.created && cd <= allOpen.created)) ? "*" : undefined) : branches.find((b) => term === `head:${b}`);
     const prs = name && listed(text);
     if (!prs) continue;
     covered.add(name);
     for (const p of prs) {
       if (p?.state !== undefined && String(p.state).toLowerCase() !== "open") continue;
       if (!isOurs(p)) continue;
+      /* DISC-335 round 1 (RED 1): the listing is every open PR of ours, so only one naming the helper (its id, or its lane key, in
+         title or body: a markdown-link body is invisible to a search) counts against it. */
+      if (name === "*" && !`${p?.title ?? ""}\n${p?.body ?? ""}`.includes(id) && !mentions(`${p?.title ?? ""}\n${p?.body ?? ""}`, allOpen.keys)) continue;
       open.add(prName(p));
     }
   }
-  return { open: [...open], missing: [id, ...branches].filter((w) => !covered.has(w)) };
+  return { open: [...open], missing: [id, ...branches, ...(allOpen ? ["*"] : [])].filter((w) => !covered.has(w)) };
 }
 
 /* DISC-284: transcripts of this session's subagents, at <transcript dir>/<transcript name>/subagents/agent-*.jsonl.
@@ -170,9 +185,9 @@ export function verdict(lines, id, subLines = []) {
   if (!s) return `archive_session refused (DISC-262): this session has not seen ${id} as a helper. Call get_session on it first; only a session titled "Helper ·" with a parent is archived.`;
   if (!/^Helper ·/.test(s.title) || !s.parent) return `archive_session refused (DISC-262): "${s.title}" is a parent session, not a helper. Parent sessions, wrapped or not, are never archived (operator 2026-10-31, 2026-11-07).`;
   if (s.working) return `archive_session refused (DISC-315): ${id} is still working; a PR it opens next is not yet findable by a body search (s84). Archive it once it is idle.`;
-  const { open, missing } = openPrLookup(lines, id, s.branches, subLines, s.at, s.ts);
+  const { open, missing } = openPrLookup(lines, id, specificBranches(s.branches), subLines, s.at, s.ts, s.branches.length && !specificBranches(s.branches).length ? { keys: laneKeys(s), created: s.created } : null);
   if (open.length) return `archive_session refused (DISC-315/280): ${id} has open PR(s) ${open.join(", ")}; archiving a helper closes its open draft PR (s71). Merge or close it first.`;
-  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch; after the get_session; then archive.`;
+  if (missing.length) return `archive_session refused (DISC-315): no readable, untruncated open-PR lookup names ${missing.map((m) => (m === "*" ? "every open PR (a helper on a default branch needs the listing)" : m)).join(", ")}. Run it first, exactly: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad <session id>' (no repo:, no pipe), and the same with head:<branch> for each branch, and for a helper on main or another default branch also the listing of every open PR: gh api -X GET search/issues -f q='is:pr is:open user:MrJarrad created:>=<the helper's created_at date>' (un-narrowed it always truncates); after the get_session; then archive.`;
   return null;
 }
 
