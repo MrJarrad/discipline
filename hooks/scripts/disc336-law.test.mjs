@@ -12,7 +12,7 @@ const HARD = "skills/routing/references/HARD-RULES.md";
 
 test("HARD-RULES states the rule at the lane-capacity paragraph: eight doers, next-row.mjs, the nudge and the Stop check", () => {
   const t = flat(HARD);
-  for (const s of ["A parent keeps eight doers working, from a ranked list", "next-row.mjs --vault", "`lane-landed-nudge.mjs` prints the reminder", "`next-row-stop.mjs` holds a turn that a wake started", "an unlabelled row is never dispatched", "DON'T: wait for the operator to pick the next item, or end a wake turn without the run"])
+  for (const s of ["A parent keeps eight doers working, from a ranked list", "next-row.mjs --vault", "`lane-landed-nudge.mjs` prints the reminder", "`next-row-stop.mjs` holds a turn that a wake started", "That second stop is not checked, so starting the rows is the parent's act", "`row-add.mjs` refuses an open backlog row with no trailing", "an unlabelled row is never dispatched", "DON'T: wait for the operator to pick the next item, or end a wake turn without the run"])
     assert.ok(t.includes(s), s);
 });
 test("both hooks are wired", () => {
