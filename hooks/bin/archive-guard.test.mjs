@@ -354,6 +354,11 @@ test("RED A: a listing narrowed to a date on or before the helper's created date
   assert.equal(run(ID("n2"), [...head("n2"), ...ghSearch(`${ALL} created:>=2026-11-01`, search(), "l1")]), null);
   assert.equal(run(ID("n3"), [...head("n3"), ...ghSearch(`${ALL} created:>=2026-11-13`, search("", [open(9, { title: "PF-1596 board" })]), "l1")]), null); /* DISC-344: a listing that cannot cover the helper is not read at all */
 });
+test("DISC-345: a later-dated listing is read for naming only: it refuses when an open PR in it names the helper's lane key", () => {
+  const head = [...lanedAt(ID("n6"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n6"))];
+  deniedNaming(run(ID("n6"), [...head, ...ghSearch(`${ALL} created:>=2026-11-13`, search("", [open(646, { title: "PF-1596 board" })]), "l1")]), /#646/);
+  assert.equal(run(ID("n6"), [...head, ...ghSearch(`${ALL} created:>=2026-11-13`, search("", [open(647, { title: "PF-1700 other", body: "x" })]), "l1")]), null);
+});
 test("RED A: a narrowed listing still refuses when an open PR in it names the helper's lane key", () => {
   const t = [...lanedAt(ID("n4"), ["main"], ["helper", "s91-PF1596-land"]), ...idLookup(ID("n4")), ...ghSearch(`${ALL} created:>=2026-11-12`, search("", [open(646, { title: "PF-1596 board" })]), "l1")];
   deniedNaming(run(ID("n4"), t), /#646/);
