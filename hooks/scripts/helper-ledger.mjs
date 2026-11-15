@@ -43,6 +43,7 @@ function prState(result) {
 
 export function buildLedger({ sessions, self, now, lookup, landedIds = [], accept = [] }) {
   const byId = new Map(sessions.map((x) => [x.id, x]));
+  sessions = [...byId.values()]; // overlapping list_sessions pages repeat a session; the later sighting wins
   const helpers = sessions.filter((x) => x.id !== self && !isArchived(x) && isHelper(x));
   const rows = helpers.map((x) => {
     let res; try { res = lookup(x.id); } catch (err) { res = { error: String(err.message || err) }; }

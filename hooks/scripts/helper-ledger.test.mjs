@@ -69,6 +69,10 @@ test("the render is one table plus Archive / Not landed / Re-point lists in the 
   assert.match(t, /## Not landed \(1\)\n- session_b \|/);
   assert.match(t, /Helpers: session_b\b/);
 });
+test("the same session on two overlapping pages is one row", () => {
+  const l = run([S("session_a"), S("session_a")], { session_a: result(pr(208)) });
+  assert.deepEqual(l.rows.map((r) => r.id), ["session_a"]);
+});
 test("prLookup asks for the id across all states in MrJarrad's repos, once", () => {
   const seen = [];
   prLookup((q) => { seen.push(q); return result(); })("session_x");
