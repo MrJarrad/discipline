@@ -27,15 +27,15 @@ function vault() {
 }
 const lane = (id, project, state = "running") => ({ id, project, state });
 
-test("capacity is portfolio 5, discipline 1, handoff-toolkit 1", () => {
-  assert.deepEqual({ PF: CAPACITY.PF, DISC: CAPACITY.DISC, HT: CAPACITY.HT }, { PF: 5, DISC: 1, HT: 1 });
+test("capacity is portfolio 8, discipline 1, handoff-toolkit 1", () => {
+  assert.deepEqual({ PF: CAPACITY.PF, DISC: CAPACITY.DISC, HT: CAPACITY.HT }, { PF: 8, DISC: 1, HT: 1 });
 });
 
 test("portfolio with 2 running lanes and 2 open agent rows is under capacity and names both rows to dispatch", () => {
   const r = laneCapacity(vault(), ["PF"], [lane("session_a", "PF"), lane("session_b", "PF")]);
   assert.equal(r.ok, true);
   const pf = r.projects.PF;
-  assert.equal(pf.running, 2); assert.equal(pf.gap, 3);
+  assert.equal(pf.running, 2); assert.equal(pf.gap, 6);
   assert.deepEqual(pf.dispatch.map((x) => x.id), ["PF-1", "PF-2"]); // Operator, unlabelled, in-flight, struck, waiting and Done rows are not agent-ownable
   assert.equal(r.under, true);
 });
