@@ -87,14 +87,15 @@ test("a lane with only a PR number falls back to the pull ref when gh is unreach
   assert.match(text, /PR /);
 });
 
-test("plugin loaded older than installed is flagged as needing a reload", () => {
+test("plugin loaded older than installed is flagged, with no reload asked of the operator", () => {
   const w = world();
   const mk = (d, v) => { mkdirSync(join(w.root, d, ".claude-plugin"), { recursive: true }); writeFileSync(join(w.root, d, ".claude-plugin", "plugin.json"), JSON.stringify({ version: v })); };
   mk("cache", "1.110.0");
   writeFileSync(join(w.root, "inst.json"), JSON.stringify({ plugins: { "discipline@discipline": [{ version: "1.126.0" }] } }));
   const r = buildDigest({ vault: w.vault, repos: { shallow: w.shallow }, exec: noGh, env: {}, pluginRoot: join(w.root, "cache"), installedPath: join(w.root, "inst.json"), home: w.root });
   assert.equal(r.pluginStale, true);
-  assert.match(r.text, /loaded discipline 1\.110\.0; 1\.126\.0 is installed\. The session keeps the OLD cached rules until \/reload-plugins/);
+  assert.match(r.text, /loaded discipline 1\.110\.0; 1\.126\.0 is installed\. The session keeps the OLD cached rules; the next fresh session picks up 1\.126\.0/);
+  assert.doesNotMatch(r.text, /reload-plugins/); /* DISC-342 */
 });
 
 test("s64 lesson 2: loaded = installed but behind the released version is flagged with the gap", () => {

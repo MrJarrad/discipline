@@ -37,7 +37,8 @@ test("session start with a loaded plugin older than the newest release warns lou
   const ctx = JSON.parse(r.stdout).hookSpecificOutput.additionalContext;
   assert.match(ctx, /1\.181\.0/); assert.match(ctx, /1\.198\.0/);
   assert.match(ctx, /claude plugin update discipline@discipline/);
-  assert.match(ctx, /\/reload-plugins/);
+  assert.doesNotMatch(ctx, /reload-plugins/); /* DISC-342: the app has no /reload-plugins */
+  assert.match(ctx, /next fresh session/);
 });
 
 test("session start with the plugin current prints nothing and leaves no stale marker", () => {
@@ -53,8 +54,10 @@ test("a status reply is blocked while the loaded plugin is older than the releas
   const out = stop(e, STATUS);
   assert.equal(out?.decision, "block");
   assert.match(out.reason, /1\.181\.0/);
-  assert.match(out.reason, /\/reload-plugins/);
+  assert.doesNotMatch(out.reason, /reload-plugins|as a queue row/); /* DISC-342: nothing is asked of the operator */
+  assert.match(out.reason, /next fresh session/);
   assert.equal(stop(e, "Renamed the heading."), null);
+  assert.equal(stop(e, `${STATUS}\nThis session runs discipline 1.181.0; the next fresh session picks up 1.198.0.`), null); /* the gap already stated: no nag */
   assert.equal(stop(e, STATUS, true), null);
 });
 
