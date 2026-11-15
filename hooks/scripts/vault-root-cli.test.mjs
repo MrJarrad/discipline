@@ -51,7 +51,7 @@ for (const [name, argsFor] of [
 
 test("DISC-243: row-add given a container root writes the row into main/", () => {
   const { box, main } = container();
-  const r = run("row-add", ["--vault", box, "--prefix", "PF", "--to", "backlog", "--text", "container-root probe row", "--offline"]);
+  const r = run("row-add", ["--vault", box, "--prefix", "PF", "--to", "backlog", "--text", "container-root probe row", "--owner", "Agent", "--offline"]);
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.match(readFileSync(join(main, "projects/portfolio/portfolio-backlog.md"), "utf8"), /container-root probe row/);
 });

@@ -41,7 +41,7 @@ test("(1) row-add still refuses a status outside the fixed set", () => {
 
 test("(1) a row resembling an open row is refused, the rows are named, and merge-into is offered", () => {
   const v = mkVault();
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Gallery strip images blank on first hover in Safari again", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Gallery strip images blank on first hover in Safari again", offline: true });
   assert.equal(r.ok, false);
   assert.deepEqual(r.similar, ["ZZ-1"]);
   assert.match(r.reason, /resembles open row ZZ-1 .*--merge-into ZZ-1.*--distinct/);
@@ -60,7 +60,7 @@ test("(1) --merge-into folds the text into the named row; no number is used", ()
 });
 
 test("(1) --distinct adds the row anyway", () => {
-  const r = rowAdd({ vault: mkVault(), prefix: "ZZ", to: "backlog", text: "Gallery strip images blank on first hover in Safari again", distinct: true, offline: true });
+  const r = rowAdd({ vault: mkVault(), prefix: "ZZ", to: "backlog", owner: "Agent", text: "Gallery strip images blank on first hover in Safari again", distinct: true, offline: true });
   assert.equal(r.ok, true);
 });
 
@@ -120,8 +120,8 @@ test("(1) --merge-into a queue row goes into the Needed cell, never Recommended"
 
 test("(1) a distinct row that reuses a topic's words passes; a near-restatement is refused", () => {
   const v = mkVault(BACKLOG.replace("| ZZ-1 | Gallery strip images flash blank on first hover in Safari", "| ZZ-1 | Pick the footer typeface for project pages"));
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Remove the footer typeface override on project pages once DS ships", offline: true }).ok, true);
-  assert.deepEqual(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "Project page footer typeface", offline: true }).similar, ["ZZ-1"]);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Remove the footer typeface override on project pages once DS ships", offline: true }).ok, true);
+  assert.deepEqual(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Project page footer typeface", offline: true }).similar, ["ZZ-1"]);
 });
 
 test("(2) a stranded block below a table after a blank line is refiled once; the second --fix is a byte-identical no-op", () => {
