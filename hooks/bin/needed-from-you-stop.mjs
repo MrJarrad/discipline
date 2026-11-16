@@ -49,8 +49,9 @@ const isToolResult = (c) => Array.isArray(c) && c.some((b) => b?.type === "tool_
 /* The last assistant text after the last real user message, that message's timestamp, and whether this turn wrote to
    the Status doc (an `update`/`batch` MCP call whose input names one of `docIds`: the artifact id and the doc UUID
    the Claude Docs connector sends as container.id; see pinnedChecklistIds). */
-/* DISC-346: a doc write that only creates comment utterances (a reply in a thread) never rewrites an item; it is not a Status doc write. */
-export const commentOnly = (input) => { const t = JSON.stringify(input || {}); return /utterance/.test(t) && !/"(?:replace|move|insert|delete|markdown|blocks|payload)"/.test(t); };
+/* DISC-346: a thread reply is a `create` call (object "utterance"), which this hook never collects; a `batch` whose members are all utterances is the same reply and is not a rewrite.
+   Any other batch member (an update, a `set` that ticks a checklist item) is. */
+export const commentOnly = (input) => Array.isArray(input?.batch) && input.batch.length > 0 && input.batch.every((m) => m?.object === "utterance");
 const COMMENT_WAKE = /\[Artifact comment sent to Claude\]/;
 export function lastTurn(transcriptText, docIds) {
   const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean);
@@ -64,7 +65,7 @@ export function lastTurn(transcriptText, docIds) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
-    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; stateChanges = []; wake = isWake(textOf(c)); commentWake = COMMENT_WAKE.test(textOf(c)); readBack = { xml: null }; }
+    if (e.type === "user" && !isToolResult(c)) { userTs = e.timestamp || ""; text = null; docWritten = false; answered = []; docWrites = []; stateChanges = []; wake = isWake(textOf(c)); commentWake = COMMENT_WAKE.test(textOf(c)) && ids.some((id) => textOf(c).includes(id)); readBack = { xml: null }; }
     else if (e.type === "user" && Array.isArray(c)) {
       for (const b of c) {
         const call = b?.type === "tool_result" ? readCalls.get(b.tool_use_id) : null;

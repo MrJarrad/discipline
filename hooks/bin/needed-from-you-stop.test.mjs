@@ -448,21 +448,30 @@ test("DISC-302 / DISC-334 review: a move op by the answered item's block id sati
 });
 
 // DISC-346 (operator 16 Nov: "can we make sure this just keeps happening with every update or change"): a comment-thread reply never stands in for rewriting the item.
-const COMMENT_USER = JSON.stringify({ type: "user", timestamp: T, message: { content: "[Artifact comment sent to Claude] ;thread=abc yes, option B" } });
-const commentReply = (name = "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch") => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "c1", name, input: { container: { kind: "doc", id: DOC_ID }, batch: [{ op: "create", utterance: { parent: "abc", text: "Done." } }] } }] } });
-test("DISC-346: a turn started by an operator doc comment that only replied in the thread is refused", () => {
+const commentUser = (id = DOC_ID, body = "yes, option B") => JSON.stringify({ type: "user", timestamp: T, message: { content: `[Artifact comment sent to Claude] Artifact: https://claude.ai/artifact/${id} ;thread=abc ${body}` } });
+const docRef = { kind: "doc", id: DOC_ID };
+const call346 = (name, input) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "c1", name, input }] } });
+const D = "mcp__Claude_Docs__";
+const utterance = { verb: "create", object: "utterance", payload: { value: { parent: { object: "utterance", id: "abc" }, body: "Done." } } };
+test("DISC-346: an operator comment on the Status doc answered only by thread replies (create, or a batch of utterances) is refused", () => {
   const v = vaultWithChecklist();
-  const t = lastTurn([COMMENT_USER, commentReply(), reply("Replied.")].join("\n"), [DOC_ID]);
-  assert.equal(t.commentWake, true);
-  assert.equal(t.docWritten, false, "a comment-only write is not a doc write");
-  assert.match(check({ ...t, vault: v }), /DISC-346[^]*never rewrote the item/);
+  for (const reply_ of [call346(D + "create", { object: "utterance", payload: utterance.payload }), call346(D + "batch", { container: docRef, batch: [utterance] })]) {
+    const t = lastTurn([commentUser(), reply_, reply("Replied.")].join("\n"), [DOC_ID]);
+    assert.equal(t.commentWake, true);
+    assert.equal(t.docWritten, false, "a thread reply is not a doc write");
+    assert.match(check({ ...t, vault: v }), /DISC-346[^]*never rewrote the item/);
+  }
 });
-test("DISC-346: the same comment turn passes once the item itself is rewritten; a plain chat turn is unaffected", () => {
+test("DISC-346: the same comment turn passes once the item is rewritten (update, or a batch with a set op); a comment on another artifact is untouched", () => {
   const v = vaultWithChecklist();
-  const t = lastTurn([COMMENT_USER, commentReply(), wrote(), reply("Replied.")].join("\n"), [DOC_ID]);
-  assert.equal(t.docWritten, true);
-  assert.equal(check({ ...t, vault: v, docReadBack: undefined }), null);
-  const chat = lastTurn(turn(commentReply(), reply("ok")), [DOC_ID]);
-  assert.equal(chat.commentWake, false);
-  assert.equal(check({ ...chat, vault: v }), null);
+  const set = { verb: "set", object: "node", payload: { id: "n1", value: { checked: true } } };
+  for (const w of [wrote(), call346(D + "batch", { container: docRef, batch: [utterance, set] })]) {
+    const t = lastTurn([commentUser(), call346(D + "create", {}), w, reply("Replied.")].join("\n"), [DOC_ID]);
+    assert.equal(t.docWritten, true);
+    assert.equal(check({ ...t, vault: v, docReadBack: undefined }), null);
+  }
+  const other = lastTurn([commentUser("OTHERARTIFACT99"), call346(D + "create", {}), reply("Answered.")].join("\n"), [DOC_ID]);
+  assert.equal(other.commentWake, false);
+  assert.equal(check({ ...other, vault: v }), null);
+  assert.equal(check({ ...lastTurn(turn(call346(D + "create", {}), reply("ok")), [DOC_ID]), vault: v }), null);
 });
