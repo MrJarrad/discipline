@@ -446,3 +446,32 @@ test("DISC-302 / DISC-334 review: a move op by the answered item's block id sati
   assert.equal(check({ ...movedTurn(callOf({ op: "move", id: "iPF6", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), null);
   assert.match(check({ ...movedTurn(callOf({ op: "move", id: "iPF8", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), /DISC-302.*PF-6/);
 });
+
+// DISC-346 (operator 16 Nov: "can we make sure this just keeps happening with every update or change"): a comment-thread reply never stands in for rewriting the item.
+const commentUser = (id = DOC_ID, body = "yes, option B") => JSON.stringify({ type: "user", timestamp: T, message: { content: `[Artifact comment sent to Claude] Artifact: https://claude.ai/artifact/${id} ;thread=abc ${body}` } });
+const docRef = { kind: "doc", id: DOC_ID };
+const call346 = (name, input) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "c1", name, input }] } });
+const D = "mcp__Claude_Docs__";
+const utterance = { verb: "create", object: "utterance", payload: { value: { parent: { object: "utterance", id: "abc" }, body: "Done." } } };
+test("DISC-346: an operator comment on the Status doc answered only by thread replies (create, or a batch of utterances) is refused", () => {
+  const v = vaultWithChecklist();
+  for (const reply_ of [call346(D + "create", { object: "utterance", payload: utterance.payload }), call346(D + "batch", { container: docRef, batch: [utterance] })]) {
+    const t = lastTurn([commentUser(), reply_, reply("Replied.")].join("\n"), [DOC_ID]);
+    assert.equal(t.commentWake, true);
+    assert.equal(t.docWritten, false, "a thread reply is not a doc write");
+    assert.match(check({ ...t, vault: v }), /DISC-346[^]*never rewrote the item/);
+  }
+});
+test("DISC-346: the same comment turn passes once the item is rewritten (update, or a batch with a set op); a comment on another artifact is untouched", () => {
+  const v = vaultWithChecklist();
+  const set = { verb: "set", object: "node", payload: { id: "n1", value: { checked: true } } };
+  for (const w of [wrote(), call346(D + "batch", { container: docRef, batch: [utterance, set] })]) {
+    const t = lastTurn([commentUser(), call346(D + "create", {}), w, reply("Replied.")].join("\n"), [DOC_ID]);
+    assert.equal(t.docWritten, true);
+    assert.equal(check({ ...t, vault: v, docReadBack: undefined }), null);
+  }
+  const other = lastTurn([commentUser("OTHERARTIFACT99"), call346(D + "create", {}), reply("Answered.")].join("\n"), [DOC_ID]);
+  assert.equal(other.commentWake, false);
+  assert.equal(check({ ...other, vault: v }), null);
+  assert.equal(check({ ...lastTurn(turn(call346(D + "create", {}), reply("ok")), [DOC_ID]), vault: v }), null);
+});
