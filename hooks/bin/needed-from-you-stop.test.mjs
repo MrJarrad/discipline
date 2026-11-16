@@ -446,3 +446,23 @@ test("DISC-302 / DISC-334 review: a move op by the answered item's block id sati
   assert.equal(check({ ...movedTurn(callOf({ op: "move", id: "iPF6", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), null);
   assert.match(check({ ...movedTurn(callOf({ op: "move", id: "iPF8", to: { section: "Done this session", project: "Portfolio" } })), vault: v }), /DISC-302.*PF-6/);
 });
+
+// DISC-346 (operator 16 Nov: "can we make sure this just keeps happening with every update or change"): a comment-thread reply never stands in for rewriting the item.
+const COMMENT_USER = JSON.stringify({ type: "user", timestamp: T, message: { content: "[Artifact comment sent to Claude] ;thread=abc yes, option B" } });
+const commentReply = (name = "mcp__1a59c906-04da-521d-bda7-7f71b9f9e01c__batch") => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "c1", name, input: { container: { kind: "doc", id: DOC_ID }, batch: [{ op: "create", utterance: { parent: "abc", text: "Done." } }] } }] } });
+test("DISC-346: a turn started by an operator doc comment that only replied in the thread is refused", () => {
+  const v = vaultWithChecklist();
+  const t = lastTurn([COMMENT_USER, commentReply(), reply("Replied.")].join("\n"), [DOC_ID]);
+  assert.equal(t.commentWake, true);
+  assert.equal(t.docWritten, false, "a comment-only write is not a doc write");
+  assert.match(check({ ...t, vault: v }), /DISC-346[^]*never rewrote the item/);
+});
+test("DISC-346: the same comment turn passes once the item itself is rewritten; a plain chat turn is unaffected", () => {
+  const v = vaultWithChecklist();
+  const t = lastTurn([COMMENT_USER, commentReply(), wrote(), reply("Replied.")].join("\n"), [DOC_ID]);
+  assert.equal(t.docWritten, true);
+  assert.equal(check({ ...t, vault: v, docReadBack: undefined }), null);
+  const chat = lastTurn(turn(commentReply(), reply("ok")), [DOC_ID]);
+  assert.equal(chat.commentWake, false);
+  assert.equal(check({ ...chat, vault: v }), null);
+});
