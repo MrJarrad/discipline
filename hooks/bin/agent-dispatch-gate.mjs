@@ -16,7 +16,7 @@
    operator reads it to see that a local agent is running (operator,
    2026-10-01). Only agent launches are gated — never a dev server or watcher.
 
-   Nine checks, in order, first failure reported (the eighth, 1.140.0, and ninth, 1.164.0, are listed last):
+   Ten checks, in order (the tenth, DISC-347, is `checkResolveResult`: a brief that adds or renames a Figma variable carries `## Resolve result`), first failure reported (the eighth, 1.140.0, and ninth, 1.164.0, are listed last):
 
    1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
       `local — persona (model): task`. The surface prefix is what makes the
@@ -731,6 +731,21 @@ export function checkUnfilledPlaceholders(prompt) {
 
 /* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
    law so the caller can name it without re-deriving it from the prose. */
+/* DISC-347 (s105): a brief that has a doer add or rename a Figma variable carries `## Resolve result`
+   (the report path and `open: 0`) from the handoff toolkit's resolve step. */
+const FIGMA_VARIABLE_WRITE = /\b(?:add|adds|adding|create|creates|creating|rename|renames|renaming|write|writes|writing)\b[^.\n]{0,60}\bfigma\s+(?:variable|alias|token)/i;
+export function checkResolveResult(prompt = "") {
+  if (!FIGMA_VARIABLE_WRITE.test(prompt)) return null;
+  const section = /^## Resolve result\s*$([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(prompt)?.[1] ?? "";
+  if (/\.json\b/.test(section) && /\bopen:\s*0\b/.test(section)) return null;
+  return {
+    item: "resolve-result",
+    reason:
+      "Dispatch blocked — resolve-result: this brief has a doer add or rename a Figma variable. Run the handoff toolkit's resolve step first and put `## Resolve result` in the brief: the resolve-report.json path and `open: 0` " +
+      "(dispatch-brief references/FIGMA-VARIABLES.md; DISC-347, s105). A new variable or name is never a technical call.",
+  };
+}
+
 export function checkAgentDispatch(toolInput = {}) {
   const { description = "", model = "", prompt = "", subagent_type: subagentType = "" } = toolInput;
 
@@ -794,6 +809,9 @@ export function checkAgentDispatch(toolInput = {}) {
 
   const lockRowsVerdict = checkSourceContractLockRows(prompt);
   if (lockRowsVerdict) return { ok: false, ...lockRowsVerdict };
+
+  const resolveVerdict = checkResolveResult(prompt);
+  if (resolveVerdict) return { ok: false, ...resolveVerdict };
 
   const lineReadBackVerdict = checkLineNoReadBack(prompt);
   if (lineReadBackVerdict) return { ok: false, ...lineReadBackVerdict };

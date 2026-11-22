@@ -42,6 +42,8 @@ and queued the chat as the doer — that hatch is deleted.
    setter re-escapes `&` on every whole-array write: write every entry from decoded text in one
    shot and re-read. A `use_figma` annotation lands on the nearest instance of the text you walk
    from (`.ActionButtonTitle`): walk up to the outermost instance whose name has no `.` prefix first.
+   **A `use_figma` variable add or rename is never a technical call** (DISC-347, s105): it needs a settled
+   `handoff-css resolve` report first — `dispatch-brief/references/FIGMA-VARIABLES.md`; `figma-variable-gate` refuses it without one.
 3. **Built-vs-design checks go through `audit-build`** ("the blocks are off",
    "doesn't match figma", post-port verification) — dispatched to UX Designer.
 4. **Live-site references go through `capture-website`** ("look at this site",
