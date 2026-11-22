@@ -4,20 +4,24 @@
    call: it passes only with a settled resolve report (`handoff-css resolve`, contract in
    skills/dispatch-brief/references/FIGMA-VARIABLES.md). The call's `description` carries `Resolve: <path>`. */
 import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const SETTLED = new Set(["REUSE", "RULED"]);
 const ADDS = /figma\.variables\.createVariable(?:Collection)?\s*\(\s*(?:(["'`])((?:\\.|(?!\1).)*)\1)?/g;
-const RENAMES = /\.name\s*=\s*(?:(["'`])((?:\\.|(?!\1).)*)\1)?/g;
+const RENAMES = /\.name\s*=(?![=>])\s*(?:(["'`])((?:\\.|(?!\1).)*)\1)?/g;
+const MODES = /\.(?:addMode|renameMode)\s*\(/;
 
 // Literal names the code adds or renames; `dynamic` when a write has no literal name to check.
 export function variableWrites(code = "") {
   const names = [];
   let dynamic = false;
   let any = false;
-  for (const m of String(code).matchAll(ADDS)) { any = true; m[2] ? names.push(m[2]) : (dynamic = true); }
+  const literal = (m) => { any = true; m[2] && !m[2].includes("${") ? names.push(m[2]) : (dynamic = true); };
+  for (const m of String(code).matchAll(ADDS)) literal(m);
   if (/figma\.variables\b/.test(code)) {
-    for (const m of String(code).matchAll(RENAMES)) { any = true; m[2] ? names.push(m[2]) : (dynamic = true); }
+    for (const m of String(code).matchAll(RENAMES)) literal(m);
+    if (MODES.test(code)) { any = true; dynamic = true; }
   }
   return { any, names, dynamic };
 }
@@ -29,7 +33,7 @@ export function checkFigmaVariableWrite(toolInput = {}) {
   const path = /^\s*Resolve:\s*(\S+)/m.exec(toolInput.description ?? "")?.[1];
   if (!path) return refuse("this call adds or renames a variable and carries no `Resolve:` line.");
   let rep;
-  try { rep = JSON.parse(readFileSync(path, "utf8")); } catch { return refuse(`the resolve report ${path} is missing or is not JSON.`); }
+  try { rep = JSON.parse(readFileSync(path, "utf8")); } catch { return refuse(`the resolve report ${path} is missing or is not JSON${isAbsolute(path) ? "" : `; the path must be absolute (a relative one is read from ${process.cwd()}, the hook's directory)`}.`); }
   if (!Array.isArray(rep?.needs)) return refuse(`${path} has no needs[]; it is not a resolve report.`);
   const unsettled = rep.needs.filter((n) => !SETTLED.has(n?.verdict));
   if (unsettled.length || rep.open !== 0) return refuse(`the resolve report has ${unsettled.length || rep.open} open need(s) (${[...new Set(unsettled.map((n) => n.verdict))].join(", ") || "open count"}); only REUSE and RULED settle one, and open must be 0.`);

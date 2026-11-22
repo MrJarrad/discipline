@@ -93,3 +93,34 @@ test("dispatch gate: a brief that does not write Figma variables is untouched", 
   assert.equal(checkResolveResult("Fix the nav wordmark size.\nSkills: engineer"), null);
   assert.equal(checkResolveResult("Read the Figma variables and list them."), null);
 });
+
+// Round 1 review fixes
+test("reading a variable by name (== / ===) is not a rename", () => {
+  assert.equal(run(call(`const vs = await figma.variables.getLocalVariablesAsync(); const v = vs.find(x => x.name === "foo"); v.setValueForMode("1:0", {r:0,g:0,b:0});`)), null);
+  assert.equal(run(call(`const v = figma.variables.getVariableById("VariableID:1:2"); if (v.name == "x") {}`)), null);
+  assert.equal(run(call(`const vs = figma.variables.getLocalVariables(); vs.map(v => v.name = v.name);`))?.permissionDecision, "deny");
+});
+test("a template-literal name is computed: a settled report passes, an unsettled one still refuses", () => {
+  const code = "const n = 3; figma.variables.createVariable(`color/${n}`, c, \"COLOR\");";
+  const ok = report([{ id: "n1", name: NAME, verdict: "RULED" }], "tl.json");
+  assert.equal(run(call(code, `Resolve: ${ok}`)), null);
+  const open = report([{ id: "n1", name: NAME, verdict: "NEW_NAME" }], "tl-open.json");
+  assert.equal(run(call(code, `Resolve: ${open}`))?.permissionDecision, "deny");
+});
+test("a relative Resolve path says it must be absolute", () => {
+  const out = run(call(ADD, "Resolve: resolve-report.json"));
+  assert.equal(out.permissionDecision, "deny");
+  assert.match(out.permissionDecisionReason, /absolute/);
+});
+test("addMode and renameMode are variable-collection writes", () => {
+  assert.equal(run(call(`const c = figma.variables.getLocalVariableCollections()[0]; c.addMode("Dark");`))?.permissionDecision, "deny");
+  assert.equal(run(call(`const c = figma.variables.getLocalVariableCollections()[0]; c.renameMode("1:0", "Light");`))?.permissionDecision, "deny");
+  const p = report([{ id: "n1", name: "Dark", verdict: "RULED" }], "mode.json");
+  assert.equal(run(call(`const c = figma.variables.getLocalVariableCollections()[0]; c.addMode("Dark");`, `Resolve: ${p}`)), null);
+});
+test("dispatch gate: briefs that only read Figma, or forbid the write, are untouched", () => {
+  for (const b of ["Write the Figma tokens to tokens.css via handoff-to-code.", "Never create Figma variables in this lane.", "do NOT add a Figma variable.", "Engineer: add a Figma token reference to the README.", "Write the Figma variables to tokens.css."]) assert.equal(checkResolveResult(b), null, b);
+});
+test("dispatch gate: true writes are caught in each phrasing", () => {
+  for (const b of ["Add the new alias to the Figma variable collection.", "Add the alias color/x to the Figma file.", "Create a new variable in Figma named color/x.", "Rename the Figma variables in use_figma.", "Fix the nav. Add a variable via use_figma."]) assert.equal(checkResolveResult(b)?.item, "resolve-result", b);
+});

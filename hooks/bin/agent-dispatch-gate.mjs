@@ -729,13 +729,23 @@ export function checkUnfilledPlaceholders(prompt) {
   };
 }
 
-/* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
-   law so the caller can name it without re-deriving it from the prose. */
 /* DISC-347 (s105): a brief that has a doer add or rename a Figma variable carries `## Resolve result`
-   (the report path and `open: 0`) from the handoff toolkit's resolve step. */
-const FIGMA_VARIABLE_WRITE = /\b(?:add|adds|adding|create|creates|creating|rename|renames|renaming|write|writes|writing)\b[^.\n]{0,60}\bfigma\s+(?:variable|alias|token)/i;
+   (the report path and `open: 0`) from the handoff toolkit's resolve step. Read per sentence: a write
+   verb, then Figma variables or aliases (or a variable and a Figma target, or use_figma). A negation
+   before the verb, or a code-file target (`to tokens.css`), is a read or a ban, not a write. */
+const WRITE_VERB = /\b(?:add|adds|adding|create|creates|creating|rename|renames|renaming|write|writes|writing)\b/i;
+const FIGMA_VARS = /\bfigma\s+(?:variables?|aliases|alias)\b/i;
+const VARS_THEN_FIGMA = /\b(?:variables?|aliases|alias)\b[^.\n]{0,40}(?:\b(?:in|to|into)\s+(?:the\s+)?figma\b|use_figma)/i;
+const CODE_TARGET = /\b(?:to|into)\s+\S+\.(?:css|scss|json|ts|tsx|js|mjs|md)\b|\breadme\b/i;
+const NEGATION = /\b(?:never|not|don'?t|no|avoid|without)\b/i;
+const sentenceWritesFigmaVariable = (sentence) => {
+  const verb = WRITE_VERB.exec(sentence);
+  if (!verb || NEGATION.test(sentence.slice(0, verb.index)) || CODE_TARGET.test(sentence)) return false;
+  const after = sentence.slice(verb.index + verb[0].length);
+  return new RegExp(`^[^.\\n]{0,60}${FIGMA_VARS.source}`, "i").test(after) || VARS_THEN_FIGMA.test(after) || /use_figma/.test(sentence) && /\b(?:variables?|aliases|alias)\b/i.test(after);
+};
 export function checkResolveResult(prompt = "") {
-  if (!FIGMA_VARIABLE_WRITE.test(prompt)) return null;
+  if (!String(prompt).split(/(?<=[.!?])\s+|\n/).some(sentenceWritesFigmaVariable)) return null;
   const section = /^## Resolve result\s*$([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(prompt)?.[1] ?? "";
   if (/\.json\b/.test(section) && /\bopen:\s*0\b/.test(section)) return null;
   return {
@@ -746,6 +756,8 @@ export function checkResolveResult(prompt = "") {
   };
 }
 
+/* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
+   law so the caller can name it without re-deriving it from the prose. */
 export function checkAgentDispatch(toolInput = {}) {
   const { description = "", model = "", prompt = "", subagent_type: subagentType = "" } = toolInput;
 
