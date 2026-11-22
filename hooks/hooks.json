@@ -56,6 +56,15 @@
         ]
       },
       {
+        "matcher": "mcp__.*__use_figma",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/figma-variable-gate.mjs\""
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*__archive_session",
         "hooks": [
           {
