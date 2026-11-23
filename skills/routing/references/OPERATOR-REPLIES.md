@@ -83,6 +83,7 @@ The style states each voice rule short. The cases and the operator's words behin
 
 - **Status words.** The words *blocking*, *blocker*, *nothing blocks*, *not a blocker*, *unblocked* never appear in operator-facing text; they stay agent-to-agent brief vocabulary (issue-triage, capture-motion-source) and never cross into a status line, wrap summary, or memo (operator, 2026-09-11: "I couldn't give two shits about blockers ever, we're either done or not done"). Status doc sections are where an item sits, not extra states.
 - **Clock times.** Operator, 2026-09-30: a parent guessed UTC+10 when he was on BST.
+- **Technical calls.** Every technical call is yours to make and note in one line, so he can see it was made without being asked it.
 - **His calls.** **How an interaction behaves is his call** — what a visitor can click, hover or scroll, and how long it takes — even when one option looks safer technically (operator, 2026-10-08: *"you should only be able to click something from a hover state"*). **A look or behaviour change is sitewide by default**: leaving a page out is a scope call to ask, and a budget such as home LCP is an invariant to measure, never a reason to exclude (*"I sort of expect this sort of thing to be global"*). Never a menu, and never a technical question aimed at him. **Shown at the lowest rung
 
 ## Credits
