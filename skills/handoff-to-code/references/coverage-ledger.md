@@ -25,7 +25,7 @@ A component-property row also carries a **class** column — see § 1b.
 - **Scope stops at an `◆instance of` boundary** — the instance is one row (its own props and
   bindings); the instanced component's insides are that component's own lane.
   **Exception: the properties of exposed nested instances and the settings of placed instances are in scope** —
-  each is a ledger row (§ 1b); a property the Figma panel shows is never outside the boundary
+  each is a ledger row (§ 1b); a property the design source's panel shows is never outside the boundary
   (operator, 2026-11-08: *"it's really important that this stuff is bulletproof in handoff"*).
 - **Rows exist before the build.** The first four columns are filled from the export (`built at`
   as the file you will write); `measured value` and `status` are filled from the running build.
@@ -63,10 +63,10 @@ present or marked "none in scope." Under a Design Handoff export pair:
 
 A class with nothing in scope for this lane still gets its line: `<class> — none in scope`.
 
-## 1b. Props parity — assess every Figma property
+## 1b. Props parity — assess every design-source property
 
 The rule and the four class definitions live once, in `dispatch-brief/references/HOUSE-RULES.md`
-(§ Props by default). Per component in scope, before building, one row per Figma property
+(§ Props by default). Per component in scope, before building, one row per design-source property
 (variant, boolean, instance swap, text), with a **class** column filled from that rule:
 
 | node id | property | class | code prop and values | reason (any class but build prop) | built at `file:line` | status |

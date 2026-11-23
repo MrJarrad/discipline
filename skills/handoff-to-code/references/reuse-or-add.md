@@ -51,7 +51,7 @@ which. The question is in 3b.
 **The yes.** Show `ramp-proposal.md` (name, steps, per-mode step mapping with contrast). One yes
 covers one patch. Without it, hand the patch to the designer.
 
-**The write.** Apply the patch with the host's Figma write tool, following that tool's own instructions.
+**The write.** Apply the patch with the host's write tool for the source, following that tool's own instructions.
 Worked case: `references/write-back.md` writes through Figma's MCP, loading Figma's own skill first, and
 reads the result back. Variables are written the same way: create the ramp's variables with their per-mode
 values, then the semantic aliases. Add; never rewrite or remove a variable the designer owns.

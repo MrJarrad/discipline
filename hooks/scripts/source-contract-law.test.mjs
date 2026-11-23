@@ -235,11 +235,11 @@ test("no shipped doc still sends a doer to :3211", () => {
 // --- D: handoff-to-code, the export pair as the contract (1.74.0) --------
 
 test("handoff-to-code carries the contract sentence verbatim", () => {
-  carries(handoffToCode, "The handoff pair is the contract: every node, token, copy string and annotation in it is built — never Figma pixels, never inferred values.");
+  carries(handoffToCode, "The handoff pair is the contract: every node, token, copy string and annotation in it is built — never source-design pixels, never inferred values.");
 });
 
 test("handoff-to-code states the deviation table's columns and its status enum", () => {
-  carries(handoffToCode, "| element | Figma binding | token used | value | status | ruling ref |");
+  carries(handoffToCode, "| element | Source binding | token used | value | status | ruling ref |");
   for (const status of ["match", "resolved-to-export", "unflagged-viewport", "hand-authored-override"]) {
     carries(handoffToCode, `**${status}**`, `deviation status missing: ${status}`);
   }

@@ -6,6 +6,8 @@ Read from `SKILL.md` § The export is a set, whenever a link-run file sits besid
 
 ## Making it
 
+The one reader built so far reads Figma, so this route names Figma where it describes that reader.
+
 From the plugins repo, with a Figma token (its README covers setup) and Figma's MCP connected:
 
 1. **Read the layer live.** Pass `handoff/design-handoff-script/live/read.js` to Figma MCP
@@ -91,7 +93,7 @@ concerns is built as the export states or not at all — never inlined from some
 
 ## The spec index
 
-A markdown table, one row per spec placed in Figma, written when the spec is placed:
+A markdown table, one row per spec placed in the source, written when the spec is placed:
 
 | file key | spec node id | spec | path |
 | --- | --- | --- | --- |

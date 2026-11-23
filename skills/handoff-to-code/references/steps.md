@@ -21,7 +21,7 @@ CSS name and mode values, its component list each component. When one exists, gi
 `SET_MEMBER_MISSING` still stops you.
 
 `handoff-css match --handoff <design-handoff>.md --src <code paths…> --rulings <ruling table>.md`
-proposes, for every Figma variable and component, the closest existing code match with its
+proposes, for every variable and component, the closest existing code match with its
 evidence (name, value, usage) and a confidence, and lists every item with no match.
 **A proposal is a question, never a binding.** Each item is ruled in the project's ruling table
 — `use` a code name, add the brief's name as `new`, or `skip` — and the next run reads that
@@ -50,7 +50,7 @@ bound to a variable (`unboundValues`). `handoff-css match --export <design-hando
   `keep` row in the ruling table settles it on the next run.
 
 Listed raw values never fail `match` (exit 0): a listed value is a deviation row, not a stop. The
-Figma-variable rule above stays: for a variable, a value alone is never a proposal. Tolerances,
+variable rule above stays: for a variable, a value alone is never a proposal. Tolerances,
 output and rows: `references/brownfield.md` § Raw values.
 
 ## Inputs — four required, one optional
@@ -61,7 +61,7 @@ output and rows: `references/brownfield.md` § Raw values.
 | `*-design-system-handoff.json` | Companion, one per source the brief lists: every variable's `codeSyntax`, mode builds, `responsiveBehavior`. |
 | `handoff.config.mjs` | Consumer policy — schema versions, viewport units, aliases, paths. |
 | Generated tokens + theme | The CSS the JSON produced — the only place a value is stated. |
-| Generated style classes | `styles.generated.css` (schema 12+) — one class per Figma style. Bind the class; never re-author its declarations. |
+| Generated style classes | `styles.generated.css` (schema 12+) — one class per style. Bind the class; never re-author its declarations. |
 | Generated report | Audit trail; §10 names every warning. |
 
 The fifth, optional input is the **ruling list**: decisions on top of the pair — blend modes,
@@ -101,7 +101,7 @@ config declares, and every listed spec's file is read.
 ### 2. Regenerate, then read every warning
 
 `handoff-css --config handoff.config.mjs --check` exits 1 on drift — red means stale tokens,
-regenerate and commit first. A design system split across Figma files generates as one:
+regenerate and commit first. A design system split across source files generates as one:
 `paths.input` lists every file's Design System Handoff export (or pass `--input` once per file),
 joined by variable key, so a library alias stays `var()`. A `MERGE_*` error names the two files
 that disagree — re-export them from one state; never drop one to get green. Every command takes
@@ -178,7 +178,7 @@ Verdicts, ranking, rulings and exit codes: `references/reuse-or-add.md`.
 - **Ask the name as one question:** generated name, or your own? Recommend keeping the generated one;
   `nameSource` says which was used.
 - **Stop for a yes** on `ramp-proposal.md` (the name, the ramp, the step mapping) before any write.
-  After the yes, write the patch into the file with the host's Figma write tool, following that tool's
+  After the yes, write the patch into the file with the host's write tool for the source, following that tool's
   own instructions (worked case: `references/reuse-or-add.md`), read it back, then take a new export,
   `vendor` it, regenerate and run `resolve` again. With no `new` row standing for the need it now says
   `REUSE` and ranks the new name; bind only then. `RULED` instead means a row is still standing: remove it.
@@ -247,16 +247,16 @@ wrong mechanism is a defect.
    components are left "everything on" so the set shows all it can do — never the build
    default and never a deviation. Code defaults come from locked rulings and from the
    instances placed in the examples and pages; a ruling (e.g. no header overlay) sets the
-   default, and the Figma-named prop stays exposed with that value set per route.
+   default, and the source-named prop stays exposed with that value set per route.
 9. Annotations never restate or contradict a component property: a property is the only
    home for what it can express. Annotations carry motion, interaction and behaviour only;
    a note that lists a property's options or states its value is a defect, and code-only
-   concepts (parallax, per-asset settings) are notes, never a requested Figma property.
+   concepts (parallax, per-asset settings) are notes, never a requested source property.
 10. A locked `aspectRatio` builds the ratio, never the fixed height — `schema-v9-hints.md` § Aspect lock.
-11. **Every property the Figma panel shows is a ledger row, nested exposed ones included.** A schema-17
+11. **Every property the design source's panel shows is a ledger row, nested exposed ones included.** A schema-17
     brief opens its Design Summary with **Component Properties** (and `componentProperties[]` in the
     JSON): the component's own properties, then those of each instance it exposes, each with its value,
-    the nested component's own default and its options. Every row is a property the Figma panel shows:
+    the nested component's own default and its options. Every row is a property the design source's panel shows:
     being in the table, with its `source` (`own`, or `exposed` from a nested instance), is what says so —
     there is no separate "shown in the panel" column. One row of the table is one row of the return,
     keyed by node id and property; a table row with no return row is red, and `validate` refuses a table
@@ -295,8 +295,8 @@ The **Content Outline** is the copy inventory; node lines carry each string verb
 A brief from `design-handoff-script` ends with `## Asks`: the questions a build would otherwise
 guess, answered in chat and never a reason to stop. The agent records each answer in the
 answers ledger the script reads (`--answers`, keyed by the ask's key) and exports again; each line
-then carries a status. **answered** — build the answer. **waiting on Figma** — build the answer,
-relay the note the line gives for the person to add in Figma. **assumed** — build the suggestion.
+then carries a status. **answered** — build the answer. **waiting on the source** — build the answer,
+relay the note the line gives for the person to add in the source. **assumed** — build the suggestion.
 **open** — no answer and no suggestion. **An open ask is a reported item, never a guess.** Name
 it and ask; build nothing in its place. Every waiting, assumed or open ask is one row in the
 deviation table. Ledger shape and statuses: the script's README.
@@ -326,7 +326,7 @@ In brownfield, pass the brief's JSON as `--export`, the project's token styleshe
 
 One row per node whose value did not come straight from the pair, plus one per lock:
 
-| element | Figma binding | token used | value | status | ruling ref |
+| element | Source binding | token used | value | status | ruling ref |
 | --- | --- | --- | --- | --- | --- |
 
 `status` is one of:
@@ -339,7 +339,7 @@ One row per node whose value did not come straight from the pair, plus one per l
   missing signal filed against the design file.
 - **hand-authored-override** — the stylesheet declares the property, the generator reported
   rather than overwrote it.
-- **assumed-ask** — built from an ask's suggestion, or from an answer still waiting on Figma;
+- **assumed-ask** — built from an ask's suggestion, or from an answer still waiting on the source;
   `ruling ref` is the ask's key (a need still open in 3b: its need id). An open ask is the same row with nothing built.
 - **not-built** — the pair names the item and the build could not make it (an asset the export
   does not carry, geometry it does not state); nothing built, the cause in `value`.

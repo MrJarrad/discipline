@@ -35,7 +35,7 @@ mode samples and the colour each alias resolves to.
 
 ## Output
 
-One item per Figma variable (`kind: token`) and per component (`kind: component`):
+One item per variable (`kind: token`) and per component (`kind: component`):
 
 ```json
 { "kind": "token", "figma": "grid/gap", "css": "--grid-gap", "status": "proposed",
@@ -74,7 +74,7 @@ beside its other rulings, so every later brief reuses it.
 
 ## Raw values
 
-A value the layer states as a plain number — no Figma variable — has no name to match, so it is
+A value the layer states as a plain number — no variable — has no name to match, so it is
 matched by value to the project's tokens of the same kind. The design-handoff script lists them in
 the link-run file beside the brief (`unboundValues`: `{ nodeId, node, kind, property, value }`); a
 layer that binds no variables runs without `--ds`.
