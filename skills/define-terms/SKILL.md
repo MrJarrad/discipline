@@ -1,9 +1,10 @@
 ---
 name: define-terms
 description: >-
-  Use for "just to be clear", "what I mean by X is", "I've renamed X to Y", "which
-  part do you mean", a naming dispute or a terminology correction: sharpen the
-  CONTEXT.md glossary and record ADRs.
+  Use when two words name one idea or a term is fuzzy or colliding, or for "just
+  to be clear", "what I mean by X is", "I've renamed X to Y", "which part do you
+  mean" or a naming dispute: settle the word in the CONTEXT.md glossary and record
+  ADRs.
 ---
 
 # Define Terms
