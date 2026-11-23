@@ -235,7 +235,10 @@ export function scoreCase(caseDef, observedSamples) {
   else if (of - passed > of / 2) verdict = VERDICT.RED;
   else verdict = VERDICT.FLAKY;
   const costUsd = Math.round(observedSamples.reduce((n, o) => n + (o.costUsd ?? 0), 0) * 1e6) / 1e6;
-  return { id: caseDef.id, verdict, passed, of, costUsd };
+  // DISC-353: a capped or errored probe observed nothing — counted apart so cap noise is not read as a miss.
+  const capped = observedSamples.filter((o) => o.outcome === "capped").length;
+  const errored = observedSamples.filter((o) => o.outcome && o.outcome !== "success" && o.outcome !== "capped").length;
+  return { id: caseDef.id, verdict, passed, of, costUsd, capped, errored, observed: of - capped - errored };
 }
 
 // ---- discrimination (baseline arm) ----------------------------------------

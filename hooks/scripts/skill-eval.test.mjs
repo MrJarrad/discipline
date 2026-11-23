@@ -271,3 +271,15 @@ test("route, behaviour and fence probes get no reading tools; only trigger probe
   const t = compileSpec([{ id: "t", type: "trigger", prompt: "p", samples: 1 }]).phases[0].agents[0];
   assert.doesNotMatch(t.disallowedTools, /\bRead\b/);
 });
+
+test("scoreCase counts capped and errored samples apart from real fails, so cap noise is separable (DISC-353)", () => {
+  const c = { id: "x", type: "trigger", expectSkills: ["motion"] };
+  const fired = { firedSkills: new Set(["motion"]), outcome: "success" };
+  const missed = { firedSkills: new Set(), outcome: "success" };
+  const s = scoreCase(c, [fired, missed, { firedSkills: new Set(["motion"]), outcome: "capped" }, { outcome: "failed" }, fired]);
+  assert.equal(s.passed, 2);
+  assert.equal(s.of, 5);
+  assert.equal(s.capped, 1, "a capped probe observed nothing; it is counted apart");
+  assert.equal(s.errored, 1);
+  assert.equal(s.observed, 3, "samples that ran to an answer");
+});

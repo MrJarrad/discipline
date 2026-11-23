@@ -3,8 +3,8 @@
 Each line is a failure a brief caused or could have prevented (portfolio, hoverboard and
 cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not restate the rule.
 
-1. **A literal `Skills:` line, on its own line.** The dispatch gate refuses a brief that names its
-   skills only under Constraints — learned by refusal once. The template shows it:
+1. **A literal `Skills:` line, on its own line.** The dispatch gate warns on a brief that names its
+   skills only under Constraints (it refused until DISC-351 step 5). The template shows it:
    `Skills: quality, qa-acceptance`.
 2. **Subagents never see the operator's messages.** A brief for an operator-requested structural
    change (a `git mv`, a route rename) quotes the operator verbatim, with any standing authority
