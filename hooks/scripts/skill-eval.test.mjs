@@ -10,7 +10,7 @@ import {
   loadCases, lintCaseFixtures, assertSkillsGuard, compileSpec, slugifyCwd,
   transcriptPath, normalizeSkillName, extractFiredSkills, readTranscript,
   sampleOutcome, scoreCase, VERDICT, discriminate, DISCRIMINATION, runArms,
-  parseRouteResult,
+  parseRouteResult, helperMarkerPath,
 } from "./skill-eval.mjs";
 
 // ---- compileSpec / S1 guard ----------------------------------------------
@@ -115,32 +115,32 @@ test("parseRouteResult returns null for malformed or missing results, never thro
 
 test("sampleOutcome passes a trigger case when every expectSkills member fired and none forbidden", () => {
   const c = { type: "trigger", expectSkills: ["define-terms"], forbidSkills: ["doc-formats"] };
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(["define-terms"]) }), true);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(["doc-formats"]) }), false);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set() }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(["define-terms"]), outcome: "success" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(["doc-formats"]), outcome: "success" }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), outcome: "success" }), false);
 });
 
 test("sampleOutcome for a route case also requires persona match", () => {
   const c = { type: "route", expectSkills: [], expectPersona: "researcher" };
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), persona: "researcher" }), true);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), persona: "engineer" }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), persona: "researcher", outcome: "success" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), persona: "engineer", outcome: "success" }), false);
 });
 
 test("scoreCase is GREEN on a strict majority pass", () => {
   const c = { id: "c1", type: "trigger", expectSkills: ["x"] };
-  const observed = [{ firedSkills: new Set(["x"]) }, { firedSkills: new Set(["x"]) }, { firedSkills: new Set() }];
+  const observed = [{ firedSkills: new Set(["x"]), outcome: "success" }, { firedSkills: new Set(["x"]), outcome: "success" }, { firedSkills: new Set(), outcome: "success" }];
   assert.equal(scoreCase(c, observed).verdict, VERDICT.GREEN);
 });
 
 test("scoreCase is RED on a strict majority fail", () => {
   const c = { id: "c1", type: "trigger", expectSkills: ["x"] };
-  const observed = [{ firedSkills: new Set() }, { firedSkills: new Set() }, { firedSkills: new Set(["x"]) }];
+  const observed = [{ firedSkills: new Set(), outcome: "success" }, { firedSkills: new Set(), outcome: "success" }, { firedSkills: new Set(["x"]), outcome: "success" }];
   assert.equal(scoreCase(c, observed).verdict, VERDICT.RED);
 });
 
 test("scoreCase is FLAKY on an exact split, never rounded to a pass or fail", () => {
   const c = { id: "c1", type: "trigger", expectSkills: ["x"] };
-  const observed = [{ firedSkills: new Set(["x"]) }, { firedSkills: new Set() }];
+  const observed = [{ firedSkills: new Set(["x"]), outcome: "success" }, { firedSkills: new Set(), outcome: "success" }];
   assert.equal(scoreCase(c, observed).verdict, VERDICT.FLAKY);
 });
 
@@ -163,10 +163,8 @@ test("discriminate reports DISCRIMINATES when the arms diverge", () => {
   assert.equal(discriminate(candidate, baseline), DISCRIMINATION.DISCRIMINATES);
 });
 
-// The meta/skill-eval/cases.json fixture-file test lived here — removed with
-// meta/ (archived on `archive/parked-cargo`, operator ruling 2026-08-25). The
-// loadCases/lintCaseFixtures coverage above (via inline fixtures) still holds;
-// only the fixture-file-on-disk assertion is gone.
+// The meta/skill-eval/cases.json fixture file is checked by eval-cases.test.mjs;
+// this file covers loadCases/lintCaseFixtures through inline fixtures.
 
 // ---- runArms — end-to-end with an injected runWorkflowImpl (no spawn) ------
 
@@ -177,7 +175,7 @@ test("runArms scores a route case off the structured --json-schema result, not S
   // JSON-schema result correctly names the expected persona.
   const fakeRunWorkflow = async (spec, log) => {
     for (const agent of spec.phases[0].agents) {
-      log({ type: "agent", label: agent.label, sessionId: `sess-${agent.label}`, result: JSON.stringify({ persona: "researcher", skills: [] }) });
+      log({ type: "agent", label: agent.label, sessionId: `sess-${agent.label}`, outcome: "success", result: JSON.stringify({ persona: "researcher", skills: [] }) });
     }
     return { summary: [], totals: {}, exitCode: 0 };
   };
@@ -209,26 +207,26 @@ test("runArms scores a candidate-only run (no baselinePluginDir) as BASELINE UNA
 
 test("sampleOutcome fails a sample whose reply text matches a forbidText pattern", () => {
   const c = { id: "t", type: "behavior", forbidText: ["switched off"] };
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Hover stays, switched off." }), false);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "I'll remove the other two." }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Hover stays, switched off.", outcome: "success" }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "I'll remove the other two.", outcome: "success" }), true);
 });
 
 test("sampleOutcome requires every expectText pattern to match, case-insensitively", () => {
   const c = { id: "t", type: "behavior", expectText: ["status doc", "same turn"] };
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the STATUS DOC in the Same Turn." }), true);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the status doc." }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the STATUS DOC in the Same Turn.", outcome: "success" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the status doc.", outcome: "success" }), false);
 });
 
 test("a forbidText-only case passes an empty reply (no chat text on an automated wake)", () => {
   const c = { id: "t", type: "behavior", forbidText: ["nothing new"] };
-  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "" }), true);
-  assert.equal(sampleOutcome(c, { firedSkills: new Set() }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "", outcome: "success" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), outcome: "success" }), true);
 });
 
 test("runArms feeds each agent's result text into text scoring", async () => {
   const cases = [{ id: "b1", type: "behavior", prompt: "p", forbidText: ["nothing new"], expectSkills: [], samples: 1 }];
   const fake = (reply) => async (spec, log) => {
-    for (const a of spec.phases[0].agents) log({ type: "agent", label: a.label, sessionId: `s-${a.label}`, result: reply });
+    for (const a of spec.phases[0].agents) log({ type: "agent", label: a.label, sessionId: `s-${a.label}`, outcome: "success", result: reply });
     return {};
   };
   const bad = await runArms({ cases, runWorkflowImpl: fake("Nothing new needed from you.") });
@@ -282,4 +280,19 @@ test("scoreCase counts capped and errored samples apart from real fails, so cap 
   assert.equal(s.capped, 1, "a capped probe observed nothing; it is counted apart");
   assert.equal(s.errored, 1);
   assert.equal(s.observed, 3, "samples that ran to an answer");
+});
+
+// DISC-353 ambers: fail closed, and a helper marker never reaches a probe.
+test("a sample with no outcome is not a pass: only an explicit success counts", () => {
+  const c = { id: "t", type: "trigger", expectSkills: ["motion"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(["motion"]) }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(["motion"]), outcome: "success" }), true);
+});
+
+test("a live run is refused while a helper-session marker sits in the home folder", () => {
+  const home = mkdtempSync(join(tmpdir(), "se-"));
+  assert.equal(helperMarkerPath(home), null);
+  mkdirSync(join(home, ".claude"));
+  writeFileSync(join(home, ".claude", "helper-session"), "session_x\n");
+  assert.equal(helperMarkerPath(home), join(home, ".claude", "helper-session"));
 });

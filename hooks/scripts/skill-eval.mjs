@@ -20,7 +20,7 @@
    Without --live, prints the compiled spec and exits (dry run — no spawn).
    With --live, dispatches via runWorkflow (real `claude -p` calls) and
    prints the scorecard.                                                    */
-import { readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -110,7 +110,9 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
         maxTurns: agentMaxTurns,
         maxTurnsOverride: true,
         // Probes run in bypassPermissions against the real tree; a haiku probe
-        // once edited skills/design-system/SKILL.md mid-run. Read-only always.
+        // once edited skills/design-system/SKILL.md mid-run. File-writing tools are
+        // blocked on every probe; MCP write tools, subagents and hooks are not, so
+        // "read-only" holds for the tree only as far as the connected servers go.
         // route / behaviour probes answer from the prompt alone: no reading tools,
         // so they finish inside the turn cap instead of exploring (run 2: 24 of 60 capped).
         disallowedTools: c.type === "route" || c.type === "behavior"
@@ -139,6 +141,13 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
 // (~/JHD/vault/documents/eval-t1-plugin-root-spike-2026-08-01.md).
 export function slugifyCwd(cwd) {
   return expandHome(cwd).replace(/\//g, "-");
+}
+
+// helperMarkerPath(home) -> the helper-session marker's path when it exists, else null.
+// The Stop hooks read it and force a send_message on every probe, so a live run refuses it.
+export function helperMarkerPath(home = homedir()) {
+  const p = join(home, ".claude", "helper-session");
+  return existsSync(p) ? p : null;
 }
 
 export function transcriptPath(sessionId, cwd, { projectsRoot = join(homedir(), ".claude", "projects") } = {}) {
@@ -205,8 +214,8 @@ export const VERDICT = { GREEN: "GREEN", RED: "RED", FLAKY: "FLAKY" };
 // persona?: string }. A sample passes iff every expectSkills member fired,
 // no forbidSkills member fired, and (route cases only) persona matches.
 export function sampleOutcome(caseDef, observed) {
-  // A probe that hit its turn cap or errored observed nothing: never a pass.
-  if (observed.outcome && observed.outcome !== "success") return false;
+  // A probe that hit its turn cap, errored or reported nothing observed nothing: never a pass.
+  if (observed.outcome !== "success") return false;
   const expect = caseDef.expectSkills ?? [];
   const forbid = caseDef.forbidSkills ?? [];
   const fired = observed.firedSkills ?? new Set();
@@ -315,6 +324,12 @@ async function main() {
   if (!live) {
     console.log(JSON.stringify({ dryRun: true, candidateSpec, baselinePluginDir: baselinePluginDir ?? null }, null, 2));
     return;
+  }
+
+  const marker = helperMarkerPath();
+  if (marker) {
+    console.error(`skill-eval: ${marker} marks this session as a helper, and its Stop hooks would contaminate every probe. Remove it (or run with a clean HOME) and rerun.`);
+    process.exit(1);
   }
 
   // Per-invocation nonce so this run's session ids never collide with a

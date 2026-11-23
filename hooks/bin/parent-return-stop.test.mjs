@@ -118,3 +118,67 @@ test("a wake-event turn that says `next: parent` is held", () => {
 test("the first brief, an automated notification that is not a wake event, is still a task turn", () => {
   assert.equal(run([user("[SYSTEM NOTIFICATION - NOT USER INPUT] This message is your task"), called("Read"), result(), said(LONG)])?.decision, "block");
 });
+
+// DISC-364: a parent that asked the helper to stay quiet, and a no-change wake, do not force a return.
+// Round 1 review (#252): the quiet ask is the marker's parent's, scopes to automated turns, and never hides a real result.
+const parentSays = (body, from = PARENT) => user(`<cross-session-message from-session="${from}">${body}</cross-session-message>`);
+const auto = (body = "bot edit on PR #584") => user(`[SYSTEM NOTIFICATION - NOT USER INPUT] ${body}`);
+const QUIET = "Nothing changed on the PR; I am still waiting on the operator, CI green, no review comment. ".repeat(3);
+const HUSH = "Stay quiet until I message you; no reply needed on bot edits.";
+
+test("an automated turn after the marker's parent asked for quiet is let through when nothing changed", () => {
+  assert.equal(run([user("go"), called(SEND), result(), parentSays(HUSH), said("ok"), auto(), called("Read"), result(), said(QUIET)]), null);
+});
+
+test("the quiet request holds on a later automated no-change turn, and a wake turn too", () => {
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), said(QUIET), auto("another bot edit"), called("Read"), result(), said(QUIET)]), null);
+});
+
+test("without a quiet request an automated no-change turn that is not a wake is still a return", () => {
+  assert.equal(run([user("go"), said("ok"), auto(), called("Read"), result(), said(QUIET)])?.decision, "block");
+});
+
+test("a quiet request from a session that is not the marker's parent is ignored", () => {
+  assert.equal(run([user("go"), parentSays(HUSH, "session_someone_else"), said("ok"), auto(), called("Read"), result(), said(QUIET)])?.decision, "block");
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), called("Read"), result(), said(QUIET)], { marker: "" })?.decision, "block", "no parent id in the marker: nobody can hush");
+});
+
+test("a quiet request never hushes the turn the message itself started: a task brief that says 'do not reply to bot comments' still returns", () => {
+  assert.equal(run([user("go"), parentSays("Review PR 9. Do not reply to bot comments; report the verdict when done."), called("Read"), result(), said("Verdict: merge no, 2 blockers. ".repeat(8))])?.decision, "block");
+  assert.equal(run([user("go"), parentSays("Run the suite. Don't message me until it is green; then return."), called("Bash", { command: "npm test" }), result(), said("Suite red: 3 failures in parent-return-stop. ".repeat(6))])?.decision, "block");
+});
+
+test("a later parent message that is not a quiet request lifts the hush", () => {
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), parentSays("New task: check PR 9 and report."), said("ok"), auto(), called("Read"), result(), said(QUIET)])?.decision, "block");
+});
+
+test("red CI, a new PR or a review comment reports even when quiet, with no `next: parent` line", () => {
+  const redCi = "CI is red on discipline #252: the suite job failed at test 15. ".repeat(4);
+  const review = "A review comment from the reviewer asks for changes on hooks/bin/parent-return-stop.mjs. ".repeat(3);
+  for (const reply of [redCi, review]) {
+    assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), called("Read"), result(), said(reply)])?.decision, "block", reply);
+    assert.equal(run([user("go"), wake(), called("Read"), result(), said(reply)])?.decision, "block", `wake: ${reply}`);
+  }
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), called("Bash", { command: "gh pr create --draft -t x -b y" }), result(), said(QUIET)])?.decision, "block", "a PR opened this turn");
+});
+
+test("a quiet request does not hide a state change or `next: parent`", () => {
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), called("Edit"), result(), said(LONG)])?.decision, "block");
+  assert.equal(run([user("go"), parentSays(HUSH), said("ok"), auto(), called("Read"), result(), said("Waiting.\n\nnext: parent")])?.decision, "block");
+});
+
+test("a GitHub write through gh api is a state change on a wake turn, with or without -X", () => {
+  for (const command of [
+    "gh api -X POST repos/x/y/issues/1/comments -f body=hi",
+    "gh api repos/x/y/pulls/3 --method PATCH -f state=closed",
+    "gh api repos/x/y/pulls -f title=t -f head=b -f base=main",
+    "gh api repos/x/y/pulls --raw-field title=t",
+    "gh api repos/x/y/issues -F title=t",
+    "gh api repos/x/y/pulls --field title=t",
+    "gh pr create --draft",
+    "gh pr comment 3 --body hi",
+  ]) assert.equal(run([user("go"), wake(), called("Bash", { command }), result(), said(LONG)])?.decision, "block", command);
+  for (const command of ["gh api repos/x/y/pulls/3", "gh api -X GET search/code -f q=foo", "gh pr view 3"]) {
+    assert.equal(run([user("go"), wake(), called("Bash", { command }), result(), said(LONG_WAIT)]), null, command);
+  }
+});
