@@ -95,7 +95,7 @@ function expandHome(p) {
 // maxTurns with the required maxTurnsOverride (workflow-lint's turn floors
 // are sized for real work, not a 2-4 turn eval probe). `route` cases carry
 // a jsonSchema so the routing decision is a typed field, not prose to regex.
-export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 4, runNonce } = {}) {
+export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 10, runNonce } = {}) {
   const agents = cases.flatMap((c) => {
     const samples = c.samples ?? 3;
     const agentMaxTurns = c.maxTurns ?? maxTurns;
