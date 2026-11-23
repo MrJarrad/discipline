@@ -13,7 +13,7 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 test("s83 1: the verdict heading is spelled with the full 40-hex sha, and the parent re-reads comments after the last post", () => {
   assert.ok(flat("agents/reviewer.md").includes("spelled `## Review — round N of 2, tier X, head <40-hex>`"));
   assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Its first line is the heading `## Review — round N of 2, tier X, head <40-hex>`"));
-  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("Re-read the PR's comments after the last post, then merge (s83)"));
+  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("Re-read the PR's comments after the last post, then merge"));
 });
 
 test("s83 2: merging the PR that adds a review/ job is the go, after the operator's yes when it takes over the Mac", () => {

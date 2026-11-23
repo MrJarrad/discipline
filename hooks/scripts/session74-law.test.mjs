@@ -31,5 +31,5 @@ test("s74 3: the Source contract template carries the worktree line; the doer qu
 });
 test("s74 4: another ref is compared in a throwaway worktree, never checked out over the working tree", () => {
   has("skills/routing/references/HARD-RULES.md", "compare against another ref in a throwaway `git worktree add`");
-  has("skills/routing/references/HARD-RULES.md", "DON'T: check another ref's files out over the working tree (`git checkout <ref> -- .` overwrote 13 just-committed vault files)");
+  has("skills/routing/references/HARD-RULES.md", "DON'T: check another ref's files out over the working tree (`git checkout <ref> -- .`)");
 });

@@ -49,7 +49,7 @@ test("DISC-224 B: the start sweep reads only the helpers wrap named — HARD-RUL
   const s = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(s.includes("**At wrap** save `list_sessions` (every page) to files and run"));
   assert.ok(s.includes("wrap writes the Keep and Surface ids, and its own id, on the cockpit wrap block's `Helpers:` line."));
-  assert.ok(s.includes("**At session start** call `get_session` only on the ids in that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages `list_sessions` (DISC-224, s44: 25.3k chars)."));
+  assert.ok(s.includes("**At session start** call `get_session` only on the ids in that `Helpers:` line, save each result, and run the same sweep with one `--sessions` per file; the start sweep never pages `list_sessions`"));
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`Helpers: <id>, …` — the wrap sweep's Keep and Surface ids plus this session's own id"));
   assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("at wrap it reads every `list_sessions` page."));
   const v = flat("skills/vault-recall/SKILL.md");
@@ -82,7 +82,7 @@ test("DISC-224 E: the first status reply comes before housekeeping — HARD-RULE
 
 test("DISC-224 F: the start is measured by start-cost.mjs against a budget — HARD-RULES 24", () => {
   const s = flat("skills/routing/references/HARD-RULES.md");
-  assert.ok(s.includes("Measured by `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000` (tool-result chars through the first status reply; s44: ~176.7k)."));
+  assert.ok(s.includes("Measured by `node <plugin>/hooks/scripts/start-cost.mjs <transcript.jsonl> --max 40000`."));
 });
 
 test("DISC-226: a paragraph follows the pattern first, the ruled-out openers after — HOUSE-VOICE, prompt-craft pointer", () => {

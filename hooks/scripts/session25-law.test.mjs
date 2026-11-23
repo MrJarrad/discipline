@@ -12,7 +12,7 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 test("HARD-RULES 17: the three rules with the operator's words", () => {
   const t = flat("skills/routing/references/HARD-RULES.md");
   assert.match(t, /17\. \*\*Finish before opening\*\*/);
-  assert.match(t, /sort of end up half doing a job and not finishing and switching focus/);
+  assert.match(t, /`2026-10-15-finish-before-opening`/);
   assert.match(t, /at most 3 look-lanes .*open per session.*backlog row.*unless he says "now"/);
   assert.match(t, /after his yes a try-out goes review, gate, merge, or is explicitly parked or dropped, before its slot takes a new look topic/);
   assert.match(t, /queues for that lane's next round unless tiny.*print under `## Build in Progress`/);
