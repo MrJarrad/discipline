@@ -15,7 +15,12 @@ function vault() {
   const v = mkdtempSync(join(tmpdir(), "disc310-"));
   const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
   put("projects/portfolio/portfolio-queue.md", FM("queue") + "| # | Needed | Where | Why | Recommended |\n| - | - | - | - | - |\n| PF-5 | Look at footer | | | |\n");
-  put("projects/portfolio/portfolio-backlog.md", FM("backlog") + "## Up next\n\n1. PF-8\n\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| PF-8 | Next thing | d | open |\n");
+  // Seven Up next rows, so the cap of five is visible in the ops.
+  const rows = [8, 9, 10, 11, 12, 13, 14];
+  put("projects/portfolio/portfolio-backlog.md", FM("backlog")
+    + "## Up next\n\n" + rows.map((n, i) => `${i + 1}. PF-${n}`).join("\n")
+    + "\n\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n"
+    + rows.map((n) => `| PF-${n} | Thing ${n} | d | open |`).join("\n") + "\n");
   return v;
 }
 const HEAD = "<paragraph id='h1' heading='1'><text id='t'>Status</text></paragraph><paragraph id='d'><date id='dd' value='2026-11-20'/><text id='t'> · </text></paragraph>";
@@ -51,9 +56,9 @@ test("an open queue row lands in Ready for you in the item format, with no chip;
   assert.deepEqual(p.ops.filter((o) => o.op === "insertNothing").map((o) => o.section), ["You're on it", "Claude's on it", "Done this session"]);
 });
 
-test("Up next is the backlog's ordered ## Up next", () => {
+test("Up next is the backlog's ordered ## Up next, in order, capped at five of seven", () => {
   const up = plan().ops.find((o) => o.op === "setUpNext");
-  assert.deepEqual(up.lines, ["- (PF-8) Next thing"]);
+  assert.deepEqual(up.lines, [8, 9, 10, 11, 12].map((n) => `- (PF-${n}) Thing ${n}`));
 });
 
 test("an item whose id the vault does not hold is reported unknown and never moved to Done", () => {

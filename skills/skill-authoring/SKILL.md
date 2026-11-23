@@ -90,9 +90,8 @@ target behaviour; pair prohibitions only as hard guardrails with a positive targ
 
 ## Names are UI; briefs/docs explain
 
-Never add text onto a skill, rule, agent prompt, or product control that explains what it
-does — that belongs in documentation or a dispatch brief. A control's name is the UI; a
-caption that narrates it is the defect.
+A control's name is the UI; a caption narrating it is the defect. What a skill, rule, agent
+prompt or control does belongs in documentation or a dispatch brief, never on the thing.
 
 ## Pruning
 
@@ -133,7 +132,7 @@ User-invoked orchestrators call model-invoked primitives via explicit load instr
 
 One commit per lesson, room made before the rule is added:
 
-1. **Make room** — retire or shorten the rule it replaces, or fit under its file's budget (`skill-ceilings.test.mjs`); raising a budget is a scope call. A case an existing rule covers sharpens it.
+1. **Make room** — retire or shorten the rule it replaces, or fit under its file's budget (`skill-ceilings.test.mjs`); raising a budget is a scope call. A file with no budget row earns one at its measured size in the same commit. A case an existing rule covers sharpens it.
 2. **Place** it at the acting moment, ≤ 80 words, for behaviour seen in a real run, with a reason, not an incident ID.
 3. **Test behaviour** — a rule a hook or script enforces gets a test that runs it; a judgement rule gets no sentence pin.
 4. **Record** — `CHANGED.txt` names what was added and retired; `encoded: <ver>` on the vault lesson.

@@ -3,7 +3,9 @@
 // Run: node --test hooks/scripts/helper-lifecycle-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classify, cockpitHelperIds, helpersLine } from "./helper-sweep.mjs";
@@ -50,4 +52,19 @@ test("DISC-335: a completed helper with no PR found is Not landed until the pare
   assert.match(run({}).pr, /PR not found/);
   assert.equal(run({ accept: ["session_a"] }).verdict, "archive");
   assert.equal(run({ waiting: ["session_a"] }).verdict, "keep");
+});
+
+test("rule 1 through the CLI: --waiting names whole ids, so only the helper named is spared", () => {
+  const f = join(mkdtempSync(join(tmpdir(), "helper-law-")), "sessions.json");
+  writeFileSync(f, JSON.stringify({ data: [parent("portfolio · 14 Nov (wrapped)"), helper("session_ask"), helper("session_ask2")] }));
+  const sweep = (...extra) => spawnSync(process.execPath, [join(root, "hooks/scripts/helper-sweep.mjs"), "--self", "session_me", "--now", NOW, "--sessions", f, ...extra], { encoding: "utf8" }).stdout;
+  assert.match(sweep(), /## Archive \(2\)/);
+  // The flag is parsed into a list of whole ids. Left as raw text it would be matched by substring, and
+  // session_ask would be spared by a --waiting that only names session_ask2.
+  const one = sweep("--waiting", "session_ask2");
+  assert.match(one, /## Archive \(1\)\n- session_ask \|/);
+  assert.match(one, /## Re-point \(1\)\n- session_ask2 \|/);
+  const both = sweep("--waiting", "session_ask,session_ask2");
+  assert.match(both, /## Archive \(0\)/);
+  assert.match(both, /## Re-point \(2\)/);
 });
