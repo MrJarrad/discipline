@@ -136,7 +136,7 @@ export const TRIGGER_PHRASES = {
   "dispatch-brief": ["dispatch prompt"],
   "doc-formats": ["SCOPE", "DOCUMENTATION"],
   "grilling": ["grill this", "acceptance criteria"],
-  "handoff-to-code": ["design-system-handoff.json", "Figma link to export", "consume or build from the handoff", "export says", "brownfield"],
+  "handoff-to-code": ["design-system-handoff.json companion", "Load it first", "Figma link to export", "consume or build from the handoff", "export says", "brownfield"],
   "issue-triage": ["there are discrepancies", "I noticed some issues"],
   "markup-standard": ["HTML", "alt text"],
   "media-loading": ["images or video", "blank"],
