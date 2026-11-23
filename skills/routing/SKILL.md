@@ -26,6 +26,13 @@ routing failure **even if the output is correct**.
 In a cloud session a heavy-step dispatch also loads `cloud-dispatch` (rule 15). A dispatch made without all five loaded is malformed. Loaded via real Skill invocations
 **every time**, never replayed from session memory.
 
+## Operator replies (the orchestrator's duties)
+
+The always-on style carries only the shared voice. `## Needed from you` by script, the
+queue, Status doc, wakes, session titles, task list, route by reflex, parent does not
+build, merge: [OPERATOR-REPLIES.md](references/OPERATOR-REPLIES.md). Read it at session
+start and before every status reply.
+
 ## Hard rules (non-negotiable)
 
 Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](references/HARD-RULES.md).

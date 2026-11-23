@@ -22,13 +22,13 @@ test("pause-resume reconciles Claude's on it on resume and at pause", () => {
   assert.match(t, /"Claude's on it" .{0,140}`get_session`/);
 });
 test("the output style carries the same reconcile and clear it points to", () => {
-  const t = flat("output-styles/discipline.md");
+  const t = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(t, /queue-page-sync\.mjs/);
   assert.match(t, /empty "Done this session"/);
 });
 
 test("A: the style's status paragraph is one rule — new asks plus the checklist link, the queue in full on the checklist", () => {
-  const t = flat("output-styles/discipline.md");
+  const t = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.doesNotMatch(t, /the operator queue, in full, for this session's projects\.\*\* \*\*Status stays out/);
   assert.match(t, /\*\*Every status reply ends with "Needed from you" — this turn's new asks plus one link line to the Status doc/);
 });

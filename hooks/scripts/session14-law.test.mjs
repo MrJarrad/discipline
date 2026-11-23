@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
-const style = read("output-styles/discipline.md");
+const style = read("skills/routing/references/OPERATOR-REPLIES.md");
 
 test("s14 item 1: how an interaction behaves is the operator's call", () => {
   assert.match(style, /\*\*How an interaction behaves is his call\*\*/);

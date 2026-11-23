@@ -31,13 +31,13 @@ test("link-first: dispatch-brief done-when, present-for-review, routing baton, q
   assert.match(flat("skills/dispatch-brief/references/ACCURACY.md"), /run \*\*after the operator's yes\*\*/);
   assert.match(flat("skills/routing/SKILL.md"), /link when preview opens \(`link-first-look-rounds`\); proof, merge on yes/);
   assert.match(flat("skills/qa-acceptance/SKILL.md"), /pixel proof run after the operator's yes/);
-  assert.match(flat("output-styles/discipline.md"), /never waits on review or pixel proof/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /never waits on review or pixel proof/);
   assert.match(flat("agents/engineer.md"), /that proof runs after the operator's yes/);
   assert.match(flat("skills/routing/references/GATE-AND-HOOKS.md"), /never waits on review or proof/);
 });
 
 test("link-first: reviewer-after-yes is unchanged", () => {
-  assert.match(flat("output-styles/discipline.md"), /on a look-lane, the operator's yes precedes the review/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /on a look-lane, the operator's yes precedes the review/);
   assert.match(flat("doer-rules.md"), /review still trails the yes/);
 });
 
@@ -54,8 +54,8 @@ test("wrap-70: every place that states the wrap line says 70%", () => {
   const w = flat("skills/wrap/SKILL.md");
   assert.match(w, /Wrap at 70% context, unprompted — wrapped or wrapping by 90%/);
   assert.match(w, /reports the 70% line/);
-  assert.match(flat("output-styles/discipline.md"), /unprompted at the 70% context line/);
-  assert.doesNotMatch(flat("output-styles/discipline.md"), /unprompted at the 90% context line/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /unprompted at the 70% context line/);
+  assert.doesNotMatch(flat("skills/routing/references/OPERATOR-REPLIES.md"), /unprompted at the 90% context line/);
 });
 
 test("quiet: wrap's last step stands the session down and never archives", () => {
@@ -68,7 +68,7 @@ test("quiet: wrap's last step stands the session down and never archives", () =>
   assert.match(c, /`unsubscribe_pr_activity`/);
   assert.match(c, /Never archive it\./);
   assert.match(c, /Wrapped — this session is inactive; work continues in/);
-  assert.match(flat("output-styles/discipline.md"), /a wrapped session takes no further action/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /a wrapped session takes no further action/);
 });
 
 test("ambers: frame-first proof follows the yes; the driven-row check is an after-yes proof", () => {

@@ -32,14 +32,14 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "An id the vault does not hold is `unknown` (stale checkout: pull the vault first), never landed"]) assert.ok(h.includes(s), s);
 });
 test("DISC-310: the output style and wrap point at the rule instead of restating it", () => {
-  assert.ok(flat("output-styles/discipline.md").includes("(DISC-310, `routing` HARD-RULES)"));
+  assert.ok(flat("skills/routing/references/OPERATOR-REPLIES.md").includes("(DISC-310, `routing` HARD-RULES)"));
   const w = flat("skills/wrap/references/SECTIONS.md");
   assert.ok(w.includes("status-layout.mjs --vault <vault> --projects <prefixes> --doc <xml>") && w.includes("ticked items move to Done this session"));
 });
 
 test("DISC-310 round 2: the always-on style no longer lists the old sections; it points at the layout rule and status-layout.mjs", () => {
-  const style = flat("output-styles/discipline.md");
+  const style = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.ok(!style.includes("Sections: **Waiting on you**") && !style.includes("**Running now** (`- [ ]` per lane"));
   assert.ok(style.includes("§ The Status doc layout: **run `status-layout.mjs`**"));
-  for (const f of ["skills/pause-resume/SKILL.md", "skills/wrap/references/SECTIONS.md", "output-styles/discipline.md"]) assert.ok(!/"Running now"/.test(flat(f)), f);
+  for (const f of ["skills/pause-resume/SKILL.md", "skills/wrap/references/SECTIONS.md", "skills/routing/references/OPERATOR-REPLIES.md"]) assert.ok(!/"Running now"/.test(flat(f)), f);
 });

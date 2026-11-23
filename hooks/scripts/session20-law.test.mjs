@@ -10,7 +10,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("output style scopes Needed from you to the session's projects, with a fallback that never prints all", () => {
-  const s = flat("output-styles/discipline.md");
+  const s = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(s, /the open rows of the projects this session is working on/);
   assert.match(s, /rows of other projects are not printed and stay in the queue untouched/);
   assert.match(s, /lanes in flight or handovers being worked/);

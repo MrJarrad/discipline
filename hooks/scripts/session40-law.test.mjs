@@ -56,7 +56,7 @@ test("every references/ link brand-voice names resolves", () => {
 });
 
 test("output styles are untouched by the house voice", () => {
-  assert.ok(!flat("output-styles/discipline.md").includes("Grounded Editorial Minimalist"));
+  assert.ok(!flat("skills/routing/references/OPERATOR-REPLIES.md").includes("Grounded Editorial Minimalist"));
 });
 
 test("release: 1.153.0 has its CHANGED.txt entry with the encoded line", () => {

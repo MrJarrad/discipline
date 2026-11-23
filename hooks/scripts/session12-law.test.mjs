@@ -31,7 +31,7 @@ test("one-shot-defect-rounds: top-tier trial on judgment-heavy look lanes, defec
 });
 
 test("queue wakes item 3: a new ask re-checks the open row's readiness", () => {
-  assert.match(read("output-styles/discipline.md"), /When a new ask changes an open row, re-check that row's readiness in the same turn/);
+  assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /When a new ask changes an open row, re-check that row's readiness in the same turn/);
 });
 
 test("queue wakes item 4: the Bash gate blocks pkill/killall and doer-rules says so", () => {

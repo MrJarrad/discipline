@@ -35,7 +35,7 @@ const doerRules = read("doer-rules.md");
 const modelRouting = read("skills/model-routing/SKILL.md");
 const presentForReview = read("skills/present-for-review/SKILL.md");
 const wrap = read("skills/wrap/SKILL.md");
-const disciplineStyle = read("output-styles/discipline.md");
+const disciplineStyle = read("skills/routing/references/OPERATOR-REPLIES.md");
 
 // --- Locked row 1: one review round, capped at two -------------------------
 // 1.81.0 (`lean-lane-cadence-2026-09-16`): the cap dropped from three rounds to

@@ -24,7 +24,7 @@ test("DISC-297: the pinned-doc rule lives once in HARD-RULES and names all four 
 });
 
 test("DISC-297: the always-on style and wrap point at the rule, they do not restate it", () => {
-  assert.ok(flat("output-styles/discipline.md").includes("(DISC-297, DISC-334, `routing` HARD-RULES)"));
+  assert.ok(flat("skills/routing/references/OPERATOR-REPLIES.md").includes("(DISC-297, DISC-334, `routing` HARD-RULES)"));
   assert.ok(flat("skills/wrap/references/SECTIONS.md").includes("`leaveWaiting`"));
 });
 

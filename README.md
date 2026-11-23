@@ -9,14 +9,16 @@ on Claude models.
 
 ## The orchestrator — you never name an agent
 
-The plugin ships an **always-on orchestrator persona** (an output style, on by default while
-the plugin is enabled). It turns the main session into a router: every request is classified
-and dispatched to the right specialist automatically, then synthesized back as one voice. Say
+The plugin ships an **always-on output style** (on by default while the plugin is enabled)
+that sets how every session talks to you: outcome first, plain words, done or not done. It is
+role-neutral; the orchestrator's duties live in the `routing` skill, which the main session
+loads to classify each request and dispatch it to the right specialist, then answer as one
+voice. Say
 *"is this safe to merge?"* and the `reviewer` fires on its own; *"the panel feels janky"*
 routes to `ux-designer`. No agent names, no menus.
 
-> If you also run a separate always-on orchestrator plugin, disable one — two always-on
-> personas conflict.
+> If you also run a separate always-on output style or orchestrator plugin, disable one —
+> two always-on styles conflict.
 
 ## What's inside
 
