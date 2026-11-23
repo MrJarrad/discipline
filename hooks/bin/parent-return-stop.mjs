@@ -18,9 +18,10 @@
    through so it does not wake the parent for nothing; `next: parent` always
    counts as a return. DISC-294 (s79 lesson 3): a turn that a wake event started
    (`<wake ...>`: a GitHub bot edit, a green check suite) is a return only when it
-   made a state change (an edit, a git push or commit, a GitHub write) or says
+   made a state change (an edit, a git push or commit, a GitHub write, including `gh api` POST/PUT/PATCH/DELETE) or says
    `next: parent`; otherwise a helper waiting on the operator would message the
-   parent "no change" on every event. Blocks at most once (`stop_hook_active` -> allow);
+   parent "no change" on every event. DISC-364: the same holds after the parent's
+   cross-session message asked the helper to stay quiet, until a later parent message. Blocks at most once (`stop_hook_active` -> allow);
    any read or parse error -> silent exit 0.                                */
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -33,21 +34,26 @@ const NEXT_PARENT = /next:\s*parent/i;
 
 const WAKE = /<wake\b/;
 const MUTATING_TOOL = /^(Edit|Write|NotebookEdit)$|^mcp__github__(create_|update_|merge_|push_files|delete_|add_|issue_write|pull_request_review_write)/;
-const MUTATING_BASH = /\bgit\s+(push|commit)\b/;
+const MUTATING_BASH = /\bgit\s+(push|commit)\b|\bgh\s+api\b.*(-X|--method)[ =]+(POST|PUT|PATCH|DELETE)\b/i;
+// DISC-364: a parent's cross-session message asking for silence (until a later parent message changes the ask).
+const FROM_PARENT = /<cross-session-message\b/;
+const QUIET_ASK = /\b(stay|keep|be)\s+quiet\b|\bno\s+(reply|response|message)\s+(needed|necessary|required)\b|\b(do\s*n['o]?t|do not)\s+(reply|respond|message|ping)\b/i;
 
 const blocks = (c) => (Array.isArray(c) ? c : []);
 const isToolResult = (c) => blocks(c).some((b) => b?.type === "tool_result");
 
 /* The last assistant text since the last real user message, and whether that turn called send_message. */
 export function lastTurn(transcriptText) {
-  let text = null, sent = false, wake = false, changed = false;
+  let text = null, sent = false, wake = false, changed = false, hushed = false;
   for (const line of transcriptText.split("\n")) {
     if (!line) continue;
     let e; try { e = JSON.parse(line); } catch { continue; }
     const c = e.message?.content;
     if (e.type === "user" && !e.isMeta && !isToolResult(c)) {
       text = null; sent = false; changed = false;
-      wake = WAKE.test(typeof c === "string" ? c : blocks(c).map((b) => b?.text || "").join("\n"));
+      const body = typeof c === "string" ? c : blocks(c).map((b) => b?.text || "").join("\n");
+      wake = WAKE.test(body);
+      if (FROM_PARENT.test(body)) hushed = QUIET_ASK.test(body);
     }
     else if (e.type === "assistant") {
       if (blocks(c).some((b) => b?.type === "tool_use" && SEND.test(b.name || ""))) sent = true;
@@ -56,7 +62,7 @@ export function lastTurn(transcriptText) {
       if (t.trim()) text = t;
     }
   }
-  return { text, sent, quiet: wake && !changed };
+  return { text, sent, quiet: (wake || hushed) && !changed };
 }
 
 export function check({ text, sent, quiet = false, parent, self }) {

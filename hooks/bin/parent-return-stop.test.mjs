@@ -118,3 +118,28 @@ test("a wake-event turn that says `next: parent` is held", () => {
 test("the first brief, an automated notification that is not a wake event, is still a task turn", () => {
   assert.equal(run([user("[SYSTEM NOTIFICATION - NOT USER INPUT] This message is your task"), called("Read"), result(), said(LONG)])?.decision, "block");
 });
+
+// DISC-364: a parent that asked the helper to stay quiet, and a no-change wake, do not force a return.
+const parentSays = (body) => user(`<cross-session-message from="session_parent">${body}</cross-session-message>`);
+const QUIET = "Nothing changed on the PR; I am still waiting on the operator, CI green, no review comment. ".repeat(3);
+
+test("a no-change turn after the parent asked for quiet is let through", () => {
+  assert.equal(run([user("go"), called(SEND), result(), parentSays("Stay quiet until I message you; no reply needed on bot edits."), called("Read"), result(), said(QUIET)]), null);
+});
+
+test("the parent's quiet request still holds on a later no-change turn", () => {
+  assert.equal(run([user("go"), parentSays("stay quiet"), said("ok"), user("an automated event arrived"), called("Read"), result(), said(QUIET)]), null);
+});
+
+test("a quiet request does not hide a state change, `next: parent`, or a later task from the parent", () => {
+  assert.equal(run([user("go"), parentSays("stay quiet"), called("Edit"), result(), said(LONG)])?.decision, "block");
+  assert.equal(run([user("go"), parentSays("stay quiet"), called("Read"), result(), said("CI red on pf #584.\n\nnext: parent")])?.decision, "block");
+  assert.equal(run([user("go"), parentSays("stay quiet"), said("ok"), parentSays("New task: review PR 9 and report."), called("Read"), result(), said(LONG)])?.decision, "block");
+});
+
+test("a GitHub write through gh api is a state change on a wake turn", () => {
+  for (const command of ["gh api -X POST repos/x/y/issues/1/comments -f body=hi", "gh api repos/x/y/pulls/3 --method PATCH -f state=closed"]) {
+    assert.equal(run([user("go"), wake(), called("Bash", { command }), result(), said(LONG)])?.decision, "block", command);
+  }
+  assert.equal(run([user("go"), wake(), called("Bash", { command: "gh api repos/x/y/pulls/3" }), result(), said(LONG_WAIT)]), null);
+});
