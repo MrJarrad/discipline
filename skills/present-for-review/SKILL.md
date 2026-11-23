@@ -14,171 +14,72 @@ description: >-
 Operator visual sign-off is the **running product** with the new build loaded —
 not a screenshot, not a diff, not "it's in Applications."
 
-Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying this skill.
+The parent loads this; personas never skip present by telling the operator to find the build.
+Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying it. A slug in brackets names the vault ruling or lesson that holds the rule's history.
 
 ## When the link goes out
 
-**UI work: the operator is first eyes.** The moment the build is up at
-engineer-done, the preview link goes to the operator — before any reviewer is
-dispatched. Review runs **after the operator's yes** and **never gates the
-link** — nothing waits on a reviewer verdict to let the operator look (operator
-ruling 2026-08-31, reaffirmed 2026-09-07: *"before, you are first eyes"*; ruling
-2026-09-19: *"in general, do you think it would be better to focus our review
-gates to once things are signed off?"* → *"yes, bank and encode it"*). The
-operator judges feel and direction; the preview is explicitly uncertified. A
-re-export or a "not right" restarts the build, not a review round. Mechanism-only
-changes (generator, plugin, probes, gates, refactors with nothing to look at)
-are reviewed immediately at engineer-done, as before. The reviewer never
-evaluates look at all.
-
-**The operator's port serves the lane worktree** — nothing waits on gates to present
-(`review-trails-the-operator`, 2026-09-20). The suite and the trailing review run at merge,
-after the operator's yes (`doer-rules.md` § Repo and safety, `agents/reviewer.md` § Round cap).
-
-For UI work the operator is the cheapest visual gate (`doer-rules.md`) — agent visual
-evidence is never a prerequisite for the link, and never a substitute for it.
-
-**Everything else** presents when the merge condition is met — deterministic
-gates green, no red finding open.
+- **UI work: the operator is first eyes.** The preview link goes out the moment the build is up at engineer-done, before any reviewer is dispatched; review runs after the yes and **never gates the link**: he judges feel and direction on an uncertified preview (`2026-10-09-link-first-look-rounds`, `review-trails-the-operator-2026-09-20`). A "not right" restarts the build, not a review round.
+- **Mechanism-only changes (generator, plugin, probes, gates, refactors with nothing to look at) are reviewed immediately at engineer-done, as before.** The reviewer never evaluates look. **Everything else** presents when the merge condition is met.
+- **The operator's port serves the lane worktree**; the suite and the trailing review run at merge, after his yes (`doer-rules.md` § Repo and safety, `agents/reviewer.md` § Round cap). For UI work the operator is the cheapest visual gate (`doer-rules.md`): agent visual evidence is never a prerequisite for the link, nor a substitute for it.
 
 ## Before the link goes out
 
-**The preview is built, published and opening — hydrated, no error** (`link-first-look-rounds`,
-2026-10-09: *"yes, let's see how it goes. we can always refine."*). That is the whole look-round gate;
-it supersedes the before-the-link half of `accuracy-before-the-link`. Pixel proof, build-vs-export
-audits, the coverage ledger's measured rows and scenario sweeps run **after the operator's yes**,
-sized to what merge needs. Trial: revisit if a link reaches him broken in a way this check would have caught.
-
-**Interactive or motion work: a live walk is part of link-ready** — real gestures on the deployed preview, and whenever the operator sends a recording ([PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Live walk). Static look lanes are unchanged.
-
-**The driven-row check follows the yes** — the ledger carries a driven row per control type (`qa-acceptance` § The eight row classes) and runs with the other after-yes proof; screenshots and a pixel diff prove look, not function (`ui-controls-never-clicked-2026-10-05`). The link never waits on it, and merge does: no control type merges undriven.
-
-**After the yes, none of that is a review round**, and none is shown to the operator.
-Pixel proof is a **headed screenshot at the operator's viewport and each breakpoint family, with a pixel
-assertion on the region built** (a `getComputedStyle` read is not proof that anything painted), scoped by size class
-(`doer-rules.md` § Size class): **component** work's pixel proof is **one screenshot per Figma sample width
-(375 / 768 / 1280 / 1920), checked at a glance**; **line** carries no screenshot; **system** keeps the
-breakpoint-family proof.
-
-**A motion claim is proven from a real recording, read frame by frame — never from computed-style
-polls or analytic rate logs** (hoverboard, 2026-09-27 — `hoverboard-viewer-loader-lessons-2026-09-27`
-item 1; auto-memory `motion-verified-from-recorded-pixels`). **A 3D page's recording needs the real GPU**: a
-headless software-WebGL capture showed a multi-second freeze the real Metal GPU showed as under a second;
-log the WebGL renderer string and treat a software renderer as voiding any timing claim about 3D readiness
-(`hoverboard-loader-curve-lessons-2026-09-28` item 1).
+- **The preview is built, published and opening — hydrated, no error.** That is the whole look-round gate (`link-first-look-rounds`). Pixel proof, build-vs-export audits, the ledger's measured rows and scenario sweeps run **after the operator's yes**, sized to what merge needs.
+- **Interactive or motion work: a live walk is part of link-ready** — real gestures on the deployed preview, and whenever the operator sends a recording ([PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Live walk). Static look lanes are unchanged.
+- **The driven-row check follows the yes**: one driven row per control type, because a screenshot proves look, not function; the link never waits on it, merge does (`ui-controls-never-clicked-2026-10-05`, `qa-acceptance` § The eight row classes).
+- **After the yes, none of that is a review round**, and none is shown to the operator. Pixel proof is a **headed screenshot at the operator's viewport and each breakpoint family, with a pixel assertion on the region built** (a `getComputedStyle` read is not proof that anything painted), scoped by size class (`doer-rules.md` § Size class): **component** work's pixel proof is **one screenshot per Figma sample width (375 / 768 / 1280 / 1920), checked at a glance**; **line** carries no screenshot; **system** keeps the breakpoint-family proof.
+- **A motion claim is proven from a real recording read frame by frame**, never from computed-style polls; a 3D page's recording needs the real GPU, so log the WebGL renderer and treat a software renderer as voiding any 3D timing claim (`hoverboard-viewer-loader-lessons-2026-09-27`, `hoverboard-loader-curve-lessons-2026-09-28`).
 
 ## Steps
 
 ### 1. Confirm the change is presentable
 
-**Completion criterion:** For UI work — the build is up and opening; that is the whole gate,
-and you do **not** wait for review or proof. For non-UI work — the merge condition is met
-(gates green, no red finding open). In both cases: do **not** present a partial
-as the agreed update when the locked table was wider
-(`review-the-lock-not-the-slice`); say what is in and what is still missing.
+**Completion criterion:** UI work — the build is up and opening; do **not** wait for review or proof. Non-UI work — the merge condition is met. Never present a partial as the agreed update when the locked table was wider; say what is in and what is missing (`review-the-lock-not-the-slice`).
 
-**Look at every disclosed gap before the operator hears it.** When the doer's return names a
-visual gap — "clips a few tips", "one row still off" — the parent **views it at zoom on the
-running build first**, then presents it in the operator's own terms. Relaying a gap you have
-not looked at spends an operator round on a description (`lean-lane-cadence`, 2026-09-16).
+**Look at every disclosed gap before the operator hears it.** View a gap the doer names at zoom on the running build, then present it in his terms, so a round is not spent on a description (`lean-lane-cadence-2026-09-16`).
 
-- **DO:** open the build, zoom the named region, present *"Ready to look. Two tips clip at the top-left corner — everything else is on."*
-- **DON'T:** forward the doer's sentence unseen and let the operator discover it is the whole surface.
-
-**Evidence never lands in the product repo.** A round's renders, probes and reports go to
-`~/JHD/vault/main/estate/captures/<product>-evidence/` with a manifest row — `scripts/evidence-archive.mjs`
-moves them and a repo law test fails on new evidence or probe files in-tree.
+**Evidence never lands in the product repo.** Renders, probes and reports go to `~/JHD/vault/main/estate/captures/<product>-evidence/` with a manifest row; `scripts/evidence-archive.mjs` moves them.
 
 ### 2. Identify the live product
 
-**Completion criterion:** Product named from workspace / handover / cockpit
-(Capture.app, Squish, portfolio, Skillz, …). Risk-only or discipline-only
-work with **no** live product the operator signs → skip present; proceed to
-merge remittance.
+**Completion criterion:** Product named from workspace, handover or cockpit. No live product he signs → skip present; go to merge.
 
 ### 3. Native Mac — full quit, relaunch signed bundle
 
-**Completion criterion:** Process is gone; signed Applications bundle is open
-with the new build.
-
-- If Capture is **mid-recording** → do **not** quit; tell the operator present
-  is blocked until recording ends.
-- Else: **full quit** the app, wait until the process is gone, then `open` the
-  **signed** bundle the product names.
-- Capture: `/Applications/Capture.app` only — never `mac/.build/.../Capture`.
-- Squish and other native apps: Applications path from cockpit / handover.
+**Completion criterion:** Process gone; the **signed** bundle open with the new build (Capture: `/Applications/Capture.app` only, never `mac/.build/.../Capture`; others: the path in cockpit or handover). Capture mid-recording → do not quit; present waits until recording ends.
 
 ### 4. Web — ready message + one markdown hyperlink
 
-**Completion criterion:** Operator chat message is *Ready* + what to check + **one**
-markdown hyperlink — no new Browser tab or window spawned as the present step.
+**Completion criterion:** *Ready* + what to check + **one** markdown hyperlink; no Browser tab or window spawned as the present step.
 
 - **DO:** *Ready to look. Hairline is off the pills. [jarrad.design](https://jarrad.design)*
-- **DON'T:** Open a new Browser tab/window they have to close.
-- **DON'T:** *The hairline pass is in Applications — go look.* (native homework still banned)
-- **DON'T:** Ask for a hard refresh or *nothing else until you look* — web present is one markdown hyperlink in chat; operator is never muted.
-- **One link per ask, never a corrected link underneath.** A stale link with "correction: use this one" below it got opened, and a fixed bug was reported still broken. Rebuild the row with the right link.
-- **Load the link yourself in a hydrated browser before sending it** — a preview sent on a doer's proof alone carried the full navigation on the holding page.
-- **Before relaying a preview link, the parent runs `git ls-remote origin <branch>` and confirms it equals the lane's claimed sha, and reads the check for that exact sha.** A 200 from the preview proves nothing about which build it serves (`preview-link-relayed-before-push-verified-2026-10-05`).
-- **Probe the served preview for the new code before relaying** — the check run reads success 5–15 minutes before the build lands. Recipe: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
-- **The parent confirms the link opens hydrated with no error before sending it**; evidence is read after the yes (`link-first-look-rounds`; checks in `doer-rules.md` § Repo and safety), and an "unverified" the doer could have checked is sent back, not relayed.
+- **DON'T:** open a tab he has to close, or ask for a hard refresh.
+- **One link per ask, never a corrected link underneath** — rebuild the row with the right link, because the stale one gets opened.
+- **Run `node <plugin>/hooks/scripts/preview-sha-check.mjs --branch <b> --sha <claimed> [--checks <owner/repo>]` and send the link only on exit 0** — a 200 from the preview proves nothing about which build it serves (`preview-link-relayed-before-push-verified-2026-10-05`).
+- **Probe the served preview for the new code before relaying**, since the check reads success before the build lands. Recipe: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
+- **The parent confirms the link opens hydrated with no error before sending it**, loading it itself; evidence is read after the yes (`link-first-look-rounds`; checks in `doer-rules.md` § Repo and safety), and an "unverified" the doer could have checked is sent back, not relayed.
 - **Cloud portfolio previews:** a `preview/*` push publishes `https://preview-<branch>-jhd-preview-staging.jh-229.workers.dev`.
-- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks (s45–s47, s65).
-- Agent-internal Browser for reviewer/ux-designer evidence is separate — not the operator packet.
-- Do not dump a screenshot as the review packet.
+- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks.
 
 ### 5. Cloud / no Mac parent
 
-**Completion criterion:** Evidence states Mac parent must present native; web may
-use hyperlink-in-chat from any parent.
-
-- Cloud VM cannot quit the operator's Mac app.
-- Return that the Mac parent must run native present (quit + relaunch).
-- Do **not** substitute "open Applications" or a screenshot.
+**Completion criterion:** Evidence says the Mac parent presents native; web uses hyperlink-in-chat from any parent. Never substitute "open Applications" or a screenshot.
 
 ### 6. Operator message
 
-**Merge asks fold into the yes; the operator never gets a standalone technical question**
-(operator, 2026-10-01: *"i approve visual stuff, all technical stuff is your domain in all
-sessions"*). A look row reads "say yes and it goes into the main code" and the yes **is** the
-merge approval — merge on it, cited in the merge message. Technical changes (scripts, tests,
-mechanism, deps, infra) merge on the gate-run tail + no red finding with no operator ask, quoting the
-ruling in the commit; if a safety check still blocks, quote it once, then fold the merge into the
-next look yes. Offer "reply 'merge when green' once" at most once per session. Scope and Destructive category changes stay operator rows
-(`agents/references/reviewer-two-axis.md`). Never route
-around the guard (no auto-merge toggles, no settings writes).
+**Merge asks fold into the yes; the operator never gets a standalone technical question** (`2026-10-01-merge-asks-fold-into-the-yes`). The yes on a look row **is** the merge approval, cited in the merge message. Technical changes merge on the gate-run tail with no red finding, no ask, quoting the ruling in the commit; if a safety check still blocks, quote it once and fold the merge into the next look yes. Offer "reply 'merge when green' once" at most once per session. Scope and Destructive changes stay operator rows (`agents/references/reviewer-two-axis.md`). Never route around the guard (no auto-merge toggles, no settings writes).
 
-**Completion criterion:** Short *Ready for review* — what changed, what to check.
-Native: after quit+relaunch. Web: include **one** markdown hyperlink in the same
-message. No file paths, diffs, PR links, or "go look."
+**Completion criterion:** Short *Ready for review*: what changed, what to check, one link for web. No file paths, diffs, PR links, or "go look."
 
-**A fix carries Problem/Solution; a feature doesn't.** When the change is a fix, the
-message leads with one-line **Problem:** (what caused it, plain words) and **Solution:**
-(what fixed it), before the link (operator, 2026-09-25). A new feature skips both lines.
+**A fix carries Problem/Solution; a feature doesn't.** A fix message leads with one-line **Problem:** (cause, plain words) and **Solution:** (what fixed it), before the link, so he isn't re-deriving cause (`2026-09-25-fix-asks-problem-solution`).
 
-Example (fix, native): *Problem: the thin line around the pills was using the wrong line
-thickness from the design system. Solution: pointed it at the design system's 1-pixel
-line so it matches everywhere. Ready to look. Check the bar edges.*
-Example (fix, web): *Problem: the thin line around the pills was using the wrong line
-thickness from the design system. Solution: pointed it at the design system's 1-pixel
-line so it matches everywhere. Ready to look. [jarrad.design](https://jarrad.design)*
-Example (feature, web): *Ready to look. The pricing table now sorts by plan tier.
-[jarrad.design](https://jarrad.design)*
+Example (fix, native): *Problem: the thin line around the pills was using the wrong line thickness from the design system. Solution: pointed it at the design system's 1-pixel line so it matches everywhere. Ready to look. Check the bar edges.*
+Example (fix, web): *Problem: the thin line around the pills was using the wrong line thickness from the design system. Solution: pointed it at the design system's 1-pixel line so it matches everywhere. Ready to look. [jarrad.design](https://jarrad.design)*
+Example (feature, web): *Ready to look. The pricing table now sorts by plan tier. [jarrad.design](https://jarrad.design)*
 
-The message **ends with the `## Needed from you` block**: new asks plus checklist link (the session's projects' open rows live there),
-from `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes> --short --new <ids>`
-(`skills/routing/references/OPERATOR-REPLIES.md`).
+The message **ends with the `## Needed from you` block**: new asks plus checklist link (the session's projects' open rows live there), from `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes> --short --new <ids>` (`skills/routing/references/OPERATOR-REPLIES.md`).
 
-## Deploy commands stand alone (Change 6, 2026-09-22)
+## Deploy commands stand alone
 
-A **preview build/upload** for this skill is never a promote/deploy verb — the parent runs
-the repo's own preview script, and any production promote (`wrangler versions deploy` and
-its siblings) is its own standalone Bash call, never chained after this step and never named
-inside the brief that triggered it (`release-deploy` § Deploy commands stand alone).
-
-## Who loads this
-
-**Orchestrator / parent** — at engineer-done for UI work (first eyes; reviewer
-dispatched only after the operator's yes), and when the merge condition is met
-for everything else. Personas do
-not skip present by telling the operator to find the build.
+A preview build is never a promote; any production promote is its own standalone Bash call (`release-deploy` § Deploy commands stand alone).
