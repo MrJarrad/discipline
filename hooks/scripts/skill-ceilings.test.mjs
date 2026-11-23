@@ -124,6 +124,8 @@ export const BUDGETS = [
   { file: "skills/routing/references/OPERATOR-REPLIES.md", words: 2255, lines: 132, target: 1500 },
   { file: "doer-rules.md", words: 3885, lines: 334, target: 2500 },
   { file: "skills/dispatch-brief/references/HOUSE-RULES.md", words: 734, target: 400 },
+  // Intake step 1: a file with no budget row earns one at measured size. This clause earned its own file this row.
+  { file: "skills/skill-authoring/SKILL.md", words: 1011, target: 1011 },
 ];
 
 for (const { file, words, lines } of BUDGETS) {
