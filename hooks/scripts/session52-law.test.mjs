@@ -83,7 +83,7 @@ test("s45.1, s46.3, s46.4, s47.2, s47.3: the link checks live once in PREVIEW-PR
   assert.ok(r.includes("- **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link"));
   assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks."));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("A review link it sends meets `present-for-review` § Before the link goes out: opened cold first, in the state to review."));
-  assert.ok(flat("doer-rules.md").includes("**A deploy is read from the build log, never the badge**: a `claude/*` build shows \"Deployment successful\" while its log says it skips the upload; only `preview/*` publishes (s47)."));
+  assert.ok(flat("doer-rules.md").includes("**A deploy is read from the build log, never the badge**: a `claude/*` build shows \"Deployment successful\" while its log says it skips the upload; only `preview/*` publishes."));
 });
 
 test("s45.2 and s46.5 and s47.1: supplied copy is fact-checked only; stop after a second miss; versions of copy are kept", () => {
@@ -129,7 +129,7 @@ test("s46.7: a system value raised on one screen is offered as the global fix fi
 });
 
 test("s47.4: a waiting helper sends one message when the event lands — doer-rules", () => {
-  assert.ok(flat("doer-rules.md").includes("**A helper waiting on an event sends one message, when the event lands** (a build, a review, a merge), never an interim \"still waiting\" message (s47)."));
+  assert.ok(flat("doer-rules.md").includes("**A helper waiting on an event sends one message, when the event lands** (a build, a review, a merge), never an interim \"still waiting\" message."));
 });
 
 test("release: 1.164.0 has its CHANGED.txt entry with the encoded line", () => {

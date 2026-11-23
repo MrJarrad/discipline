@@ -137,6 +137,12 @@ test("doer-rules.md stays under its 334-line ceiling", () => {
   assert.ok(lines <= 334, `doer-rules.md is ${lines} lines; the ceiling is 334`);
 });
 
+// DISC-351 s6: one line per rule, histories in the vault; 4,823 -> 3875 words.
+test("doer-rules.md stays under its 3875-word budget", () => {
+  const words = doerRules.split(/\s+/).filter(Boolean).length;
+  assert.ok(words <= 3875, `doer-rules.md is ${words} words; the budget is 3875`);
+});
+
 test("doer-rules carries the four standing sections", () => {
   for (const heading of [
     "## You are the doer",
