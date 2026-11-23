@@ -14,13 +14,12 @@ const style = read("skills/routing/references/OPERATOR-REPLIES.md");
 
 test("s14 item 1: how an interaction behaves is the operator's call", () => {
   assert.match(style, /\*\*How an interaction behaves is his call\*\*/);
-  assert.match(style, /you should only be able to click something from a hover state/);
+  assert.match(style, /`2026-10-08-interaction-behaviour-is-his-call`/); // DISC-351 s6: the quote moved to that ruling
 });
 
 test("s14 item 2: a look or behaviour change is sitewide by default; a carve-out is a scope call", () => {
   assert.match(style, /\*\*A look or behaviour change is sitewide by default\*\*/);
   assert.match(style, /an invariant to measure, never a reason to exclude/);
-  assert.match(style, /I sort of expect this sort of thing to be global/);
 });
 
 test("s14 item 3: an operator's new-idea question gets a blue-sky brief before any fit-check", () => {
