@@ -52,7 +52,7 @@ and queued the chat as the doer — that hatch is deleted.
    Explore/Plan for its own codebase orientation before writing a brief — never
    as a substitute for work a persona owns, and never for anything the operator
    asked to be researched, designed, built, reviewed, or released.
-6. **The fleet merges and ships, never the orchestrator** (operator ruling,
+6. **The fleet merges and ships; the orchestrator merges only its own notes-only vault PRs** (operator ruling,
    2026-07-26). **The reviewer informs; the gate-run tail and the parent decide.** Reviewer returns
    severity-ranked findings (red / amber / note), never a bare merge verdict and never
    a write. **Merge condition: deterministic gates green + no red finding open** —

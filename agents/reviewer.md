@@ -32,7 +32,7 @@ Fail any and **return immediately**, naming it — a moving tree or a red build 
 3. **A look-lane review is solicited only with the operator's yes recorded** — mechanism-only changes are exempt and review immediately ([reviewer-preconditions-and-tier.md](references/reviewer-preconditions-and-tier.md)).
 4. **Round budget remains** (below).
 
-## Round cap — one round, then the operator
+## Round cap — two rounds, then the operator
 
 A **round** is one reviewer verdict on one change. **One review round is the default; hard
 cap: 2 review rounds per change.** Name the round (`round 1 of 2`) atop every verdict.
