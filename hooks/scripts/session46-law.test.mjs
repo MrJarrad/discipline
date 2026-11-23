@@ -11,9 +11,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(root, p), "utf8");
 const flat = (p) => read(p).replace(/\s+/g, " ");
 const SKILL = "skills/handoff-to-code/SKILL.md";
+// handoff-to-code's rules live in SKILL.md and, moved verbatim since the DISC-351 s8 split, references/steps.md.
+const skillText = () => flat(SKILL) + " " + flat("skills/handoff-to-code/references/steps.md");
 
 test("HT-15: the script is the export path and the export is a set", () => {
-  const s = flat(SKILL);
+  const s = skillText();
   assert.ok(s.includes("## The export is a set"));
   assert.ok(s.includes("the plugin's in-Figma export is superseded"));
   assert.ok(s.includes("**A link-run finding is a reported item, never a reason to inline a value.**"));
@@ -30,7 +32,7 @@ test("HT-10: specs are read from the spec index; one with no entry is flagged", 
 });
 
 test("HT-2: the house lines survived the merge into the canonical copy", () => {
-  const s = flat(SKILL);
+  const s = skillText();
   assert.ok(s.includes("The Figma MCP does not replace the pair"));
   assert.ok(s.includes("and the live-annotation spot check"));
   assert.ok(s.includes("`defaultValue` in an export is a display convention"));

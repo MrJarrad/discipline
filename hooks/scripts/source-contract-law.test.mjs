@@ -26,7 +26,9 @@ const uxDesigner = read("agents/ux-designer.md");
 const issueTriage = read("skills/issue-triage/SKILL.md");
 const grilling = read("skills/grilling/SKILL.md");
 const captureFigma = read("skills/capture-figma/SKILL.md");
-const handoffToCode = read("skills/handoff-to-code/SKILL.md");
+// handoff-to-code's rules live in SKILL.md and, moved verbatim since the DISC-351 s8 split, references/steps.md.
+const handoffSteps = read("skills/handoff-to-code/references/steps.md");
+const handoffToCode = read("skills/handoff-to-code/SKILL.md") + "\n" + handoffSteps;
 const auditBuild = read("skills/audit-build/SKILL.md");
 const modelRouting = read("skills/model-routing/SKILL.md");
 const routing = read("skills/routing/SKILL.md");
@@ -272,9 +274,9 @@ test("handoff-to-code names the generator warnings it must not build around", ()
 });
 
 test("handoff-to-code carries Build standards 1-5 as the mechanism rules", () => {
-  const step = handoffToCode.slice(
-    handoffToCode.indexOf("### 4. Implement against tokens only"),
-    handoffToCode.indexOf("### 5. Copy is a lane"),
+  const step = handoffSteps.slice(
+    handoffSteps.indexOf("### 4. Implement against tokens only"),
+    handoffSteps.indexOf("### 5. Copy is a lane"),
   );
   assert.ok(step.length > 0, "handoff-to-code must carry the Build standards step");
   carries(step, "A right number produced by the wrong mechanism is a defect.");

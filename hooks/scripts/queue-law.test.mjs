@@ -585,7 +585,7 @@ test("DISC-270: the overlay puts exposed nested-instance properties and placed-i
 });
 
 test("DISC-270: the mirrored SKILL.md carries the schema-17 and schema-18 ledger rules", () => {
-  const skill = flat(read("skills/handoff-to-code/SKILL.md"));
+  const skill = flat(read("skills/handoff-to-code/SKILL.md") + "\n" + read("skills/handoff-to-code/references/steps.md"));
   assert.match(skill, /\*\*Every property the Figma panel shows is a ledger row, nested exposed ones included\.\*\*/);
   assert.match(skill, /\*\*A placed instance's settings are ledger rows/);
   assert.match(skill, /PROPERTY_ROW_MISSING/);
