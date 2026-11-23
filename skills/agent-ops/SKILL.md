@@ -20,7 +20,7 @@ change a lever, and how you prove the change helped before it's live.
 | --- | --- | --- |
 | **Skills** | `skills/` | the reusable procedures the dispatch system loads |
 | **Prompts / charters** | `agents/` | each persona's operating contract (an `agents/<persona>.md` file) |
-| **Eval harness** | `meta/skill-eval/` | the one gate (`scripts/skill-eval.mjs` + `meta/skill-eval/cases.json`) that scores trigger recall, false-positives, and persona routing against a baseline arm |
+| **Eval harness** | `meta/skill-eval/` | the one gate (`hooks/scripts/skill-eval.mjs` + `meta/skill-eval/cases.json`) that scores trigger recall, false-positives, and persona routing against a baseline arm |
 
 If it changes *how an agent decides or acts across tasks*, it's Agent-Ops. If it changes
 *one product output*, it's a doer skill — not this.
@@ -65,7 +65,7 @@ canonical home**, **best-in-class bar**) plus the triggering conventions (descri
 *trigger* not a summary; lead with "Use when…"; keep the anti-trigger; match intensity to the
 failure). Gate with `meta/skill-eval`: add or reuse a case in
 `meta/skill-eval/cases.json` (route / trigger / fence), run
-`node scripts/skill-eval.mjs meta/skill-eval/cases.json --tag <type> --live
+`node hooks/scripts/skill-eval.mjs meta/skill-eval/cases.json --tag <type> --live
 --baseline-plugin-dir <pre-change worktree>`, and read the printed verdict + discrimination —
 GREEN and DISCRIMINATES to ship; NON-DISCRIMINATING means the change isn't earning its
 tokens; BASELINE UNAVAILABLE means no comparison ran (never treat as GREEN).

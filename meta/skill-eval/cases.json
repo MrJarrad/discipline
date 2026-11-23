@@ -1,0 +1,241 @@
+{
+  "cases": [
+    {
+      "id": "route-researcher-cutting-edge",
+      "type": "route",
+      "prompt": "Is it worth researching the cutting edge, best in class way to do rate limiting on our API before we build it?",
+      "provenance": "skills/routing/SKILL.md persona table, Researcher row",
+      "expectPersona": "researcher",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-ux-designer-figma-discrepancies",
+      "type": "route",
+      "prompt": "Can you check the header block \u2014 I think there are discrepancies with the figma and the animation feels off.",
+      "provenance": "skills/routing/SKILL.md persona table, UX Designer row",
+      "expectPersona": "ux-designer",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-reviewer-ready-to-merge",
+      "type": "route",
+      "prompt": "This branch is ready to merge \u2014 can you review this before I ship it?",
+      "provenance": "skills/routing/SKILL.md persona table, Reviewer row",
+      "expectPersona": "reviewer",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-engineer-implement-fix",
+      "type": "route",
+      "prompt": "The checkout button is broken, please fix it and implement the missing validation.",
+      "provenance": "skills/routing/SKILL.md persona table, Engineer row",
+      "expectPersona": "engineer",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-releaseops-ship-live",
+      "type": "route",
+      "prompt": "The merged change is green. Get it live on production and roll it back if the deploy check fails.",
+      "provenance": "agents/releaseops.md description",
+      "expectPersona": "releaseops",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "route-project-manager-shape-tasks",
+      "type": "route",
+      "prompt": "The plan is approved. Turn its eight slices into dispatch briefs ready for the doers.",
+      "provenance": "agents/project-manager.md description",
+      "expectPersona": "project-manager",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-define-terms",
+      "type": "trigger",
+      "prompt": "Reading back through the token rulings I keep seeing 'spacer' and 'gap' used for what looks like the same idea in different places. Before I add a new ruling, help me pin down which word is correct and record it.",
+      "provenance": "skills/define-terms/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "define-terms"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-design-modules",
+      "type": "trigger",
+      "prompt": "Before I write a line: the scoring logic and the transcript-reading logic sit in one file with no seam. Should they stay one module or split into two, and what should the interface between them be?",
+      "provenance": "skills/design-modules/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "design-modules"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-discover-scope",
+      "type": "trigger",
+      "prompt": "I'd like to explore a new concept: a client portal for a ceramics studio. Requirements are still forming and I expect a lot of changes. Help me gather what we know and grow it into a validated scope.",
+      "provenance": "skills/discover-scope/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "discover-scope"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-diagnosing-bugs",
+      "type": "trigger",
+      "prompt": "The carousel is still broken after my first fix attempt: it flickers on one phone and not another, and I can't reproduce it reliably. Work out what is actually wrong.",
+      "provenance": "skills/diagnosing-bugs/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "diagnosing-bugs"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-issue-triage",
+      "type": "trigger",
+      "prompt": "I noticed a few things are off on the pricing page \u2014 the toggle label is wrong, one card is misaligned, and a link 404s. Get these ready for an agent to pick up.",
+      "provenance": "skills/issue-triage/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "issue-triage"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-pause-resume",
+      "type": "trigger",
+      "prompt": "I need to pause for now. Stop everything at a safe point and save where we are so we can pick up later.",
+      "provenance": "skills/pause-resume/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "pause-resume"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "trigger-capture-website",
+      "type": "trigger",
+      "prompt": "I want the hero on https://www.pentagram.com to feel like this. Look at the site and bank what its layout and animation actually do, measured, not guessed.",
+      "provenance": "skills/capture-website/SKILL.md description",
+      "maxTurns": 8,
+      "expectSkills": [
+        "capture-website"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "fence-typo-fix",
+      "type": "fence",
+      "prompt": "Fix the typo 'recieve' in the README intro line.",
+      "provenance": "skills/test-first/SKILL.md 'When not to apply'",
+      "forbidSkills": [
+        "test-first",
+        "code-minimalism"
+      ],
+      "expectSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "fence-plain-question",
+      "type": "fence",
+      "prompt": "What is the difference between a hex colour and an rgb colour?",
+      "provenance": "skills/routing/SKILL.md: one-liners are answered directly",
+      "forbidSkills": [
+        "routing",
+        "research-synthesis",
+        "design-system"
+      ],
+      "expectSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "fence-tighten-sentence",
+      "type": "fence",
+      "prompt": "Tighten this sentence for me: 'We are really excited to be able to announce that our new store is now open.'",
+      "provenance": "skills/code-minimalism/SKILL.md anti-trigger: not for non-coding work",
+      "forbidSkills": [
+        "code-minimalism",
+        "test-first"
+      ],
+      "expectSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s107-preview-wrong-build",
+      "type": "trigger",
+      "prompt": "The engineer says the hoverboard change is done and the preview page returns 200 and hydrates with no console error. I'm about to send the operator the preview link. What do I check and do first?",
+      "provenance": "s107 slip 1: link sent after only 200 + hydrated; the build carried the live companion, not the intended one. Operator: 'it looks like it's just using the live dip and it's hard to review because the entire preview has all the lag/stall issues'",
+      "maxTurns": 8,
+      "expectSkills": [
+        "present-for-review"
+      ],
+      "expectText": [
+        "sha|hash|identity|which build|commit"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s107-tryout-kept-as-switches",
+      "type": "behavior",
+      "prompt": "The operator tried three landing try-outs (sink, hover, plunge) and said 'sink is feeling good, don't we only need one'. Write the reply you send him about what happens to the other two.",
+      "provenance": "s107 slip 2 + ruling try-outs-are-not-props. Parent offered 'hover and plunge kept in the code, switched off'; operator: 'i'm really confused, the 3 were options to try out. why would we keep the other 2'",
+      "forbidText": [
+        "switched off|kept in the code|keep (hover|the other|them)|behind a (flag|switch|prop)"
+      ],
+      "expectText": [
+        "remov|delet|drop"
+      ],
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s107-status-doc-stale",
+      "type": "behavior",
+      "prompt": "The operator just answered the open decision on row PF-12 (he picked sink), and the PR for lane 3 merged. Describe, in order, what you do before you reply to him.",
+      "provenance": "s107 slip 3: operator asked 'is status up to date and reflective of reality?' and it was not (answered item still asking, merged lane under Claude's on it, stale date). Expected: Status doc rewritten the same turn as every change or answer",
+      "expectText": [
+        "status doc"
+      ],
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s107-chat-reply-to-automated-wake",
+      "type": "behavior",
+      "prompt": "[SYSTEM NOTIFICATION - NOT USER INPUT] GitHub event: PR #231 was merged by the bot. CI is green. Nothing in it needs the operator. Respond.",
+      "provenance": "s107 slip 4: replied 'Nothing new needed from you.' to every bot event and PR-merge notice. Expected: no chat text on an automated wake with nothing new",
+      "forbidText": [
+        "nothing new",
+        "needed from you",
+        "nothing needed"
+      ],
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 3
+    }
+  ]
+}

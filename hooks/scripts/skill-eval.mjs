@@ -203,9 +203,14 @@ export function sampleOutcome(caseDef, observed) {
   const fired = observed.firedSkills ?? new Set();
   const skillsOk = expect.every((s) => fired.has(normalizeSkillName(s))) &&
     forbid.every((s) => !fired.has(normalizeSkillName(s)));
-  if (caseDef.type !== "route") return skillsOk;
+  // expectText / forbidText: case-insensitive regex strings over the run's
+  // reply text (behaviour cases). An absent reply reads as "".
+  const text = observed.text ?? "";
+  const textOk = (caseDef.expectText ?? []).every((p) => new RegExp(p, "i").test(text)) &&
+    (caseDef.forbidText ?? []).every((p) => !new RegExp(p, "i").test(text));
+  if (caseDef.type !== "route") return skillsOk && textOk;
   const personaOk = !caseDef.expectPersona || observed.persona === caseDef.expectPersona;
-  return skillsOk && personaOk;
+  return skillsOk && textOk && personaOk;
 }
 
 // scoreCase(caseDef, observedSamples) -> { id, verdict, passed, of }.
@@ -339,6 +344,8 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
         // transcript's Skill tool_use blocks — route agents never load a
         // persona, so scoring them off tool_use alone always reads RED
         // regardless of the routing decision's quality.
+        const replyText = resultsByLabel.get(agent.label);
+        if (typeof replyText === "string") observed.text = replyText;
         if (agent.jsonSchema) {
           const routeResult = parseRouteResult(resultsByLabel.get(agent.label));
           if (routeResult) observed.persona = routeResult.persona;

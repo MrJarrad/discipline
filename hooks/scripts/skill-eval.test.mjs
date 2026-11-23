@@ -204,3 +204,35 @@ test("runArms scores a candidate-only run (no baselinePluginDir) as BASELINE UNA
     rmSync(scratch, { recursive: true, force: true });
   }
 });
+
+// ---- text expectations (behaviour cases: s107 slips) -----------------------
+
+test("sampleOutcome fails a sample whose reply text matches a forbidText pattern", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["switched off"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Hover stays, switched off." }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "I'll remove the other two." }), true);
+});
+
+test("sampleOutcome requires every expectText pattern to match, case-insensitively", () => {
+  const c = { id: "t", type: "behavior", expectText: ["status doc", "same turn"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the STATUS DOC in the Same Turn." }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the status doc." }), false);
+});
+
+test("a forbidText-only case passes an empty reply (no chat text on an automated wake)", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["nothing new"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set() }), true);
+});
+
+test("runArms feeds each agent's result text into text scoring", async () => {
+  const cases = [{ id: "b1", type: "behavior", prompt: "p", forbidText: ["nothing new"], expectSkills: [], samples: 1 }];
+  const fake = (reply) => async (spec, log) => {
+    for (const a of spec.phases[0].agents) log({ type: "agent", label: a.label, sessionId: `s-${a.label}`, result: reply });
+    return {};
+  };
+  const bad = await runArms({ cases, runWorkflowImpl: fake("Nothing new needed from you.") });
+  assert.equal(bad[0].candidate.verdict, VERDICT.RED);
+  const ok = await runArms({ cases, runWorkflowImpl: fake("") });
+  assert.equal(ok[0].candidate.verdict, VERDICT.GREEN);
+});
