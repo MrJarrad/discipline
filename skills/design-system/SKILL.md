@@ -3,7 +3,8 @@ name: design-system
 description: >-
   Use when starting or reviewing JHD web UI, wiring tokens or theme, reaching for
   a colour, spacing, radius or type value, or checking conformance with
-  @jhd/design-system. Site compositions are design-craft.
+  @jhd/design-system. Site compositions are design-craft; iOS and macOS UI are not
+  this.
 ---
 
 # Design System — JHD house web

@@ -3,7 +3,8 @@ name: audit-build
 description: >-
   Use when "the blocks are off", after porting a design to code, or before visual
   sign-off: measure the live DOM (rects, font sizes, positions) against the design
-  into a defect list. Reading the design is capture-figma.
+  into a defect list. Reading the design is capture-figma; a flickering or
+  vanishing bug is diagnosing-bugs.
 ---
 
 # Block Fidelity Audit

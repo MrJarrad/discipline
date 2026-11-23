@@ -47,7 +47,7 @@ const pluginSkillPath = join(repo, "skills", "handoff-to-code", "SKILL.md");
 
 const root =
   process.env.HANDOFF_CSS_ROOT || join(homedir(), "JHD", "handoff-css", "main");
-const ref = process.env.HANDOFF_CSS_REF || "1d453c87d69dc76b0ed5b00e955f7fb8ac95ae55";
+const ref = process.env.HANDOFF_CSS_REF || "b974259384c9058d4f5d452830986eca9df4744c";
 const strict = process.env.DISCIPLINE_MIRROR_STRICT === "1";
 const rootPresent = existsSync(root);
 

@@ -366,6 +366,54 @@
         "vault-write"
       ],
       "samples": 3
+    },
+    {
+      "id": "s8-fence-build-vs-figma-not-a-bug",
+      "type": "fence",
+      "prompt": "The hero on the live page looks wrong against the figma: the spacing and the type sizes do not match the design.",
+      "provenance": "DISC-351 s8 review #247 amber 1: diagnosing-bugs claims looks wrong; a design-vs-build mismatch is audit-build",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "diagnosing-bugs"
+      ],
+      "samples": 3
+    },
+    {
+      "id": "s8-trigger-handoff-path",
+      "type": "trigger",
+      "prompt": "Build the pricing card from design/handoff/latest/design-handoff-card.md and the companion JSON beside it.",
+      "provenance": "DISC-351 s8 review of handoff-css #92 / discipline #248, amber 2: the handoff-to-code description cut must keep its triggers (file-path branch)",
+      "maxTurns": 12,
+      "expectSkills": [
+        "handoff-to-code"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-trigger-figma-link-to-export",
+      "type": "trigger",
+      "prompt": "Here is the Figma link for the pricing card. Export it with the design-handoff script and build the card from that export.",
+      "provenance": "DISC-351 s8 review of handoff-css #92 / discipline #248, amber 2: the handoff-to-code description cut must keep its triggers (Figma-link-to-export branch)",
+      "maxTurns": 12,
+      "expectSkills": [
+        "handoff-to-code"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-fence-figma-link-read-only",
+      "type": "fence",
+      "prompt": "Here is a figma.com link to the hero. Just tell me which variants it has and what its copy says; nothing gets built yet.",
+      "provenance": "DISC-351 s8 review of handoff-css #92 / discipline #248, amber 2: the handoff-to-code description cut must keep its triggers (fence: a live read is capture-figma)",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "handoff-to-code"
+      ],
+      "samples": 5
     }
   ]
 }
