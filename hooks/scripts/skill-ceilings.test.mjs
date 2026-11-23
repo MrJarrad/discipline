@@ -98,37 +98,39 @@ for (const { skill, ceiling } of RATCHETS) {
   });
 }
 
-// The description is the trigger surface. Claude Code lists every skill's description in a
-// budget of about 1% of the context window and drops the least-used first when the list
-// overflows, so a dropped skill has no trigger words in context at all. Each description stays
-// short enough for the whole list to fit, and keeps the words that make it fire: a cut that
-// drops a pinned phrase fails here, so length is never bought out of the trigger.
+// The description is the trigger surface. Claude Code lists skills in a character budget of 1% of the
+// context window and, when the list overflows, "drops descriptions starting with the skills you invoke
+// least" (https://code.claude.com/docs/en/skills; DISC-351 finding 6), so a dropped skill has no trigger
+// words in context at all. The budget is shared with every other installed plugin, so no number here can
+// promise nothing is dropped: these checks hold this plugin's share small and keep the words that make
+// each skill fire, so length is never bought out of the trigger.
 export const DESCRIPTION_CHARS = 300;
-export const LISTING_CHARS = 12000;
+// This plugin's listing lines (`- discipline:<name>: <description>`), held at measured size: only shrinks.
+export const LISTING_CHARS = 11787;
 
 // skill (or agents/<name>.md) -> phrases that must survive in its description, case-insensitive.
 export const TRIGGER_PHRASES = {
   "agent-ops": ["skill", "agent charter", "eval gate"],
   "architect-systems": ["services, packages or modules", "dependency cycle"],
-  "audit-build": ["the blocks are off", "visual sign-off"],
+  "audit-build": ["the blocks are off", "visual sign-off", "diagnosing-bugs"],
   "banana": ["generate an image", "design a logo"],
   "brand-voice": ["page titles", "microcopy", "error messages"],
   "capture-figma": ["match the figma", "figma.com"],
   "capture-motion-source": ["Jitter", "Lottie", "animation"],
-  "capture-website": ["look at this site", "design reference"],
+  "capture-website": ["look at this site", "design reference", "capture-figma"],
   "cloud-dispatch": ["Claude cloud", "helper session"],
   "code-minimalism": ["abstraction", "more code than the task needs"],
-  "define-terms": ["two words name one idea", "just to be clear", "which part do you mean"],
+  "define-terms": ["two words name one idea", "just to be clear", "which part do you mean", "feedback row naming a part"],
   "design-craft": ["make it look right", "polish this UI"],
   "design-modules": ["how should we structure this", "where does this logic live", "interface"],
   "design-review": ["review the experience", "user-test this"],
   "design-system": ["JHD web UI", "tokens"],
-  "diagnosing-bugs": ["still broken", "intermittent", "flickers"],
+  "diagnosing-bugs": ["still broken", "intermittent", "flickers", "audit-build"],
   "discover-scope": ["new concept", "I'd like to explore"],
   "dispatch-brief": ["dispatch prompt"],
   "doc-formats": ["SCOPE", "DOCUMENTATION"],
   "grilling": ["grill this", "acceptance criteria"],
-  "handoff-to-code": ["handoff", "export says", "brownfield"],
+  "handoff-to-code": ["design-system-handoff.json", "Figma link to export", "consume or build from the handoff", "export says", "brownfield"],
   "issue-triage": ["there are discrepancies", "I noticed some issues"],
   "markup-standard": ["HTML", "alt text"],
   "media-loading": ["images or video", "blank"],
@@ -199,9 +201,10 @@ test(`every skill and agent description fits in ${DESCRIPTION_CHARS} characters`
   assert.deepEqual(over, [], `descriptions over ${DESCRIPTION_CHARS} characters`);
 });
 
-test(`the skill listing fits in ${LISTING_CHARS} characters, so no description is dropped`, () => {
-  const total = skillDocs().reduce((sum, { doc }) => sum + (descriptionOf(read(doc)) ?? "").length, 0);
-  assert.ok(total <= LISTING_CHARS, `skill descriptions total ${total} characters; the listing budget is ${LISTING_CHARS}`);
+test(`the plugin's skill listing stays within ${LISTING_CHARS} characters`, () => {
+  // One listing line per skill, as Claude Code prints it: prefix, name, description, newline.
+  const total = skillDocs().reduce((sum, { key, doc }) => sum + `- discipline:${key}: ${descriptionOf(read(doc)) ?? ""}`.length + 1, 0);
+  assert.ok(total <= LISTING_CHARS, `the plugin's listing lines total ${total} characters; its share is ${LISTING_CHARS}`);
 });
 
 test("every skill and agent keeps its pinned trigger phrases", () => {

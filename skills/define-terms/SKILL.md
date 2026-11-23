@@ -3,8 +3,8 @@ name: define-terms
 description: >-
   Use when two words name one idea or a term is fuzzy or colliding, or for "just
   to be clear", "what I mean by X is", "I've renamed X to Y", "which part do you
-  mean" or a naming dispute: settle the word in the CONTEXT.md glossary and record
-  ADRs.
+  mean", a feedback row naming a part, or a naming dispute: settle the word in the
+  CONTEXT.md glossary and record ADRs.
 ---
 
 # Define Terms

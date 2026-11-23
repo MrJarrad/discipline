@@ -3,7 +3,8 @@ name: diagnosing-bugs
 description: >-
   Use when a bug is still broken or not picking up, a first fix failed, it is
   intermittent or a perf regression, or any visual bug (disappears, flickers,
-  looks wrong): build a red-capable loop before any theory.
+  looks wrong): build a red-capable loop before any theory. A design-vs-build
+  mismatch is audit-build.
 ---
 
 # Diagnosing Bugs
