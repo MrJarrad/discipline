@@ -18,7 +18,7 @@ const RUN = { command: "node $P/hooks/scripts/lane-capacity.mjs --vault /v --pro
 const UNDER = "PF: 2 of 5 lanes running; 3 open agent rows\n  UNDER CAPACITY by 3: dispatch next\n  - PF-1 build the footer. Agent.\nUNDER CAPACITY: dispatch the rows above, or rerun with --reason";
 const FINE = "PF: 5 of 5 lanes running; 3 open agent rows\nAt capacity (or out of agent rows, or every gap reasoned).";
 
-function run(entries, { marker = null, stopActive = false, remote = "true", vault = true, fallback = false, mode } = {}) {
+function run(entries, { marker = null, stopActive = false, remote = "true", vault = true, fallback = false, local = false, mode } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "lcs-"));
   const transcript = join(dir, "t.jsonl");
   writeFileSync(transcript, entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
@@ -27,7 +27,8 @@ function run(entries, { marker = null, stopActive = false, remote = "true", vaul
   const v = join(dir, "vault"); mkdirSync(join(v, "projects"), { recursive: true });
   const env = { ...process.env, HOME: home, CLAUDE_CODE_REMOTE: remote };
   delete env.DISCIPLINE_VAULT_ROOT;
-  if (fallback) { const fb = join(home, "JHD", "vault", "main", "projects"); mkdirSync(fb, { recursive: true }); } else env.DISCIPLINE_VAULT_ROOT = vault ? v : "none";
+  if (local) mkdirSync(join(home, "JHD", "vault", "main", "projects"), { recursive: true });
+  if (fallback) { env.DISCIPLINE_CLOUD_VAULT = v; delete env.DISCIPLINE_VAULT_ROOT; } else if (local) delete env.DISCIPLINE_VAULT_ROOT; else env.DISCIPLINE_VAULT_ROOT = vault ? v : "none";
   if (mode) env.DISCIPLINE_OUTCOME_CHECKS = mode;
   const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: "s" }), env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
@@ -80,9 +81,13 @@ test("a turn started by a wake event (a CI-green event, a bot edit) is never hel
   assert.equal(run([user("go"), wake, said(STATUS)]), null);
 });
 
-test("DISC-351: with no env var the vault is found at ~/JHD/vault/main; the hold warns, and blocks in block mode", () => {
+test("DISC-351: the cloud clone is found with no env var and only warns; blocks in block mode", () => {
   const warned = run([user("how are we looking"), said(STATUS)], { fallback: true });
   assert.equal(warned.decision, undefined);
   assert.match(warned.systemMessage, /warn-only.*lane-capacity\.mjs/s);
   assert.equal(run([user("how are we looking"), said(STATUS)], { fallback: true, mode: "block" })?.decision, "block");
+});
+
+test("DISC-351: a vault at ~/JHD/vault/main with no env var blocks as it always did", () => {
+  assert.equal(run([user("how are we looking"), said(STATUS)], { local: true })?.decision, "block");
 });

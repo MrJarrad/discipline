@@ -70,14 +70,20 @@ test("CLI: blocks via JSON decision, allows when stop_hook_active or no vault", 
   assert.equal(JSON.parse(blocked.stdout).decision, "block");
   assert.equal(run({ transcript_path: tr, stop_hook_active: true }, { DISCIPLINE_VAULT_ROOT: v }).stdout, "");
   assert.equal(run({ transcript_path: tr }, { DISCIPLINE_VAULT_ROOT: "none" }).stdout, "");
-  // DISC-351: with no env var, the vault is found at ~/JHD/vault/main; the check warns, and blocks once the mode is block
+  // DISC-351: no env var -> ~/JHD/vault/main is found and blocks as before; the cloud clone only warns until the mode is block
   const home = mkdtempSync(join(tmpdir(), "nfys-home-"));
   mkdirSync(join(home, "JHD", "vault"), { recursive: true });
   cpSync(v, join(home, "JHD", "vault", "main"), { recursive: true });
-  const warned = JSON.parse(run({ transcript_path: tr }, { HOME: home }).stdout);
+  assert.equal(JSON.parse(run({ transcript_path: tr }, { HOME: home }).stdout).decision, "block");
+  const cloudEnv = { HOME: mkdtempSync(join(tmpdir(), "nfys-nohome-")), DISCIPLINE_CLOUD_VAULT: v };
+  const warned = JSON.parse(run({ transcript_path: tr }, cloudEnv).stdout);
   assert.equal(warned.decision, undefined);
   assert.match(warned.systemMessage, /warn-only.*omits open row/s);
-  assert.equal(JSON.parse(run({ transcript_path: tr }, { HOME: home, DISCIPLINE_OUTCOME_CHECKS: "block" }).stdout).decision, "block");
+  assert.equal(JSON.parse(run({ transcript_path: tr }, { ...cloudEnv, DISCIPLINE_OUTCOME_CHECKS: "block" }).stdout).decision, "block");
+  // an env var naming a directory with no projects/ still runs (older rule); an empty env var counts as unset
+  const bare = mkdtempSync(join(tmpdir(), "nfys-bare-"));
+  assert.ok(run({ transcript_path: tr }, { DISCIPLINE_VAULT_ROOT: bare }).status === 0);
+  assert.equal(JSON.parse(run({ transcript_path: tr }, { HOME: home, DISCIPLINE_VAULT_ROOT: "" }).stdout).decision, "block");
 });
 
 test("hooks.json wires the Stop event to this script", () => {

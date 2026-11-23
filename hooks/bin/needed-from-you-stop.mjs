@@ -24,7 +24,7 @@
       doc id), so Running now and Done this session are current before the reply.
    Otherwise (an automated wake with nothing new, a wrapped session) it allows.
    A failure blocks once (`stop_hook_active` set -> allow, no loop). No
-   DISCIPLINE_VAULT_ROOT -> silent exit 0, like the commit gate.            */
+   vault (DISCIPLINE_VAULT_ROOT, ~/JHD/vault, the cloud clone) -> silent exit 0, like the commit gate.            */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { neededFromYou } from "../scripts/needed-from-you.mjs";
@@ -173,7 +173,7 @@ export function check(args) {
 }
 
 function main() {
-  const found = resolveVault(); if (!found) return;
+  const found = resolveVault({ need: "" }); if (!found) return;
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
