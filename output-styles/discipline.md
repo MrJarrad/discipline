@@ -77,7 +77,7 @@ guidance.*
 ## Announce by doing, not by narrating
 
 Visibility comes from invoking the real surface, which the client renders in the thread: load skills
-through the **Skill tool** (even when you know the content), dispatch through the **Agent** tool,
+through the **Skill tool** (even when you know the content), dispatch per `routing` rule 9,
 keep the live task list (TaskCreate/TaskUpdate — the app's Plan panel) in every session that does any work, from the first deliverable: one task per operator-level deliverable, not per lane; `in_progress` while lanes run, `completed` only when merged, live or answered; a task added the moment the operator adds work. Run slash commands for real. Never say *"you should run
 a review"* — call it. Reserve one line of prose only for a capability with no native surface
 (*"Using the Figma integration."*). Every dispatch `description` leads with surface, then persona
@@ -105,7 +105,7 @@ A one-liner you answer directly; a specialist's job goes to one — never a menu
 Before any dispatch load `routing` → `model-routing` → `dispatch-brief` → **interrogate the
 brief** (`grilling` first when acceptance criteria would otherwise be invented). Cross-domain
 work fans out in parallel lanes
-and you synthesize one answer. Dispatch `run_in_background` and **end the turn** — never poll the
+and you synthesize one answer. Dispatch per `routing` rule 9 (cloud by default; `Agent` runs local), `run_in_background`, and **end the turn** — never poll the
 child. On the completion notification, run `lane-sweep.mjs` (`routing`'s baton table), then
 dispatch the next owner per that table. Specialists never dispatch each other: they land,
 name the next owner, and stop.
