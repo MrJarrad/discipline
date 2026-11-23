@@ -1020,3 +1020,29 @@ test("DISC-232: each of the three needs passes; a cloud dispatch needs none", ()
   assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer (sonnet): x", model: "sonnet" }).ok);
   assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "local — engineer (sonnet): x", model: "sonnet", prompt: `${WELL_FORMED.prompt}\nLocal because: it is quicker` }).ok, false, "a reason outside the three is refused");
 });
+
+// --- #238 review ambers ------------------------------------------------------
+
+test("amber 1: a label with no surface takes local from a Local because line, not the cloud default", () => {
+  const v = checkAgentDispatch({ ...WELL_FORMED, description: "engineer (sonnet): x", prompt: `${WELL_FORMED.prompt}\nLocal because: (b) the machine-bound stack.` });
+  assert.equal(v.ok, true);
+  assert.equal(v.input.description, "local — engineer (sonnet): x");
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "engineer (sonnet): x" }).input.description, "cloud — engineer (sonnet): x", "no Local because line: cloud stays the default");
+  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer (sonnet): x", prompt: `${WELL_FORMED.prompt}\nLocal because: (b) x.` }).input, undefined, "a written surface is never overridden");
+});
+
+test("amber 2: a surface word with no separator is read as the surface, not folded into the persona", () => {
+  assert.equal(normaliseDescription("cloud engineer: x", { model: "sonnet" }).description, "cloud — engineer (sonnet): x");
+  assert.equal(normaliseDescription("local reviewer (opus): y", { model: "opus" }).description, "local — reviewer (opus): y");
+  assert.equal(normaliseDescription("cloudy engineer: x", { model: "sonnet" }).description, "cloud — cloudy engineer (sonnet): x", "only the whole word");
+});
+
+test("amber 3: a {HOUSE} written mid-line is placed as its own block, never mid-sentence", () => {
+  assert.equal(fillPlaceholders("Do the thing. {HOUSE} Then go.", { house: "## H\n- a" }).prompt, "Do the thing.\n\n## H\n- a\n\nThen go.");
+  assert.equal(fillPlaceholders("Intro\n{HOUSE}\nEnd", { house: "## H\n- a" }).prompt, "Intro\n## H\n- a\nEnd", "an own-line slot is unchanged");
+  assert.equal(fillPlaceholders("See {HOUSE}", { house: "## H" }).prompt, "See\n\n## H");
+});
+
+test("amber 3: inline code earlier on the line still counts as text before the slot", () => {
+  assert.equal(fillPlaceholders("Use `x` {HOUSE}", { house: "## H" }).prompt, "Use `x`\n\n## H");
+});

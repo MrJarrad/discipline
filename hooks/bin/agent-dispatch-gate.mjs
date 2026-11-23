@@ -64,20 +64,26 @@ const SURFACE_SEP = /^\s*([A-Za-z]+)\s*(?:—|–|--|(?<=\s)-)\s*/;
 /* Rebuilds a dispatch label as `surface — persona (model): task`. Returns { description } when it is
    already canonical, { description, fixed: true } when rebuilt, or { description, warning } (unchanged)
    when it cannot be rebuilt: an unknown surface word, no task, or no persona/model to fill from.
-   `persona` is the fallback when the label names none (an Agent call's subagent_type; null for Bash). */
-export function normaliseDescription(description = "", { model = "", persona = null } = {}) {
+   `persona` is the fallback when the label names none (an Agent call's subagent_type; null for Bash).
+   `surface` is the default when the label names none: `local` when the brief carries a `Local because:`
+   line, else `cloud` (#238 review amber 1). */
+export function normaliseDescription(description = "", { model = "", persona = null, surface: defaultSurface = "cloud" } = {}) {
   const d = String(description).trim();
   const m0 = String(model || "").trim();
   const shape = DESCRIPTION_SHAPE.exec(d);
   if (shape && (!m0 || shape[3].trim() === m0)) return { description: d };
-  let surface = "cloud";
+  let surface = defaultSurface;
   let rest = d;
   const sep = SURFACE_SEP.exec(d);
+  const bare = /^(cloud|local)\s+(?=\S)/i.exec(d); // `cloud engineer: x` — the surface with no separator (amber 2)
   if (sep) {
     const word = sep[1].toLowerCase();
     if (word !== "cloud" && word !== "local") return { description: d, warning: `unknown surface "${sep[1]}"; expected cloud or local` };
     surface = word;
     rest = d.slice(sep[0].length);
+  } else if (bare) {
+    surface = bare[1].toLowerCase();
+    rest = d.slice(bare[0].length);
   }
   const parts = /^([^():]*?)\s*(?:\(([^()]*)\))?\s*:\s*([\s\S]*)$/.exec(rest);
   const named = parts ? parts[1].trim() : "";
@@ -720,14 +726,25 @@ export function fillPlaceholders(prompt = "", { house = houseRulesBlock() } = {}
   if (!checkUnfilledPlaceholders(text)) return { prompt: text, filled: [] };
   if (house == null) return { prompt: text, warning: "{HOUSE} left unfilled: HOUSE-RULES.md could not be read" };
   const sources = { HOUSE: house.replace(/\s+$/, "") };
-  const fillProse = (s) => s.replace(new RegExp(PLACEHOLDER.source, "g"), (_, slot) => sources[slot]);
+  // A slot alone on its line is replaced in place; one sharing its line with text becomes its own block (#238 amber 3).
+  // The line is read in the whole brief (`base` is the segment's offset), so code on the same line counts as text.
+  const fillProse = (s, base) =>
+    s.replace(new RegExp(`([^\\S\\n]*)${PLACEHOLDER.source}([^\\S\\n]*)`, "g"), (m, _pre, slot, _post, at) => {
+      const start = base + at;
+      const end = start + m.length;
+      const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+      const lineEnd = text.indexOf("\n", end);
+      const textBefore = text.slice(lineStart, start).trim() !== "";
+      const textAfter = text.slice(end, lineEnd === -1 ? text.length : lineEnd).trim() !== "";
+      return (textBefore ? "\n\n" : "") + sources[slot] + (textAfter ? "\n\n" : "");
+    });
   let out = "";
   let last = 0;
   for (const m of text.matchAll(CODE_REGION)) {
-    out += fillProse(text.slice(last, m.index)) + m[0];
+    out += fillProse(text.slice(last, m.index), last) + m[0];
     last = m.index + m[0].length;
   }
-  out += fillProse(text.slice(last));
+  out += fillProse(text.slice(last), last);
   return { prompt: out, filled: Object.keys(sources) };
 }
 
@@ -807,7 +824,11 @@ export function checkAgentDispatch(toolInput = {}, { now = Date.now(), house } =
   const original = { description: String(toolInput.description ?? ""), prompt: String(toolInput.prompt ?? "") };
   let { description, prompt } = original;
 
-  const label = normaliseDescription(description, { model, persona: String(subagentType || "general-purpose").split(":").pop() });
+  const label = normaliseDescription(description, {
+    model,
+    persona: String(subagentType || "general-purpose").split(":").pop(),
+    surface: LOCAL_BECAUSE.test(prompt) ? "local" : "cloud",
+  });
   if (label.fixed) {
     notes.push({ kind: "fixed", item: "description", text: `${JSON.stringify(description)} → ${JSON.stringify(label.description)}` });
     description = label.description;
