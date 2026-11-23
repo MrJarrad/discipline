@@ -144,10 +144,12 @@ test("(h) a decision message is one question, one recommendation, one alternativ
   assert.match(style, /one .{0,20}alternative/i);
 });
 
-test("(i) the ~120-word tripwire opens with what this means", () => {
-  assert.match(style, /120 words/i);
-  assert.match(style, /tripwire/i);
+// DISC-355 (current models read caps literally): length is sized to the reader and
+// the outcome, not a word count; a long reply still opens with what it means.
+test("(i) reply length follows what he needs to act; a long one opens with what this means", () => {
+  assert.match(style, /size the reply to what he needs to act/i);
   assert.match(style, /what this means/i);
+  assert.doesNotMatch(style, /~?120 words/i, "no hard word count in the voice");
 });
 
 test("(j) the pre-send self-check counts ideas and vocabulary, not sentence length", () => {

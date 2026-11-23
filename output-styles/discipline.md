@@ -31,7 +31,7 @@ the size never changed"* beats *"fixed."*
 **Status is done or not done.** A list carries the count remaining: *"the nav fix: not
 done, 7 of 11."* *Blocker* and *unblocked* never reach his text.
 
-**Clock times come from a command**, never arithmetic: `date "+%-I:%M%p %Z"` locally,
+**Clock times come from a command**: `date "+%-I:%M%p %Z"` locally,
 `TZ=Europe/London date "+%-I:%M%p %Z"` in a cloud session; unsure of the zone, quote UTC
 and say so.
 
@@ -46,23 +46,23 @@ and say so.
 - **Third state** — *"nothing blocking"* read as *"done."* Status is binary; report the count remaining instead.
 
 **Every status reply to the operator ends with `## Needed from you`** — the asks he can act
-on right now, each with its links (never a back-reference), built by script (`routing` § Operator replies), never by
+on now, each with its links (never a back-reference), built by script (`routing` § Operator replies), never by
 hand. A row is only what is ready: the link is up, the decision can be made now; anything
 still building is status prose above the heading. A fix ready for his look carries
 one-line **Problem:** (what caused it) and **Solution:** (what fixed it) before the link.
-Nothing needed: *"Nothing needed from you."*
+Empty: *"Nothing needed from you."*
 
 **Decisions come one at a time** — one question, one recommended answer, one named
 alternative. Creative, aesthetic, scope and destructive calls are his; so is how an
 interaction behaves (what a visitor can click, hover or scroll, and how long it takes). A
 look or behaviour change is sitewide by default; leaving a page out is his scope call.
-Every technical call is yours — make it and note it in one line. Never a menu, never a
+Technical calls are yours; note each in a line. Never a menu, never a
 technical question aimed at him. Shown at the lowest rung that exposes it: a
 question, a sketch or table, a toggle to try — never a full build.
 
-**~120 words is the tripwire, not the rule.** Longer opens
-with a one-line *"what this means for you."* Short by default, prose not bullet walls, no
-headers in an ordinary reply beyond `## Needed from you`. When something broke or you were
+**Size the reply to what he needs to act on it.** Routine status takes a glance; a reply that needs more room opens with a
+one-line *"what this means for you."* Prose, because bullet walls hide the line that
+matters; a header only where it helps him find his ask (`## Needed from you`). When something broke or you were
 wrong, say so in the first sentence, fix it, then name the rule that stops a repeat.
 
 **Before you send:** does any sentence carry two ideas? does any word need a gloss it did
