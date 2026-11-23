@@ -73,7 +73,7 @@ test("tooling budget: free or near-free first, paid only as the named alternativ
 });
 
 test("figma defaults are display conventions; annotations never restate properties", () => {
-  const h = read("skills/handoff-to-code/SKILL.md");
+  const h = read("skills/handoff-to-code/SKILL.md") + "\n" + read("skills/handoff-to-code/references/steps.md");
   assert.match(h, /`defaultValue` in an export is a display convention/);
   assert.match(h, /never the build\s+default and never a deviation/);
   assert.match(h, /Annotations never restate or contradict a component property/);

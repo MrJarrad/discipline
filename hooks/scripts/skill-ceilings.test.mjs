@@ -44,6 +44,7 @@ const CEILINGS = [
   { skill: "nextjs", ceiling: 1200, before: 2082 },
   { skill: "prompt-craft", ceiling: 1200, before: 1811 },
   { skill: "issue-triage", ceiling: 1200, before: 1693 },
+  { skill: "handoff-to-code", ceiling: 1500, before: 4122 }, // byte copy of handoff-css: trimmed there, re-vendored here
 ];
 
 for (const { skill, ceiling, before } of CEILINGS) {
@@ -80,7 +81,6 @@ for (const { skill, ceiling, before } of CEILINGS) {
 
 // Ratchet ceilings: bodies over 1,500 words that never offloaded, held at their measured size (target 1,500, DISC-351).
 const RATCHETS = [
-  { skill: "handoff-to-code", ceiling: 4122 }, // byte copy of handoff-css; it is trimmed there, never here
   { skill: "capture-website", ceiling: 1737 },
   { skill: "media-loading", ceiling: 1640 },
   { skill: "model-routing", ceiling: 1751 },
@@ -105,9 +105,6 @@ for (const { skill, ceiling } of RATCHETS) {
 // drops a pinned phrase fails here, so length is never bought out of the trigger.
 export const DESCRIPTION_CHARS = 300;
 export const LISTING_CHARS = 12000;
-// handoff-to-code is a byte copy of handoff-css's dist skill (handoff-to-code-mirror.test.mjs);
-// its description is cut there and re-vendored, never edited here.
-const DESCRIPTION_EXCEPTIONS = new Set(["handoff-to-code"]);
 
 // skill (or agents/<name>.md) -> phrases that must survive in its description, case-insensitive.
 export const TRIGGER_PHRASES = {
@@ -131,7 +128,7 @@ export const TRIGGER_PHRASES = {
   "dispatch-brief": ["dispatch prompt"],
   "doc-formats": ["SCOPE", "DOCUMENTATION"],
   "grilling": ["grill this", "acceptance criteria"],
-  "handoff-to-code": ["handoff"],
+  "handoff-to-code": ["handoff", "export says", "brownfield"],
   "issue-triage": ["there are discrepancies", "I noticed some issues"],
   "markup-standard": ["HTML", "alt text"],
   "media-loading": ["images or video", "blank"],
@@ -197,7 +194,6 @@ const agentDocs = () =>
 
 test(`every skill and agent description fits in ${DESCRIPTION_CHARS} characters`, () => {
   const over = [...skillDocs(), ...agentDocs()]
-    .filter(({ key }) => !DESCRIPTION_EXCEPTIONS.has(key))
     .map(({ key, doc }) => ({ key, length: (descriptionOf(read(doc)) ?? "").length }))
     .filter(({ length }) => length > DESCRIPTION_CHARS);
   assert.deepEqual(over, [], `descriptions over ${DESCRIPTION_CHARS} characters`);

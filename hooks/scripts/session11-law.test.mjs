@@ -15,7 +15,7 @@ test("merge-each-approved-round: a round ends at its merge; stacking is malforme
 });
 
 test("figma-aspect-lock-is-ratio: a locked aspectRatio builds the ratio, never the height", () => {
-  assert.match(read("skills/handoff-to-code/SKILL.md"), /locked `aspectRatio` builds the ratio, never the fixed height/);
+  assert.match(read("skills/handoff-to-code/SKILL.md") + "\n" + read("skills/handoff-to-code/references/steps.md"), /locked `aspectRatio` builds the ratio, never the fixed height/);
   assert.match(read("skills/handoff-to-code/references/schema-v9-hints.md"), /figma-aspect-lock-is-ratio-2026-10-06[\s\S]*never the literal height/);
 });
 

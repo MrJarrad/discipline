@@ -40,6 +40,11 @@ from the one the need asked for; the report says which, and a `use` row binds a 
 [--out <dir>] [--json]` writes `ramp-proposal.json` (a patch) and `ramp-proposal.md`, and writes nothing into
 the design file. `--for` and `--on` each name a variable the export has, in full (the full names are in `system-profile.json`); none is inferred, and a name the export lacks exits 1.
 
+**From a brand palette.** With no system and only a brand book's colours, `handoff-css ramp --from-palette
+<name>=<#hex>… [--feedback-tolerance <degrees>] [--no-add-feedback] [--pin-end]` lists the ramps the system needs (one per
+brand colour, a neutral, a ramp for each feedback role no brand hue covers) with each hex's step. It writes nothing; the
+ramp names and which uncovered feedback ramps to add go to the designer as one question with its output as the recommendation.
+
 **The name.** The ramp's name is the designer's (`--name`) or generated; `nameSource` in the proposal records
 which. The question is in 3b.
 
@@ -56,6 +61,38 @@ values, then the semantic aliases. Add; never rewrite or remove a variable the d
 
 **After.** Each written ramp is a row in the deviation table, "written, read back".
 
-## Later: components and blocks
+## Components
 
-Reuse-before-add for components and blocks is not covered here yet.
+Step 3c is the same rule for components and blocks. `handoff-css components --export <layer export .json|.json.gz>…
+[--ds-export <design-system-handoff>.json…] [--need <needs.json> [--rulings <md>]] [--out <dir>] [--json]`. With no `--need` it writes `component-profile.json`
+and `component-profile.md` (`--check` reports drift). With `--need` it writes `component-resolve-report.json` and
+`.md`; exit 0 when every need is settled, 2 when one is open, 1 on an input error.
+
+A layer export lists the components its layers use and define. It is not the library's inventory: the profile says
+how many it has seen "of an unknown total". With `--ds-export`, `--need` also ranks against every component that export
+lists (a library component no layer places can be `REUSE`, `PROP_GAP` or the nearest `SIBLING`; its row says so); without
+it, only the components the layer exports use. When the need is a new component, ask the designer to confirm it does not
+exist before the question is put as a new one.
+
+A need is `{ "id", "name"?, "wants"? }` with at least one of `name`, `wants`. `wants.props` maps a property name to
+the value the build sets; `wants.children` lists component names a composition is made of.
+
+| Verdict | Means | Your move |
+| --- | --- | --- |
+| `REUSE` | the component exists and every wanted setting is its default (or none is wanted) | build it as it is |
+| `REUSE_WITH_PROP` | it exists and every wanted property and value is one it has | build it; `set` lists the properties to set |
+| `PROP_GAP` | it exists but a wanted property, or a value for a variant or boolean, is not there | one question: extend this component (never a new one) |
+| `SIBLING` | no component of that name; the nearest shares part of the name | one question, the nearest as the recommendation |
+| `COMPOSE` | no single component fits; every wanted child exists | build from them; ask whether the composition becomes a named block |
+| `NEW_COMPONENT` | nothing fits | one question, with `pattern`: how this system names components, the properties it recurs, the tiers it shows |
+| `RULED` | a ruling row settles it | build what the ruling says |
+| `RULING_STALE` | a `use` ruling names a component the exports no longer have | ask again |
+
+Rulings use the table `match` reads, with kind `resolve-component`, `figma` the need id, and ruling `use` (an
+existing component in `code`), `new` (the designer approved the new component, name in `code`) or `skip`. A `new`
+row reads `REUSE` once the exports have a component of that name.
+
+`pattern` is observed, not a rule: which tier a new component belongs to, and whether it takes a category prefix,
+is the designer's call. A text, number or instance-swap property accepts any value; a variant property accepts only
+the options it lists; a boolean accepts `true` or `false`. A property name the need asks for that the component lacks
+is a `PROP_GAP` even when another component has it.

@@ -13,7 +13,8 @@ const read = (p) => readFileSync(join(root, p), "utf8");
 const flat = (p) => read(p).replace(/\s+/g, " ");
 
 test("0.12.1: the export-set step names the vendor command, never a copy into latest/", () => {
-  const s = flat("skills/handoff-to-code/SKILL.md");
+  // Step 1 in full lives in references/steps.md since the DISC-351 s8 split (handoff-css #92).
+  const s = flat("skills/handoff-to-code/references/steps.md");
   assert.ok(s.includes("`handoff-css vendor <export>.json [<export>.md] --into design/handoff`"));
   assert.ok(s.includes("never copied into `latest/`, which writes through the link into the version it points at"));
 });
@@ -24,8 +25,9 @@ test("0.12.1: references/export-set.md carries the vendoring section and the sta
   assert.ok(r.includes("Given no `.md`, the old one is left behind, not carried beside the new JSON."));
 });
 
-test("the mirror pins the handoff-css commit that carries this copy", () => {
-  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "c47bc24212e4b8507b4473c3c76c38cb70c1ec97"/);
+test("the mirror pins a full handoff-css commit, never a branch or a short sha", () => {
+  // Which commit is the mirror test's own business (it byte-compares at that ref); this pins only its shape.
+  assert.match(read("hooks/scripts/handoff-to-code-mirror.test.mjs"), /process\.env\.HANDOFF_CSS_REF \|\| "[0-9a-f]{40}"/);
 });
 
 test("release: 1.160.0 has its CHANGED.txt entry with the encoded line", () => {
