@@ -3,7 +3,7 @@
 // Run: node --test hooks/bin/commit-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -300,6 +300,33 @@ test("an absent vault root warns and skips rather than blocking the release", ()
     assert.equal(result.stdout, "", "absent vault must not deny the commit");
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DISC-351: with no env var, an unclean ledger at ~/JHD/vault/main denies the release as it always did", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const home = mkdtempSync(join(tmpdir(), "commit-gate-home-"));
+  const vault = makeVault("queued");
+  mkdirSync(join(home, "JHD", "vault"), { recursive: true });
+  cpSync(vault, join(home, "JHD", "vault", "main"), { recursive: true });
+  try {
+    const r = runGate(dir, 'git commit -m "release: 1.73.0"', { HOME: home, DISCIPLINE_VAULT_ROOT: "" });
+    assert.match(r.stdout, /Lesson-ledger gate/);
+  } finally {
+    for (const p of [dir, home, vault]) rmSync(p, { recursive: true, force: true });
+  }
+});
+
+test("DISC-351: the cloud clone's ledger is read with no env var; an unclean ledger warns, and denies in block mode", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const home = mkdtempSync(join(tmpdir(), "commit-gate-nohome-"));
+  const vault = makeVault("queued");
+  const env = { HOME: home, DISCIPLINE_VAULT_ROOT: "", DISCIPLINE_CLOUD_VAULT: vault };
+  try {
+    assert.equal(runGate(dir, 'git commit -m "release: 1.73.0"', env).stdout, "", "warn-only: the release is not denied");
+    assert.match(runGate(dir, 'git commit -m "release: 1.73.0"', { ...env, DISCIPLINE_OUTCOME_CHECKS: "block" }).stdout, /Lesson-ledger gate/);
+  } finally {
+    for (const p of [dir, home, vault]) rmSync(p, { recursive: true, force: true });
   }
 });
 

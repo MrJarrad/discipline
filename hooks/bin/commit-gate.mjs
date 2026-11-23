@@ -45,6 +45,7 @@ import {
   topChangedEntry,
 } from "../scripts/lesson-ledger.mjs";
 import { runTypecheckSync } from "./run-typecheck.mjs";
+import { resolveVault, stopVerdict, CLOUD_VAULT } from "../scripts/lib/resolve-vault.mjs";
 
 function readHookInput() {
   try { return JSON.parse(readFileSync(0, "utf8") || "{}"); }
@@ -297,11 +298,11 @@ if (bumpedTo) {
 
 if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
   if (bumpedTo) {
-    let vaultRoot = process.env.DISCIPLINE_VAULT_ROOT;
-    if (!vaultRoot) vaultRoot = join(homedir(), "JHD", "vault", "main");
-    if (!existsSync(vaultRoot)) {
+    const found = resolveVault({ need: "" });
+    const vaultRoot = found?.root;
+    if (!found) {
       console.error(
-        `Lesson-ledger gate: vault root ${vaultRoot} is absent (cloud runner?) — skipping the ` +
+        `Lesson-ledger gate: no vault found (DISCIPLINE_VAULT_ROOT, ~/JHD/vault, ${CLOUD_VAULT}) — skipping the ` +
         `ledger check for release ${bumpedTo}. Set DISCIPLINE_VAULT_ROOT to gate on a vault elsewhere.`,
       );
     } else {
@@ -314,10 +315,10 @@ if (process.env.DISCIPLINE_LEDGER_GATE !== "0") {
       }
       const ledger = lintLessonLedger(vaultRoot, { release: bumpedTo, namedRulings });
       if (!ledger.ok) {
-        deny(
-          `Lesson-ledger gate: release ${bumpedTo} cannot ship while the ledger is unclean — ` +
-          `lessons ship or say why not.\n${formatLedgerReport(ledger, vaultRoot)}`,
-        );
+        const msg = `Lesson-ledger gate: release ${bumpedTo} cannot ship while the ledger is unclean — ` +
+          `lessons ship or say why not.\n${formatLedgerReport(ledger, vaultRoot)}`;
+        if (stopVerdict(msg, found.via).decision === "block") deny(msg);
+        else console.error(`[warn-only, DISC-351: this gate blocks from the next release] ${msg}`);
       }
     }
   }
