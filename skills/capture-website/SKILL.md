@@ -3,7 +3,7 @@ name: capture-website
 description: >-
   Use for "look at this site", "like pentagram does", any external URL given as a
   design reference, or a layout or motion claim to check: capture pixels, tokens,
-  geometry and motion into a folder agents can read. A Figma file is
+  geometry and motion into a folder agents read. A Figma file is
   capture-figma; a motion file is capture-motion-source.
 ---
 

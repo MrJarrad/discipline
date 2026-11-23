@@ -3,7 +3,7 @@ name: design-modules
 description: >-
   Use for how should we structure this, where does this logic live, one module or
   two, what the interface between them is, a new module, or a shallow pass-through
-  in review: deep modules with small interfaces and clean seams. System splits are
+  in review: deep modules, small interfaces, clean seams. System splits are
   architect-systems.
 ---
 
