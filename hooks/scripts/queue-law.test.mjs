@@ -2536,12 +2536,6 @@ test("discipline.md: the Problem/Solution rule quotes the operator's own words",
   assert.match(doc, /`2026-09-25-fix-asks-problem-solution`/); // DISC-351 s6: the quote moved to that ruling
 });
 
-test("discipline.md still fits its 132-line phone-read budget", () => {
-  const lines = read("skills/routing/references/OPERATOR-REPLIES.md").trimEnd().split("\n").length;
-  assert.ok(lines <= 132, `style is ${lines} lines; budget is 132`);
-  const words = read("skills/routing/references/OPERATOR-REPLIES.md").split(/\s+/).filter(Boolean).length;
-  assert.ok(words <= 2255, `OPERATOR-REPLIES is ${words} words; DISC-351 s6 budget is 2255 (was 2924)`);
-});
 
 // --- present-for-review: the operator message example -----------------------
 

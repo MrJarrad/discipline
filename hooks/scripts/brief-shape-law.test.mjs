@@ -90,59 +90,7 @@ test("the one rule is the contract pointer", () => {
   );
 });
 
-// Ceiling raised 200 -> 210 at 1.92.0: Changes 3 and 4, plus the parent's
-// ledger-block ruling answering hoverboard-rounds-14-15 items 1 and 3 —
-// real growth (runtime-proof bullet, dispatch-time-stamp/15-min sentence,
-// deployed-link-timing bullet, gate-run-lane bullet).
-// Ceiling raised 210 -> 215 at 1.93.0: `scripts-not-agents`'s mechanical-first
-// principle, a new first bullet of § You are the doer.
-// Ceiling raised 215 -> 245 at 1.94.0: row 130 items 3/5/8 — the "already
-// satisfied" reproduction rule, the diff-scoped literal gate line, and a new
-// § CI section encoding `2026-09-23-ci-shape` — three real, distinct rules
-// with nothing left to offload (doer-rules.md has no references/ dir).
-// Ceiling raised 245 -> 246 at 1.94.0 (same release, round 3 fix): the
-// prototype-lane bullet gained "no suite in bake/ladder briefs themselves"
-// (operator "go", one more fix) — one clause, no room left to trim.
-// Ceiling raised 246 -> 256 at 1.95.0: `lanes-survive-interruption` added the
-// milestone-is-a-progress-line-AND-a-WIP-commit rule — real growth, no
-// references/ dir to offload into.
-// Ceiling raised 256 -> 270 at 1.98.0: `progress-hooks` added the step-number
-// line format plus both mechanical clock checks (doer-side hook, parent-side
-// watcher script) — real growth, no references/ dir to offload into.
-// Ceiling raised 270 -> 281 at 1.99.0: three hoverboard lessons encoded —
-// the "pre-existing" claim proven against main (never a branch ancestor),
-// a lane never working inside the operator's own viewer checkout regardless
-// of which port serves it, and the parent reading the table rather than the
-// doer's own summary before relaying a number — real growth, no references/
-// dir to offload into.
-// Ceiling raised 281 -> 302 at 1.102.0: the lesson rollout (2026-10-01) encoded
-// mid-run messages, fresh restart after a drop, kill-by-name, parallel ports and
-// law tests, second-party "pre-existing", merged-is-not-on-main, empty-CI — each a
-// line or two, consolidated into the nearest existing bullet where one existed.
-// Ceiling raised 302 -> 306 at 1.106.0: the own-phone-layout check (queue 323,
-// `phone-layout-forgotten`) sits in Ports, the section the doer reads at that moment.
-// Ceiling raised 308 -> 314 at 1.113.0 (look-lane link gate bullet, one-shot-defect-rounds-2026-10-07).
-// Ceiling raised 306 -> 308 at 1.107.0: the cloud `--frozen-lockfile` / lockfile-never-committed
-// rule (`cloud-pnpm-install-rewrites-lockfile`) sits in Repo and safety beside the pnpm `file:` bullet.
-// Ceiling raised 314 -> 317 at 1.114.0: the re-stamp-keeps-the-encoder bullet (session-13b item 4)
-// sits in Repo and safety beside the gate-fixture bullet, the moment a doer re-bakes.
-// Ceiling raised 317 -> 318 at 1.134.0: the row-add bullet (DISC-167) sits in Repo and safety.
-// Ceiling raised 318 -> 319 at 1.135.0: the idea-is-a-row bullet (DISC-168) sits beside the row-add bullet.
-// Raised 322 -> 325 at 1.140.0: the never-author-the-operator's-words bullet (DISC-173) and the one-format gate-tail clause (DISC-172).
-// Raised 319 -> 322 at 1.137.0: the bounded-wait example (sleep refused, Monitor absent) sits in the no-polling bullet.
-// Raised 330 -> 334 at 1.163.0: the read-notifications-between-steps bullet (s44 lesson 3).
-// Raised 325 -> 330 at 1.142.0: the automation-scope bullet and the red-build/unexplained-failure bullet (records 2026-10-08 agent-automation, look-yes-merge).
-test("doer-rules.md stays under its 334-line ceiling", () => {
-  const lines = doerRules.trimEnd().split("\n").length;
-  assert.ok(lines <= 334, `doer-rules.md is ${lines} lines; the ceiling is 334`);
-});
-
-// DISC-351 s6: one line per rule, histories in the vault; 4,823 -> 3875 words.
-test("doer-rules.md stays under its 3875-word budget", () => {
-  const words = doerRules.split(/\s+/).filter(Boolean).length;
-  assert.ok(words <= 3885, `doer-rules.md is ${words} words; the budget is 3885`);
-});
-
+// Word and line budgets: skill-ceilings.test.mjs BUDGETS.
 test("doer-rules carries the four standing sections", () => {
   for (const heading of [
     "## You are the doer",

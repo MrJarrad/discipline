@@ -57,7 +57,3 @@ test("#187 notes: fromDocsRead decodes &amp;#39; and keeps link urls when stripp
   assert.ok(out.includes("https://a.example/x") && out.includes("https://a.example/y"), out);
 });
 
-test("DISC-351 s6: HARD-RULES stays within its word budget (one line per rule, histories in the vault)", () => {
-  const words = readFileSync(join(root, "skills/routing/references/HARD-RULES.md"), "utf8").split(/\s+/).filter(Boolean).length;
-  assert.ok(words <= 6099, `HARD-RULES is ${words} words; budget is 6099 (was 8,651 before DISC-351 s6)`);
-});

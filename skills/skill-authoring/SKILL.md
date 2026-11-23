@@ -131,13 +131,12 @@ User-invoked orchestrators call model-invoked primitives via explicit load instr
 
 ## Lesson intake
 
-A lesson lands as **one commit** carrying all five: the rule ≤ 80 words placed at the acting
-moment (the section the reader is in when the decision is made, not an appendix); a DO/DON'T
-pair; one verbatim assertion in a `*-law.test.mjs`; a `CHANGED.txt` line; and `encoded: <ver>`
-set on the vault lesson or ruling. Fewer than five is a lesson written, not shipped.
+One commit per lesson, room made before the rule is added:
 
-- **DO:** rule in `doer-rules.md`'s Ports section + DO/DON'T + `dispatch-law.test.mjs` assertion + CHANGED line + `encoded: 1.73.0`
-- **DON'T:** a fleet lesson file with a good rule in it and nothing in the plugin
+1. **Make room** — retire or shorten the rule it replaces, or fit under its file's budget (`skill-ceilings.test.mjs`); raising a budget is a scope call. A case an existing rule covers sharpens it.
+2. **Place** it at the acting moment, ≤ 80 words, for behaviour seen in a real run, with a reason, not an incident ID.
+3. **Test behaviour** — a rule a hook or script enforces gets a test that runs it; a judgement rule gets no sentence pin.
+4. **Record** — `CHANGED.txt` names what was added and retired; `encoded: <ver>` on the vault lesson.
 
 ## Checklist before shipping a skill
 
@@ -149,8 +148,7 @@ set on the vault lesson or ruling. Fewer than five is a lesson written, not ship
 [ ] Positive framing; negation only with paired positive target
 [ ] Invocation choice explicit: model vs operator-only
 [ ] Environment not restated when lookup is cheap
-[ ] Lesson intake complete: rule at the acting moment, DO/DON'T pair, verbatim law assertion,
-    CHANGED line, `encoded:` set — one commit
+[ ] Lesson intake: room made, behaviour tested, CHANGED + `encoded:`
 ```
 
 ## Relationship to siblings

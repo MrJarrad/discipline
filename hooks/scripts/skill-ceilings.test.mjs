@@ -1,18 +1,10 @@
-// Word ceilings on the skills that had grown past reading. Proven twice in
-// 1.77.0-1.79.0: when a SKILL.md gets long enough, the doer stops reading the
-// source file and works from a summary of it — dispatch-brief went 4,612 → 847
-// words and the behaviour changed. The cure is offload, never deletion: the
-// SKILL.md keeps the trigger, the one rule per section, the decision points and
-// the pointers; procedure, worked examples and history move whole into
-// `references/*.md` the skill names.
+// Word budgets. Every rule a session reads costs attention on every turn it is loaded, and a long file is read as a
+// summary of itself. So each budgeted file only shrinks: a new rule fits under its file's number by retiring or
+// shortening another (skill-authoring § Lesson intake). Raising a number is a scope call, recorded as one line beside it
+// with the rule it carries; the history of earlier numbers is git log, never a comment here.
 //
-// The ceiling is on the BODY — the file minus its YAML frontmatter — because the
-// frontmatter is the trigger surface and is pinned separately (routing and the
-// frontmatter check own it), so it must never be squeezed to buy body room.
-//
-// A skill at a ceiling must also HAVE a references/ directory: passing by
-// deletion is the failure this test exists to catch, so the offload target has to
-// exist. Whether a given sentence survived the move is the law tests' job.
+// Bodies are measured without YAML frontmatter: the frontmatter is the trigger surface and is pinned separately below.
+// A skill under a ceiling must have a references/ directory holding what left the body (offload, never deletion).
 // Run: node --test hooks/scripts/skill-ceilings.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -41,58 +33,13 @@ const pathsFor = (skill) =>
     : { doc: `skills/${skill}/SKILL.md`, references: join(repo, "skills", skill, "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "skills", skill, rel) };
 
 const CEILINGS = [
-  // Ceiling raised 1200 -> 1250 at 1.85.0: the coverage-ledger pointer
-  // (`accuracy-before-the-link`) added one rule paragraph; the rule itself lives
-  // in qa-acceptance, only the pointer is here.
-  // Ceiling raised 1250 -> 1324 at 1.143.0 (body 1244 -> 1324, measured 2026-10-17): DISC-184 no-export
-  // section (annotations, interactions, props live; export annotation spot check) and the
-  // cloud REST route in the "who runs this" line. The call table lives in LANES-AND-TOOLS.md.
   { skill: "capture-figma", ceiling: 1324, before: 9578, frontmatterWords: 123 },
-  // Ceiling raised 1150 -> 1200 at 1.86.0: load-order step 5 (`brief-is-the-lever`)
-  // added one line naming the interrogation step; the rule itself lives in
-  // dispatch-brief, only the load-order pointer is here.
-  // Ceiling raised 1200 -> 1250 at 1.87.0: the doer read-back added the
-  // Resume-vs-fresh exception and a baton-table row (`sonnet-default-ceiling` queue).
-  // Ceiling raised 1250 -> 1350 at 1.89.0: `proportionality` added the
-  // CI-once/parent-sweep hard rule and a baton-table row.
-  // Ceiling raised 1350 -> 1400 at 1.92.0: `lane-progress-file` sharpened
-  // (Change 4) added a 15-minute baton-table row alongside the existing
-  // 30-minute one.
-  // Ceiling raised 1400 -> 1450 at 1.93.0: `scripts-not-agents` added a
-  // baton-table row pointing at the four mechanical scripts, offloaded to
-  // references/MECHANICAL-SCRIPTS.md.
-  // Ceiling raised 1450 -> 1560 at 1.95.0: `lanes-survive-interruption` added
-  // a Resume-vs-fresh paragraph plus a baton-table row (stopped/interrupted
-  // lanes are always fresh, never resumed) and one work-type-table row
-  // pointing at the new `media-loading` skill.
-  { skill: "routing", ceiling: 1916, /* DISC-351 step 4 +48 (measured 1916): pointer to references/OPERATOR-REPLIES.md, the orchestrator duties moved out of the always-on style (style 3,464 -> 790 w); step 6 takes routing to <= 1,500; 1.162.0 +12 (measured 1868): resume paragraph points at HARD-RULES 24, first reply before housekeeping (DISC-224 E); 1.145.1 +12 (measured, 2026-10-18): rule 7 pointer to grilling § Feel questions (DISC-185);  1.144.0 +5 (measured, 2026-10-18): vault notes-only carve-out cite (DISC-186); 1.142.0 +17 (measured, 2026-10-17): Resume-vs-fresh pointer, a SendMessage redirect resumes that agent (HARD-RULES 20); 1.141.0 +20 (measured, 2026-10-16): baton row, merged main changes unreleased -> parent releases (DISC-178); 1.140.0 +37 (measured, 2026-10-15): rules 18-20 as pointers, baton rows (DISC-169/173/175/176); 1.139.0 +60 (2026-10-15): rule 17 finish-before-opening + baton row for the operator yes (full text in HARD-RULES 17); 1.138.0 +50 (2026-10-15): cloud-dispatch capacity check in load order + rule 15, rule 16 shared-branch lanes; 1.137.0 +23: heavy lanes capped per container (step-failures audit); 1.127.0 +60: resume pulls main, baton row reviewer-first (backlog 160); 1.135.0 +12: an idea given in chat is a row (DISC-168) */ before: 3254, frontmatterWords: 90 },
-  // Ceiling raised 1000 -> 1040 at 1.106.0: the Computed-not-painted defect-class
-  // row (detail lives in references/BUILD.md and REVIEW.md).
+  { skill: "routing", ceiling: 1916, before: 3254, frontmatterWords: 90 }, // target 1,500 (DISC-351)
   { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
-  // Ceiling raised 900 -> 920 at 1.114.0: § When to wrap (decision
-  // `2026-10-08-proactive-wrap-at-90`) is the acting moment for the context-fill line.
-  // Ceiling raised 920 -> 930 at 1.116.0: the one-line pointer to § Follow-ups ship before wrap
-  // (ruling `follow-ups-before-wrap`); the rule text lives in references/REPORT-AND-LEARN.md.
-  // Ceiling raised 930 -> 980 at 1.123.0: § Last step (wrapped sessions go quiet, ruling
-  // `2026-10-09-wrapped-sessions-go-quiet`); the procedure lives in references/CLOSING-CHECKS.md.
-  { skill: "wrap", ceiling: 1031, /* DISC-320 +8 (measured 1031): wrap starts the next orchestrator session, procedure in CLOSING-CHECKS.md 6b; DISC-295 +7 (measured 1023): Lane capacity row in the closing-checks table, procedure in CLOSING-CHECKS.md; 1.162.0 +12 (measured 1015): the queue lives in the queue files, cockpit-check (DISC-224 C); 1.152.1 +8 (measured): DISC Open empty at wrap pointer; 1.127.0 +15: zero-round log is a defect */ before: 3115, frontmatterWords: 85 },
-  // Ceiling raised 1200 -> 1250 at 1.84.0: two operator rulings each added a
-  // precondition/flag line, offloaded to references/ for the elaboration.
-  // Ceiling raised 1250 -> 1300 at 1.87.0: the model-ceiling justification line
-  // added real content, not restated elsewhere.
-  // Ceiling raised 1300 -> 1350 at 1.89.0: the progress-file line moved to its
-  // own first-step bullet (`proportionality`, riding amber).
-  // Ceiling raised 1350 -> 1400 at 1.91.0: the stratified-spot-check-across-
-  // classes rule and the absence-rows-re-proven-by-grep line (`eight-class-ledger`).
-  // Ceiling raised 1400 -> 1450 at 1.92.0: Change 2 added the ledger-vs-export-
-  // JSON-node-list check line.
-  // Ceiling raised 1450 -> 1500 at 1.95.0: `lanes-survive-interruption` added
-  // the media-load-probe re-run evidence line (`media-loading`).
-  // Ceiling raised 1500 -> 1600 at 1.105.0: the props-by-default review line
-  // (rule text lives once in HOUSE-RULES; this line only carries severities).
-  { skill: "agents/reviewer.md", ceiling: 1814, /* s83 +12 (measured 1814): the verdict heading is spelled with the full 40-hex sha; DISC-293 +21 (measured 1802): the verdict heading is `##`, never bold text; 1.186.0 +5 (measured 1781): a `reviewer:` line must start with a session id, text after is a label (s65 lesson 2, #156 review amber 1); DISC-270 +4 (measured 1776): props-by-default pointer names nested exposed properties; 1.185.0 +41 (measured 1772): the verdict's `reviewer:` line is get_session's own id, subagents omit it (DISC-271); 1.161.0 +19 (measured 1731): the verdict shape's `reviewer:` line for a parent-posted verdict (DISC-221 L5); 1.127.0 +30: no small-fix exemption; 1.144.1 +15: notes-only vault boundary stated in place; 1.148.0 +67 (measured 1712): verdict shape defined once for the merge gates (#108 RED-2) */ before: 2017, frontmatterWords: 72 },
+  { skill: "wrap", ceiling: 1031, before: 3115, frontmatterWords: 85 },
+  { skill: "agents/reviewer.md", ceiling: 1814, before: 2017, frontmatterWords: 72 },
   { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
-  { skill: "vault-write", ceiling: 1236, /* s69 lesson 5 +24 (measured 1236): an operator image goes to its own reviewed PR or R2 vault-media the same turn, placed at § Operator words and pasted images, the acting moment; 1.144.0 +9 (measured, 2026-10-18): vault notes-only carve-out cite (DISC-186); 1.135.0 +3: ideas-as-rows pointer (DISC-168) */  before: 2394, frontmatterWords: 38 },
+  { skill: "vault-write", ceiling: 1236, before: 2394, frontmatterWords: 38 },
   { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
   { skill: "nextjs", ceiling: 1200, before: 2082, frontmatterWords: 75 },
   { skill: "prompt-craft", ceiling: 1200, before: 1811, frontmatterWords: 56 },
@@ -131,27 +78,23 @@ for (const { skill, ceiling, before } of CEILINGS) {
   });
 }
 
-// Ratchet ceilings (audit 2026-10-05, finding 9): the eight bodies over 1,500 words that
-// had no ceiling. Set at current size rounded up to ten words, so a body can only
-// shrink or be raised here on purpose, with the reason beside the number. No offload
-// check: these skills never offloaded, and the offload tests above belong to skills
-// that did.
+// Ratchet ceilings: bodies over 1,500 words that never offloaded, held at their measured size (target 1,500, DISC-351).
 const RATCHETS = [
-  { skill: "handoff-to-code", ceiling: 4122 }, // 3100 -> 4122 at H1 (measured 4122: byte copy of handoff-css c47bc24, +1027 words: Raw values section, step 2b profile, step 3b reuse-or-add, not-built row; a mirror cannot be trimmed here); 2600 -> 3100 at DISC-270 (measured 3095: byte copy of handoff-css 0.16.0 at 42a18c2, +421 words: rules 11 and 12 (schema 17/18 component-property and placed-instance ledger rows), live-read step, keyframes and write-back pointers; a mirror cannot be trimmed here); 2360 -> 2600 at 1.173.0 (measured 2586: byte copy of handoff-css 0.14.0 at cf4c99b, +241 words: split design systems, MERGE_* errors, .zip input, step 5b asks; a mirror cannot be trimmed here, DISC-241); 2320 -> 2360 at 1.160.0 (measured 2345: byte copy of handoff-css 0.12.1 at 103db03, the vendor sentence in the export-set step; a mirror cannot be trimmed here); 1980 -> 2320 at 1.158.0 (measured 2308: byte copy of handoff-css v0.12.0, brownfield section + set-repair moves; a mirror cannot be trimmed here); 1768 -> 1980 at 1.157.0 (measured 1972: HT-15 export set + spec index, mirrored from handoff-css; command and codes disclosed to references/export-set.md); 1725 words at 1.111.0; raised 1730 -> 1745 at 1.112.0 (Build standard 10, aspect lock pointer); 1745 -> 1768 at 1.143.0 (body 1741 -> 1768: keep-design-handoff ruling sentence, live-annotation spot-check pointer)
-  { skill: "capture-website", ceiling: 1737 }, // 1.164.0 +17 (measured 1737): copy-voice layer feeds the copy brief (DISC-235). 1711 words at 1.111.0
-  { skill: "media-loading", ceiling: 1640 }, // 1635 words at 1.111.0
-  { skill: "model-routing", ceiling: 1751 }, // 1.164.0 +43 (measured 1751): copy lanes on the strongest tier (DISC-235); surface row, local needs a Local because line (DISC-232). 1.142.0 raised to 1708 (+18, measured) for the first-slice-of-a-new-product row (2026-10-09-first-slice-of-a-new-product-is-opus). 1655 words at 1.111.0; 1681 at 1.113.0 (top-tier trial pointer)
-  { skill: "present-for-review", ceiling: 1188 }, // DISC-351 s6 (measured 1188): one line per rule, histories in the vault, preview-sha-check.mjs replaces the restated ls-remote recipe.
-  { skill: "release-deploy", ceiling: 1755 }, // 1.164.0 +15 (measured 1755): next "build now" waits for the previous Workers comment (s45 lesson 5). 1.163.0 +75 (measured 1735): serial preview hand-out, no Cloudflare API polling, no in-session preview upload (s44 lessons 1, 2). 1.162.0 +45 (measured 1659): space preview builds, R2 429 (DISC-223.4). 1.144.0 +4 (measured): vault notes-only carve-out cite (DISC-186). 1609 words at 1.111.0
-  { skill: "qa-acceptance", ceiling: 1770 }, // 1699 words at 1.111.0; 1726 at 1.122.0 (link-first timing line); 1730 -> 1764 at 1.143.0 (body 1729 -> 1764: sound judged by ear first; 1764 -> 1770 at s74: DOS-AND-DONTS pointer)
-  { skill: "cloud-dispatch", ceiling: 1865 }, // 1.164.0 +9 (measured 1865): pointer to references/MAC-JOBS.md (s45 lesson 4, s46 lesson 2; rules offloaded). 1.150.0 raised to 1856 (+1, measured): pointer to references/HELPER-SESSIONS.md (DISC-195). 1.138.0 raised to 1855 (+5, 2026-10-15) for Capacity before dispatch (disk + load + heavy count). 1.133.0 raised to 1850 for the Cloudflare-auth-from-the-proxy failure-mode bullet (lesson real-input-and-proxy-auth-2026-10-13). 1.126.0 raised to 1770 for the Disk before dispatch section (backlog 157; routing HARD-RULES 13 holds the sweep rule). Earlier: 1569 words at 1.111.0; 1.112.0 raised to 1610; 1.113.0 trimmed the dated diary (-30) but backlog 99/105 pointers (preview alias, no-background-tasks) land at 1636
+  { skill: "handoff-to-code", ceiling: 4122 }, // byte copy of handoff-css; it is trimmed there, never here
+  { skill: "capture-website", ceiling: 1737 },
+  { skill: "media-loading", ceiling: 1640 },
+  { skill: "model-routing", ceiling: 1751 },
+  { skill: "present-for-review", ceiling: 1188 },
+  { skill: "release-deploy", ceiling: 1755 },
+  { skill: "qa-acceptance", ceiling: 1770 },
+  { skill: "cloud-dispatch", ceiling: 1865 },
 ];
 
 for (const { skill, ceiling } of RATCHETS) {
   test(`${skill} stays under its ${ceiling}-word ratchet ceiling`, () => {
     const doc = `skills/${skill}/SKILL.md`;
     const count = bodyWords(read(doc));
-    assert.ok(count <= ceiling, `${doc} body is ${count} words; the ratchet ceiling is ${ceiling} — raise it only with a reason`);
+    assert.ok(count <= ceiling, `${doc} body is ${count} words; the ratchet ceiling is ${ceiling} — fit a new rule by retiring one`);
   });
 }
 
@@ -172,3 +115,22 @@ test("the frontmatter description is never squeezed to buy body room", () => {
     );
   }
 });
+
+// Always-read files: loaded whole by every session (the style), every orchestrator turn (routing's references) or every
+// doer (doer-rules, the house rules every brief carries). Held at measured size; `target` is the DISC-351 target shape.
+export const BUDGETS = [
+  { file: "output-styles/discipline.md", words: 800, target: 800 },
+  { file: "skills/routing/references/HARD-RULES.md", words: 6099, target: 2500 },
+  { file: "skills/routing/references/OPERATOR-REPLIES.md", words: 2255, lines: 132, target: 1500 },
+  { file: "doer-rules.md", words: 3885, lines: 334, target: 2500 },
+  { file: "skills/dispatch-brief/references/HOUSE-RULES.md", words: 734, target: 400 },
+];
+
+for (const { file, words, lines } of BUDGETS) {
+  test(`${file} stays within its ${words}-word budget`, () => {
+    const text = read(file);
+    const count = bodyWords(text);
+    assert.ok(count <= words, `${file} is ${count} words; its budget is ${words}. Retire or shorten a rule to make room (skill-authoring § Lesson intake)`);
+    if (lines) assert.ok(text.trimEnd().split("\n").length <= lines, `${file} is over its ${lines}-line budget`);
+  });
+}

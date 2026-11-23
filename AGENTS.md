@@ -20,7 +20,7 @@ fork it.
 - One rule, one owner: state a rule in one file and link to it elsewhere
   (`skills/skill-authoring`, `agents/` point at `doer-rules.md`).
 - Tests: `node --test hooks/scripts/<name>.test.mjs` or `node --test hooks/bin/<name>.test.mjs`;
-  there is no single runner yet. Skill body ceilings: `hooks/scripts/skill-ceilings.test.mjs`.
+  there is no single runner yet. Word ceilings and always-read budgets: `hooks/scripts/skill-ceilings.test.mjs`.
 - A release bumps `version` in `.claude-plugin/plugin.json` and `marketplace.json` together
   and adds a `CHANGED.txt` entry; the commit gate checks the lesson ledger on a version bump
   (`DISCIPLINE_VAULT_ROOT`, skipped when no vault is present).

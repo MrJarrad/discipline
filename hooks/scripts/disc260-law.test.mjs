@@ -1,15 +1,15 @@
-// DISC-260: the shallow remedy clears the shallow state; a fixed depth did not for repos past that depth.
+// DISC-260: the shallow-clone remedy is --unshallow, never a fixed depth. The gate's behaviour (a shallow --repo is refused
+// with that command) is proven in wrap-gate.test.mjs ("a shallow --repo is refused with the fetch command, never clean");
+// this file keeps the doc that tells a session what to run in step with it.
 // Run: node --test hooks/scripts/disc260-law.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(root, p), "utf8");
-
-test("the wrap gate and the wrap docs name --unshallow, never a fixed depth", () => {
-  for (const p of ["hooks/scripts/wrap-gate.mjs", "skills/wrap/references/REPORT-AND-LEARN.md"]) assert.ok(read(p).includes("git fetch --unshallow"), p);
-  assert.ok(!read("skills/wrap/references/REPORT-AND-LEARN.md").includes("depth=1000"));
+const doc = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills/wrap/references/REPORT-AND-LEARN.md"), "utf8");
+test("the wrap doc names --unshallow, never a fixed depth", () => {
+  assert.ok(doc.includes("git fetch --unshallow"));
+  assert.ok(!doc.includes("depth=1000"));
 });
