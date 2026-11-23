@@ -1,6 +1,9 @@
 ---
 name: test-first
-description: Build features one failing test at a time through public interfaces — red-green-refactor via vertical slices (tracer bullets), never horizontal (all tests then all code). Use for test-first development, TDD, or any request for integration-style tests that should survive refactors. Not verifying acceptance criteria on already-written code — that's qa-acceptance; not authoring browser E2E specs — that's webapp-testing.
+description: >-
+  Use for TDD, test-first work, or tests that should survive refactors: one
+  failing test at a time through the public interface, red then green, vertical
+  slices. Checking criteria is qa-acceptance; browser E2E is webapp-testing.
 ---
 
 # Test First

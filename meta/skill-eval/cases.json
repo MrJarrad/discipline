@@ -13,7 +13,7 @@
     {
       "id": "route-ux-designer-figma-discrepancies",
       "type": "route",
-      "prompt": "Can you check the header block \u2014 I think there are discrepancies with the figma and the animation feels off.",
+      "prompt": "Can you check the header block — I think there are discrepancies with the figma and the animation feels off.",
       "provenance": "skills/routing/SKILL.md persona table, UX Designer row",
       "expectPersona": "ux-designer",
       "expectSkills": [],
@@ -23,7 +23,7 @@
     {
       "id": "route-reviewer-ready-to-merge",
       "type": "route",
-      "prompt": "This branch is ready to merge \u2014 can you review this before I ship it?",
+      "prompt": "This branch is ready to merge — can you review this before I ship it?",
       "provenance": "skills/routing/SKILL.md persona table, Reviewer row",
       "expectPersona": "reviewer",
       "expectSkills": [],
@@ -111,7 +111,7 @@
     {
       "id": "trigger-issue-triage",
       "type": "trigger",
-      "prompt": "I noticed a few things are off on the pricing page \u2014 the toggle label is wrong, one card is misaligned, and a link 404s. Get these ready for an agent to pick up.",
+      "prompt": "I noticed a few things are off on the pricing page — the toggle label is wrong, one card is misaligned, and a link 404s. Get these ready for an agent to pick up.",
       "provenance": "skills/issue-triage/SKILL.md description",
       "maxTurns": 12,
       "expectSkills": [
@@ -235,6 +235,148 @@
       ],
       "expectSkills": [],
       "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s8-trigger-session-close",
+      "type": "trigger",
+      "prompt": "I am finishing this orchestration session for today. Hand over everything so the next session continues cleanly and nothing is left uncommitted.",
+      "provenance": "DISC-351 step 8: wrap was listed with no description (listing budget overflow) in the s108 helper session",
+      "maxTurns": 12,
+      "expectSkills": [
+        "wrap"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-trigger-playwright-proof",
+      "type": "trigger",
+      "prompt": "Write a Playwright test that proves the login flow works and fails loudly if it ever regresses.",
+      "provenance": "DISC-351 step 8: webapp-testing was listed with no description in the s108 helper session",
+      "maxTurns": 12,
+      "expectSkills": [
+        "webapp-testing"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-trigger-does-it-exist",
+      "type": "trigger",
+      "prompt": "Before you change anything: does a retry helper already exist in this codebase, and what calls it?",
+      "provenance": "DISC-351 step 8: verify-finding was listed with no description in the s108 helper session",
+      "maxTurns": 12,
+      "expectSkills": [
+        "verify-finding"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-trigger-tdd",
+      "type": "trigger",
+      "prompt": "Let us build the discount calculator TDD style, one failing test at a time through its public function.",
+      "provenance": "DISC-351 step 8: test-first was listed with no description in the s108 helper session",
+      "maxTurns": 12,
+      "expectSkills": [
+        "test-first"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-trigger-record-decision",
+      "type": "trigger",
+      "prompt": "Record this decision in the vault as a ruling: the dark theme is dropped for launch, operator call today.",
+      "provenance": "DISC-351 step 8: vault-write was listed with no description in the s108 helper session",
+      "maxTurns": 12,
+      "expectSkills": [
+        "vault-write"
+      ],
+      "forbidSkills": [],
+      "samples": 5
+    },
+    {
+      "id": "s8-route-build-vs-figma",
+      "type": "route",
+      "prompt": "The pricing card on the live site no longer matches the figma and the hover animation feels off. Can you sort it out?",
+      "provenance": "DISC-351 step 8: step 4 return, ux-designer routing weak on both arms (2/9 vs 3/9) for figma + animation asks",
+      "expectPersona": "ux-designer",
+      "expectSkills": [],
+      "forbidSkills": [],
+      "samples": 9
+    },
+    {
+      "id": "s8-trigger-send-preview-link",
+      "type": "trigger",
+      "prompt": "The preview build for the nav fix is up. Send him the link so he can look at it.",
+      "provenance": "DISC-351 step 8: step 6 return, present-for-review does not trigger for send-the-preview-link asks",
+      "maxTurns": 12,
+      "expectSkills": [
+        "present-for-review"
+      ],
+      "forbidSkills": [],
+      "samples": 9
+    },
+    {
+      "id": "s8-trigger-figma-url",
+      "type": "trigger",
+      "prompt": "Here is the figma.com file for the checkout page. Pull its tokens, variants and copy before we build anything.",
+      "provenance": "DISC-351 step 8: capture-figma description cut hardest (789 to under 300 characters); the trigger must survive",
+      "maxTurns": 12,
+      "expectSkills": [
+        "capture-figma"
+      ],
+      "forbidSkills": [],
+      "samples": 3
+    },
+    {
+      "id": "s8-fence-short-break",
+      "type": "fence",
+      "prompt": "I need to step away for ten minutes. Hold everything where it is.",
+      "provenance": "DISC-351 step 8: wrap and pause-resume fence each other in their descriptions",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "wrap"
+      ],
+      "samples": 3
+    },
+    {
+      "id": "s8-fence-quick-look",
+      "type": "fence",
+      "prompt": "Take a quick look at the homepage and tell me if the hero image shows up.",
+      "provenance": "DISC-351 step 8: webapp-testing description fences a one-off look",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "webapp-testing"
+      ],
+      "samples": 3
+    },
+    {
+      "id": "s8-fence-recall-not-write",
+      "type": "fence",
+      "prompt": "What did we decide last month about the dark theme? Check the vault notes.",
+      "provenance": "DISC-351 step 8: vault-write and vault-recall fence each other in their descriptions",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "vault-write"
+      ],
+      "samples": 3
+    },
+    {
+      "id": "s8-fence-build-vs-figma-not-a-bug",
+      "type": "fence",
+      "prompt": "The hero on the live page looks wrong against the figma: the spacing and the type sizes do not match the design.",
+      "provenance": "DISC-351 s8 review #247 amber 1: diagnosing-bugs claims looks wrong; a design-vs-build mismatch is audit-build",
+      "maxTurns": 12,
+      "expectSkills": [],
+      "forbidSkills": [
+        "diagnosing-bugs"
+      ],
       "samples": 3
     }
   ]

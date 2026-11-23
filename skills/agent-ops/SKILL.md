@@ -1,6 +1,10 @@
 ---
 name: agent-ops
-description: Discipline for changing how the skill library and dispatch system itself works — the skill × prompt × model trifecta. Owns the skill library, agent prompts/charters, and the eval harnesses that gate them. Use when authoring or auditing a skill or an agent charter/AGENTS.md, or when running the eval gate before a mechanism change ships. Not for product or domain work — that's the doer skills; this is the mechanism behind them.
+description: >-
+  Use when changing how the skill library or dispatch system works: authoring or
+  auditing a skill, agent charter or AGENTS.md, or running the eval gate (skill ×
+  prompt × model) before a mechanism change ships. Product work is the doer
+  skills.
 ---
 
 # Agent-Ops Discipline

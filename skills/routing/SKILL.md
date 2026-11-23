@@ -1,14 +1,9 @@
 ---
 name: routing
 description: >-
-  Decide WHO handles every piece of work before any tool is touched — the
-  orchestrator dispatches, it does not do. Load at session start and consult
-  before every Agent call, Explore, Plan, WebSearch, or inline answer. Trigger
-  whenever work arrives: a user request, a plan step, an issue, a follow-up.
-  Chain-loads model-routing (best-model decision tree), dispatch-brief (brief
-  structure) and prompt-craft (brief wording) — routing owns who, they own how.
-  Not for writing the brief itself, and not model tiers — those stay with the
-  chained skills.
+  Use at session start and whenever work arrives (a request, plan step, issue or
+  follow-up) to decide who handles it before any tool is touched. Loads
+  model-routing, dispatch-brief and prompt-craft.
 ---
 
 # Routing — who does the work

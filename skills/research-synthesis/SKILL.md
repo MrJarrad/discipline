@@ -1,12 +1,9 @@
 ---
 name: research-synthesis
 description: >-
-  Answer open questions with live, sourced, adversarially-verified findings —
-  decompose, fan out via web search, open primary sources, source-or-stop,
-  synthesize with confidence. Use for research, competitive/market scans,
-  "what's the best X", "compare A vs B", or multi-source investigation. Not for
-  evaluating an external skill/plugin/repo for adoption — that's skill-review
-  (which may still use this method for reputation checks).
+  Use for research, a market or competitive scan, what's the best X, compare A vs
+  B, or any multi-source question: primary sources, adversarial checks, confidence
+  stated. Adopting an external skill or repo is skill-review.
 ---
 
 # Research Synthesis

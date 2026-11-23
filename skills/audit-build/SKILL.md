@@ -1,6 +1,10 @@
 ---
 name: audit-build
-description: Verify a built page matches its design source by measuring the live DOM numerically against design symbols and producing a defect list — rects, font sizes, positions, not impressions. Use when "the blocks are off", after porting a design to code, or before visual sign-off. Not for reading the design source itself — that's capture-figma; not for capturing external references — that's capture-website.
+description: >-
+  Use when "the blocks are off", after porting a design to code, or before visual
+  sign-off: measure the live DOM (rects, font sizes, positions) against the design
+  into a defect list. Reading the design is capture-figma; a flickering or
+  vanishing bug is diagnosing-bugs.
 ---
 
 # Block Fidelity Audit

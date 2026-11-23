@@ -1,12 +1,9 @@
 ---
 name: present-for-review
 description: >-
-  Present the live product to the operator — full quit and relaunch the signed
-  native app; for web, ready message plus one markdown hyperlink in chat — never
-  spawn Browser windows or send the operator to Applications. Load at engineer-done
-  for UI work (the operator is first eyes; review runs after the yes and never
-  gates the link), and when the merge condition is met for everything else;
-  operator visual sign-off; "present it"; never "go check Applications."
+  Use when a build is ready for the operator: the preview link is up, send him the
+  link, show him the build, present it, or UI work is engineer-done. One ready
+  message with one link, or relaunch the native app.
 ---
 
 # Present for review

@@ -1,6 +1,9 @@
 ---
 name: skill-review
-description: Evaluate an external skill, plugin, MCP server, or repo before adopting it into the estate — read the actual code, not the README; check security posture and maintenance signals; map overlap against named estate pieces; land one adopt/adapt/dismiss verdict with one sentence why. Use when the user asks "should we adopt this skill/plugin", "is this repo worth installing", "review this before we add it", "would this conflict with what we already have", or points at a GitHub skill/plugin/MCP server and asks if it's worth taking. Not for reviewing our own code before merge — that's `reviewer`; not for scoring a single in-repo claim's confidence — that's `verify-finding`; not for open-ended market research with no adopt/dismiss decision pending — that's `research-synthesis`.
+description: >-
+  Use for should we adopt this skill, plugin, MCP server or repo, is it worth
+  installing, or would it conflict with ours: read the code, check security and
+  upkeep, map overlap, one adopt, adapt or dismiss verdict.
 ---
 
 # Skill Review

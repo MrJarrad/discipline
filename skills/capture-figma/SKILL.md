@@ -1,6 +1,9 @@
 ---
 name: capture-figma
-description: Read a Figma file into buildable truth before anything gets built or audited against it. Trigger on "match the figma", "discrepancies with figma", "fresh sync", "the figma version", a pasted figma.com URL, or any need for tokens, block anatomy, variant matrices, template layouts, or copy from a design file to drive code — variables first, metadata second, screenshots last, never misread off pixels; copy is its own mandatory audit lane, never waved through as "just content." Not for capturing live websites — that's capture-website; not for motion-tool sources (Jitter, AE, Lottie, Figma motion timelines) — that's capture-motion-source; not for auditing a built page against Figma — that's audit-build; not for building code from a design-handoff export pair — that's handoff-to-code.
+description: >-
+  Use for match the figma, discrepancies with figma, a fresh sync, or a pasted
+  figma.com URL: read variables, anatomy, variants and copy into buildable truth.
+  A built page is audit-build; a handoff export is handoff-to-code.
 ---
 
 # Figma Extraction

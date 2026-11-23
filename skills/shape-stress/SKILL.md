@@ -1,6 +1,9 @@
 ---
 name: shape-stress
-description: "Shape work into six sections — Context, Exploration & References, Outcomes, Acceptance Criteria, Constraints & Known Risks, Out of Scope — then stress it until the checklist is green. Trigger on \"is there anything else that needs to go into the plan\", \"anything else technical or best in class we should have\", \"is the plan ready\", turning conversation context into a project shape, or stress-testing/grilling any existing plan or proposal (interview mode via grilling: frontier rounds, experience questions, recommended answers). Not raw discovery — that's discover-scope."
+description: >-
+  Use for is the plan ready, anything else for the plan, turning a conversation
+  into a project shape, or stress-testing a proposal: six sections, acceptance
+  criteria to out of scope, until green. Raw discovery is discover-scope.
 ---
 
 # Shape Stress

@@ -1,6 +1,10 @@
 ---
 name: define-terms
-description: Actively sharpen a project's domain vocabulary — challenge fuzzy or colliding terms, maintain the CONTEXT.md glossary, record lightweight ADRs when decisions crystallise. Trigger on "just to be clear", "need to be clear on this one", "what I mean by X is", "I've renamed X to Y", naming disputes (component/variable/block names), "which part do you mean", any feedback row naming a physical/visual part or element, or whenever the operator corrects terminology mid-task. Not for document templates — that's doc-formats.
+description: >-
+  Use when two words name one idea or a term is fuzzy or colliding, or for "just
+  to be clear", "what I mean by X is", "I've renamed X to Y", "which part do you
+  mean", a feedback row naming a part, or a naming dispute: settle the word in the
+  CONTEXT.md glossary and record ADRs.
 ---
 
 # Define Terms

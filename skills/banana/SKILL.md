@@ -1,6 +1,9 @@
 ---
 name: banana
-description: "AI image generation Creative Director (Gemini image models) — generation and creative direction ONLY. Trigger on \"generate an image\", \"create a photo\", \"design a logo\", \"make a visual\", art direction for brand assets. NOT for editing existing images — identity-preserving edits, reframing, clothing/pose/style changes are qwen-edit's."
+description: >-
+  Use to generate an image, create a photo, design a logo or make a visual, or for
+  art direction on brand assets (Gemini image models). Editing an existing image
+  (reframe, clothing, pose, style) is qwen-edit.
 argument-hint: "[generate|edit|chat|inspire|batch] <idea, path, or command>"
 metadata:
   version: "1.4.0"

@@ -1,6 +1,10 @@
 ---
 name: design-system
-description: The JHD house web design system — Figma-named tokens, Action/Badge primitives, and consumption of @jhd/design-system. Trigger when starting or reviewing JHD web UI, wiring tokens or theme, reaching for a colour/spacing/radius/type value, or reviewing UI for system conformance. Not for iOS/macOS UI (Swift binds the same Figma variables), not Figma plugins, and not site compositions — that's design-craft.
+description: >-
+  Use when starting or reviewing JHD web UI, wiring tokens or theme, reaching for
+  a colour, spacing, radius or type value, or checking conformance with
+  @jhd/design-system. Site compositions are design-craft; iOS and macOS UI are not
+  this.
 ---
 
 # Design System — JHD house web

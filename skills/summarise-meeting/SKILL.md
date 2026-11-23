@@ -1,6 +1,9 @@
 ---
 name: summarise-meeting
-description: Transform a raw meeting transcript into a structured, evidence-quoted summary — decisions, actions, disagreements. Trigger whenever a transcript is provided and the ask is notes, a write-up, actions, or "what did we align on" — even without Notion mentioned. Also invoked by ops-inbox's meeting-notes pipeline. Not research-interview synthesis — that's research-synthesis.
+description: >-
+  Use when given a meeting transcript and asked for notes, a write-up, actions or
+  what we aligned on: decisions, actions and disagreements with quotes. Also run
+  by the ops-inbox meeting pipeline.
 ---
 
 # Summarise Meeting

@@ -15,8 +15,9 @@ const cases = loadCases(casesPath);
 const skills = readdirSync(join(root, "skills")).filter((n) => existsSync(join(root, "skills", n, "SKILL.md")));
 const personas = readdirSync(join(root, "agents")).filter((n) => n.endsWith(".md")).map((n) => n.slice(0, -3));
 
-test("the case file holds about twenty cases with unique ids and a known type", () => {
-  assert.ok(cases.length >= 18 && cases.length <= 24, `got ${cases.length}`);
+// Every case costs a live run of 3-9 probes per arm, so the file stays small: a new case retires an old one past 40.
+test("the case file holds 18 to 40 cases with unique ids and a known type", () => {
+  assert.ok(cases.length >= 18 && cases.length <= 40, `got ${cases.length}`);
   assert.equal(new Set(cases.map((c) => c.id)).size, cases.length);
   for (const c of cases) assert.ok(["route", "trigger", "fence", "behavior"].includes(c.type), c.id);
 });

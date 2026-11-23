@@ -1,6 +1,9 @@
 ---
 name: quality
-description: Best-in-class quality discipline for any agent — the bar every deliverable is measured against before it's claimed done. Use when about to mark a task done or route it to review, when deciding an output is good enough to ship, or before any claim of completion. Not AC-by-AC verification — that's qa-acceptance; not scoring a single claim's confidence — that's verify-finding; not experience/heuristic design judgment — that's design-review on explicit ask.
+description: >-
+  Use when about to claim a task done, route it to review, or judge an output good
+  enough to ship: the best-in-class bar every deliverable meets. Walking each
+  acceptance criterion is qa-acceptance.
 ---
 
 # Quality Discipline

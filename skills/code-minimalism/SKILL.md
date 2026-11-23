@@ -1,13 +1,9 @@
 ---
 name: code-minimalism
 description: >-
-  A YAGNI decision-ladder for the CODE an engineer writes — reuse existing / stdlib /
-  native / installed-dep / one-line before authoring anything new, and write the minimum
-  that works. Use when implementing, refactoring, or reviewing code: deciding whether a
-  helper/class/abstraction should exist, or when a change is growing more code than the task
-  needs. This is the coding-lane token lever (fewer lines per task); it is NOT model routing —
-  that is model-routing — and NOT for non-coding work. Adapted from Ponytail
-  (github.com/DietrichGebert/ponytail).
+  Use when writing, refactoring or reviewing code and a helper, class or
+  abstraction is about to appear, or a change grows more code than the task needs:
+  reuse, stdlib, native or one line before anything new.
 ---
 
 # Code minimalism

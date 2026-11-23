@@ -1,6 +1,9 @@
 ---
 name: markup-standard
-description: The definition of done for shipped HTML — semantic elements, landmarks, heading outline, link-vs-button, alt text, Tailwind class discipline, head/meta hygiene, and meta content (page titles, descriptions, favicon/icon set, share images), with a verification recipe. Use when writing or reviewing any HTML/JSX that ships to a browser, before marking UI work done, or when a reviewer needs to check served markup. Not the visual/token bar — that's design-craft; not AC-by-AC verification — that's qa-acceptance.
+description: >-
+  Use when writing or reviewing HTML or JSX that ships to a browser, or before
+  marking UI work done: semantic elements, landmarks, headings, link vs button,
+  alt text, Tailwind classes, titles, meta and share images.
 ---
 
 # Markup Standard

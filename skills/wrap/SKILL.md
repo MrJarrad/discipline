@@ -1,6 +1,9 @@
 ---
 name: wrap
-description: Close out an orchestration session so the next one continues seamlessly — patch the cockpit, replace each touched project's handover note, land rulings and memory, verify the toolkit and vault are committed, and confirm nothing durable depends on a dying scratch path. Use when ending an orchestration session, when context-fill reports the 70% line or an automatic summary ran, or asked to "hand over", "wrap up", or "close out this session". Not a single mid-session ruling or lesson write — that's vault-write directly; wrap is the full session-close pass, not a per-event log.
+description: >-
+  Use when ending an orchestration session, asked to hand over, wrap up or close
+  out this session, or context fill reaches 70%: patch the cockpit, replace
+  handovers, land rulings, commit everything. A quick stop is pause-resume.
 ---
 
 # Wrap

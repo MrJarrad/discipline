@@ -1,6 +1,9 @@
 ---
 name: discover-scope
-description: Turn a raw ask into a validated scope through gather → research → validate cycles growing a living SCOPE doc. Trigger on "new concept", "I'd like to explore", "there will likely be a large amount of updates", "I'm reconsidering a few things", starting any client or product discovery, or when requirements are clearly still forming mid-conversation. Not for shaping a settled idea into a plan — that's shape-stress.
+description: >-
+  Use for a new concept, "I'd like to explore", "I'm reconsidering a few things",
+  client or product discovery, or requirements still forming: gather, research,
+  validate into a living SCOPE doc. A settled idea is shape-stress.
 ---
 
 # Discover Scope

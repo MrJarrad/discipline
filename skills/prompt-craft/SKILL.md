@@ -1,6 +1,9 @@
 ---
 name: prompt-craft
-description: How to write the words of a task prompt or brief — choosing EXECUTION vs STRATEGY altitude, then tuning specificity — so the doer ships best-in-class output. Use when writing or reviewing a task description, brief, or handoff prompt for another agent. Not for task structure, fields, or routing — that's dispatch-brief authoring.
+description: >-
+  Use when writing or reviewing the words of a task prompt, brief or handoff for
+  another agent: choose execution or strategy altitude, then tune specificity. A
+  brief's structure is dispatch-brief.
 ---
 
 # Prompt Craft

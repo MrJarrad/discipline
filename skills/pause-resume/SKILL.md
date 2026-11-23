@@ -1,14 +1,9 @@
 ---
 name: pause-resume
 description: >-
-  Freeze and thaw the dispatch surface on the operator's one word — "pause",
-  "I need to pause", "I need to pause shortly", "wind down", "stop for now",
-  "let's stop here", "resume", "pick up where we left off", "carry on from
-  the snapshot". Pause: no new dispatches, stop every running agent at its
-  next safe point, bank a one-screen state snapshot, confirm in one line.
-  Resume: read the snapshot, re-dispatch each interrupted lane as a fresh
-  continuation, report what restarted. Not `wrap` — wrap is the full session
-  close; pause is a quick, resumable freeze.
+  Use when the operator says pause, wind down, stop for now, let's stop here,
+  resume, or pick up where we left off: freeze dispatches and bank a snapshot, or
+  re-dispatch from one. A full session close is wrap.
 ---
 
 # Pause / resume

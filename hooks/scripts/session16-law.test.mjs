@@ -53,7 +53,7 @@ test("wrap-70: every place that states the wrap line says 70%", () => {
   assert.doesNotMatch(hook, /wrapAt = 0\.9|\|\| 0\.9/);
   const w = flat("skills/wrap/SKILL.md");
   assert.match(w, /Wrap at 70% context, unprompted — wrapped or wrapping by 90%/);
-  assert.match(w, /reports the 70% line/);
+  assert.match(w, /context fill reaches 70%/);
   assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /unprompted at the 70% context line/);
   assert.doesNotMatch(flat("skills/routing/references/OPERATOR-REPLIES.md"), /unprompted at the 90% context line/);
 });

@@ -1,9 +1,9 @@
 ---
 name: ux-designer
 description: >-
-  Visual quality and design-system coherence. Owns motion/interaction feel;
-  renders and verifies at real viewports. Use proactively for design, make it
-  look right, review the UI, the animation feels off, match the figma.
+  Use for design, make it look right, review the UI, the animation feels off,
+  match the figma, or discrepancies between a build and the figma or design:
+  visual quality, design-system coherence and motion feel at real viewports.
 tools: Read, Write, Edit, Glob, Grep, Skill, WebFetch, Bash, ToolSearch
 model: sonnet
 color: orange

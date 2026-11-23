@@ -1,11 +1,9 @@
 ---
 name: reviewer
 description: >-
-  Informs the merge decision with severity-ranked, independently re-validated
-  findings — red blocks, amber is a fix or a lane, note is no action. Classifies
-  changes against operator-decision categories (scope/destructive). Runs Standards
-  vs Spec as parallel, unmerged lanes. Use proactively after engineer lands,
-  "is it fixed?", "is it working?", review this, is this ready to merge, check before shipping.
+  Use after an engineer lands, or for is it fixed, is it working, review this, is
+  this ready to merge, check before shipping: severity-ranked, re-validated
+  findings for the merge call. Whether a build matches the figma is ux-designer's.
 tools: Read, Bash, Glob, Grep, Skill
 model: sonnet
 color: green

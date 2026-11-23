@@ -1,6 +1,10 @@
 ---
 name: capture-website
-description: Capture a live website design reference into a self-contained local folder — pixels, computed tokens, geometry, code, motion, art-direction — that non-browsing agents can Read as ground truth. Trigger on "look at this site", "like pentagram does", any external URL offered as a design reference, or when a layout/motion claim needs verifying rather than inferred from a markdown fetch. Not for Figma files — that's capture-figma; not for motion-tool sources (Jitter, AE, Lottie, motion videos) — that's capture-motion-source; not for auditing your own build — that's audit-build.
+description: >-
+  Use for "look at this site", "like pentagram does", any external URL given as a
+  design reference, or a layout or motion claim to check: capture pixels, tokens,
+  geometry and motion into a folder agents can read. A Figma file is
+  capture-figma; a motion file is capture-motion-source.
 ---
 
 # Design Reference Capture

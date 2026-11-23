@@ -1,6 +1,9 @@
 ---
 name: vault-write
-description: Procedure for writing any note, process log, or reference to ~/JHD/vault. Use when authoring typed vault records — memory, decision, reference, artifact, or project-hub. Not for reading/recalling from vault, or any write outside the vault.
+description: >-
+  Use when writing a note, decision, ruling, lesson, reference, process log or
+  project hub to the vault (~/JHD/vault), or filing what the operator uploaded or
+  pasted. Reading the vault is vault-recall.
 ---
 
 # Vault Write
