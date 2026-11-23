@@ -12,9 +12,8 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("DISC-324/309: the doc-current and no-reprint rules live once in HARD-RULES, beside the layout", () => {
   const h = flat("skills/routing/references/HARD-RULES.md");
-  for (const s of ["**The Status doc stays current, in every session** (DISC-324",
+  for (const s of ["**The Status doc stays current, in every session** (",
     "a turn that adds, answers or strikes a row, edits a queue or backlog file, or merges a PR (a vault notes PR included) also writes the Status doc in that turn",
     "the Stop hook refuses the turn otherwise, a textless wake included, and its reason asks for the doc write and never for chat text",
-    "(DISC-309",
     "a reply prints only rows added this turn; a row that existed before it is updated on the doc and never reprinted, and the Stop hook refuses a printed row ID with no row-add marker this turn"]) assert.ok(h.includes(s), s);
 });

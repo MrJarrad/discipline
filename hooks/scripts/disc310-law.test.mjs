@@ -12,12 +12,12 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once in HARD-RULES", () => {
   const h = flat("skills/routing/references/HARD-RULES.md");
-  for (const s of ["**The Status doc layout** (DISC-310",
+  for (const s of ["**The Status doc layout** (",
     "`## Ready for you`, `## You're on it`, `## Claude's on it` (running lanes live here; there is no Running now), `## Up next`, `## Done this session`, then `Backlogs`",
     "No top-level item carries a chip: an item's section is its status",
     "an item's section is its status, and every status change moves the item in the same op set",
     "Each section has a `###` heading per session project, \"Nothing.\" when a project is empty",
-    "Up next is each project's first five from its backlog's `## Up next` ordered list (one source for every project, DISC-328; Portfolio's go-live file feeds only the \"Launch: N of M done\" line and its link)",
+    "Up next is each project's first five from its backlog's `## Up next` ordered list (one source for every project; Portfolio's go-live file feeds only the \"Launch: N of M done\" line and its link)",
     "A ticked item MOVES to \"Done this session\" (never ticked in place), which is cleared at wrap with no note line; the doc has no Go-live section",
     "`status-layout.mjs --vault <vault> --projects <PFX,...> --doc <file with the xml of the doc's body node>` prints the edit ops and the session applies them with the connector, never by hand",
     "**Refill from Up next:** the moment a lane lands or parks on the operator, start the top Up next item of that project, with no asking",
@@ -26,7 +26,10 @@ test("DISC-310: the layout, Up next, refill and go-live-on-merge rules live once
     "An item with an unanswered comment thread is moved whole, never re-written"]) assert.ok(h.includes(s), s);
   // DISC-351 s6: the op mechanics moved out of the prose; the script that implements them carries them.
   const sl = readFileSync(join(root, "hooks/scripts/status-layout.mjs"), "utf8");
-  for (const op of ["\"move\"", "\"replaceItem\"", "staleChips", "droppedComments", "refused", "removeDuplicate", "holds", "answered"]) assert.ok(sl.includes(op), op);
+  // The pointer in HARD-RULES says the header covers these: assert each is defined in the header comment, not just present in code.
+  const header = sl.slice(0, sl.indexOf("\nimport "));
+  for (const op of ["move", "replaceItem", "staleChips", "droppedComments", "refused", "removeDuplicate", "holds", "answered"]) assert.match(header, new RegExp("`" + op + "` — "), op);
+  assert.ok(header.includes("--doc-json") && header.includes("--doc <file"), "header covers --doc and --doc-json");
 });
 test("DISC-310: the output style and wrap point at the rule instead of restating it", () => {
   assert.ok(flat("skills/routing/references/OPERATOR-REPLIES.md").includes("(DISC-310, `routing` HARD-RULES)"));

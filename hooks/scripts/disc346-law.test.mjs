@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 test("DISC-346: every update rewrites its Status doc item the same turn", () => {
   const h = readFileSync(join(root, "skills/routing/references/HARD-RULES.md"), "utf8").replace(/\s+/g, " ");
-  for (const s of ["**Every update rewrites its Status doc item, the same turn** (DISC-346",
+  for (const s of ["**Every update rewrites its Status doc item, the same turn** (",
     "A reply in a comment thread never stands in for rewriting the item.",
     "the item leaves Ready for you",
     "The Stop hook counts a comment-only doc write as no write"]) assert.ok(h.includes(s), s);

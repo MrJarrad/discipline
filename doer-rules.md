@@ -2,7 +2,8 @@
 
 Standing law for every dispatched agent. Read it whole. The per-task brief adds the job;
 it never restates what is here. One rule per line; a slug in brackets names the vault
-ruling or lesson (`fleet/rulings/`, `fleet/lessons/`) that holds its history.
+ruling or lesson (`fleet/rulings/`, `fleet/lessons/`) that holds its history. A rule with no slug keeps its history in
+`2026-11-23-disc351-s6-doer-rules-unslugged-histories`.
 
 ## You are the doer
 

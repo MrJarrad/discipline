@@ -4,9 +4,18 @@
    doc exactly this layout, so nothing is hand-edited:
      # Status / date · you / ## Ready for you / ## You're on it / ## Claude's on it / ## Up next / ## Done this session (each: one ### heading per session
      project, "Nothing." when empty; Up next ### Portfolio also carries "Launch: N of M done · link"; ticked items MOVE to Done, no note line) / ## Backlogs.
-   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading (a run of missing headings is emitted last-wanted first), ensureList (a project with a heading but no list), insertItem, moveItem (delete
-   + insert with the item's new chip: the connector cannot set a chip in place, so an item's section always matches its chip), insertNothing, removeNode,
-   setUpNext, setLaunchLine, removeSection, setBacklogLinks. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
+   Ops (the session applies each with the Claude Docs connector, in order): setDate, insertSection, insertProjectHeading (a run of missing headings is emitted last-wanted first), ensureList (a project with a heading but no list), insertItem, move, replaceItem, removeDuplicate, insertNothing, removeNode,
+   setUpNext, setLaunchLine, removeSection, setBacklogLinks.
+   Op and output fields, defined:
+     `move` — a section move with the connector's own move, which keeps block ids, children and comment threads.
+     `replaceItem` — delete plus insert carrying the whole item and every child; used only where the item must be re-written (`--set`, a dropped top-level chip,
+       a stale lane text). Apply it verbatim, never as a `move` or a typed sentence.
+     `removeDuplicate` — a row on the doc twice: the live lane's item (else the first) stays, the other goes.
+     `staleChips` — items with an unanswered comment thread that are moved whole instead of re-written; they keep their old text until the thread is answered.
+     `droppedComments` — comment threads a replaceItem, removeDuplicate or removeNode would delete (id, answered or not): bank them before applying.
+     `refused` — sections the plan could not clean (e.g. one still holds an item that could not move): one named line in the status, never dropped.
+     `holds` — doc rows a pending Mac job names (row id + job path): the job's done/failed file is read before that item changes.
+     `answered` — open queue rows whose item the operator moved or ticked in the doc: bank each like a chat answer. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
    already in the layout. `unplaced` lists items naming no project.
    Up next source (DISC-328, one for every project): the backlog's `## Up next` (an ordered list of row ids, first five); none -> "Nothing.". A row already in Ready for you,
    You're on it or Claude's on it is never also Up next. The go-live file feeds only the launch count (its groups 1-4, ticked of all).

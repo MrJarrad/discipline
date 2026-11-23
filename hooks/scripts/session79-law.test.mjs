@@ -20,7 +20,7 @@ test("DISC-294: a wake-event turn that changed nothing sends the parent nothing"
   has(HARD, "DON'T: send the parent \"no change\" per event while waiting on the operator");
 });
 test("DISC-295: a parent keeps each project at lane capacity from the backlog, by tool", () => {
-  has(HARD, "**A parent keeps its projects at lane capacity** (DISC-295");
+  has(HARD, "**A parent keeps its projects at lane capacity** (");
   has("hooks/scripts/lane-capacity.mjs", "portfolio 8"); // DISC-351 s6: the per-project caps live in the script header, HARD-RULES points at it
   has(HARD, "A lane waiting on the operator's look does not count");
   has(HARD, "`lane-capacity-stop.mjs` holds a status reply or wrap once");
