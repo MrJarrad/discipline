@@ -204,3 +204,70 @@ test("runArms scores a candidate-only run (no baselinePluginDir) as BASELINE UNA
     rmSync(scratch, { recursive: true, force: true });
   }
 });
+
+// ---- text expectations (behaviour cases: s107 slips) -----------------------
+
+test("sampleOutcome fails a sample whose reply text matches a forbidText pattern", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["switched off"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Hover stays, switched off." }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "I'll remove the other two." }), true);
+});
+
+test("sampleOutcome requires every expectText pattern to match, case-insensitively", () => {
+  const c = { id: "t", type: "behavior", expectText: ["status doc", "same turn"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the STATUS DOC in the Same Turn." }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "Update the status doc." }), false);
+});
+
+test("a forbidText-only case passes an empty reply (no chat text on an automated wake)", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["nothing new"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "" }), true);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set() }), true);
+});
+
+test("runArms feeds each agent's result text into text scoring", async () => {
+  const cases = [{ id: "b1", type: "behavior", prompt: "p", forbidText: ["nothing new"], expectSkills: [], samples: 1 }];
+  const fake = (reply) => async (spec, log) => {
+    for (const a of spec.phases[0].agents) log({ type: "agent", label: a.label, sessionId: `s-${a.label}`, result: reply });
+    return {};
+  };
+  const bad = await runArms({ cases, runWorkflowImpl: fake("Nothing new needed from you.") });
+  assert.equal(bad[0].candidate.verdict, VERDICT.RED);
+  const ok = await runArms({ cases, runWorkflowImpl: fake("") });
+  assert.equal(ok[0].candidate.verdict, VERDICT.GREEN);
+});
+
+// ---- probes never touch the tree -------------------------------------------
+
+test("compileSpec disallows every writing tool on every probe agent", () => {
+  const spec = compileSpec([{ id: "a", type: "trigger", prompt: "p", samples: 2 }]);
+  for (const a of spec.phases[0].agents) {
+    for (const t of ["Edit", "Write", "NotebookEdit", "Bash"]) assert.match(a.disallowedTools, new RegExp(`\\b${t}\\b`));
+  }
+});
+
+// ---- an unfinished probe is never a pass -----------------------------------
+
+test("a capped or failed probe fails its sample even when nothing is forbidden", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["nothing new"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "", outcome: "capped" }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "", outcome: "success" }), true);
+});
+
+test("runArms reads each probe's outcome and sums its cost per case", async () => {
+  const cases = [{ id: "b1", type: "behavior", prompt: "p", forbidText: ["x"], expectSkills: [], samples: 2 }];
+  const run = async (spec, log) => {
+    spec.phases[0].agents.forEach((a, i) => log({ type: "agent", label: a.label, sessionId: `s${i}`, outcome: i ? "capped" : "success", costUsd: 0.01, result: "" }));
+    return {};
+  };
+  const [r] = await runArms({ cases, runWorkflowImpl: run });
+  assert.equal(r.candidate.passed, 1);
+  assert.equal(r.candidate.costUsd, 0.02);
+});
+
+test("route, behaviour and fence probes get no reading tools; only trigger probes keep Skill and Read", () => {
+  const spec = compileSpec([{ id: "r", type: "route", prompt: "p", samples: 1 }, { id: "b", type: "behavior", prompt: "p", samples: 1 }]);
+  for (const a of spec.phases[0].agents) assert.match(a.disallowedTools, /\bRead\b/);
+  const t = compileSpec([{ id: "t", type: "trigger", prompt: "p", samples: 1 }]).phases[0].agents[0];
+  assert.doesNotMatch(t.disallowedTools, /\bRead\b/);
+});

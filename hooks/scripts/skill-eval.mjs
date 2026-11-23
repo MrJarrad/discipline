@@ -95,7 +95,7 @@ function expandHome(p) {
 // maxTurns with the required maxTurnsOverride (workflow-lint's turn floors
 // are sized for real work, not a 2-4 turn eval probe). `route` cases carry
 // a jsonSchema so the routing decision is a typed field, not prose to regex.
-export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 4, runNonce } = {}) {
+export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns = 10, runNonce } = {}) {
   const agents = cases.flatMap((c) => {
     const samples = c.samples ?? 3;
     const agentMaxTurns = c.maxTurns ?? maxTurns;
@@ -109,6 +109,13 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
         skills: [],
         maxTurns: agentMaxTurns,
         maxTurnsOverride: true,
+        // Probes run in bypassPermissions against the real tree; a haiku probe
+        // once edited skills/design-system/SKILL.md mid-run. Read-only always.
+        // route / behaviour probes answer from the prompt alone: no reading tools,
+        // so they finish inside the turn cap instead of exploring (run 2: 24 of 60 capped).
+        disallowedTools: c.type === "route" || c.type === "behavior"
+          ? "Edit Write NotebookEdit Bash Read Glob Grep WebFetch WebSearch Agent"
+          : "Edit Write NotebookEdit Bash",
       };
       if (c.type === "route") agent.jsonSchema = ROUTE_JSON_SCHEMA;
       if (pluginDir) agent.pluginDir = pluginDir;
@@ -198,14 +205,21 @@ export const VERDICT = { GREEN: "GREEN", RED: "RED", FLAKY: "FLAKY" };
 // persona?: string }. A sample passes iff every expectSkills member fired,
 // no forbidSkills member fired, and (route cases only) persona matches.
 export function sampleOutcome(caseDef, observed) {
+  // A probe that hit its turn cap or errored observed nothing: never a pass.
+  if (observed.outcome && observed.outcome !== "success") return false;
   const expect = caseDef.expectSkills ?? [];
   const forbid = caseDef.forbidSkills ?? [];
   const fired = observed.firedSkills ?? new Set();
   const skillsOk = expect.every((s) => fired.has(normalizeSkillName(s))) &&
     forbid.every((s) => !fired.has(normalizeSkillName(s)));
-  if (caseDef.type !== "route") return skillsOk;
+  // expectText / forbidText: case-insensitive regex strings over the run's
+  // reply text (behaviour cases). An absent reply reads as "".
+  const text = observed.text ?? "";
+  const textOk = (caseDef.expectText ?? []).every((p) => new RegExp(p, "i").test(text)) &&
+    (caseDef.forbidText ?? []).every((p) => !new RegExp(p, "i").test(text));
+  if (caseDef.type !== "route") return skillsOk && textOk;
   const personaOk = !caseDef.expectPersona || observed.persona === caseDef.expectPersona;
-  return skillsOk && personaOk;
+  return skillsOk && textOk && personaOk;
 }
 
 // scoreCase(caseDef, observedSamples) -> { id, verdict, passed, of }.
@@ -220,7 +234,8 @@ export function scoreCase(caseDef, observedSamples) {
   if (passed > of / 2) verdict = VERDICT.GREEN;
   else if (of - passed > of / 2) verdict = VERDICT.RED;
   else verdict = VERDICT.FLAKY;
-  return { id: caseDef.id, verdict, passed, of };
+  const costUsd = Math.round(observedSamples.reduce((n, o) => n + (o.costUsd ?? 0), 0) * 1e6) / 1e6;
+  return { id: caseDef.id, verdict, passed, of, costUsd };
 }
 
 // ---- discrimination (baseline arm) ----------------------------------------
@@ -319,10 +334,12 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
     const spec = compileSpec(cases, { armName, pluginDir, runNonce });
     const sessionsByLabel = new Map();
     const resultsByLabel = new Map();
+    const metaByLabel = new Map();
     await runWorkflowImpl(spec, (entry) => {
       if (entry.type === "agent") {
         sessionsByLabel.set(entry.label, entry.sessionId);
         resultsByLabel.set(entry.label, entry.result);
+        metaByLabel.set(entry.label, { outcome: entry.outcome, costUsd: entry.costUsd });
       }
     });
     const observedByCase = new Map();
@@ -339,6 +356,9 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
         // transcript's Skill tool_use blocks — route agents never load a
         // persona, so scoring them off tool_use alone always reads RED
         // regardless of the routing decision's quality.
+        Object.assign(observed, metaByLabel.get(agent.label));
+        const replyText = resultsByLabel.get(agent.label);
+        if (typeof replyText === "string") observed.text = replyText;
         if (agent.jsonSchema) {
           const routeResult = parseRouteResult(resultsByLabel.get(agent.label));
           if (routeResult) observed.persona = routeResult.persona;
