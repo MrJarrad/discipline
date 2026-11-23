@@ -341,19 +341,16 @@ test("vault-write's frontmatter template carries the encoded field and the index
   assert.match(vaultWrite, /encoded: 1\.73\.0/);
 });
 
-test("skill-authoring's Lesson intake names all five items in one commit", () => {
+test("skill-authoring's Lesson intake makes room through the budget test, and records the lesson", () => {
   const intake = skillAuthoring.slice(
     skillAuthoring.indexOf("## Lesson intake"),
     skillAuthoring.indexOf("## Checklist before shipping a skill"),
   );
   assert.ok(intake.length > 0, "skill-authoring must carry a Lesson intake section");
-  carries(intake, "the rule ≤ 80 words placed at the acting moment");
-  carries(intake, "a DO/DON'T pair");
-  assert.match(intake, /\*-law\.test\.mjs/);
+  const budgets = intake.match(/`([a-z-]+\.test\.mjs)`/)?.[1];
+  assert.ok(budgets && existsSync(join(repo, "hooks/scripts", budgets)), "the intake names the budget test that makes room, and it exists");
   assert.match(intake, /CHANGED\.txt/);
   assert.match(intake, /`encoded: <ver>`/);
-  assert.match(intake, /\*\*DO:\*\*/);
-  assert.match(intake, /\*\*DON'T:\*\*/);
   assert.match(skillAuthoring.slice(skillAuthoring.indexOf("## Checklist before shipping a skill")), /Lesson intake/);
 });
 

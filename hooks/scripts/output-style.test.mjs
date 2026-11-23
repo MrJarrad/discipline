@@ -291,13 +291,7 @@ test("discipline.md: the live task list is standing, one task per deliverable", 
 // The style is read on every turn of every session, helpers included, so it
 // carries voice only. Word budget from the DISC-351 target shape; frontmatter
 // excluded (it is config, not prose the model reads as instruction).
-const styleBody = styleRaw.slice(styleRaw.indexOf("\n---", 4) + 4);
-const words = (t) => t.split(/\s+/).filter(Boolean).length;
-
-test("DISC-351: the style body is at most 800 words", () => {
-  assert.ok(words(styleBody) <= 800, `style body is ${words(styleBody)} words`);
-});
-
+// Word budget: skill-ceilings.test.mjs BUDGETS.
 test("DISC-351: orchestrator duties live in routing, and the style points there", () => {
   const home = "skills/routing/references/OPERATOR-REPLIES.md";
   assert.ok(existsSync(join(repo, home)), `${home} must exist`);
