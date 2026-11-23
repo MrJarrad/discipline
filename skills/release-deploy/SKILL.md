@@ -144,4 +144,4 @@ cannot read or edit its own settings; the fix is to hand the operator one runnab
 
 ## Where this sits
 
-How release-deploy relates to merge review, present-for-review, the reviewer and the gate-run lane: [references/WHERE-THIS-SITS.md](references/WHERE-THIS-SITS.md).
+Owner, bar, and each target's mapping and rollback lever (Workers, npm, Figma plugin): [references/WHERE-THIS-SITS.md](references/WHERE-THIS-SITS.md).
