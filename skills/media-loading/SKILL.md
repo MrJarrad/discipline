@@ -99,28 +99,7 @@ judgement call. `hooks/scripts/media-load-probe.mjs` loads the deployed build
 at a phone viewport + DPR, drives a named interaction (`load` / `scroll` /
 `drag`), and measures every on-screen media element's **actual composited
 pixels** for the duration — never `.complete`/DOM presence, which reads PASS
-on a stuck-at-opacity-0 element with its bytes already decoded (the exact
-failure method 3 exists to stop), and never a canvas read of the element's
-own source bitmap either (that samples the
-SOURCE, not the composited page, so it still reads PASS on a slot that's
-clipped by an `overflow:hidden` ancestor, covered by an opaque sibling,
-`visibility:hidden`, or at `opacity:0` behind a parent). The paint signal is
-a full-page screenshot, cropped per slot to its rect intersected with the
-viewport and every clipping ancestor, classified against the page background
-and any named placeholder colours **plus internal structure past a real
-edge** (a white-heavy real photo or a dark-framed
-video can be mostly background-close by colour alone — real content almost
-always has edges/shading a flat swatch never does — but a smooth gradient/
-shimmer loading skeleton also has real spread without a real edge, so spread
-alone is never enough). A slot that's mostly scrolled past the viewport edge,
-showing only a trivial sliver of its own natural rect, is excluded from
-judgment only while it's actually IN MOTION (moved since the previous frame)
-— a static tile at the same small on-screen share, at rest or on load, is
-judged like any other slot (never a slot that's fully clipped/hidden either
-way — that stays a hard defect). And a blank slot only counts once it's
-stayed that way past the page's own entrance-fade duration (`--arrival-
-window-ms`, default 300ms — strictly past the fling session's own 250ms cadence, so one sample can never cross it alone) — never on the single sampled frame that lands
-mid-fade. It prints two numbers:
+on a stuck-at-opacity-0 element. How it judges a slot (clipping, covering, edges, slivers, the arrival window): [references/PROBE.md](references/PROBE.md) § How the probe judges a slot. It prints two numbers:
 
 - **paint** — a visible, non-trivial-sliver (or in-motion-sliver) slot whose
   screenshot crop reads as the page background/a placeholder colour AND shows

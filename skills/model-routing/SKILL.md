@@ -70,16 +70,7 @@ the fleet-blast-radius case above, justified in the brief.
 
 ## Escalation rule
 
-- Every cell **starts at `sonnet`** (mechanical work starts at `haiku`). Picking above
-  sonnet — for any child, any tier including the top one — always carries a written
-  justification in the brief's `## Interrogated` block naming the job-shape reason: the two
-  named cases (fleet-blast-radius adversarial review, novel architecture with no contract)
-  are worked examples of that reason, not the only ones a real job shape can present.
-- Otherwise escalate only after a cheaper model **demonstrably failed** on this task **and the brief passed the dispatch-brief interrogation** (`dispatch-brief` § Interrogate the brief). A failed lane on an un-interrogated brief is a brief defect, not a model defect — fix the brief and re-run the same tier before escalating. Record the failure in the brief ("sonnet run X produced Y, wrong because Z").
-- "This is important" is not a justification — importance is evidence contract + reviewer gate, not spend.
-- **A wide brief is never an escalation.** Slice it into one-contract-unit lanes; a bigger model still misses what the brief never enumerated (operator ruling 2026-09-20, `accuracy-before-the-link`: *"You also used open on this task and outcome was sloppy"*).
-- **Top-tier trial on judgment-heavy look lanes and hard diagnosis** (`one-shot-defect-rounds-2026-10-07`); sonnet stays default for mechanical work. The parent tracks defect rounds and usage per lane.
-- **Effort before model** — raise effort on the current model before jumping tiers (§ Frame above); a model jump justified by "needs more thinking" instead of a job-shape reason is the wrong lever.
+When a dispatch at one tier fails or stalls, escalate by the rule in [references/ESCALATION.md](references/ESCALATION.md), never by retrying the same tier blind.
 
 ## Checklist (extends dispatch-brief's eight-item list)
 
@@ -148,12 +139,7 @@ one expensive model over the whole run.
 
 ## Resumed context is a hidden token multiplier
 
-Budget **per fresh dispatch**, not per resume: a resumed agent pays full inference cost
-against its entire prior transcript on every turn, so the same task grows slower and
-pricier with each resume with no change in the task's own size (`fresh-context-per-task`,
-2026-09-16). Resume is reserved for a reviewer's red on the sha it just built; every other
-follow-up — a new ruling, a widened lock, a continuation slice, round two — is a fresh
-`Agent`, budgeted as its own dispatch.
+Before resuming a long-running agent rather than starting a fresh one, read [references/RESUMED-CONTEXT.md](references/RESUMED-CONTEXT.md).
 
 ## Historical burn lesson (2026-07-26)
 

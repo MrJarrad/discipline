@@ -5,9 +5,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
 test("keep design handoff: the pair stays the contract, the MCP does not replace it", () => {
   assert.match(flat("skills/handoff-to-code/SKILL.md"), /The Figma MCP does not replace the pair: it cannot return per-mode code-named tokens, generated CSS, the changelog or the pair hashes \(`2026-10-17-keep-design-handoff`\)/);

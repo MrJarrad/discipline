@@ -4,9 +4,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
 test("DISC-178: baton row and RELEASE-PATH carry release-follows-merge with the operator-owned exceptions", () => {
   assert.match(flat("skills/routing/SKILL.md"), /Merged main changes unreleased\*\* \| \*\*Parent\*\* releases.*no operator row/);

@@ -5,9 +5,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
 test("s90 2: a reviewer brief's last line is literally merge: yes or merge: no", () => {
   assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("**Last line literally `merge: yes` or `merge: no`**"));

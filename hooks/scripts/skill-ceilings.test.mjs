@@ -34,7 +34,7 @@ const pathsFor = (skill) =>
 
 const CEILINGS = [
   { skill: "capture-figma", ceiling: 1324, before: 9578 },
-  { skill: "routing", ceiling: 1916, before: 3254 }, // target 1,500 (DISC-351)
+  { skill: "routing", ceiling: 1492, before: 3254 },
   { skill: "motion", ceiling: 1040, before: 5552 },
   { skill: "wrap", ceiling: 1031, before: 3115 },
   { skill: "agents/reviewer.md", ceiling: 1814, before: 2017 },
@@ -79,15 +79,21 @@ for (const { skill, ceiling, before } of CEILINGS) {
   });
 }
 
-// Ratchet ceilings: bodies over 1,500 words that never offloaded, held at their measured size (target 1,500, DISC-351).
+// Ratchet ceilings: every body held at its measured size, none over 1,500 words (DISC-351 s8 moved the
+// branch-only sections into each skill's references/). A new rule fits by retiring one.
 const RATCHETS = [
-  { skill: "capture-website", ceiling: 1737 },
-  { skill: "media-loading", ceiling: 1640 },
-  { skill: "model-routing", ceiling: 1751 },
+  { skill: "capture-website", ceiling: 1455 },
+  { skill: "media-loading", ceiling: 1392 },
+  { skill: "model-routing", ceiling: 1448 },
   { skill: "present-for-review", ceiling: 1188 },
-  { skill: "release-deploy", ceiling: 1755 },
-  { skill: "qa-acceptance", ceiling: 1770 },
-  { skill: "cloud-dispatch", ceiling: 1865 },
+  { skill: "release-deploy", ceiling: 1456 },
+  { skill: "qa-acceptance", ceiling: 1441 },
+  { skill: "cloud-dispatch", ceiling: 1315 },
+  { skill: "grilling", ceiling: 1420 },
+  { skill: "webapp-testing", ceiling: 1337 },
+  { skill: "dispatch-brief", ceiling: 1372 },
+  { skill: "diagnosing-bugs", ceiling: 1320 },
+  { skill: "brand-voice", ceiling: 1412 },
 ];
 
 for (const { skill, ceiling } of RATCHETS) {
@@ -245,3 +251,13 @@ for (const { file, words, lines } of BUDGETS) {
     if (lines) assert.ok(text.trimEnd().split("\n").length <= lines, `${file} is over its ${lines}-line budget`);
   });
 }
+
+// Finding 7 (DISC-351): after a context summary each skill is re-attached with only its first 5,000 tokens,
+// so no body may outgrow that. 1,500 words is about 2,000 tokens, leaving room for the frontmatter.
+test("no skill body is over 1,500 words", () => {
+  const over = readdirSync(join(repo, "skills"))
+    .filter((n) => existsSync(join(repo, "skills", n, "SKILL.md")))
+    .map((n) => ({ skill: n, words: bodyWords(read(`skills/${n}/SKILL.md`)) }))
+    .filter(({ words }) => words > 1500);
+  assert.deepEqual(over, [], "skill bodies over 1,500 words");
+});

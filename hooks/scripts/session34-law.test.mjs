@@ -8,9 +8,10 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} is missing: ${s}`);
 const mar = await import("./merge-after-review.mjs");
 const HEAD = "c137007fc1159f87d0fc58e885fc8b71b0362275";

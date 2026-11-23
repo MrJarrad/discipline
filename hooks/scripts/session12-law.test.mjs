@@ -5,9 +5,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 
 test("one-shot-defect-rounds: doer-rules keeps the production-build and real-GPU checks, now after the yes (link-first-look-rounds)", () => {
   const d = read("doer-rules.md");
