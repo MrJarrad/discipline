@@ -25,9 +25,9 @@ test("s76 2: a merged lane's worktree is removed in the same step; df is read be
 test("s76 3: row-add names both list files to stage", () => {
   has("skills/routing/references/MECHANICAL-SCRIPTS.md", "`row-add: stage <both list files>`");
 });
-test("s76 4: the brief cap excludes the House rules block", () => {
-  has("hooks/bin/agent-dispatch-gate.mjs", "the House rules block, matched against HOUSE-RULES.md, already excluded");
+test("s76 4: the brief length target excludes the House rules block; the gate has no word cap (DISC-351 s5)", () => {
   has("skills/dispatch-brief/SKILL.md", "lock table and House rules block excluded");
+  has("hooks/bin/agent-dispatch-gate.mjs", "The prompt word cap is gone");
 });
 test("s76 7: the reviewer brief carries the invoke-for-real wording", () => {
   has("skills/dispatch-brief/SKILL.md", "invoke each skill with the Skill tool, for real");

@@ -174,9 +174,10 @@ test("dispatch-brief carries an effort tier field and checklist line", () => {
   assert.match(persona, /effort tier/i);
 });
 
-test("model-routing maps all three effort tiers to model and thinking budget", () => {
+test("model-routing maps all three effort tiers to a model and a real effort level (DISC-355 f5)", () => {
   for (const tier of [/routine/i, /contested/i, /high-stakes/i]) assert.match(modelRouting, tier);
-  assert.match(modelRouting, /thinking budget/i);
+  for (const level of ["low", "medium", "high", "xhigh", "max"]) assert.match(modelRouting, new RegExp("`" + level + "`"));
+  assert.doesNotMatch(modelRouting, /thinking budget/i);
 });
 
 // --- Locked row 5: LIGHT default, FULL justified -------------------------

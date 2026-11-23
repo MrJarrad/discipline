@@ -1900,7 +1900,7 @@ test("agent-dispatch-gate's skills check runs unconditionally on every subagent_
   assert.match(script, /checkSkillsNamed/);
 });
 
-test("gate: reviewer/researcher/releaseops dispatches with no Skills: line are refused, same as engineer", () => {
+test("gate: reviewer/researcher/releaseops dispatches with no Skills: line warn, same as engineer (DISC-351 s5)", () => {
   for (const subagent_type of ["engineer", "ux-designer", "reviewer", "researcher", "releaseops"]) {
     const verdict = checkAgentDispatch({
       description: `cloud — ${subagent_type} (sonnet): do the thing`,
@@ -1908,7 +1908,8 @@ test("gate: reviewer/researcher/releaseops dispatches with no Skills: line are r
       subagent_type,
       prompt: "No skills line here at all.",
     });
-    assert.equal(verdict.item, "skills", subagent_type);
+    assert.equal(verdict.ok, true, subagent_type);
+    assert.deepEqual(verdict.notes.map((n) => [n.kind, n.item]), [["warning", "skills"]], subagent_type);
   }
 });
 
@@ -2092,14 +2093,14 @@ const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- Rule 1: read-back only above line --------------------------------------
 
-test("doer-rules: a line brief never asks for a read-back; the gate refuses one that does", () => {
+test("doer-rules: a line brief never asks for a read-back; the gate warns on one that does (DISC-351 s5)", () => {
   const doc = flat(read("doer-rules.md"));
-  assert.match(doc, /A `line` brief never\s*asks for a read-back stop; the dispatch gate refuses one that does/);
+  assert.match(doc, /A `line` brief never\s*asks for a read-back stop; the dispatch gate warns on one that does/);
 });
 
-test("dispatch-brief: names the line-lane read-back exemption and gate refusal", () => {
+test("dispatch-brief: names the line-lane read-back exemption and gate warning (DISC-351 s5)", () => {
   const doc = flat(read("skills/dispatch-brief/SKILL.md"));
-  assert.match(doc, /never on `line`, gate-refused/);
+  assert.match(doc, /never on `line`, gate-warned/);
 });
 
 test("gate: checkLineNoReadBack is null for a line brief with no read-back ask", () => {
@@ -2120,14 +2121,15 @@ test("gate: checkLineNoReadBack does not fire on a component/system brief with a
   assert.equal(checkLineNoReadBack("Size: component\nReturn `## Read-back` before any edit."), null);
 });
 
-test("gate: checkAgentDispatch refuses a full line-sized Agent dispatch that asks for a read-back", () => {
+test("gate: checkAgentDispatch warns on a full line-sized Agent dispatch that asks for a read-back (DISC-351 s5)", () => {
   const verdict = checkAgentDispatch({
     description: "cloud — engineer (sonnet): fix the guard",
     model: "sonnet",
     subagent_type: "engineer",
     prompt: "Size: line\nSkills: quality\nReturn `## Read-back` before any edit.",
   });
-  assert.equal(verdict.item, "line-readback");
+  assert.equal(verdict.ok, true);
+  assert.deepEqual(verdict.notes.map((n) => [n.kind, n.item]), [["warning", "line-readback"]]);
 });
 
 test("gate: checkAgentDispatch allows a line-sized dispatch with no read-back ask", () => {
@@ -2394,14 +2396,16 @@ test("gate: checkComponentSystemProgress does not fire on a line brief", () => {
   assert.equal(checkComponentSystemProgress("Size: line\nFix the guard."), null);
 });
 
-test("gate: checkAgentDispatch refuses a full component-sized Agent dispatch with no progress path", () => {
+test("gate: checkAgentDispatch gives a full component-sized Agent dispatch with no progress path one (DISC-351 s5)", () => {
   const verdict = checkAgentDispatch({
     description: "cloud — engineer (sonnet): rebind the nav",
     model: "sonnet",
     subagent_type: "engineer",
     prompt: "Size: component\nSkills: quality\nBuild the nav row.",
   });
-  assert.equal(verdict.item, "progress-path");
+  assert.equal(verdict.ok, true);
+  assert.deepEqual(verdict.notes.map((n) => [n.kind, n.item]), [["fixed", "progress-path"]]);
+  assert.equal(checkComponentSystemProgress(verdict.input.prompt), null);
 });
 
 // --- (2) doer-rules: milestone = progress line + explicit-path WIP commit --

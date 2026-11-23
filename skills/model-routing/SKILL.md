@@ -88,32 +88,32 @@ the fleet-blast-radius case above, justified in the brief.
 [ ] model set explicitly on the dispatch (never inherited)
 [ ] job shape + complexity classified; pick from the Claude map above
 [ ] sonnet is the default; if above sonnet: written justification in `## Interrogated` naming the job-shape reason
-[ ] effort tier from the brief (routine | contested | high-stakes) mapped to model + thinking budget
+[ ] effort tier from the brief (routine | contested | high-stakes) mapped to model + `effort` level
 ```
 
 ## Effort tier — the brief's field, mapped here
 
 Every dispatch brief names an **effort tier** (`dispatch-brief`). This table is where the
-tier becomes a model and a thinking budget, so deliberation follows the work rather than
-the parent's habit.
+tier becomes a model and an `effort` level, so deliberation follows the work rather than
+the parent's habit. Set it as `effort` on the dispatch; the real levels are `low`, `medium`,
+`high`, `xhigh`, `max`, by model (code.claude.com/docs/en/sub-agents § effort).
 
-| Effort tier | The work | Model | Thinking budget |
+| Effort tier | The work | Model | `effort` |
 |---|---|---|---|
-| **routine** | Known shape, clear answer — mechanical edits, conform passes, a fix with a named cause | cheapest cell that clears the bar (`haiku`/`sonnet`) | **low** — no extended thinking |
-| **contested** | Reasonable approaches disagree, or the claim will be argued — design-backed builds, diagnosis, adversarial review | `sonnet`, or `opus` when the cell above already requires it | **medium** — the default |
-| **high-stakes** | Irreversible, cross-repo, or fleet-wide blast radius — releases, architecture, destructive migrations | `opus` — justify | **high** — justify like a model escalation |
+| **routine** | Known shape, clear answer — mechanical edits, conform passes, a fix with a named cause | cheapest cell that clears the bar (`haiku`/`sonnet`) | `low` |
+| **contested** | Reasonable approaches disagree, or the claim will be argued — design-backed builds, diagnosis, adversarial review | `sonnet`, or `opus` when the cell above already requires it | `medium` — the default |
+| **high-stakes** | Irreversible, cross-repo, or fleet-wide blast radius — releases, architecture, destructive migrations | `opus` — justify | `high` — justify like a model escalation |
+
+`xhigh`/`max` only when the operator or brief names one.
 
 The tier is chosen from the work, not from importance-feeling: "this matters" is an
-evidence contract, not a budget. Raise the thinking budget on the current model before
-jumping models.
+evidence contract, not a budget.
 
 ## Effort & scope
 
 Model choice is one lever; effort, turn caps, and brief scope are the others.
 
-- **Effort low** — mechanical stages (renames, formatting, known script + report).
-- **Effort medium** — default for implement, fix, audit, research, tests.
-- **Effort high** — adversarial verify/judge or competing-design scoring only; justify like a model escalation.
+- **`effort`** — per the tier table above: `low` mechanical, `medium` default, `high` adversarial verify/judge only.
 - **Every workflow spec sets `maxTurns`.** `workflow.mjs` defaults an unset agent to 60 turns (and an unset haiku agent to effort `low`) — a backstop, not a substitute for choosing a real number. `"maxTurns": null` must be explicit and is logged as a burn warning.
 - **Scope the brief** so the child finishes in one coherent pass — prefer parallel Agent dispatches over one unbounded mega-agent. Single reviewer/verify pass is the default; multi-judge panels only when the task says thorough/audit.
 - **Commit incrementally** in every implement brief so a long run never strands finished work.

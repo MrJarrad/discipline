@@ -1,8 +1,9 @@
-// Tests for the Agent dispatch gate. Seven dispatch laws that were
-// prompt-trusted until now — surface-prefixed description, explicit model,
-// brief under 600 words, skills named, (1.92.0) Source-contract lock-row
-// shape, (1.93.0) line briefs never ask for a read-back, and (1.95.0)
-// component/system briefs name a progress path — are asserted here against
+// Tests for the Agent dispatch gate. Outcome checks refuse (explicit model,
+// local justification, Figma resolve result, and the Bash kill/force-push/Mac-job
+// checks); form checks fix or warn (DISC-351 step 5): the description label and
+// the Bash agent label are rebuilt, {HOUSE} is filled, a component/system brief
+// gets a progress path, and the Skills line, Source-contract lock rows and a line
+// brief's read-back ask warn. There is no word cap. All are asserted here against
 // the fixtures the dispatch brief named: malformed and well-formed, plus
 // per-check fixtures for the newer checks. The fixtures are exported so the
 // runtime dry-run in the evidence return drives the same objects the unit
@@ -22,8 +23,12 @@ import {
   checkSourceContractLockRows,
   checkComponentSystemProgress,
   registerLaneFromPrompt,
-  promptWords,
-  PROMPT_WORD_CAP,
+  normaliseDescription,
+  fillPlaceholders,
+  fillProgressPath,
+  defaultProgressPath,
+  formatNotes,
+  houseRulesBlock,
   EXEMPT_SUBAGENTS,
   SOURCE_CONTRACT_CELLS,
   findRepoContext,
@@ -87,31 +92,49 @@ test("the well-formed fixture passes every check", () => {
   assert.deepEqual(checkAgentDispatch(WELL_FORMED), { ok: true });
 });
 
-test("the malformed fixture is blocked, and the message names the failing item", () => {
+test("the malformed fixture (no model) is refused on the model, the outcome check", () => {
   const verdict = checkAgentDispatch(MALFORMED);
   assert.equal(verdict.ok, false);
-  assert.equal(verdict.item, "description");
-  assert.match(verdict.reason, /description:/);
-  assert.match(verdict.reason, /cloud — persona \(model\): task/);
+  assert.equal(verdict.item, "model");
+  assert.match(verdict.reason, /model:/);
 });
 
-test("local is a valid surface; anything else is not", () => {
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, description: "local — reviewer (opus): check the build", model: "opus", prompt: WELL_FORMED.prompt + "\nLocal because: (a) verifying the deployed preview." }).ok);
-  for (const bad of [
-    "remote — engineer (opus): x",
-    "engineer (opus): x",
-    "cloud engineer (opus): x",
-    "cloud - engineer (opus): x", // hyphen, not the em dash the law files use
-  ]) {
-    assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: bad }).item, "description", bad);
+test("a malformed label with a model set is rebuilt, never refused", () => {
+  const verdict = checkAgentDispatch({ ...MALFORMED, model: "sonnet" });
+  assert.equal(verdict.ok, true);
+  assert.equal(verdict.input.description, "cloud — engineer (sonnet): Fix the nav");
+  assert.deepEqual(verdict.notes.filter((n) => n.item === "description").map((n) => n.kind), ["fixed"]);
+});
+
+test("label fixes: dash, missing surface, missing or wrong model, persona from subagent_type", () => {
+  const cases = [
+    ["cloud - engineer (sonnet): x", "cloud — engineer (sonnet): x"],
+    ["cloud – engineer (sonnet): x", "cloud — engineer (sonnet): x"],
+    ["local -- reviewer (sonnet): x", "local — reviewer (sonnet): x"],
+    ["engineer (sonnet): x", "cloud — engineer (sonnet): x"],
+    ["cloud — engineer: x", "cloud — engineer (sonnet): x"],
+    ["cloud — engineer (): x", "cloud — engineer (sonnet): x"],
+    ["cloud — engineer (opus): x", "cloud — engineer (sonnet): x"],
+    ["cloud — (opus): x", "cloud — engineer (sonnet): x"],
+    ["Fix the nav", "cloud — engineer (sonnet): Fix the nav"],
+  ];
+  for (const [given, want] of cases) {
+    assert.equal(normaliseDescription(given, { model: "sonnet", persona: "engineer" }).description, want, given);
   }
 });
 
-test("the description must carry a persona AND a parenthesised model", () => {
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer: x" }).item, "description");
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — (opus): x" }).item, "description");
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer (): x" }).item, "description");
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, description: "cloud — engineer (opus):" }).item, "description");
+test("label warnings: an unknown surface or an empty task is left as written and the dispatch runs", () => {
+  for (const bad of ["remote — engineer (sonnet): x", "cloud — engineer (sonnet):"]) {
+    const verdict = checkAgentDispatch({ ...WELL_FORMED, description: bad });
+    assert.equal(verdict.ok, true, bad);
+    assert.equal(verdict.input, undefined, "nothing to rewrite");
+    assert.equal(verdict.notes.find((n) => n.item === "description").kind, "warning", bad);
+  }
+});
+
+test("the persona comes from a plugin-scoped subagent_type without its prefix", () => {
+  const v = checkAgentDispatch({ ...WELL_FORMED, subagent_type: "discipline:reviewer", description: "check the build" });
+  assert.equal(v.input.description, "cloud — reviewer (sonnet): check the build");
 });
 
 // --- Model ----------------------------------------------------------------
@@ -122,65 +145,15 @@ test("an unset or blank model is blocked and the message names the model", () =>
     assert.equal(verdict.item, "model", `model=${JSON.stringify(model)}`);
     assert.match(verdict.reason, /model:/);
     assert.match(verdict.reason, /inherits the parent's/);
+    assert.equal(checkAgentDispatch({ ...MALFORMED, model }).item, "model", "the label is no excuse");
   }
 });
 
-// --- Prompt cap -----------------------------------------------------------
+// --- No word cap (DISC-351 step 5: "Remove the word cap") -----------------
 
-test("a prompt at or over the cap is blocked, with the count named", () => {
-  const verdict = checkAgentDispatch({ ...WELL_FORMED, prompt: "word ".repeat(PROMPT_WORD_CAP) });
-  assert.equal(verdict.item, "prompt");
-  assert.match(verdict.reason, new RegExp(`${PROMPT_WORD_CAP} words`));
-  assert.match(verdict.reason, /cap is 600/);
-});
-
-test("a prompt just under the cap passes", () => {
-  const prompt = "Skills: quality. " + "word ".repeat(PROMPT_WORD_CAP - 4);
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
-});
-
-// The locked table is the spec and the brief copies it whole
-// (`review-the-lock-not-the-slice`), so counting its rows would push the parent
-// to slice the lock to fit the cap — the exact malformed brief rule 10 forbids.
-test("markdown table rows do not count against the cap", () => {
-  const rows = Array.from({ length: 200 }, (_, i) => `| ${i} | "operator said something long here" | means this technically |`);
-  const prompt = ["Short brief. Skills: quality.", ...rows].join("\n");
-  assert.equal(promptWords(prompt), 4, "only the prose line counts");
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
-});
-
-test("indented table rows are excluded too", () => {
-  assert.equal(promptWords("one two\n   | a | b |\n| c | d |"), 2);
-});
-
-// s76 lesson 4: the fixed House rules block (about 450 words, copied whole from
-// dispatch-brief/references/HOUSE-RULES.md) left 150 words for a look-lane brief. Only text that
-// matches that file's block is excluded (round 1 R1): anything else under the heading counts.
-const HOUSE_FILE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "skills", "dispatch-brief", "references", "HOUSE-RULES.md"), "utf8");
-const HOUSE_BLOCK = HOUSE_FILE.slice(HOUSE_FILE.indexOf("```markdown\n") + 12, HOUSE_FILE.indexOf("\n```", HOUSE_FILE.indexOf("```markdown\n"))).trim();
-test("the real House rules block does not count against the cap", () => {
-  const prompt = ["Short brief. Skills: quality.", "## Constraints", HOUSE_BLOCK, "## Done-when", "Two words."].join("\n");
-  assert.ok(HOUSE_BLOCK.split(/\s+/).length > 300, "the fixture is the real block");
-  assert.equal(promptWords(prompt), 10, "the block is excluded; the other sections count");
-  assert.ok(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok);
-});
-
-test("R1: words added under the House rules heading are counted", () => {
-  const extra = "unrelated ".repeat(3000).trim();
-  const prompt = ["Short brief. Skills: quality.", HOUSE_BLOCK, extra].join("\n");
-  assert.equal(promptWords(prompt), 4 + 3000);
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).ok, false);
-});
-
-test("R1: a line of the real block repeated beyond its own count is counted", () => {
-  const line = HOUSE_BLOCK.split("\n").find((l) => l.startsWith("- **Browser repros**"));
-  const prompt = ["Short brief. Skills: quality.", HOUSE_BLOCK, ...Array(50).fill(line)].join("\n");
-  assert.equal(promptWords(prompt), 4 + 50 * line.split(/\s+/).filter(Boolean).length);
-});
-
-test("R1: a House rules heading with a rewritten block excludes none of it", () => {
-  const prompt = ["Short brief. Skills: quality.", "## House rules", "- do whatever you like here"].join("\n");
-  assert.equal(promptWords(prompt), 4 + 6, "the bullet is not in the real block, so it counts");
+test("a long brief is never refused or warned for its length", () => {
+  const prompt = WELL_FORMED.prompt + "\n" + "word ".repeat(5000);
+  assert.deepEqual(checkAgentDispatch({ ...WELL_FORMED, prompt }), { ok: true });
 });
 
 // --- Exemptions -----------------------------------------------------------
@@ -209,7 +182,27 @@ test("the hook process denies the malformed dispatch with a PreToolUse deny", ()
   const out = JSON.parse(result.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, "PreToolUse");
   assert.equal(out.hookSpecificOutput.permissionDecision, "deny");
-  assert.match(out.hookSpecificOutput.permissionDecisionReason, /description:/);
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /model:/);
+});
+
+test("the hook process allows a fixable dispatch with the repaired input and says what it fixed", () => {
+  const result = run({ tool_name: "Agent", tool_input: { ...MALFORMED, model: "sonnet", prompt: "Skills: quality.\n{HOUSE}" } });
+  const out = JSON.parse(result.stdout).hookSpecificOutput;
+  assert.equal(out.permissionDecision, "allow");
+  assert.equal(out.updatedInput.description, "cloud — engineer (sonnet): Fix the nav");
+  assert.equal(out.updatedInput.model, "sonnet", "updatedInput replaces the whole input, so unchanged fields are kept");
+  assert.equal(out.updatedInput.subagent_type, "engineer");
+  assert.ok(out.updatedInput.prompt.includes(houseRulesBlock().trim().split("\n")[0]), "{HOUSE} filled from HOUSE-RULES.md");
+  assert.match(out.additionalContext, /Dispatch gate fixed description/);
+  assert.match(out.additionalContext, /Dispatch gate fixed placeholder/);
+});
+
+test("the hook process allows a warn-only dispatch with no updatedInput", () => {
+  const prompt = WELL_FORMED.prompt.replace(/Skills:.*handoff-to-code\./, "");
+  const out = JSON.parse(run({ tool_name: "Agent", tool_input: { ...WELL_FORMED, prompt } }).stdout).hookSpecificOutput;
+  assert.equal(out.permissionDecision, "allow");
+  assert.equal(out.updatedInput, undefined);
+  assert.match(out.additionalContext, /Dispatch gate warning — skills/);
 });
 
 test("the hook process passes the well-formed dispatch silently", () => {
@@ -228,15 +221,17 @@ test("input the gate cannot read is allowed, never denied on its own confusion",
 
 // --- Skills named (1.92.0, every persona) ----------------------------------
 
-test("a prompt with no Skills: line is blocked for every persona, not just build verbs", () => {
+test("a prompt with no Skills: line warns for every persona, not just build verbs, and still runs", () => {
   for (const persona of ["engineer", "ux-designer", "reviewer", "researcher", "releaseops"]) {
     const verdict = checkAgentDispatch({
       ...WELL_FORMED,
       subagent_type: persona,
       prompt: WELL_FORMED.prompt.replace(/Skills:.*handoff-to-code\./, ""),
     });
-    assert.equal(verdict.item, "skills", persona);
-    assert.match(verdict.reason, /a brief naming none is malformed/);
+    assert.equal(verdict.ok, true, persona);
+    const note = verdict.notes.find((n) => n.item === "skills");
+    assert.equal(note.kind, "warning", persona);
+    assert.match(note.text, /a brief naming none is malformed/);
   }
 });
 
@@ -313,6 +308,18 @@ test("a Source-contract lock row whose quote carries an easing curve is blocked"
   assert.equal(checkSourceContractLockRows(prompt).item, "lock-rows");
 });
 
+test("a bad lock row warns on the dispatch and never refuses it", () => {
+  for (const bad of ['"x" | recommended |', '"use `--cursor-size-md`" | operator-round |']) {
+    const prompt = SOURCE_CONTRACT_WELL_FORMED.prompt.replace('"the custom cursor stays" | operator-round |', bad);
+    const v = checkAgentDispatch({ ...SOURCE_CONTRACT_WELL_FORMED, prompt });
+    assert.equal(v.ok, true, bad);
+    assert.equal(v.notes.find((n) => n.item === "lock-rows").kind, "warning", bad);
+    assert.equal(v.input, undefined, "a warning never rewrites the brief");
+  }
+  const header = SOURCE_CONTRACT_WELL_FORMED.prompt.replace("Source |", "Means technically |");
+  assert.equal(checkAgentDispatch({ ...SOURCE_CONTRACT_WELL_FORMED, prompt: header }).notes[0].item, "lock-rows");
+});
+
 test("a prompt with no ## Source contract heading skips the lock-row check entirely", () => {
   assert.equal(checkSourceContractLockRows(WELL_FORMED.prompt), null);
 });
@@ -341,7 +348,35 @@ test("a component brief with no ## Progress heading is blocked", () => {
   const verdict = checkComponentSystemProgress(prompt);
   assert.equal(verdict.item, "progress-path");
   assert.match(verdict.reason, /progress-path:/);
-  assert.equal(checkAgentDispatch({ ...WELL_FORMED, prompt }).item, "progress-path");
+  const v = checkAgentDispatch({ ...WELL_FORMED, prompt }, { now: Date.UTC(2026, 10, 23, 8, 30) });
+  assert.equal(v.ok, true, "a missing progress path is fixed, not refused");
+  assert.equal(findProgressPathOf(v.input.prompt), "~/.claude/progress/20261123-0830-rebind-the-nav-tokens-progress.md");
+  assert.equal(v.notes.find((n) => n.item === "progress-path").kind, "fixed");
+});
+
+const findProgressPathOf = (prompt) => (checkComponentSystemProgress(prompt) ? null : /`([^`]*progress\.md)`/.exec(prompt.slice(prompt.search(/^## Progress/m)))?.[1]);
+
+test("a ## Progress heading with prose only gets the path on its next line, the prose kept", () => {
+  const prompt = "Size: system\nSkills: quality\n\n## Progress\nper doer-rules.md\n\n## Done-when\nGreen.";
+  const { prompt: out, path } = fillProgressPath(prompt, "cloud — engineer (sonnet): Build It", Date.UTC(2026, 0, 2, 3, 4));
+  assert.equal(path, "~/.claude/progress/20260102-0304-build-it-progress.md");
+  assert.match(out, /## Progress\n`~\/\.claude\/progress\/20260102-0304-build-it-progress\.md`\nper doer-rules\.md/);
+  assert.equal(checkComponentSystemProgress(out), null, "the fixed brief passes the detector");
+});
+
+test("the fixed progress path is registered as the lane's, so the progress floor watches it", () => {
+  const registryPath = tempRegistryPath();
+  const prompt = WELL_FORMED.prompt.replace("**Done-when.**", "Size: component.\n\n**Done-when.**");
+  const result = spawnSync(process.execPath, [gate], {
+    input: JSON.stringify({ tool_name: "Agent", session_id: "s-fix", tool_input: { ...WELL_FORMED, prompt } }),
+    encoding: "utf8",
+    env: { ...process.env, DISCIPLINE_PROGRESS_REGISTRY: registryPath },
+  });
+  const out = JSON.parse(result.stdout).hookSpecificOutput;
+  const lanes = loadRegistry(registryPath);
+  assert.equal(lanes.length, 1);
+  assert.ok(lanes[0].path.endsWith("-rebind-the-nav-tokens-progress.md"), lanes[0].path);
+  assert.ok(out.updatedInput.prompt.includes("## Progress"));
 });
 
 test("a system brief with no ## Progress heading is blocked too", () => {
@@ -833,12 +868,19 @@ test("commands that launch an agent are recognised; plain commands are not", () 
   }
 });
 
-test("a Bash agent launch without the label is blocked, naming the shape", () => {
-  for (const description of ["", "run the job", "Run claude", "local - Engineer (sonnet): x", "cloud — Engineer: x"]) {
+test("a Bash agent launch with a fixable label is rebuilt; an unfixable one warns; neither is refused", () => {
+  const fixed = checkBashAgentLabel({ command: "claude -p 'x'", run_in_background: true, description: "local - Engineer (sonnet): x" });
+  assert.equal(fixed.ok, true);
+  assert.equal(fixed.input.description, "local — Engineer (sonnet): x");
+  assert.equal(fixed.input.command, "claude -p 'x'", "the whole input is kept");
+  assert.equal(fixed.notes[0].kind, "fixed");
+  for (const description of ["", "run the job", "Run claude", "cloud — Engineer: x"]) {
     const verdict = checkBashAgentLabel({ command: "claude -p 'x'", run_in_background: true, description });
-    assert.equal(verdict.ok, false, JSON.stringify(description));
-    assert.equal(verdict.item, "bash-description");
-    assert.match(verdict.reason, /local — persona \(model\): task/);
+    assert.equal(verdict.ok, true, JSON.stringify(description));
+    assert.equal(verdict.input, undefined);
+    assert.equal(verdict.notes[0].kind, "warning");
+    assert.equal(verdict.notes[0].item, "bash-description");
+    assert.match(verdict.notes[0].text, /persona \(model\): task/);
   }
 });
 
@@ -859,10 +901,12 @@ test("plain Bash — a dev server, a watcher, anything not an agent — is never
   }
 });
 
-test("the hook process denies an unlabelled Bash agent launch and passes the labelled one", () => {
-  const denied = JSON.parse(run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", run_in_background: true } }).stdout);
-  assert.equal(denied.hookSpecificOutput.permissionDecision, "deny");
-  assert.match(denied.hookSpecificOutput.permissionDecisionReason, /bash-description/);
+test("the hook process warns on an unlabelled Bash agent launch and passes the labelled one silently", () => {
+  const warned = JSON.parse(run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", run_in_background: true } }).stdout);
+  assert.equal(warned.hookSpecificOutput.permissionDecision, "allow");
+  assert.match(warned.hookSpecificOutput.additionalContext, /bash-description/);
+  const fixed = JSON.parse(run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", description: "cloud - Engineer (sonnet): x" } }).stdout);
+  assert.equal(fixed.hookSpecificOutput.updatedInput.description, "cloud — Engineer (sonnet): x");
   const ok = run({ tool_name: "Bash", tool_input: { command: "claude -p 'x'", description: LABELLED } });
   assert.equal(ok.stdout.trim(), "");
   assert.equal(run({ tool_name: "Bash", tool_input: { command: "npm run dev", run_in_background: true } }).stdout.trim(), "");
@@ -919,12 +963,26 @@ test("kill-by-name: pkill/killall as the command is blocked; the word as text is
 
 // --- Unfilled template placeholders (DISC-170) -----------------------------
 
-test("a brief carrying an unfilled {HOUSE} slot is blocked, naming the slot", () => {
+test("a brief carrying an unfilled {HOUSE} slot is filled from HOUSE-RULES.md, never refused", () => {
   const input = { ...WELL_FORMED, prompt: WELL_FORMED.prompt + "\n\n{HOUSE}\n" };
   const v = checkAgentDispatch(input);
-  assert.equal(v.ok, false);
-  assert.equal(v.item, "placeholder");
-  assert.match(v.reason, /\{HOUSE\}/);
+  assert.equal(v.ok, true);
+  assert.equal(v.notes.find((n) => n.item === "placeholder").kind, "fixed");
+  assert.ok(v.input.prompt.includes(houseRulesBlock().trim()), "the whole block from its one source");
+  assert.equal(checkUnfilledPlaceholders(v.input.prompt), null);
+});
+
+test("a {HOUSE} quoted in code stays as written while the bare slot is filled", () => {
+  const prompt = "Skills: quality.\nThe slot `{HOUSE}` is filled below.\n{HOUSE}\n";
+  const out = fillPlaceholders(prompt, { house: "HOUSE BODY" }).prompt;
+  assert.equal(out, "Skills: quality.\nThe slot `{HOUSE}` is filled below.\nHOUSE BODY\n");
+});
+
+test("an unreadable HOUSE-RULES.md leaves {HOUSE} in place with a warning; the dispatch still runs", () => {
+  const v = checkAgentDispatch({ ...WELL_FORMED, prompt: WELL_FORMED.prompt + "\n{HOUSE}" }, { house: null });
+  assert.equal(v.ok, true);
+  assert.equal(v.input, undefined);
+  assert.equal(v.notes.find((n) => n.item === "placeholder").kind, "warning");
 });
 
 test("code, mustache, path templates, regex quantifiers and other brace text are not unfilled slots", () => {

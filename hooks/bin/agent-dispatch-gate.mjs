@@ -1,88 +1,47 @@
 #!/usr/bin/env node
-/* PreToolUse (Agent|Task|Bash) — makes five dispatch laws mechanical instead of
-   prompt-trusted. `routing` rule 9 has said since 1.74.0 that every dispatch
-   `description` leads with its surface, `model-routing` has said the model is
-   set explicitly and never inherited, `dispatch-brief` caps the brief, routing
-   says a brief naming no skills is malformed, and the 2026-09-22
-   lessons-for-1-92 ruling says a Source-contract lock row carries only the
-   operator's words — and all five were still checked only by whoever
-   remembered to check them. This gate reads the dispatch before it launches
-   and denies it with the failing item named.
+/* PreToolUse (Agent|Task|Bash) — reads every dispatch before it launches. It
+   REFUSES only where the outcome is wrong and cannot be repaired from the call
+   itself; every form check FIXES the call (`updatedInput`, a full replacement
+   of the tool input, docs: code.claude.com/docs/en/hooks § PreToolUse) or
+   WARNS (`additionalContext`) and lets it run. DISC-351 step 5 (audit finding
+   4, 2026-11-23): "Form checks become warnings or auto-fixes." Probed on
+   claude 2.1.330: a rewritten Agent prompt reaches the child.
 
-   A sixth-surface check (1.102.0) covers Bash: an agent launched through Bash
-   (`claude -p` / `--print` / `--cloud`, `workflow.mjs`, the Mac-queue runner or
-   a Mac-queue job file) must carry the same `description` shape as an Agent
-   dispatch, because the background-task list shows that description and the
-   operator reads it to see that a local agent is running (operator,
-   2026-10-01). Only agent launches are gated — never a dev server or watcher.
+   REFUSALS (outcome checks), first failure reported:
+   1. MODEL SET EXPLICITLY — an unset `model` inherits the parent's
+      (model-routing).
+   2. LOCAL NAMES ITS NEED — a `local —` dispatch with no `Local because:
+      (a|b|c)` line runs on the wrong surface (routing HARD-RULES 9, DISC-232).
+      9. LOCAL NAMES ITS NEED is the historical number of this law.
+   3. RESOLVE RESULT — a brief that adds or renames a Figma variable carries
+      `## Resolve result` (DISC-347).
+   Bash: kill-by-name, force-push and an unrunnable Mac job are refused too.
 
-   Ten checks, in order (the tenth, DISC-347, is `checkResolveResult`: a brief that adds or renames a Figma variable carries `## Resolve result`), first failure reported (the eighth, 1.140.0, and ninth, 1.164.0, are listed last):
+   FIXES (the call runs with the repaired input; the parent is told what changed):
+   - DESCRIPTION LABEL — rebuilt as `cloud|local — persona (model): task`: a
+     hyphen or en dash becomes the em dash, a missing surface becomes `cloud`,
+     the persona comes from `subagent_type` when absent, and the parenthesised
+     model is always the `model` actually set. A label with no task, or an
+     unknown surface word, is left as written with a warning.
+   - BASH AGENT LABEL — the same rebuild when the description names a model;
+     otherwise a warning.
+   - TEMPLATE PLACEHOLDER — `{HOUSE}` outside code is replaced by the House
+     rules block from dispatch-brief/references/HOUSE-RULES.md (DISC-170).
+   - PROGRESS HEADING — a `Size: component|system` brief with no `## Progress`
+     path gets one: `~/.claude/progress/<stamp>-<task>-progress.md`.
 
-   1. DESCRIPTION SHAPE — `cloud — persona (model): task` or
-      `local — persona (model): task`. The surface prefix is what makes the
-      cloud default auditable at a glance; the parenthesised model is what
-      makes an inherited model visible in the log rather than silent.
-   2. MODEL SET EXPLICITLY — `model` present and non-empty on the tool input.
-      A dispatch with no model inherits the parent's, which is the failure
-      `model-routing` exists to stop.
-   3. PROMPT UNDER 600 WORDS — markdown table rows and the fixed `## House rules`
-      block (only text matching HOUSE-RULES.md) excluded from the count. A
-      locked table is the spec and must be copied whole
-      (`review-the-lock-not-the-slice`), so counting its rows against the brief
-      would push the parent to slice the lock to fit the cap — exactly the
-      malformed-brief shape rule 10 forbids. Prose is what the cap is for.
-   4. SKILLS NAMED — every persona dispatch (engineer, ux-designer, reviewer,
-      researcher, releaseops, project-manager alike) carries a `Skills:` line
-      naming at least one skill (`routing`: "a brief naming none is
-      malformed"). Not scoped to build verbs — every row of `routing`'s
-      persona dispatch table names mandatory skills, so every dispatch does.
-   5. SOURCE-CONTRACT LOCK ROWS — when the prompt carries `## Source
-      contract`, its `## Locked decisions` table (if any) uses a `Source`
-      column, never `Means technically`, and each row's Source cell is one
-      of `export-silent` | `export-vs-ruling` | `operator-round` (Change 1,
-      2026-09-22 lessons-for-1-92 ruling). The quote cell carries only the
-      operator's words — a backticked mechanism identifier (a
-      `--custom-prop`, a `name()` call, an easing/`cubic-bezier`, a file
-      path) in that cell can only have been authored by the parent, which is
-      the exact malformed-brief shape the ruling forbids.
+   WARNINGS (the call runs unchanged):
+   - SKILLS LINE missing; SOURCE-CONTRACT LOCK ROWS (`Means technically`
+     header, a backticked mechanism identifier in a quote cell, a Source cell
+     outside export-silent | export-vs-ruling | operator-round); a LINE brief
+     asking for a read-back.
 
-   6. LINE BRIEFS NEVER ASK FOR A READ-BACK — a `Size: line` brief that also
-      instructs a `## Read-back` return or a `next: parent (go?)` stop is
-      refused; `spend-levers` rule 1 (2026-09-22 operator ruling on spend:
-      "Read-back only above line") makes the read-back stop a component/system
-      thing only, and a line brief asking for one anyway is the malformed
-      shape the ruling exists to stop.
+   The prompt word cap is gone (DISC-351 step 5: "Remove the word cap");
+   dispatch-brief's length target stays a writing target.
 
-   7. COMPONENT/SYSTEM BRIEFS NAME A PROGRESS PATH — a `Size: component` or
-      `Size: system` brief with no `## Progress` heading naming a path is
-      refused; `line` stays exempt (`doer-rules.md` § Size class: "line lanes
-      keep no progress file"). A path means an absolute path, a `~/` path, or
-      a backticked path, ending in a file name such as `progress.md` — and the
-      file name itself must contain "progress" (case-insensitive); a path to
-      an unrelated file (e.g. a style guide the brief points at for tone)
-      names a real path but is not a progress file, and is refused the same
-      as prose that never names a path at all. Prose under the heading that
-      merely mentions a filename (e.g. "per doer-rules.md") does not count
-      either, and is refused with a message saying a progress-file path is
-      required. A portfolio lane left ~295 uncommitted lines across six files
-      with no progress file when its session ended — the brief omitted
-      `## Progress` and nothing refused it (`lanes-survive-interruption`,
-      2026-09-25).
+   EXEMPT: `subagent_type` Explore and Plan — the parent's own reconnaissance.
 
-   8. NO UNFILLED TEMPLATE PLACEHOLDER — a known template slot (`{HOUSE}`; the
-      `BRIEF_TEMPLATE_SLOTS` allowlist) outside code means the brief went out
-      with a template slot unfilled; one 2026-10-15 brief carried no house rules
-      that way (DISC-170, session 25 lesson). Fenced, indented and inline code,
-      `${X}` and `{{X}}` are ignored, as is any other brace text (`{DATE}`, `{N}`).
-   9. LOCAL NAMES ITS NEED — a `local —` dispatch carries a `Local because: (a|b|c) …`
-      line naming one of routing HARD-RULES 9's three local needs; anything else is
-      cloud (DISC-232, operator 2026-11-01: "if it can be cloud it should be").
-
-   EXEMPT: `subagent_type` Explore and Plan. Those are the parent's own
-   reconnaissance (`routing` rule 5), not a dispatch to a persona — they carry
-   no surface, no persona and no brief, so none of the five laws apply.
-
-   The check is exported as a pure function so the tests drive it directly;
+   The checks are exported as pure functions so the tests drive them directly;
    the CLI wrapper only does stdin/stdout. */
 import { readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -91,8 +50,6 @@ import { macJobProblems } from "../scripts/mac-job-check.mjs";
 import { loadavg, cpus } from "node:os";
 import { upsertLane, expandHome, withRegistryLock, loadRegistry } from "./progress-registry.mjs";
 
-export const PROMPT_WORD_CAP = 600;
-
 // Parent reconnaissance, not a persona dispatch — see the EXEMPT note above.
 export const EXEMPT_SUBAGENTS = new Set(["Explore", "Plan"]);
 
@@ -100,6 +57,40 @@ export const EXEMPT_SUBAGENTS = new Set(["Explore", "Plan"]);
 // dispatch-brief both write; a hyphen here would pass a description the law
 // files do not describe.
 const DESCRIPTION_SHAPE = /^(cloud|local) — ([A-Za-z][A-Za-z0-9 -]*?) \(([^()]+)\): *\S/;
+const PERSONA = /^[A-Za-z][A-Za-z0-9 -]*$/;
+// A leading surface word and its separator: em dash, en dash, `--`, or a hyphen with a space before it.
+const SURFACE_SEP = /^\s*([A-Za-z]+)\s*(?:—|–|--|(?<=\s)-)\s*/;
+
+/* Rebuilds a dispatch label as `surface — persona (model): task`. Returns { description } when it is
+   already canonical, { description, fixed: true } when rebuilt, or { description, warning } (unchanged)
+   when it cannot be rebuilt: an unknown surface word, no task, or no persona/model to fill from.
+   `persona` is the fallback when the label names none (an Agent call's subagent_type; null for Bash). */
+export function normaliseDescription(description = "", { model = "", persona = null } = {}) {
+  const d = String(description).trim();
+  const m0 = String(model || "").trim();
+  const shape = DESCRIPTION_SHAPE.exec(d);
+  if (shape && (!m0 || shape[3].trim() === m0)) return { description: d };
+  let surface = "cloud";
+  let rest = d;
+  const sep = SURFACE_SEP.exec(d);
+  if (sep) {
+    const word = sep[1].toLowerCase();
+    if (word !== "cloud" && word !== "local") return { description: d, warning: `unknown surface "${sep[1]}"; expected cloud or local` };
+    surface = word;
+    rest = d.slice(sep[0].length);
+  }
+  const parts = /^([^():]*?)\s*(?:\(([^()]*)\))?\s*:\s*([\s\S]*)$/.exec(rest);
+  const named = parts ? parts[1].trim() : "";
+  const labelModel = parts?.[2]?.trim() || "";
+  const task = (parts ? parts[3] : rest).trim();
+  const who = named || persona || "";
+  const useModel = m0 || labelModel;
+  if (!task || !PERSONA.test(who) || !useModel) {
+    return { description: d, warning: "cannot rebuild `surface — persona (model): task` — " + (!task ? "no task" : !useModel ? "no model" : "no persona") };
+  }
+  const fixed = `${surface} — ${who} (${useModel}): ${task}`;
+  return fixed === d ? { description: d } : { description: fixed, fixed: true };
+}
 
 // DISC-232: a local dispatch names one of routing HARD-RULES 9's three local needs, (a) deployed
 // surface, (b) machine-bound stack, (c) this machine's state, followed by its words.
@@ -457,14 +448,24 @@ export function checkBashMacJob(toolInput = {}, startCwd = process.cwd()) {
 export function checkBashAgentLabel(toolInput = {}) {
   const { command = "", description = "" } = toolInput;
   if (!launchesAgent(command) || DESCRIPTION_SHAPE.test(description)) return { ok: true };
+  // Form, not outcome: rebuild the label when it names a model, else warn (DISC-351 step 5).
+  const label = normaliseDescription(description);
+  if (label.fixed) {
+    return {
+      ok: true,
+      input: { ...toolInput, description: label.description },
+      notes: [{ kind: "fixed", item: "bash-description", text: `description ${JSON.stringify(description)} → ${JSON.stringify(label.description)}` }],
+    };
+  }
   return {
-    ok: false,
-    item: "bash-description",
-    reason:
-      `Bash blocked — bash-description: this command launches an agent, so its \`description\` must read ` +
-      `\`local — persona (model): task\` (or \`cloud —\`), got ${JSON.stringify(description)}. ` +
-      `The background-task list shows this description; it is how the operator sees which local agent is running ` +
-      `(\`dispatch-brief\` § Persona + model, operator 2026-10-01).`,
+    ok: true,
+    notes: [{
+      kind: "warning",
+      item: "bash-description",
+      text:
+        `this command launches an agent; its \`description\` should read \`cloud|local — persona (model): task\`, got ${JSON.stringify(description)} (${label.warning}). ` +
+        `The background-task list shows it; it is how the operator sees which agent is running (\`dispatch-brief\` § Persona + model).`,
+    }],
   };
 }
 
@@ -486,39 +487,18 @@ const MECHANISM_IDENTIFIER = new RegExp(
   "i",
 );
 
-/* The fixed House rules block, as a multiset of its normalised lines, read from dispatch-brief/references/HOUSE-RULES.md
-   (the file is the block's one source). Unreadable file: empty, so nothing is excluded. */
-const norm = (l) => l.replace(/\s+/g, " ").trim();
-function houseRulesCounts() {
-  const counts = new Map();
+/* The fixed House rules block, read from dispatch-brief/references/HOUSE-RULES.md (the block's one
+   source): the body of its ```markdown fence, or null when the file cannot be read. */
+export function houseRulesBlock() {
   try {
     const t = readFileSync(new URL("../../skills/dispatch-brief/references/HOUSE-RULES.md", import.meta.url), "utf8");
     const start = t.indexOf("```markdown\n");
-    const body = t.slice(start + 12, t.indexOf("\n```", start));
-    for (const l of body.split("\n")) { const n = norm(l); if (n) counts.set(n, (counts.get(n) || 0) + 1); }
-  } catch { /* nothing excluded */ }
-  return counts;
-}
-
-/* Words in the brief, NOT counting markdown table rows. A row is a line whose
-   first non-space character is a pipe — that covers the header, the separator
-   and every data row of a locked table. The fixed `## House rules` block (about
-   450 words) is not counted either, but only text that IS that block: each of
-   its lines is excluded as many times as the file has it, so anything else
-   under the heading, or a block line repeated, counts (s76 lesson 4, round 1 R1). */
-export function promptWords(prompt) {
-  const house = houseRulesCounts();
-  return String(prompt || "")
-    .split(/\r?\n/)
-    .filter((line) => {
-      if (/^\s*\|/.test(line)) return false;
-      const n = norm(line), left = house.get(n);
-      if (n && left) { house.set(n, left - 1); return false; }
-      return true;
-    })
-    .join("\n")
-    .split(/\s+/)
-    .filter(Boolean).length;
+    if (start === -1) return null;
+    const end = t.indexOf("\n```", start + 12);
+    return end === -1 ? null : t.slice(start + 12, end);
+  } catch {
+    return null;
+  }
 }
 
 // Split a `## Locked decisions` markdown table into its raw pipe-lines
@@ -551,7 +531,7 @@ export function checkSourceContractLockRows(prompt) {
     return {
       item: "lock-rows",
       reason:
-        `Dispatch blocked — lock-rows: the Locked decisions header uses "Means technically". ` +
+        `lock-rows: the Locked decisions header uses "Means technically". ` +
         `A Source-contract lock row uses a Source column instead — ` +
         `export-silent | export-vs-ruling | operator-round (dispatch-brief § Locked decisions).`,
     };
@@ -567,7 +547,7 @@ export function checkSourceContractLockRows(prompt) {
       return {
         item: "lock-rows",
         reason:
-          `Dispatch blocked — lock-rows: quote cell ${JSON.stringify(quote)} carries a backticked ` +
+          `lock-rows: quote cell ${JSON.stringify(quote)} carries a backticked ` +
           `mechanism identifier (token/function/easing/path) — only the parent could have authored ` +
           `that; a Source-contract lock row quotes the operator's words only.`,
       };
@@ -577,7 +557,7 @@ export function checkSourceContractLockRows(prompt) {
       return {
         item: "lock-rows",
         reason:
-          `Dispatch blocked — lock-rows: source cell ${JSON.stringify(cells[cells.length - 1])} ` +
+          `lock-rows: source cell ${JSON.stringify(cells[cells.length - 1])} ` +
           `must be one of export-silent | export-vs-ruling | operator-round.`,
       };
     }
@@ -601,7 +581,7 @@ export function checkSkillsNamed(prompt) {
   return {
     item: "skills",
     reason:
-      `Dispatch blocked — skills: no \`Skills:\` line naming at least one skill was found in the ` +
+      `skills: no \`Skills:\` line naming at least one skill was found in the ` +
       `prompt. Every persona dispatch names its skills — a brief naming none is malformed ` +
       `(\`routing\` § persona dispatch table).`,
   };
@@ -619,7 +599,7 @@ export function checkLineNoReadBack(prompt) {
   return {
     item: "line-readback",
     reason:
-      `Dispatch blocked — line-readback: this is a \`Size: line\` brief but it asks for a ` +
+      `line-readback: this is a \`Size: line\` brief but it asks for a ` +
       `\`## Read-back\` return or a \`next: parent (go?)\` stop. Read-back stops are for ` +
       `component/system lanes only — a line lane never stops for one (\`doer-rules.md\` ` +
       `§ Size class, operator ruling 2026-09-22, \`spend-levers\` rule 1).`,
@@ -698,7 +678,7 @@ export function checkComponentSystemProgress(prompt) {
   return {
     item: "progress-path",
     reason:
-      `Dispatch blocked — progress-path: this is a \`Size: component\`/\`Size: system\` brief but ` +
+      `progress-path: this is a \`Size: component\`/\`Size: system\` brief but ` +
       `carries no \`## Progress\` heading naming a progress-file path (absolute, \`~/\`, or ` +
       `backticked, ending in a file name that contains "progress", such as \`progress.md\`). ` +
       `Above-line lanes keep a progress file so a stopped session loses no state ` +
@@ -723,10 +703,56 @@ export function checkUnfilledPlaceholders(prompt) {
   return {
     item: "placeholder",
     reason:
-      `Dispatch blocked — placeholder: the brief still carries unfilled template slot(s) ${found.join(", ")}. ` +
+      `placeholder: the brief still carries unfilled template slot(s) ${found.join(", ")}. ` +
       `Fill each from its source (the house rules block is copied whole from dispatch-brief/references/HOUSE-RULES.md) ` +
       `before dispatching (backlog DISC-170).`,
   };
+}
+
+/* Code regions a slot inside is a quotation, not a slot: fenced blocks, indented lines, inline code. */
+const CODE_REGION = /^ *(```|~~~)[^\n]*\n[\s\S]*?(?:\n *\1[^\n]*|$)|^(?: {4}|\t)[^\n]*$|`[^`\n]*`/gm;
+
+/* Fills every known template slot outside code from its source — `{HOUSE}` from HOUSE-RULES.md
+   (DISC-351 step 5: the placeholder check fixes instead of refusing). Returns { prompt, filled: [slots] },
+   or { prompt, warning } unchanged when a slot's source cannot be read. */
+export function fillPlaceholders(prompt = "", { house = houseRulesBlock() } = {}) {
+  const text = String(prompt || "");
+  if (!checkUnfilledPlaceholders(text)) return { prompt: text, filled: [] };
+  if (house == null) return { prompt: text, warning: "{HOUSE} left unfilled: HOUSE-RULES.md could not be read" };
+  const sources = { HOUSE: house.replace(/\s+$/, "") };
+  const fillProse = (s) => s.replace(new RegExp(PLACEHOLDER.source, "g"), (_, slot) => sources[slot]);
+  let out = "";
+  let last = 0;
+  for (const m of text.matchAll(CODE_REGION)) {
+    out += fillProse(text.slice(last, m.index)) + m[0];
+    last = m.index + m[0].length;
+  }
+  out += fillProse(text.slice(last));
+  return { prompt: out, filled: Object.keys(sources) };
+}
+
+/* The default progress path for an above-line brief that names none: machine-local and always
+   writable, stamped so two lanes on the same task never share a file. */
+export function defaultProgressPath(description = "", now = Date.now()) {
+  const task = String(description).replace(/^[^:]*:\s*/, "") || "lane";
+  const slug = task.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48).replace(/-+$/, "") || "lane";
+  const stamp = new Date(now).toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
+  return `~/.claude/progress/${stamp}-${slug}-progress.md`;
+}
+
+/* Gives a `Size: component|system` brief with no progress path one (DISC-351 step 5: the heading
+   check fixes instead of refusing). Under an existing `## Progress` heading the path is added on the
+   next line; with no heading, the section is appended. Returns { prompt, path } — path null when
+   nothing was needed. */
+export function fillProgressPath(prompt = "", description = "", now = Date.now()) {
+  const text = String(prompt || "");
+  if (!checkComponentSystemProgress(text)) return { prompt: text, path: null };
+  const path = defaultProgressPath(description, now);
+  const line = "`" + path + "`";
+  const idx = text.search(PROGRESS_HEADING);
+  if (idx === -1) return { prompt: text.replace(/\s*$/, "") + `\n\n## Progress\n${line}\n`, path };
+  const eol = text.indexOf("\n", idx);
+  return { prompt: eol === -1 ? `${text}\n${line}\n` : `${text.slice(0, eol + 1)}${line}\n${text.slice(eol + 1)}`, path };
 }
 
 /* DISC-347 (s105): a brief that has a doer add or rename a Figma variable carries `## Resolve result`
@@ -756,52 +782,40 @@ export function checkResolveResult(prompt = "") {
   };
 }
 
-/* Returns { ok: true } or { ok: false, item, reason }. `item` is the failing
-   law so the caller can name it without re-deriving it from the prose. */
-export function checkAgentDispatch(toolInput = {}) {
-  const { description = "", model = "", prompt = "", subagent_type: subagentType = "" } = toolInput;
+/* Returns { ok: false, item, reason } for an outcome refusal (model, local, resolve-result), else
+   { ok: true } — plus, when a form check fired, `notes` ({ kind: "fixed"|"warning", item, text }) and,
+   when a fix changed the call, `input`: the whole repaired tool input for `updatedInput`. */
+export function checkAgentDispatch(toolInput = {}, { now = Date.now(), house } = {}) {
+  const { model = "", subagent_type: subagentType = "" } = toolInput;
 
   if (EXEMPT_SUBAGENTS.has(subagentType)) {
     return { ok: true, exempt: subagentType };
   }
 
-  const shape = DESCRIPTION_SHAPE.exec(description);
-  if (!shape) {
-    return {
-      ok: false,
-      item: "description",
-      reason:
-        `Dispatch blocked — description: expected \`cloud — persona (model): task\` or ` +
-        `\`local — persona (model): task\`, got ${JSON.stringify(description)}. ` +
-        `The surface prefix is routing rule 9; the parenthesised model is model-routing. ` +
-        `Local also needs its \`Local because: (a|b|c)\` line in the brief.`,
-    };
-  }
-
+  // --- Refusals: outcome checks --------------------------------------------
   if (!String(model).trim()) {
     return {
       ok: false,
       item: "model",
       reason:
         `Dispatch blocked — model: set \`model\` explicitly on the Agent call. ` +
-        `The description says (${shape[3]}); an unset \`model\` inherits the parent's instead, ` +
-        `which is the drift model-routing exists to stop.`,
+        `An unset \`model\` inherits the parent's instead, which is the drift model-routing exists to stop.`,
     };
   }
 
-  const count = promptWords(prompt);
-  if (count >= PROMPT_WORD_CAP) {
-    return {
-      ok: false,
-      item: "prompt",
-      reason:
-        `Dispatch blocked — prompt: ${count} words, cap is ${PROMPT_WORD_CAP} ` +
-        `(markdown table rows and the House rules block, matched against HOUSE-RULES.md, already excluded). Point at the contract instead of restating it ` +
-        `(dispatch-brief). A locked table does not count against this cap — copy it whole.`,
-    };
+  const notes = [];
+  const original = { description: String(toolInput.description ?? ""), prompt: String(toolInput.prompt ?? "") };
+  let { description, prompt } = original;
+
+  const label = normaliseDescription(description, { model, persona: String(subagentType || "general-purpose").split(":").pop() });
+  if (label.fixed) {
+    notes.push({ kind: "fixed", item: "description", text: `${JSON.stringify(description)} → ${JSON.stringify(label.description)}` });
+    description = label.description;
+  } else if (label.warning) {
+    notes.push({ kind: "warning", item: "description", text: `${JSON.stringify(description)}: ${label.warning}. Routing rule 9 and model-routing read this label.` });
   }
 
-  if (shape[1] === "local" && !LOCAL_BECAUSE.test(prompt)) {
+  if (/^\s*local\b/i.test(description) && !LOCAL_BECAUSE.test(prompt)) {
     return {
       ok: false,
       item: "local-justification",
@@ -813,25 +827,39 @@ export function checkAgentDispatch(toolInput = {}) {
     };
   }
 
-  const placeholderVerdict = checkUnfilledPlaceholders(prompt);
-  if (placeholderVerdict) return { ok: false, ...placeholderVerdict };
-
-  const skillsVerdict = checkSkillsNamed(prompt);
-  if (skillsVerdict) return { ok: false, ...skillsVerdict };
-
-  const lockRowsVerdict = checkSourceContractLockRows(prompt);
-  if (lockRowsVerdict) return { ok: false, ...lockRowsVerdict };
-
   const resolveVerdict = checkResolveResult(prompt);
   if (resolveVerdict) return { ok: false, ...resolveVerdict };
 
-  const lineReadBackVerdict = checkLineNoReadBack(prompt);
-  if (lineReadBackVerdict) return { ok: false, ...lineReadBackVerdict };
+  // --- Fixes: form checks the gate can repair -------------------------------
+  const slots = fillPlaceholders(prompt, house === undefined ? {} : { house });
+  if (slots.warning) notes.push({ kind: "warning", item: "placeholder", text: slots.warning });
+  else if (slots.filled.length) {
+    notes.push({ kind: "fixed", item: "placeholder", text: `filled ${slots.filled.map((s) => `{${s}}`).join(", ")} from dispatch-brief/references/HOUSE-RULES.md` });
+    prompt = slots.prompt;
+  }
 
-  const progressVerdict = checkComponentSystemProgress(prompt);
-  if (progressVerdict) return { ok: false, ...progressVerdict };
+  const progress = fillProgressPath(prompt, description, now);
+  if (progress.path) {
+    notes.push({ kind: "fixed", item: "progress-path", text: `added \`## Progress\` \`${progress.path}\`; name a vault path in the brief to choose your own` });
+    prompt = progress.prompt;
+  }
 
-  return { ok: true };
+  // --- Warnings: form checks only the author can repair ---------------------
+  for (const verdict of [checkSkillsNamed(prompt), checkSourceContractLockRows(prompt), checkLineNoReadBack(prompt)]) {
+    if (verdict) notes.push({ kind: "warning", item: verdict.item, text: verdict.reason.replace(/^[\w-]+:\s*/, "") });
+  }
+
+  if (!notes.length) return { ok: true };
+  const changed = description !== original.description || prompt !== original.prompt;
+  return { ok: true, notes, ...(changed ? { input: { ...toolInput, description, prompt } } : {}) };
+}
+
+/* One additionalContext paragraph for the parent: what the gate fixed and what it only warned about. */
+export function formatNotes(notes = []) {
+  if (!notes.length) return null;
+  return notes
+    .map((n) => (n.kind === "fixed" ? `Dispatch gate fixed ${n.item}: ${n.text}` : `Dispatch gate warning — ${n.item}: ${n.text}`))
+    .join("\n");
 }
 
 function readHookInput() {
@@ -842,14 +870,16 @@ function readHookInput() {
   }
 }
 
-function allow(additionalContext) {
-  if (additionalContext) {
+/* `updatedInput` replaces the whole tool input, so callers pass the full repaired input. */
+function allow(additionalContext, updatedInput) {
+  if (additionalContext || updatedInput) {
     console.log(
       JSON.stringify({
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
           permissionDecision: "allow",
-          additionalContext,
+          ...(updatedInput ? { updatedInput } : {}),
+          ...(additionalContext ? { additionalContext } : {}),
         },
       }),
     );
@@ -1098,18 +1128,18 @@ function main() {
       deny(`Bash blocked — the force-push / mac-job check failed closed: ${err.message}`);
     }
     const bash = checkBashAgentLabel(input.tool_input);
-    if (!bash.ok) deny(bash.reason);
-    allow();
+    allow(formatNotes(bash.notes || []), bash.input);
   }
   const verdict = checkAgentDispatch(input.tool_input);
   if (verdict.ok) {
-    let warning = null;
+    let context = null;
+    const prompt = (verdict.input || input.tool_input).prompt;
     if (!verdict.exempt) {
-      registerLaneFromPrompt(input.tool_input.prompt, input.session_id);
-      warning = [activeWorkWarning(input.tool_input.prompt, input.session_id), currentLoadWarning()]
+      registerLaneFromPrompt(prompt, input.session_id);
+      context = [formatNotes(verdict.notes || []), activeWorkWarning(prompt, input.session_id), currentLoadWarning()]
         .filter(Boolean).join("\n\n") || null;
     }
-    allow(warning);
+    allow(context, verdict.input);
   }
   deny(verdict.reason);
 }

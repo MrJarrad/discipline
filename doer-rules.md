@@ -111,7 +111,7 @@ issues"* → *"that sounds good"*).
 no upload, no screenshots, no ledger beyond the one row; no read-back stop and no progress
 file (§ You are the doer above). **component and system both keep the read-back stop and
 the progress file** — line is the only class exempt from either. **A `line` brief never
-asks for a read-back stop; the dispatch gate refuses one that does** (operator ruling
+asks for a read-back stop; the dispatch gate warns on one that does** (operator ruling
 2026-09-22, `spend-levers` rule 1: *"Read-back only above line."*).
 
 **A standalone component lane uploads at done, unless the brief names a batch** — "one
