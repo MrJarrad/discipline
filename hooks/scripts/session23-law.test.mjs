@@ -21,7 +21,7 @@ for (const f of ["agents/engineer.md", "agents/ux-designer.md", "skills/prototyp
 
 for (const f of ["skills/routing/references/OPERATOR-REPLIES.md", "skills/routing/SKILL.md"]) {
   test(`${f}: an idea given in chat is a backlog row`, () => {
-    assert.match(flat(f), /idea.*waiting on operator.*DISC-168/i);
+    assert.match(flat(f), /idea.*waiting on operator.*(DISC-168|2026-10-15-ideas-are-rows)/i);
   });
 }
 
