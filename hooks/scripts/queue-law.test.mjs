@@ -86,7 +86,7 @@ test("visual lanes return the link, not renders", () => {
 // --- operator-queue-visible-2026-09-16 --------------------------------------
 
 test("the output style names the queue file and the Needed from you heading", () => {
-  const style = read("output-styles/discipline.md");
+  const style = read("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(style, /orchestrator\/operator-queue\.md/);
   assert.match(style, /`## Needed from you`/);
   assert.match(style, /Nothing needed from you/);
@@ -445,9 +445,9 @@ test("the reviewer's preconditions gate a look-lane review on the operator's yes
   );
 });
 
-test("output-styles/discipline.md's bar states operator yes precedes the review on a look-lane", () => {
+test("skills/routing/references/OPERATOR-REPLIES.md's bar states operator yes precedes the review on a look-lane", () => {
   carries(
-    "output-styles/discipline.md",
+    "skills/routing/references/OPERATOR-REPLIES.md",
     "on a look-lane, the operator's yes precedes the review",
   );
 });
@@ -779,11 +779,11 @@ test("routing's load order names the interrogation step between the brief and Ag
   assert.doesNotMatch(routing, /A dispatch made without all four loaded is malformed/);
 });
 
-// --- output-styles/discipline.md: Announce by doing -------------------------
+// --- skills/routing/references/OPERATOR-REPLIES.md: Announce by doing -------------------------
 
 test("discipline.md's dispatch chain names the interrogation step", () => {
   carries(
-    "output-styles/discipline.md",
+    "skills/routing/references/OPERATOR-REPLIES.md",
     "Before any dispatch load `routing` → `model-routing` → `dispatch-brief` → **interrogate the brief**",
   );
 });
@@ -881,9 +881,9 @@ test("agents/reviewer.md keeps its own default at sonnet, not a ceiling", () => 
   assert.match(rv, /`model: sonnet` above is the default, not a ceiling/);
 });
 
-test("output-styles/discipline.md still routes through model-routing before dispatch", () => {
+test("skills/routing/references/OPERATOR-REPLIES.md still routes through model-routing before dispatch", () => {
   carries(
-    "output-styles/discipline.md",
+    "skills/routing/references/OPERATOR-REPLIES.md",
     "Before any dispatch load `routing` → `model-routing` → `dispatch-brief` → **interrogate the",
   );
 });
@@ -1026,14 +1026,14 @@ test("routing's baton table carries the progress-file-silent stop + fresh re-bri
   assert.match(routing, /re-briefed from the last recorded milestone/);
 });
 
-// --- output-styles/discipline.md: "How are we looking?" reads the file -----
+// --- skills/routing/references/OPERATOR-REPLIES.md: "How are we looking?" reads the file -----
 
 test("discipline.md's How are we looking answer reads the progress file", () => {
   carries(
-    "output-styles/discipline.md",
+    "skills/routing/references/OPERATOR-REPLIES.md",
     "reading the running lane's progress file",
   );
-  carries("output-styles/discipline.md", "for its last milestone rather than guessing or");
+  carries("skills/routing/references/OPERATOR-REPLIES.md", "for its last milestone rather than guessing or");
 });
 
 // --- agent first-step lines carry the progress-file instruction ------------
@@ -1398,7 +1398,7 @@ test("doer-rules.md states a standalone component lane uploads at done, unless t
 // completion notification, stops next servers on ports >= 3220 (never
 // 3210/3211), Playwright/headless Chromium, and any shell referencing the
 // session's task-output directory. `routing`'s baton row and
-// `output-styles/discipline.md`'s completion-notification step both name it,
+// `skills/routing/references/OPERATOR-REPLIES.md`'s completion-notification step both name it,
 // replacing the by-hand sweep sentence from 1.89.0's baton table.
 //
 
@@ -1456,8 +1456,8 @@ test("routing's baton table names lane-sweep.mjs, replacing the by-hand sweep se
   );
 });
 
-test("output-styles/discipline.md names the sweep on the completion notification", () => {
-  carries("output-styles/discipline.md", "run `lane-sweep.mjs`");
+test("skills/routing/references/OPERATOR-REPLIES.md names the sweep on the completion notification", () => {
+  carries("skills/routing/references/OPERATOR-REPLIES.md", "run `lane-sweep.mjs`");
 });
 
 // --- lane-sweep.mjs: the port fence, unit-tested with a fake process table -
@@ -2364,7 +2364,7 @@ test("the plugin.json version is at or past 1.93.0", () => {
 // paint through every motion; done-when is the probe's empty-visible-media
 // count at 0, deployed build, Chromium+WebKit; pointers from design-craft
 // (Law 11), quality, agents/reviewer.md, dispatch-brief, routing.
-// (5) `output-styles/discipline.md` + `vault-write`: a `## Needed from you`
+// (5) `skills/routing/references/OPERATOR-REPLIES.md` + `vault-write`: a `## Needed from you`
 // row is only what the operator can act on right now — a step still in
 // flight ("wait for my next message", "once X is in") is status prose above
 // the heading, never a queue row (operator: "needed from me shouldn't
@@ -2490,8 +2490,8 @@ test("routing: work-type and domain-library tables both require media-loading wh
 
 // --- (5) Needed-from-you rows are only what's actually ready ---------------
 
-test("output-styles/discipline.md: a Needed-from-you row is only what's ready right now", () => {
-  const doc = flat(read("output-styles/discipline.md"));
+test("skills/routing/references/OPERATOR-REPLIES.md: a Needed-from-you row is only what's ready right now", () => {
+  const doc = flat(read("skills/routing/references/OPERATOR-REPLIES.md"));
   assert.match(doc, /A `## Needed from you` row is only what he can act on right now\./);
   assert.match(doc, /never a queue row/);
 });
@@ -2518,22 +2518,22 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readFileSync(join(repo, p), "utf8");
 const flat = (text) => text.replace(/\s+/g, " ");
 
-// --- output-styles/discipline.md: the rule itself ---------------------------
+// --- skills/routing/references/OPERATOR-REPLIES.md: the rule itself ---------------------------
 
 test("discipline.md: a fix ready for review carries Problem/Solution before the link", () => {
-  const doc = flat(read("output-styles/discipline.md"));
+  const doc = flat(read("skills/routing/references/OPERATOR-REPLIES.md"));
   assert.match(doc, /A \*\*fix\*\* ready for his look carries one-line \*\*Problem:\*\*/);
   assert.match(doc, /\*\*Solution:\*\* \(what fixed it\) before the link/);
   assert.match(doc, /a new feature needs no Problem line/);
 });
 
 test("discipline.md: the Problem/Solution rule quotes the operator's own words", () => {
-  const doc = flat(read("output-styles/discipline.md"));
+  const doc = flat(read("skills/routing/references/OPERATOR-REPLIES.md"));
   assert.match(doc, /a really short simple explanation as to what was causing the problem and what fixed it/);
 });
 
 test("discipline.md still fits its 132-line phone-read budget", () => {
-  const lines = read("output-styles/discipline.md").trimEnd().split("\n").length;
+  const lines = read("skills/routing/references/OPERATOR-REPLIES.md").trimEnd().split("\n").length;
   assert.ok(lines <= 132, `style is ${lines} lines; budget is 132`);
 });
 

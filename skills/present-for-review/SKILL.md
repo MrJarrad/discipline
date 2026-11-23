@@ -167,7 +167,7 @@ Example (feature, web): *Ready to look. The pricing table now sorts by plan tier
 
 The message **ends with the `## Needed from you` block**: new asks plus checklist link (the session's projects' open rows live there),
 from `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes> --short --new <ids>`
-(`output-styles/discipline.md`).
+(`skills/routing/references/OPERATOR-REPLIES.md`).
 
 ## Deploy commands stand alone (Change 6, 2026-09-22)
 

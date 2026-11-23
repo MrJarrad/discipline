@@ -27,8 +27,8 @@ test("s15 1.117.0: CHANGED entry for lists-never-stale", () => {
 });
 
 test("lists-never-stale: the parent never relays an unchecked status (output style + routing)", () => {
-  assert.match(read("output-styles/discipline.md"), /never relayed unchecked/);
-  assert.match(read("output-styles/discipline.md"), /list-drift-check\.mjs/);
+  assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /never relayed unchecked/);
+  assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /list-drift-check\.mjs/);
   assert.match(read("skills/routing/SKILL.md"), /Never relay a backlog or queue status unchecked.*list-drift-check\.mjs/);
 });
 

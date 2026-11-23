@@ -49,7 +49,7 @@ test("every merge has a reviewer verdict first: reviewer, routing, releaseops, o
   assert.match(read("agents/reviewer.md"), /no small-fix exemption/i);
   assert.match(read("skills/routing/SKILL.md"), /every merge has a reviewer verdict/i);
   assert.match(read("agents/releaseops.md"), /every merge has a reviewer verdict/i);
-  assert.match(read("output-styles/discipline.md"), /every merge has a reviewer verdict/i);
+  assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /every merge has a reviewer verdict/i);
   assert.match(read("skills/routing/references/HARD-RULES.md"), /every merge has a reviewer verdict/i);
 });
 

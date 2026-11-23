@@ -217,7 +217,7 @@ and queued the chat as the doer — that hatch is deleted.
    (b) **Finish line:** after his yes a try-out goes review, gate, merge, or is explicitly parked or dropped, before
    its slot takes a new look topic.
    (c) **No mid-build piling:** a new ask about a lane that is already building queues for that lane's next round
-   unless tiny (one value or word), and the queued asks print under `## Build in Progress` (output style).
+   unless tiny (one value or word), and the queued asks print under `## Build in Progress` (`routing` OPERATOR-REPLIES.md).
    Checked: (a) `session-resume.mjs` counts Next-block lanes marked `look: yes` that are still open and warns at 3 or
    more (`wrap/references/SECTIONS.md` writes the key); inside a live session the count is the parent's, since no
    hook sees which lanes are look-judged. (b) and (c) are judgment: they turn on the operator's words.

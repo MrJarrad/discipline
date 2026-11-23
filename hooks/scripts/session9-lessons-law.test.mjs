@@ -54,7 +54,7 @@ test("cloud install is frozen-lockfile; a lane never commits the lockfile", () =
 });
 
 test("output style: numbered chat rows and a Build in Progress heading", () => {
-  const s = read("output-styles/discipline.md");
+  const s = read("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(s, /each open row prints as a numbered item/);
   assert.match(s, /## Build in Progress/);
 });
@@ -84,5 +84,5 @@ test("standing per-project backlog; Needed from you prints queue plus backlog", 
   const w = read("skills/wrap/references/SECTIONS.md");
   assert.match(w, /projects\/<name>\/<name>-backlog\.md/);
   assert.match(w, /picked FROM the backlog and never replaces\s+it/);
-  assert.match(read("output-styles/discipline.md"), /queue plus backlog/);
+  assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /queue plus backlog/);
 });

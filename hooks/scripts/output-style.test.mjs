@@ -28,6 +28,8 @@ const block = (text, lead) => {
 
 const style = flow(read("output-styles/discipline.md"));
 const styleRaw = read("output-styles/discipline.md");
+// DISC-351 step 4: the orchestrator half of the old style lives here.
+const orchestrator = flow(read("skills/routing/references/OPERATOR-REPLIES.md"));
 const dispatchBrief = flow(read("skills/dispatch-brief/SKILL.md"));
 const dispatchBriefRaw = read("skills/dispatch-brief/SKILL.md");
 const doerRulesRaw = read("doer-rules.md");
@@ -48,8 +50,8 @@ test("communication rules are the FIRST section; routing follows", () => {
   const headings = [...styleRaw.matchAll(/^##\s+(.*)$/gm)].map((m) => m[1]);
   assert.ok(headings.length > 1, "style must have sections");
   assert.match(headings[0], /how (?:you|it) (?:talk|read)|communicat|say it/i);
-  const routingIdx = headings.findIndex((h) => /rout|dispatch/i.test(h));
-  assert.ok(routingIdx > 0, "routing/orchestration must come after communication");
+  // DISC-351 step 4: routing no longer sits in the style; the intro points at it.
+  assert.ok(styleRaw.indexOf("`routing`") < styleRaw.indexOf("## "), "the routing pointer comes first, before the voice rules");
 });
 
 test("operator-voice.md is retired — one style file only", () => {
@@ -78,8 +80,11 @@ test("operator-voice's load-bearing rules survive the merge", () => {
     "/todos", "/plan", "/context", "/compact", "/code-review", "/security-review",
     "/verify", "/subtask", "/rewind", "/memory", "/usage", "/tasks",
   ];
+  // DISC-351 finding 8: built-in slash commands are not tools the model can run,
+  // so the list that told it to "reach for" them was cut, not moved.
   for (const cmd of NATIVE_COMMANDS) {
-    assert.ok(style.includes(`\`${cmd}\``), `native command ${cmd} must be named in the style`);
+    assert.ok(!style.includes(`\`${cmd}\``), `native command ${cmd} is no longer instructed`);
+    assert.ok(!orchestrator.includes(`\`${cmd}\``), `native command ${cmd} was cut, not moved`);
   }
 });
 
@@ -124,7 +129,7 @@ test("(e) walk-backs lead with 'Correction:'", () => {
 // full, because a back-reference is what got lost in the thread.
 test("(f) every status ends with the operator queue printed in full", () => {
   assert.match(style, /Needed from you/i);
-  assert.match(style, /operator-queue\.md/);
+  assert.match(orchestrator, /operator-queue\.md/, "queue mechanics moved to routing (DISC-351)");
   assert.match(style, /never a back-reference/i);
   assert.match(style, /Nothing needed from you/i);
 });
@@ -267,15 +272,37 @@ test("the style body carries no wide tables", () => {
 // queue-wakes-and-back-references-2026-10-01: automated wakes are not status
 // replies, and a queue row never points at an earlier message.
 test("discipline.md: automated wakes get no chat text; rows are never back-references", () => {
-  const style = readFileSync(new URL("../../output-styles/discipline.md", import.meta.url), "utf8");
+  const style = read("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(style, /automated wake[^.]*no chat text at all/i);
   assert.match(style, /never a back-reference[^)]*earlier\/previous\/above message/i);
 });
 
 // 2026-10-02-plan-panel-task-list: the live task list is a standing rule.
 test("discipline.md: the live task list is standing, one task per deliverable", () => {
-  const style = readFileSync(new URL("../../output-styles/discipline.md", import.meta.url), "utf8");
+  const style = read("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(style, /TaskCreate\/TaskUpdate[^.]*Plan panel/i);
   assert.doesNotMatch(style, /more than one deliverable/i);
   assert.match(style, /one task per operator-level deliverable, not per lane/i);
+});
+
+// --- DISC-351 step 4: role-neutral style ------------------------------------
+// The style is read on every turn of every session, helpers included, so it
+// carries voice only. Word budget from the DISC-351 target shape; frontmatter
+// excluded (it is config, not prose the model reads as instruction).
+const styleBody = styleRaw.slice(styleRaw.indexOf("\n---", 4) + 4);
+const words = (t) => t.split(/\s+/).filter(Boolean).length;
+
+test("DISC-351: the style body is at most 800 words", () => {
+  assert.ok(words(styleBody) <= 800, `style body is ${words(styleBody)} words`);
+});
+
+test("DISC-351: orchestrator duties live in routing, and the style points there", () => {
+  const home = "skills/routing/references/OPERATOR-REPLIES.md";
+  assert.ok(existsSync(join(repo, home)), `${home} must exist`);
+  assert.match(style, /load `routing`/i, "the style names routing as the orchestrator's home");
+  assert.match(flow(read("skills/routing/SKILL.md")), /OPERATOR-REPLIES\.md/);
+});
+
+test("DISC-351: the style no longer orders every session to route instead of build", () => {
+  assert.doesNotMatch(style, /routing failure — dispatch the engineer/i);
 });

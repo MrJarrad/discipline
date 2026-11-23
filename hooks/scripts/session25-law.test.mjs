@@ -23,7 +23,7 @@ test("routing: rule 17 and the baton row point at it", () => {
   assert.match(t, /Operator says yes to a try-out.*rule 17/);
 });
 test("output style: the Plan panel task lists queued asks, pointing at rule 17", () => {
-  assert.match(flat("output-styles/discipline.md"), /asks queued for that lane's next round in its description \(`routing` rule 17\)/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /asks queued for that lane's next round in its description \(`routing` rule 17\)/);
 });
 test("wrap SECTIONS: Next block carries look: yes", () => {
   assert.match(flat("skills/wrap/references/SECTIONS.md"), /Add `look: yes` to a try-out.*`routing` rule 17/);

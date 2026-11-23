@@ -131,5 +131,5 @@ in-memory copy overwrites a concurrent write. Rows 81–86 were once reported ba
 concurrent session had already rewritten the file out from under them; the gate exists so
 "banked" is never asserted from memory. **A row is only written once it is actually
 ready** — link up and final, decision ready to make; a step still in flight is a status
-line, not a row (`output-styles/discipline.md` § the Needed-from-you rule, 2026-09-25).
+line, not a row (`skills/routing/references/OPERATOR-REPLIES.md` § Needed from you, 2026-09-25).
 

@@ -36,7 +36,7 @@ const vaultWrite = read("skills/vault-write/SKILL.md");
 const skillAuthoring = read("skills/skill-authoring/SKILL.md");
 const releaseDeploy = read("skills/release-deploy/SKILL.md");
 const deployChecklist = read("skills/release-deploy/references/DEPLOY-CHECKLIST.md");
-const disciplineStyle = read("output-styles/discipline.md");
+const disciplineStyle = read("skills/routing/references/OPERATOR-REPLIES.md");
 
 // Every agent-consumed doc the plugin ships — used for the stale-law sweep.
 const shippedDocs = () => [
@@ -414,14 +414,16 @@ test("the release-deploy checklist and SKILL.md carry the pnpm file: sibling rul
 // --- F — 1.76.0: status is done or not done; continuation-slice trigger ---
 
 test("the output style carries the status-is-done-or-not-done law verbatim", () => {
-  carries(disciplineStyle, "**Status is done or not done.**");
+  // DISC-351 step 4: the rule stays in the style; its word list moved to routing.
+  const voice = read("output-styles/discipline.md");
+  carries(voice, "**Status is done or not done.**");
   carries(
     disciplineStyle,
     "The words *blocking*, *blocker*, *nothing blocks*, *not a blocker*, *unblocked* never appear " +
     "in operator-facing text",
   );
   carries(
-    disciplineStyle,
+    voice,
     "**Third state** — *\"nothing blocking\"* read as *\"done.\"* Status is binary; report the " +
     "count remaining instead.",
   );

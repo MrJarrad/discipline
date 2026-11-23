@@ -24,7 +24,7 @@ test("dispatch-brief block lane starts from the banked options ruling", () => {
 });
 
 test("output style: closing other-projects line and the wrapped-session rule", () => {
-  const s = flat("output-styles/discipline.md");
+  const s = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(s, /Other projects have N open items — say if you want them/);
   assert.match(s, /A wrapped session prints no queue and no status.*This session is wrapped — continue in a fresh session.*"reopen"/);
   assert.match(flat("skills/wrap/references/CLOSING-CHECKS.md"), /message beginning "reopen" reopens it/);

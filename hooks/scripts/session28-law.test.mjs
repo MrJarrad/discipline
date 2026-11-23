@@ -46,7 +46,7 @@ test("application UI uses the panel kit", () => {
   assert.match(flat("skills/design-system/references/components.md"), /CV prefix.*row-add\.mjs/);
 });
 test("session titles", () => {
-  assert.match(flat("output-styles/discipline.md"), /← talk here.*Helper · <task in plain words> — no action needed.*\(wrapped\)/);
+  assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /← talk here.*Helper · <task in plain words> — no action needed.*\(wrapped\)/);
   assert.match(flat("skills/wrap/references/CLOSING-CHECKS.md"), /drop "← talk here"/);
 });
 test("overlay glow: five rules in TECHNICAL-DESIGN, strength rule in motion", () => {

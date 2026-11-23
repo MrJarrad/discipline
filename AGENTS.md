@@ -11,7 +11,7 @@ fork it.
 | `skills/<name>/SKILL.md` (+ `references/`) | Auto-triggered craft and delivery skills; the description is the trigger surface |
 | `agents/` | Doer charters (engineer, reviewer, researcher, ux-designer, project-manager, releaseops) |
 | `doer-rules.md` | Standing rules every dispatched doer reads whole; `operator-rules.md` is the operator-facing counterpart |
-| `output-styles/discipline.md` | The always-on orchestrator persona |
+| `output-styles/discipline.md` | The always-on voice, role-neutral; the orchestrator duties live in `skills/routing/references/OPERATOR-REPLIES.md` |
 | `hooks/hooks.json` + `hooks/bin/` | Event handlers only (commit gate, typecheck marker, progress floors) |
 | `hooks/scripts/` | Dev tools, their tests, and the container clone script `jhd-container-clone.sh` (the directory name is historical; none are hooks) |
 | `CHANGED.txt` | Release log, newest first |

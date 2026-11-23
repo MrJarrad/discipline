@@ -13,7 +13,7 @@ import { parseStatus } from "./list-drift-check.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
-const OS = "output-styles/discipline.md";
+const OS = "skills/routing/references/OPERATOR-REPLIES.md";
 const HS = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
 const WR = "skills/vault-write/references/WRITING.md";
 

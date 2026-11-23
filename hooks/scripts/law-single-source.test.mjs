@@ -75,11 +75,11 @@ const LAWS = [
     definition: "**One review round is the default; hard\ncap: 2 review rounds per change.**",
     elsewhere: /hard cap: \d+ review rounds|there is no round [34]/i,
     pointer: "`agents/reviewer.md` § Round cap",
-    pointedFrom: ["agents/engineer.md", "output-styles/discipline.md", "skills/routing/SKILL.md", "skills/wrap/SKILL.md", "skills/dispatch-brief/SKILL.md"],
+    pointedFrom: ["agents/engineer.md", "skills/routing/references/OPERATOR-REPLIES.md", "skills/routing/SKILL.md", "skills/wrap/SKILL.md", "skills/dispatch-brief/SKILL.md"],
   },
   {
     law: "the operator queue printed in full on every status",
-    home: "output-styles/discipline.md",
+    home: "skills/routing/references/OPERATOR-REPLIES.md",
     definition: '**Every status reply ends with "Needed from you" — this turn\'s new asks plus one link line to the Status doc, where the operator queue lives, in full, for this session\'s projects**',
     elsewhere: /every status reply ends with "Needed from you"/i,
     pointer: "needed-from-you.mjs --projects",

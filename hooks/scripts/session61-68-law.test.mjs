@@ -37,7 +37,7 @@ test("s64 2 / s67 4: a cloud parent compares the loaded plugin with the release"
 });
 
 test("s62 1, 5 / s67 5 / s68 2, 3: third-party and capability claims are checked at the source", () => {
-  has("output-styles/discipline.md", "A claim about a third-party tool, our access to it, or what a product can do, in his text or a brief, is checked at the source first");
+  has("skills/routing/references/OPERATOR-REPLIES.md", "A claim about a third-party tool, our access to it, or what a product can do, in his text or a brief, is checked at the source first");
 });
 
 test("s62 2 / s63 3 / s68 1: vault PR order", () => {
