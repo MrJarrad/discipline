@@ -111,7 +111,11 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
         maxTurnsOverride: true,
         // Probes run in bypassPermissions against the real tree; a haiku probe
         // once edited skills/design-system/SKILL.md mid-run. Read-only always.
-        disallowedTools: "Edit Write NotebookEdit Bash",
+        // route / behaviour probes answer from the prompt alone: no reading tools,
+        // so they finish inside the turn cap instead of exploring (run 2: 24 of 60 capped).
+        disallowedTools: c.type === "route" || c.type === "behavior"
+          ? "Edit Write NotebookEdit Bash Read Glob Grep WebFetch WebSearch Agent"
+          : "Edit Write NotebookEdit Bash",
       };
       if (c.type === "route") agent.jsonSchema = ROUTE_JSON_SCHEMA;
       if (pluginDir) agent.pluginDir = pluginDir;
@@ -201,6 +205,8 @@ export const VERDICT = { GREEN: "GREEN", RED: "RED", FLAKY: "FLAKY" };
 // persona?: string }. A sample passes iff every expectSkills member fired,
 // no forbidSkills member fired, and (route cases only) persona matches.
 export function sampleOutcome(caseDef, observed) {
+  // A probe that hit its turn cap or errored observed nothing: never a pass.
+  if (observed.outcome && observed.outcome !== "success") return false;
   const expect = caseDef.expectSkills ?? [];
   const forbid = caseDef.forbidSkills ?? [];
   const fired = observed.firedSkills ?? new Set();
@@ -228,7 +234,8 @@ export function scoreCase(caseDef, observedSamples) {
   if (passed > of / 2) verdict = VERDICT.GREEN;
   else if (of - passed > of / 2) verdict = VERDICT.RED;
   else verdict = VERDICT.FLAKY;
-  return { id: caseDef.id, verdict, passed, of };
+  const costUsd = Math.round(observedSamples.reduce((n, o) => n + (o.costUsd ?? 0), 0) * 1e6) / 1e6;
+  return { id: caseDef.id, verdict, passed, of, costUsd };
 }
 
 // ---- discrimination (baseline arm) ----------------------------------------
@@ -327,10 +334,12 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
     const spec = compileSpec(cases, { armName, pluginDir, runNonce });
     const sessionsByLabel = new Map();
     const resultsByLabel = new Map();
+    const metaByLabel = new Map();
     await runWorkflowImpl(spec, (entry) => {
       if (entry.type === "agent") {
         sessionsByLabel.set(entry.label, entry.sessionId);
         resultsByLabel.set(entry.label, entry.result);
+        metaByLabel.set(entry.label, { outcome: entry.outcome, costUsd: entry.costUsd });
       }
     });
     const observedByCase = new Map();
@@ -347,6 +356,7 @@ export async function runArms({ cases, baselinePluginDir, candidatePluginDir, ru
         // transcript's Skill tool_use blocks — route agents never load a
         // persona, so scoring them off tool_use alone always reads RED
         // regardless of the routing decision's quality.
+        Object.assign(observed, metaByLabel.get(agent.label));
         const replyText = resultsByLabel.get(agent.label);
         if (typeof replyText === "string") observed.text = replyText;
         if (agent.jsonSchema) {

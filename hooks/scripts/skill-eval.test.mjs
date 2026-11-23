@@ -245,3 +245,29 @@ test("compileSpec disallows every writing tool on every probe agent", () => {
     for (const t of ["Edit", "Write", "NotebookEdit", "Bash"]) assert.match(a.disallowedTools, new RegExp(`\\b${t}\\b`));
   }
 });
+
+// ---- an unfinished probe is never a pass -----------------------------------
+
+test("a capped or failed probe fails its sample even when nothing is forbidden", () => {
+  const c = { id: "t", type: "behavior", forbidText: ["nothing new"] };
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "", outcome: "capped" }), false);
+  assert.equal(sampleOutcome(c, { firedSkills: new Set(), text: "", outcome: "success" }), true);
+});
+
+test("runArms reads each probe's outcome and sums its cost per case", async () => {
+  const cases = [{ id: "b1", type: "behavior", prompt: "p", forbidText: ["x"], expectSkills: [], samples: 2 }];
+  const run = async (spec, log) => {
+    spec.phases[0].agents.forEach((a, i) => log({ type: "agent", label: a.label, sessionId: `s${i}`, outcome: i ? "capped" : "success", costUsd: 0.01, result: "" }));
+    return {};
+  };
+  const [r] = await runArms({ cases, runWorkflowImpl: run });
+  assert.equal(r.candidate.passed, 1);
+  assert.equal(r.candidate.costUsd, 0.02);
+});
+
+test("route, behaviour and fence probes get no reading tools; only trigger probes keep Skill and Read", () => {
+  const spec = compileSpec([{ id: "r", type: "route", prompt: "p", samples: 1 }, { id: "b", type: "behavior", prompt: "p", samples: 1 }]);
+  for (const a of spec.phases[0].agents) assert.match(a.disallowedTools, /\bRead\b/);
+  const t = compileSpec([{ id: "t", type: "trigger", prompt: "p", samples: 1 }]).phases[0].agents[0];
+  assert.doesNotMatch(t.disallowedTools, /\bRead\b/);
+});
