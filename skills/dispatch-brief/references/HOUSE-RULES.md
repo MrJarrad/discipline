@@ -23,9 +23,9 @@ picking up the work"*; *"does this include motion law and anything else useful"*
   (authoring/showcase convenience: not built). Any class but build prop needs a one-line reason;
   an unclear class goes to the operator as a question. Exposed nested-instance properties are assessed the same way, one row each. Beyond Figma, any value or behaviour a
   designer could plausibly change per use (spacing, durations, on/off treatments, layout
-  choices) is a prop or setting with a token default; hard-coding needs a reason. An operator
-  "off" or "change" ruling sets a prop value and never deletes the implementation unless the
-  operator says remove.
+  choices) is a prop or setting with a token default; hard-coding needs a reason. On a shipped prop an operator
+  "off" or "change" ruling sets its value and never deletes the implementation unless he says remove.
+  A try-out (options shown for him to pick) is not a shipped prop: once he picks, it narrows to the pick and the rest go, unless he says it stays per-use (`prototype`).
 - **Desktop automation** — a lane on the operator's desktop targets only what it launched (pid, own `--user-data-dir`, bundle id); never
   an unscoped `tell application`/"front window"; cleanup kills an exact owned pid or anchored profile path, never a prefix pattern
   (`2026-10-08-agent-automation-touches-only-its-own-processes`).
