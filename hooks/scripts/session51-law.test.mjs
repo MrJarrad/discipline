@@ -7,9 +7,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(root, p), "utf8");
+const read = (p) => readLoaded(root, p);
 const flat = (p) => read(p).replace(/\s+/g, " ");
 
 test("DISC-223.1: equal items go in one list — HOUSE-VOICE rule 8, with its DO/DON'T", () => {

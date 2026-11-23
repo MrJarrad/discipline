@@ -7,9 +7,10 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 
 // Every agent-consumed doc the plugin ships — the law's blast radius.
 const shippedDocs = () => [
@@ -81,7 +82,7 @@ test("routing's baton table halts the loop at the cap and presents to the operat
 });
 
 test("a prototype lane batons to the operator, never to a reviewer", () => {
-  const baton = routing.slice(routing.indexOf("## Baton handoff table"), routing.indexOf("## Persona dispatch table"));
+  const baton = read("skills/routing/references/BATON.md"); // the baton table's home since DISC-351 s8
   assert.match(baton, /prototype/i);
   assert.match(baton, /no reviewer, no suite/i);
 });

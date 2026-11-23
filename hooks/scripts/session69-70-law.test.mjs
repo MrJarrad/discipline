@@ -9,9 +9,10 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseStatus } from "./list-drift-check.mjs";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 const OS = "skills/routing/references/OPERATOR-REPLIES.md";
 const HS = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";

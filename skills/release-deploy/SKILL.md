@@ -113,17 +113,7 @@ release's work product. An unticked checklist is not a release — it's a plan.
 **Gate shape, every private repo** (ruling `no-paid-github`, `doer-rules.md` § CI): no
 GitHub Actions run — workflows are manual-only. The release gate is the full suite passing
 in a cloud gate-run lane, install→typecheck→test→lint→build once, with its tail posted on
-the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on
-Cloudflare Workers Builds. **Space preview builds**: three or more overlapping branch builds hit
-Cloudflare's R2 API rate limit (429) and fail with no code change. Start the next build once the one
-before it finishes, and re-run a red build once the others are done
-(`overload-and-untested-live-2026-10-15` item 3). **Serial hand-out, no polling** (s44): with several
-helpers, the parent hands out "build now" one at a time, and the next waits until the previous PR's Workers
-comment reports, never on the helper's "pushed" (s45: two overlapping builds); a helper watches the PR's Workers comment
-on GitHub, never the Cloudflare API (six helpers building and polling at once drew 429, then account
-throttling, code 971). **Cloud sessions cannot publish a preview themselves**: in-session `wrangler`
-asset upload fails 401 (the session proxy swaps its one-time upload credential), so previews come from
-Workers Builds only (`2026-10-31-s44-parent-lessons` 1, 2).
+the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on Cloudflare Workers Builds; spacing overlapping builds, the serial hand-out and why a cloud session cannot publish one itself: [references/PREVIEW-BUILDS.md](references/PREVIEW-BUILDS.md).
 
 ## Release path
 
@@ -154,18 +144,4 @@ cannot read or edit its own settings; the fix is to hand the operator one runnab
 
 ## Where this sits
 
-- **Owner:** this skill owns the procedure standing; **releaseops** runs
-  it to ship a flag-gated deploy. When routing a deploy for review, hand the reviewer the
-  ticked checklist plus the smoke/observability evidence.
-- **Bar:** held to `quality` like any output — verified with evidence, never fabricated. A
-  surfaced "the smoke failed, rolled back" beats a false green.
-- **Stack mapping:** the procedure is the spine; map it to the target —
-  - **Web app (Cloudflare Workers/Pages):** artifact = a Wrangler deploy/version; flag = the flag
-    provider (e.g. Flagship / a KV-backed switch); rollback lever 2 = `wrangler rollback` /
-    re-deploy of the prior version. See the `wrangler` and `cloudflare` skills for exact commands.
-  - **Engine (npm):** artifact = a published version; ship **canary from the release branch first**,
-    promote to **stable** only after the canary is clean; rollback = publish/pin last-good. See
-    the package's release-automation docs.
-  - **Figma plugin:** artifact = a plugin build; "flag" = a staged/private release or in-manifest
-    switch before public publish; rollback = re-publish the prior build.
-  Keep the flag + smoke + rollback discipline identical across all three — only the commands change.
+Owner, bar, and each target's mapping and rollback lever (Workers, npm, Figma plugin): [references/WHERE-THIS-SITS.md](references/WHERE-THIS-SITS.md).

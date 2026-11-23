@@ -6,9 +6,10 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(root, p), "utf8");
+const read = (p) => readLoaded(root, p);
 const flat = (p) => read(p).replace(/\s+/g, " ");
 const BV = "skills/brand-voice/SKILL.md";
 
@@ -109,7 +110,7 @@ test("s45.4 and s46.2: Mac jobs — review-first folder, throwaway clone, remote
   assert.ok(m.includes("checks the remote head carries it before queueing (`git ls-remote`)"));
   assert.ok(m.includes("`git worktree add <dir> FETCH_HEAD`"));
   assert.ok(m.includes("`lsof -ti tcp:A -ti tcp:B`"));
-  assert.ok(flat("skills/cloud-dispatch/SKILL.md").includes("**Review-first jobs and repo checkouts** follow [MAC-JOBS.md](references/MAC-JOBS.md) (s45, s46)."));
+  assert.ok(flat("skills/cloud-dispatch/SKILL.md").includes("**Review-first jobs and repo checkouts** follow [MAC-JOBS.md](MAC-JOBS.md) (s45, s46)."), "the pointer moved with its section to references/CLOUD-FIRST.md");
 });
 
 test("s45.5: the next \"build now\" waits for the previous PR's Workers comment — release-deploy", () => {

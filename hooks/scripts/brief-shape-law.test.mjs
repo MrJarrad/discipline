@@ -8,11 +8,14 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 
 const dispatchBrief = read("skills/dispatch-brief/SKILL.md");
+// Word ceilings and the checklist count are about the body the model always loads, not its references.
+const dispatchBriefBody = readFileSync(join(repo, "skills/dispatch-brief/SKILL.md"), "utf8");
 const doerRules = read("doer-rules.md");
 
 const words = (text) => text.split(/\s+/).filter(Boolean).length;
@@ -49,7 +52,7 @@ const words = (text) => text.split(/\s+/).filter(Boolean).length;
 // Raised 1664 -> 1702 (measured) at s90/s91: the reviewer brief carries the literal merge: line and the post-your-verdict wording.
 // Raised 1603 -> 1645 (measured) at s76 lesson 7: the reviewer brief carries the invoke-for-real wording and the Mac access question. 1645 -> 1655 (measured) at s83 lesson 1: the spelled verdict heading. 1702 (measured) at s84: the reviewer's own get_session id.
 test("the dispatch-brief skill stays under its 1702-word ceiling", () => {
-  const count = words(dispatchBrief);
+  const count = words(dispatchBriefBody);
   assert.ok(count <= 1702, `dispatch-brief is ${count} words; the ceiling is 1702`);
 });
 
@@ -70,7 +73,7 @@ test("the scenario table has exactly eight rows", () => {
 // row and the Source-contract lock-row-kind row.
 test("the only checklist is eighteen items, and the old one is gone", () => {
   assert.doesNotMatch(dispatchBrief, /## Checklist before dispatch/);
-  const list = dispatchBrief.slice(dispatchBrief.indexOf("## Before you dispatch"));
+  const list = dispatchBriefBody.slice(dispatchBriefBody.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
   assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18`);
 });

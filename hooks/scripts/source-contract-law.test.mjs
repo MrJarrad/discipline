@@ -13,9 +13,10 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 
 const dispatchBrief = read("skills/dispatch-brief/SKILL.md");
 const doerRules = read("doer-rules.md");

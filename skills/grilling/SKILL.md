@@ -62,9 +62,7 @@ goes to a rough slider test, rung 3 (`prototype`), not another full round
 
 ## Behaviour spec (interactive or scrolling views)
 
-Before the first build of any interactive or scrolling view, write down how it behaves, as short as the view allows: a few lines for a simple control, more for a view like Notes. Cover only what applies: what scrolls, what moves on its own, what each area or input does, start and end, what drives page chrome, phones, control states. Confirm it with the operator once; rounds after that are about feel (`2026-10-18-notes-view-nineteen-rounds`).
-
-A look round rejected twice on the same element stops iterating from words: before round three, ask the operator for a frame (Figma frame or handoff, or a marked screenshot), and brief the doer to match the picture, with a pixel check at the operator's framing (`2026-10-18-look-rounds-and-harness-claims`: six notes-fade rounds built a mechanism from a verbal ask; his Figma guide settled it in one).
+For any interactive or scrolling view, write the behaviour spec before dispatch: [references/BEHAVIOUR-SPEC.md](references/BEHAVIOUR-SPEC.md).
 
 ## Smell table
 
@@ -139,23 +137,7 @@ Confirm shared understanding with the operator before dispatch or build.
 
 ## Read-back before dispatch (mandatory on any visual-note brief)
 
-Any brief that interprets a look note is played back to the operator in plain words
-**before** dispatch — no dispatch on an un-confirmed interpretation. The confirmed
-read-back, in the operator's own terms, is quoted verbatim as the brief's contract line
-(operator ruling 2026-09-18, `brief-carries-operator-words`).
-
-A parent's read of an operator **recording or screenshot is a look note too**: frame-read, send
-a one-line read-back, brief only on confirmation (the rise round 3 was briefed on "image pops in
-mid-rise"; the operator: *"that was the opposite of my viewing of the experience"*).
-
-**An entrance or feel ask with a story gets a confirmed one-paragraph read-back before the first
-build** — the throw's story ("thrown from the bottom": off-screen release, flies away, drops, hover
-catches) took two read-back rounds, then held through five builds (`session10-codify-candidates-2026-10-05` 5).
-
-- **DO:** play back "so the rim should sit flush with the outer edge, no gap" and quote the operator's confirmation in the brief.
-- **DON'T:** dispatch a brief built from your own reading of "make it sit right" with no read-back.
-
-**When try-outs stop converging, ask for the operator's own term or a reference before building more** — nine frame/fade try-outs ended only when he named it ("scroll jacked ... each grid row to have an active state").
+Mandatory on any visual-note brief: read the brief back to the operator before dispatch, as [references/READ-BACK.md](references/READ-BACK.md) sets out.
 
 ## Composition
 

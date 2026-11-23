@@ -6,9 +6,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
+const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
 test("s83 1: the verdict heading is spelled with the full 40-hex sha, and the parent re-reads comments after the last post", () => {
   assert.ok(flat("agents/reviewer.md").includes("spelled `## Review — round N of 2, tier X, head <40-hex>`"));

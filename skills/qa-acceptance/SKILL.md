@@ -58,25 +58,7 @@ into the test is unverified** — the check must read the contract at run time a
 the mechanism (grid placement, token binding, the ruling's constant), never a number, stamp
 or hash carried into the assertion by hand (operator ruling, 2026-09-19).
 
-**Evidence that holds** (portfolio and hoverboard lessons, 2026-09-28 → 10-01):
-
-- **Timing is what is visible, not when an animation starts.** Sample per-frame visible
-  opacity (the product of ancestor opacities) or a recording; `getAnimations()` start times
-  said "reading order correct" three rounds while the footer was already on screen.
-- **Enumerate by what the operator sees, not the implementation's marker.** A probe that
-  counts one selector proves nothing about elements it does not select; reproduce at the
-  operator's framing from their screenshot before concluding "can't reproduce".
-- **"Values from code inspection" is not a measurement**, and a handover's counts are
-  claims — re-count or re-measure on the running build before a lane plans around them.
-- **A load fix is proven only by a matched A/B**: base and fix on the same Worker and
-  environment, interleaved, n ≥ 8. Before-on-CDN vs after-on-preview is confounded.
-- **Eye and number disagree → compare framings**, not the number: a side-by-side of what is on
-  screen at the trigger frame, then the operator picks one rule.
-- **Sound is judged by ear first**: a synth within 2.2 dB per band of its reference was heard
-  as "nothing like" it. The operator's listen is the first gate; offer the original asset early.
-- **A served-build check follows the entry's imports** (lazy chunks, `viewer-*.js` →
-  `style-*.css`) or reads the hydrated DOM; grepping the entry bundle alone proves staleness
-  falsely.
+**Evidence that holds**: timing, enumeration, measurement, load A/B, eye-vs-number, sound and served-build checks each carry a rule learned on real lanes. Read [references/EVIDENCE-THAT-HOLDS.md](references/EVIDENCE-THAT-HOLDS.md) before claiming any of them.
 
 ### 3. Block the close on any unmet or unverified AC
 
@@ -171,21 +153,8 @@ the rule and the row shape:
 
 ## Figma-contracted UI reviews: the screenshot pair
 
-When a UI AC is contracted against a Figma design (the design is the spec, not just
-inspiration), rendered evidence alone is not enough — attach a **side-by-side pair**: the
-Figma frame exported as PNG via the REST API, and a production/rendered screenshot at
-**matched dimensions**, both at the same viewport. A single screenshot with a verbal "matches
-the design" claim is not verified — it's the same "looks right" anti-pattern this skill
-already blocks, applied to visuals instead of behavior.
+When a UI AC is contracted against a Figma design, its evidence is a matched side-by-side pair (the Figma frame and the rendered page at the same viewport), never one screenshot and a claim: [references/FIGMA-PAIR.md](references/FIGMA-PAIR.md).
 
-- **Exempt:** media-slot content (photos, video, user-generated imagery) where the design
-  frame uses placeholder art — compare composition/layout, not the placeholder pixels.
-- **Pairs are agent evidence** — they live with the AC verification, not just handed to the
-  operator raw. The operator gets a preview link, not a pair of attachments to eyeball.
-- Source: operator process rulings 2026-08-25, recorded in the orchestrator's memory and
-  exercised in every S-slice review since.
-
-Read `references/DOS-AND-DONTS.md`.
 ## Anti-patterns
 
 - Marking an issue done because the branch exists or the diff looks plausible

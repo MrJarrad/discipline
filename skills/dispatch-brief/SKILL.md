@@ -102,7 +102,7 @@ never restated procedure, no more than one DO/DON'T pair; `doer-rules.md` Fixed 
 
 ## Reviewer brief
 
-**diff the build against the contract**. Carries the locked table, its live path and tier: `FULL` argued; unnamed tier defaults to `LIGHT`. Rounds cap 2 (`agents/reviewer.md` § Round cap); gates green before a reviewer is solicited; merge: gates green, no red finding. Its first line is the heading `## Review — round N of 2, tier X, head <40-hex>`, never bold (s79, s83). Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR. The brief says "invoke each skill with the Skill tool, for real" (s76); a Mac-job review also names the access question: which sign-in reaches each host (MAC-JOBS). Spell: `merge:` last line, `reviewer: session_<id>` verbatim. Helper sessions only; in-session (Agent) briefs say "no `reviewer:` line; `merge:` last" (s74). The `<id>` is your own `get_session` id (no session_id). **Last line literally `merge: yes` or `merge: no`** (s90: `merge: ok` was refused, #222). **Say "post your verdict on the PR", never "do not comment"** (s91 twice: the reviewer then refused to post; the gate reads the PR).
+A reviewer dispatch carries the diff-against-contract brief, the verdict heading and the `merge:` last line set out in [references/REVIEWER-BRIEF.md](references/REVIEWER-BRIEF.md).
 
 ## Persona + model
 
@@ -113,12 +113,7 @@ when the job calls for it, justified in `## Interrogated` (`model-routing`).
 
 ## State (untrusted draft; verify)
 
-**Every continuation or slice brief carries `## State (untrusted draft; verify)`.** It
-lists what prior slices claim landed — sha, mechanism, values — marked as claims.
-Prior-slice implementation choices are never passed forward as fact: the doer reproduces each
-claim **on the running build**, never by reading the code — a claim true in the diff and false
-on screen is the exact failure this rule exists to catch. A wrong mechanism inherited
-from slice 1 is slice 2's red finding, not its baseline. **A continuation slice is a fresh agent, not a resume** (`routing` § Resume vs fresh); artefacts named **by path**, never carried as context. **Lock widened, doer unreachable → continuation slice, not a new lane.** When the lock widens mid-flight and the running doer cannot be reached, let the lane land, then brief a continuation slice on the same branch carrying the widened rows; review once, after the last slice.
+Every continuation or slice brief carries `## State (untrusted draft; verify)`: [references/CONTINUATION-STATE.md](references/CONTINUATION-STATE.md).
 
 ## Before you dispatch
 

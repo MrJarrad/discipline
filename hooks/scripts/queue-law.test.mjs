@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 import { checkAgentDispatch, checkComponentSystemProgress, checkLineNoReadBack, checkSkillsNamed, checkSourceContractLockRows } from "../bin/agent-dispatch-gate.mjs";
 import { GRANDFATHERED, duplicateRowNumbers, rowWritten } from "./queue-write-check.mjs";
 import { replaceRowById } from "./lane-end.mjs";
+import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the loaded skill: body + linked references
 
 // ======== queue-1810-law ========
 {
@@ -26,7 +27,7 @@ import { replaceRowById } from "./lane-end.mjs";
 // law-single-source.test.mjs. This file covers the rows those two do not.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -202,7 +203,7 @@ test("Figma plugin fixes are routed to the figma-plugins repo, not the in-app ed
 // softens or drops one fails here.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -315,7 +316,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 // its own home so a later edit that softens or drops one fails here.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -396,7 +397,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 // later edit that softens or drops one fails here.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -527,7 +528,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 // so a later edit that softens or drops one fails here.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -703,7 +704,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 // here.
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -749,7 +750,7 @@ test("dispatch-brief points at INTERROGATE.md and requires the `## Interrogated`
 });
 
 test("dispatch-brief's checklist is eighteen items (raised 16 -> 18 at 1.92.0, Change 1 additions)", () => {
-  const brief = read("skills/dispatch-brief/SKILL.md");
+  const brief = readFileSync(join(repo, "skills/dispatch-brief/SKILL.md"), "utf8"); // the body, not its references
   const list = brief.slice(brief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
   assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18`);
@@ -824,7 +825,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -971,7 +972,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -1150,7 +1151,7 @@ test("plugin.json and marketplace.json carry one matching semver, at or past 1.8
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -1258,7 +1259,7 @@ test("dispatch-brief's checklist gates the Size field", () => {
 });
 
 test("dispatch-brief's checklist is eighteen items as of 1.92.0", () => {
-  const brief = read("skills/dispatch-brief/SKILL.md");
+  const brief = readFileSync(join(repo, "skills/dispatch-brief/SKILL.md"), "utf8"); // the body, not its references
   const list = brief.slice(brief.indexOf("## Before you dispatch"));
   const items = list.match(/^\[ \]/gm) || [];
   assert.equal(items.length, 18, `the list is ${items.length} items; the ratified count is 18 as of 1.92.0`);
@@ -1267,7 +1268,7 @@ test("dispatch-brief's checklist is eighteen items as of 1.92.0", () => {
 // Ceiling raised 1450 -> 1500 at 1.95.0 (`media-load-standard`); the test name
 // keeps its 1.92.0 label since that's the queue that introduced the check.
 test("dispatch-brief skill stays under its 1.92.0 1450-word ceiling", () => {
-  const count = read("skills/dispatch-brief/SKILL.md").split(/\s+/).filter(Boolean).length;
+  const count = readFileSync(join(repo, "skills/dispatch-brief/SKILL.md"), "utf8").split(/\s+/).filter(Boolean).length;
   // Ceiling raised 1500 -> 1520 at 1.102.0, 1520 -> 1560 at 1.155.0 (see brief-shape-law.test.mjs).
   assert.ok(count <= 1702, `dispatch-brief is ${count} words; the ceiling is 1702 as of s76`);
 });
@@ -1403,7 +1404,7 @@ test("doer-rules.md states a standalone component lane uploads at done, unless t
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 const carries = (file, sentence) =>
   assert.ok(
@@ -1684,7 +1685,7 @@ test("shellExecutableBasename strips path and login-shell leading dash", () => {
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 const EIGHT_CLASSES = [
@@ -1861,7 +1862,7 @@ test("lane-sweep.mjs supports --worktrees on the CLI surface", () => {
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- Change 1: Source-contract lock-row gate --------------------------------
@@ -2088,7 +2089,7 @@ test("the lessons-for-1-92 decision file exists and names the DS-path fix", () =
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- Rule 1: read-back only above line --------------------------------------
@@ -2222,7 +2223,7 @@ test("the 1.92.1 CHANGED entry names rules 1-3 and 5, and rule 4's withdrawal", 
 // preference").
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 const SCRIPTS = ["release-build.mjs", "rulebook-sync.mjs", "ds-regen.mjs", "merge-after-review.mjs"];
@@ -2374,7 +2375,7 @@ test("the plugin.json version is at or past 1.93.0", () => {
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- (1) dispatch gate: component/system briefs name a progress path -------
@@ -2519,7 +2520,7 @@ test("vault-write: a queue row is written only once it is actually ready", () =>
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- skills/routing/references/OPERATOR-REPLIES.md: the rule itself ---------------------------
@@ -2622,7 +2623,7 @@ test("plugin.json and marketplace.json agree, at or past 1.95.1", () => {
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 const flat = (text) => text.replace(/\s+/g, " ");
 
 // --- (1) SKILL.md: the new production-found method items --------------------
@@ -2828,7 +2829,7 @@ test("plugin.json and marketplace.json agree at or past 1.96.0", () => {
 //
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const read = (p) => readFileSync(join(repo, p), "utf8");
+const read = (p) => readLoaded(repo, p);
 
 const table = (section, ...nums) =>
   `## ${section}\n\n| # | Needed |\n| --- | --- |\n` + nums.map((n) => `| ${n} | row ${n} |`).join("\n") + "\n\n";
