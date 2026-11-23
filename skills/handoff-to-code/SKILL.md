@@ -11,7 +11,7 @@ description: >-
 # Handoff to Code
 
 **The handoff pair is the contract: every node, token, copy string and annotation in it is
-built — never Figma pixels, never inferred values.** A value the pair does not state is not
+built — never source-design pixels, never inferred values.** A value the pair does not state is not
 yours to supply. The pair is read, not re-described; the brief points at it. The Figma MCP does not replace the pair: it cannot return
 per-mode code-named tokens, generated CSS, the changelog or the pair hashes
 (`2026-10-17-keep-design-handoff`).
@@ -112,7 +112,7 @@ The **Build standards** are the mechanism, not style advice. A right number prod
 wrong mechanism is a defect. Tokens only: a matching literal is still a defect.
 `[Grid]` frames are CSS Grid containers. `col-span(N/M)` maps directly. Widths computed from column maths are a defect even when they measure right.
 
-**Every property the Figma panel shows is a ledger row, nested exposed ones included.** One
+**Every property the design source's panel shows is a ledger row, nested exposed ones included.** One
 table row is one return row; a table row with no return row is red. An `(open)` row is a chat
 question, never a reason to stop.
 
@@ -133,7 +133,7 @@ section with zero findings still exists and says so.
 
 ### 5b. The brief's asks — each line says what to build
 
-A brief ends with `## Asks`, answered in chat. **answered** and **waiting on Figma**: build the
+A brief ends with `## Asks`, answered in chat. **answered** and **waiting on the source**: build the
 answer; **assumed**: build the suggestion. **An open ask is a reported item, never a guess.** Every
 waiting, assumed or open ask is a deviation row. Writing a note into the file on the person's yes:
 `references/write-back.md`. Ledger: `references/steps.md` § 5b.
@@ -150,7 +150,7 @@ each `UNMAPPED_BINDING` is a ruled item. Codes: `references/steps.md` § 6.
 
 One row per node whose value did not come straight from the pair, plus one per lock:
 
-| element | Figma binding | token used | value | status | ruling ref |
+| element | Source binding | token used | value | status | ruling ref |
 | --- | --- | --- | --- | --- | --- |
 
 `status`: **match** · **resolved-to-export** (the export wins without asking. Ask only when the export binds no token where one is expected, or building

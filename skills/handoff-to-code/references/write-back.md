@@ -1,9 +1,9 @@
 # Write a note back onto the layer
 
 A brief's asks sometimes end with a note for the design: the person answers "I'll change the design"
-(the ask's status is **waiting on Figma** and the line gives the note text), or the build needs a note
+(the ask's status is **waiting on the source** and the line gives the note text), or the build needs a note
 the design does not have, such as behaviour no property can say. This step writes that note onto the layer
-in Figma through Figma's MCP, and reads it back. The only other write is a new colour ramp, after a yes: `references/reuse-or-add.md`.
+in the source through Figma's MCP, and reads it back. The only other write is a new colour ramp, after a yes: `references/reuse-or-add.md`.
 
 1. **Write only when the person has said to.** The note text is the person's to add; an agent adds it
    only when they have agreed — once per note, or once for a list of notes the person has seen. Without that, hand over the text and stop.
@@ -30,4 +30,4 @@ in Figma through Figma's MCP, and reads it back. The only other write is a new c
    compare the text and category with what was written. A note that reads back different is fixed once;
    if it is still different, report it and stop, do not loop.
 8. **Return each note as a row in the deviation table**: layer name and id, category, the text, and
-   "written, read back". An ask that was **waiting on Figma** and is now written is reported as such.
+   "written, read back". An ask that was **waiting on the source** and is now written is reported as such.
