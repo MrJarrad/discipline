@@ -388,7 +388,7 @@ test("dispatch-brief carries the pnpm file: sibling lesson verbatim", () => {
     "A consumer of a `file:` sibling dependency runs `pnpm install --force` first and " +
     "asserts the installed copy's identity (a header stamp or one token grep under " +
     "`node_modules/<pkg>/`) before any gate or deploy — pnpm copies `file:` deps into " +
-    "its store, so a plain install is a no-op (portfolio, 2026-09-11).";
+    "its store, so a plain install is a no-op.";
   carries(doerRules, sentence, "doer-rules missing the pnpm file: lesson sentence");
   carries(
     deployChecklist,

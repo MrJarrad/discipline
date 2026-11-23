@@ -18,7 +18,7 @@ test("DISC-249: the brief lists every repo with its access, the helper attaches 
   assert.ok(h.includes("**The brief lists every repo the lane touches, each with its access level** (`read` or `push`)"));
   assert.ok(h.includes("attaches every listed repo with `add_repo` as its first step, before any work"));
   assert.ok(h.includes("A repo the brief did not list is `next: parent`, never a question to the operator"));
-  assert.ok(flat("doer-rules.md").includes("A repo the brief did not list: `next: parent`, never an `add_repo` of your own and never a question to the operator (DISC-249)."));
+  assert.ok(flat("doer-rules.md").includes("A repo the brief did not list: `next: parent`, never an `add_repo` of your own and never a question to the operator."));
 });
 
 // DISC-244 (HB-223, 2026-11-02): the before/after delta for moving a panel onto a shared kit measured sizes

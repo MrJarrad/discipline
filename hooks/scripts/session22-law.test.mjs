@@ -18,7 +18,7 @@ test("webapp-testing: drive the operator's real gesture, not a DOM click", () =>
 });
 
 test("doer-rules: a brief names the operator's device and input", () => {
-  assert.match(flat("doer-rules.md"), /names the operator's device and input.*"tap" was desktop Chrome/);
+  assert.match(flat("doer-rules.md"), /names the operator's device and input.*2026-10-13-brief-names-operator-device/);
 });
 
 test("dispatch-brief: the brief author is told to name the operator's device and input", () => {
