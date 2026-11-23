@@ -1,6 +1,9 @@
 ---
 name: webapp-testing
-description: Author repeatable, asserting Playwright E2E tests that drive a live web app and fail loudly on regression — locators, web-first assertions, visual-regression snapshots, network mocking, Page Object Model. Use when you need a re-runnable test that PROVES a UI behaves (a login flow works, a component renders, a screenshot matches baseline), not a one-shot look. Not for exploratory inspection or evidence capture (that's agent-browser), and not for site fetch/scrape (agent-browser/firecrawl).
+description: >-
+  Use when a re-runnable Playwright test must prove a web UI works (a login flow,
+  a component render, a screenshot against its baseline): locators, web-first
+  assertions, snapshots, network mocks. Not a one-off look.
 tags:
   - browser
   - playwright

@@ -1,6 +1,9 @@
 ---
 name: motion
-description: "Build, review, and name motion — animation decisions, easing, timing, springs, press feedback; read and implement motion law from design-system or capture; review against craft and the loaded law with Block/Approve; reverse-lookup effect names. Trigger on animation feel, transitions, easing/duration, or implementing motion law. Not Figma motion specs — capture-figma; not performance profiling — performance."
+description: >-
+  Use when the animation feels off, or for transitions, easing, duration, springs
+  or press feedback: build, review and name motion, implementing motion law from
+  the design system. A motion source file is capture-motion-source.
 ---
 
 # Motion

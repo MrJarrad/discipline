@@ -1,10 +1,9 @@
 ---
 name: design-review
 description: >-
-  Experience review — named tasks, heuristic evaluation, and optional depth
-  (real users, synthetic hypotheses, AT-with-people). Trigger on "design-review",
-  "review the experience", or "user-test this". Not standing merge/tech review —
-  that's reviewer + quality; not Figma/system numeric fidelity — that's audit-build.
+  Use for a design review, review the experience or user-test this: named tasks,
+  heuristic evaluation, and real or synthetic users when the brief names them.
+  Merge review belongs to the reviewer.
 ---
 
 # Design Review

@@ -1,16 +1,9 @@
 ---
 name: grilling
 description: >-
-  Interview relentlessly until the design tree is locked — frontier rounds of
-  experience-level questions, each with a recommended answer. Use before dispatch
-  on non-trivial build/design work, when stress-testing a plan or proposal, when
-  the operator says grill this, when acceptance criteria cannot be written
-  without inventing requirements, or when a brief assumes any property the operator
-  could answer in one line — "how does X look", "what kind of X", "which type of X",
-  which convention/library/approach to use, what the expected behaviour is, any brief
-  that assumes a property the operator could answer. Applies to fix rounds too, not
-  only new builds. Before any look or motion build or round, ask two or three feel
-  questions with references. Composes define-terms when a repo is open.
+  Use before dispatching non-trivial build, design or fix work, when told to grill
+  this, or when acceptance criteria or how something looks or behaves would be
+  invented: frontier rounds of questions, each with a recommended answer.
 ---
 
 # Grilling

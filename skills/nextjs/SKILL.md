@@ -1,6 +1,9 @@
 ---
 name: nextjs
-description: Build, review, or deploy a Next.js (App Router) app — Cache Components, "use cache", revalidateTag/updateTag/refresh, Server Actions, proxy.ts, or Cloudflare via @opennextjs/cloudflare. Use when the operator names Next.js, App Router, RSC, "use cache", proxy.ts, middleware.ts, OpenNext, ISR, PPR, or a .tsx under app/. Not Workers post-deploy — workers-best-practices/wrangler; not UI tokens — design-system/markup-standard; not test mechanics — webapp-testing; not CWV bar — Law 9 in design-craft/references/TECHNICAL-DESIGN.md; not SEO — the seo-* family.
+description: >-
+  Use when the work names Next.js, App Router, RSC, "use cache", Cache Components,
+  revalidateTag, Server Actions, proxy.ts, middleware.ts, OpenNext, ISR or PPR, or
+  a .tsx under app/: build, review, deploy to Cloudflare.
 ---
 
 # Next.js

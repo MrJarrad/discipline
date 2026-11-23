@@ -33,17 +33,17 @@ const pathsFor = (skill) =>
     : { doc: `skills/${skill}/SKILL.md`, references: join(repo, "skills", skill, "references"), link: /\]\((references\/[A-Za-z0-9._-]+\.md)\)/g, resolve: (rel) => join(repo, "skills", skill, rel) };
 
 const CEILINGS = [
-  { skill: "capture-figma", ceiling: 1324, before: 9578, frontmatterWords: 123 },
-  { skill: "routing", ceiling: 1916, before: 3254, frontmatterWords: 90 }, // target 1,500 (DISC-351)
-  { skill: "motion", ceiling: 1040, before: 5552, frontmatterWords: 58 },
-  { skill: "wrap", ceiling: 1031, before: 3115, frontmatterWords: 85 },
-  { skill: "agents/reviewer.md", ceiling: 1814, before: 2017, frontmatterWords: 72 },
-  { skill: "markup-standard", ceiling: 1200, before: 2778, frontmatterWords: 68 },
-  { skill: "vault-write", ceiling: 1236, before: 2394, frontmatterWords: 38 },
-  { skill: "banana", ceiling: 1200, before: 2273, frontmatterWords: 62 },
-  { skill: "nextjs", ceiling: 1200, before: 2082, frontmatterWords: 75 },
-  { skill: "prompt-craft", ceiling: 1200, before: 1811, frontmatterWords: 56 },
-  { skill: "issue-triage", ceiling: 1200, before: 1693, frontmatterWords: 65 },
+  { skill: "capture-figma", ceiling: 1324, before: 9578 },
+  { skill: "routing", ceiling: 1916, before: 3254 }, // target 1,500 (DISC-351)
+  { skill: "motion", ceiling: 1040, before: 5552 },
+  { skill: "wrap", ceiling: 1031, before: 3115 },
+  { skill: "agents/reviewer.md", ceiling: 1814, before: 2017 },
+  { skill: "markup-standard", ceiling: 1200, before: 2778 },
+  { skill: "vault-write", ceiling: 1236, before: 2394 },
+  { skill: "banana", ceiling: 1200, before: 2273 },
+  { skill: "nextjs", ceiling: 1200, before: 2082 },
+  { skill: "prompt-craft", ceiling: 1200, before: 1811 },
+  { skill: "issue-triage", ceiling: 1200, before: 1693 },
 ];
 
 for (const { skill, ceiling, before } of CEILINGS) {
@@ -98,22 +98,137 @@ for (const { skill, ceiling } of RATCHETS) {
   });
 }
 
-// The description is the trigger surface: shorten it and the skill stops firing,
-// which is a worse failure than a long body. `frontmatterWords` is each file's count
-// as it stood before the slim, so a later trim that buys body room out of the trigger
-// fails here instead of passing the ceiling quietly.
-test("the frontmatter description is never squeezed to buy body room", () => {
-  for (const { skill, frontmatterWords } of CEILINGS) {
-    const text = read(pathsFor(skill).doc);
-    const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
-    assert.ok(match, `${skill} has no frontmatter`);
-    assert.match(match[1], /description:/, `${skill} frontmatter carries no description`);
-    const count = match[1].split(/\s+/).filter(Boolean).length;
-    assert.ok(
-      count >= frontmatterWords,
-      `${skill} frontmatter is ${count} words, was ${frontmatterWords} — the ceiling is on the body, not the trigger`,
-    );
+// The description is the trigger surface. Claude Code lists every skill's description in a
+// budget of about 1% of the context window and drops the least-used first when the list
+// overflows, so a dropped skill has no trigger words in context at all. Each description stays
+// short enough for the whole list to fit, and keeps the words that make it fire: a cut that
+// drops a pinned phrase fails here, so length is never bought out of the trigger.
+export const DESCRIPTION_CHARS = 300;
+export const LISTING_CHARS = 12000;
+// handoff-to-code is a byte copy of handoff-css's dist skill (handoff-to-code-mirror.test.mjs);
+// its description is cut there and re-vendored, never edited here.
+const DESCRIPTION_EXCEPTIONS = new Set(["handoff-to-code"]);
+
+// skill (or agents/<name>.md) -> phrases that must survive in its description, case-insensitive.
+export const TRIGGER_PHRASES = {
+  "agent-ops": ["skill", "agent charter", "eval gate"],
+  "architect-systems": ["services, packages or modules", "dependency cycle"],
+  "audit-build": ["the blocks are off", "visual sign-off"],
+  "banana": ["generate an image", "design a logo"],
+  "brand-voice": ["page titles", "microcopy", "error messages"],
+  "capture-figma": ["match the figma", "figma.com"],
+  "capture-motion-source": ["Jitter", "Lottie", "animation"],
+  "capture-website": ["look at this site", "design reference"],
+  "cloud-dispatch": ["Claude cloud", "helper session"],
+  "code-minimalism": ["abstraction", "more code than the task needs"],
+  "define-terms": ["just to be clear", "which part do you mean"],
+  "design-craft": ["make it look right", "polish this UI"],
+  "design-modules": ["how should we structure this", "where does this logic live"],
+  "design-review": ["review the experience", "user-test this"],
+  "design-system": ["JHD web UI", "tokens"],
+  "diagnosing-bugs": ["still broken", "intermittent", "flickers"],
+  "discover-scope": ["new concept", "I'd like to explore"],
+  "dispatch-brief": ["dispatch prompt"],
+  "doc-formats": ["SCOPE", "DOCUMENTATION"],
+  "grilling": ["grill this", "acceptance criteria"],
+  "handoff-to-code": ["handoff"],
+  "issue-triage": ["there are discrepancies", "I noticed some issues"],
+  "markup-standard": ["HTML", "alt text"],
+  "media-loading": ["images or video", "blank"],
+  "model-routing": ["model", "effort"],
+  "motion": ["animation feels off", "easing"],
+  "new-product": ["new app in the fleet"],
+  "nextjs": ["Next.js", "App Router"],
+  "ops-inbox": ["what's on my plate", "draft my standup"],
+  "pause-resume": ["pause", "pick up where we left off"],
+  "present-for-review": ["preview link", "send him the link", "present it"],
+  "prompt-craft": ["task prompt", "brief"],
+  "prototype": ["quick concept", "throwaway"],
+  "qa-acceptance": ["acceptance criterion", "ready to ship"],
+  "quality": ["done", "good enough to ship"],
+  "release-deploy": ["deploying", "rollback"],
+  "research-synthesis": ["research", "compare A vs B"],
+  "routing": ["session start", "who handles it"],
+  "shape-stress": ["is the plan ready", "stress-testing"],
+  "skill-authoring": ["editing a skill", "fails to fire"],
+  "skill-review": ["adopt", "worth installing"],
+  "summarise-meeting": ["meeting transcript"],
+  "test-first": ["TDD", "failing test"],
+  "vault-recall": ["vault", "earlier decisions"],
+  "vault-write": ["vault", "decision", "ruling"],
+  "verify-finding": ["does X exist", "what calls Y"],
+  "webapp-testing": ["Playwright", "screenshot"],
+  "wrap": ["ending an orchestration session", "hand over"],
+  "agents/reviewer.md": ["ready to merge", "check before shipping"],
+  "agents/ux-designer.md": ["match the figma", "discrepancies", "animation feels off"],
+};
+
+// The frontmatter `description:` value, plain, quoted or folded, as one line of text.
+export const descriptionOf = (text) => {
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
+  if (!fm) return null;
+  const lines = fm[1].split(/\r?\n/);
+  const i = lines.findIndex((l) => /^description:/.test(l));
+  if (i === -1) return null;
+  let value = lines[i].replace(/^description:\s*/, "");
+  if (/^[>|][-+]?$/.test(value)) {
+    const block = [];
+    for (const l of lines.slice(i + 1)) {
+      if (!/^\s+\S/.test(l)) break;
+      block.push(l.trim());
+    }
+    value = block.join(" ");
+  } else if (value.startsWith('"')) {
+    value = JSON.parse(value);
+  } else if (value.startsWith("'")) {
+    value = value.slice(1, -1).replace(/''/g, "'");
   }
+  return value.replace(/\s+/g, " ").trim();
+};
+
+const skillDocs = () =>
+  readdirSync(join(repo, "skills"))
+    .filter((n) => existsSync(join(repo, "skills", n, "SKILL.md")))
+    .map((n) => ({ key: n, doc: `skills/${n}/SKILL.md` }));
+const agentDocs = () =>
+  readdirSync(join(repo, "agents"))
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => ({ key: `agents/${f}`, doc: `agents/${f}` }));
+
+test(`every skill and agent description fits in ${DESCRIPTION_CHARS} characters`, () => {
+  const over = [...skillDocs(), ...agentDocs()]
+    .filter(({ key }) => !DESCRIPTION_EXCEPTIONS.has(key))
+    .map(({ key, doc }) => ({ key, length: (descriptionOf(read(doc)) ?? "").length }))
+    .filter(({ length }) => length > DESCRIPTION_CHARS);
+  assert.deepEqual(over, [], `descriptions over ${DESCRIPTION_CHARS} characters`);
+});
+
+test(`the skill listing fits in ${LISTING_CHARS} characters, so no description is dropped`, () => {
+  const total = skillDocs().reduce((sum, { doc }) => sum + (descriptionOf(read(doc)) ?? "").length, 0);
+  assert.ok(total <= LISTING_CHARS, `skill descriptions total ${total} characters; the listing budget is ${LISTING_CHARS}`);
+});
+
+test("every skill and agent keeps its pinned trigger phrases", () => {
+  const docs = [...skillDocs(), ...agentDocs()];
+  const unpinned = docs.filter(({ key }) => !TRIGGER_PHRASES[key] && !["agents/engineer.md", "agents/researcher.md", "agents/releaseops.md", "agents/project-manager.md"].includes(key)).map(({ key }) => key);
+  assert.deepEqual(unpinned, [], "every skill and the two routing-contested agents carry a trigger-phrase pin");
+  const lost = [];
+  for (const { key, doc } of docs) {
+    const description = (descriptionOf(read(doc)) ?? "").toLowerCase();
+    for (const phrase of TRIGGER_PHRASES[key] ?? []) {
+      if (!description.includes(phrase.toLowerCase())) lost.push(`${key}: "${phrase}"`);
+    }
+  }
+  assert.deepEqual(lost, [], "trigger phrases missing from their descriptions");
+});
+
+// Built-in CLI commands (/compact, /context, …) are not skills and the model cannot run them,
+// so an always-read instruction to run one is dead text.
+test("no always-read file instructs a built-in slash command", () => {
+  const builtins = /(^|[\s(`'"])\/(compact|context|rewind|usage|memory|todos|tasks|subtask|plan|clear)\b/m;
+  const files = ["output-styles/discipline.md", "doer-rules.md", "skills/routing/SKILL.md", ...agentDocs().map(({ doc }) => doc)];
+  const hits = files.filter((f) => builtins.test(read(f)));
+  assert.deepEqual(hits, [], "always-read files naming a built-in command");
 });
 
 // Always-read files: loaded whole by every session (the style), every orchestrator turn (routing's references) or every

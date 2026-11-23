@@ -1,6 +1,9 @@
 ---
 name: capture-motion-source
-description: Capture a motion-design source — Jitter, After Effects, Figma motion/prototypes, Principle, Lottie files, or a plain video — into a normalized, measured motion spec (layers, timings, exact easing beziers, assets), bank it as a vault reference, and derive a neutral recreation brief for any target surface (Figma motion, CSS/JS, Remotion, native). Trigger on "analyse this animation", "recreate this in Figma/code", any jitter.video URL, a Lottie/.aep file, or a motion reference video. Not for live websites — that's capture-website; not for reading Figma design files for tokens/anatomy — that's capture-figma.
+description: >-
+  Use to analyse or recreate an animation from Jitter, After Effects, Lottie,
+  Principle, Figma prototypes or a video: measure layers, timings and easing into
+  a motion spec and recreation brief. A live site is capture-website.
 ---
 
 # Motion Source Capture

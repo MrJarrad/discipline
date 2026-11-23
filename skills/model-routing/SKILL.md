@@ -1,10 +1,9 @@
 ---
 name: model-routing
 description: >-
-  Pick the best model for each dispatch via a decision tree — job shape ×
-  complexity × token efficiency. Chain-loaded by routing as load-order step 2
-  before any Agent call or workflow spec. Not WHO handles the work (routing)
-  and not brief structure (dispatch-brief).
+  Use before any Agent call, helper session or workflow spec to pick the model and
+  effort for the job by shape, complexity and token cost. Loaded by routing; brief
+  structure is dispatch-brief.
 ---
 
 # Model Routing

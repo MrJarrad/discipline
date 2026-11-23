@@ -1,11 +1,9 @@
 ---
 name: cloud-dispatch
 description: >-
-  How to dispatch a headless doer to Claude cloud via the RemoteTrigger routines
-  API — one routine per dispatch, run + watch, evidence, cleanup. Use before any
-  cloud doer dispatch (RemoteTrigger create/run). Not for gates or machine-bound
-  work (use `Agent` locally per `routing` rule 9); not for
-  `Agent isolation:"remote"` — that path silently falls back local, never use it.
+  Use before dispatching a headless doer to Claude cloud (RemoteTrigger routines,
+  helper sessions): one routine per dispatch, run, watch, evidence, cleanup. Gates
+  and machine-bound work stay local per routing.
 ---
 
 # Cloud Dispatch

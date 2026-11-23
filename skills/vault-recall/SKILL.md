@@ -1,6 +1,9 @@
 ---
 name: vault-recall
-description: Procedure for reading and recalling from ~/JHD/vault as shared memory across sessions. Use when starting a task or during work to check for prior decisions, learnings, references, or artifacts before deriving new answers. Not for writing to the vault — that's vault-write.
+description: >-
+  Use when starting a task or mid-work to check the vault (~/JHD/vault) for
+  earlier decisions, lessons, references or analysis before deriving an answer
+  again. Writing is vault-write.
 ---
 
 # Vault Recall

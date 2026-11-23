@@ -1,6 +1,9 @@
 ---
 name: issue-triage
-description: Move a raw issue to ready-for-agent — verify the claim, write a testable brief, or capture the rejection. Trigger on "there are discrepancies", "I noticed some issues", "a couple of things are off", any list of defects from the operator or an audit, or before handing any vague/unverified issue to a specialist. Not the fix itself — that's the assigned agent's job.
+description: >-
+  Use for "there are discrepancies", "I noticed some issues", "a couple of things
+  are off", or a defect list from the operator or an audit: verify each claim,
+  then write a testable brief or record the rejection.
 ---
 
 # Issue Triage

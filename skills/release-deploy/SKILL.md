@@ -1,6 +1,9 @@
 ---
 name: release-deploy
-description: How we ship a change to production safely — the build → deploy → rollback → observability procedure, with a flag-gated deploy checklist. Use when releasing or deploying any product (web app, npm engine, Figma plugin), turning a flag on/off in production, or planning a rollback. Not for merging a reviewed PR — that's ordinary review routing, not a release.
+description: >-
+  Use when releasing or deploying a product (web app, npm package, Figma plugin),
+  flipping a production flag, or planning a rollback: build, deploy, rollback,
+  observability. Merging a reviewed PR is not a release.
 ---
 
 # Release / Deploy

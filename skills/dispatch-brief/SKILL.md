@@ -1,9 +1,9 @@
 ---
 name: dispatch-brief
 description: >-
-  How to write any Agent / subagent dispatch prompt so it points at the contract
-  and stays scoped. Use before authoring any dispatch brief. Not for choosing WHO
-  (routing) or model (model-routing); not issue-triage mechanics.
+  Use before writing any Agent, subagent or helper-session dispatch prompt: point
+  at the contract, keep it scoped, name persona, model, skills and evidence. Who
+  does it is routing; which model is model-routing.
 ---
 
 # Dispatch Brief

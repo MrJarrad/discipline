@@ -1,6 +1,9 @@
 ---
 name: prototype
-description: Build a throwaway prototype — a terminal app for logic/state, or UI variants on one route — to answer a design question by running code instead of talking it through. Trigger on "quick concept", "explore the X approach", "v2 of Y to explore", or any state-machine, data-shape, or "what should this look like" question. Not for production tests — that's test-first; not for stress-testing a conversation-level plan — that's shape-stress.
+description: >-
+  Use for a quick concept, explore the X approach, v2 of Y to explore, or a state,
+  data-shape or what-should-this-look-like question: throwaway code (terminal app
+  or UI variants), deleted or absorbed after.
 ---
 
 # Prototype

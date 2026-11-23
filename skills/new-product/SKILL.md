@@ -1,6 +1,9 @@
 ---
 name: new-product
-description: Stand up a new JHD product remote on the fleet — vault trio, container clone, discipline sync, fleet register, Environment remotes. Trigger when creating a new GitHub product, "new app in the fleet", or standing up a new JHD remote. Not for Skillz curriculum/ADHD/directing-AI content (those live in Skillz the product), not for code inside an existing product, and not for vault-only notes without a repo.
+description: >-
+  Use when creating a new GitHub product or JHD remote, "new app in the fleet":
+  vault trio, container clone, discipline sync, fleet register, environment
+  remotes. Code in an existing product is engineering.
 ---
 
 # New Product — fleet standup playbook

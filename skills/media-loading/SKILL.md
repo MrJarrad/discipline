@@ -1,13 +1,9 @@
 ---
 name: media-loading
 description: >-
-  The standing bar and method for shipping images/video that are never blank
-  or half-painted. Use on any lane that touches media on screen — a strip's
-  first hover, a grid's entrance, a holding-page tile's first load, dragging
-  on phones, a route change. Not for generating or editing an image's
-  content — that's banana/qwen-edit; not for motion's easing/timing feel —
-  that's motion; not lab Core Web Vitals numbers — that's quality/design-craft
-  Law 9.
+  Use on any lane that puts images or video on screen (a first hover, a grid
+  entrance, a tile's first load, dragging on phones, a route change) so media is
+  never blank or half-painted. Easing feel is motion.
 ---
 
 # Media loading

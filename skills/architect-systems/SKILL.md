@@ -1,6 +1,9 @@
 ---
 name: architect-systems
-description: Software architecture discipline in the large — decomposing a system into modules along the right seams, directing the dependencies between them, and tracing data flow across them. Use when splitting a system or feature into services/packages/modules, deciding where a process or service seam goes, resolving a dependency cycle or wrong-way dependency, or choosing between two ways to carve up a system. Not for shaping a single module's interface — that's design-modules; not for UI/visual design — that's design-craft; not for project scope — that's discover-scope/shape-stress.
+description: >-
+  Use when splitting a system into services, packages or modules, placing a
+  process seam, fixing a dependency cycle or wrong-way dependency, or choosing how
+  to carve a system up. One module's interface is design-modules.
 ---
 
 # Architect Systems

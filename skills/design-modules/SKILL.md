@@ -1,6 +1,9 @@
 ---
 name: design-modules
-description: Design deep modules with small interfaces before writing code — clean seams, testable through the interface. Trigger on "how should we structure this", "where does this logic live", "split this component/service", designing any new module, or a shallow pass-through spotted in review. Not system-wide decomposition — that's architect-systems; not UI — that's design-craft.
+description: >-
+  Use for how should we structure this, where does this logic live, split this
+  component or service, a new module, or a shallow pass-through in review: deep
+  modules, small interfaces. System splits are architect-systems.
 ---
 
 # Design Modules

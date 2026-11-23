@@ -1,11 +1,9 @@
 ---
 name: skill-authoring
 description: >-
-  Write or edit agent-consumed documents — SKILL.md files, AGENTS.md, rules,
-  agent prompts — so they trigger reliably, stay legible, and don't bloat context.
-  Use when creating or editing a skill, rule, or AGENTS.md, or when a skill's
-  description fails to fire. Not for task brief wording — that's prompt-craft; not
-  for vault placement — that's vault-write.
+  Use when creating or editing a skill, rule, agent prompt or AGENTS.md, or when a
+  skill's description fails to fire: triggers first, legible steps, small context
+  load. Task brief wording is prompt-craft.
 ---
 
 # Skill Authoring

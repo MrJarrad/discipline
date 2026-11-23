@@ -422,7 +422,7 @@ test("routing's Baton table sends a look-judged engineer landing to the operator
 
 test("present-for-review states review runs after the yes, never concurrent, and never gates the link", () => {
   const present = flat(read("skills/present-for-review/SKILL.md"));
-  assert.match(present, /review runs after the yes and never\s*gates the link/i);
+  assert.match(present, /review runs after the yes and (\*\*)?never\s*gates the link/i);
   assert.match(present, /\*\*never gates the link\*\*/i);
   assert.doesNotMatch(present, /agent review runs\s*\*\*concurrently\*\*/i);
   assert.match(
@@ -670,7 +670,7 @@ test("doer-rules, dispatch-brief done-when and both charters require pixel proof
 test("qa-acceptance's description fires on the ledger, and the engineer's baton follows doer-rules row 5", () => {
   const qaDescription = /^---\r?\n[\s\S]*?\r?\n---/.exec(read("skills/qa-acceptance/SKILL.md"))[0];
   assert.match(qaDescription, /coverage ledger/);
-  assert.match(qaDescription, /one row per item|a missing row is red/);
+  assert.match(flat(read("skills/qa-acceptance/SKILL.md")), /one row per contract item|A contract item with no row is red/);
   const engineer = flat(read("agents/engineer.md"));
   assert.match(engineer, /a \*\*UI change returns `next: operator`\*\*/);
   assert.doesNotMatch(engineer, /name \*\*next: reviewer\*\* in your evidence return and \*\*stop\*\*/);
