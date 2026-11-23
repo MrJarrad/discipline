@@ -14,11 +14,8 @@ const flat = (p) => read(p).replace(/\s+/g, " ");
 test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens to each list", () => {
   const r = flat("skills/routing/references/HARD-RULES.md");
   for (const s of [
-    "archive it when it's task is complete or if another session takes over",
-    "aren't being archived when completed or possibly worse aren't being completed",
     "**The helper sweep runs at session start and at wrap**",
     "hooks/scripts/helper-sweep.mjs",
-    "it's important the we don't archive the parent sessions though, i'm a bit nervous about that",
     "**A parent session is never archived**",
     "a helper is a session with a parent and a title starting \"Helper ·\"",
     "the surface list is taken over or reported in the status",

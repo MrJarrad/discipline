@@ -117,7 +117,7 @@ test("s45.5: the next \"build now\" waits for the previous PR's Workers comment 
 });
 
 test("s46.1: a read-only task goes to cloud too — HARD-RULES 9", () => {
-  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("A read-only task (research, reading files, a search) needs none of the three, so it goes to cloud too: an `Agent` call from the parent runs local (s46, DISC-232"));
+  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("A read-only task (research, reading files, a search) needs none of the three, so it goes to cloud too: an `Agent` call from the parent runs local."));
 });
 
 test("s46.6: WebKit does not kern across inline element edges — motion BUILD", () => {

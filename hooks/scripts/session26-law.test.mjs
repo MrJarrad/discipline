@@ -9,7 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("DISC-169: fix rounds change only what the operator named (HARD-RULES 18, BRIEF-CRAFT 18, engineer, routing 18)", () => {
-  assert.match(flat("skills/routing/references/HARD-RULES.md"), /18\. \*\*A fix round changes only what the operator named\*\*.*we went way to far in the wrong direction.*`Stays the same` list.*mechanism.*waits for the operator's yes first/);
+  assert.match(flat("skills/routing/references/HARD-RULES.md"), /18\. \*\*A fix round changes only what the operator named\*\*.*`Stays the same` list.*mechanism.*waits for the operator's yes first/);
   assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /18\. \*\*A fix-round brief lists what stays the same\*\*/);
   assert.match(flat("agents/engineer.md"), /fix round's read-back also lists what stays the same/);
   assert.match(flat("skills/routing/SKILL.md"), /18\. \*\*Fix rounds change only what the operator named\*\* \(HARD-RULES 18\)/);
@@ -34,7 +34,7 @@ test("DISC-174: environment facts in cloud-dispatch failure modes", () => {
   assert.match(flat("skills/cloud-dispatch/references/ENVIRONMENT-FACTS.md"), /one secret per host.*second secret for `api\.cloudflare\.com` is ignored.*build logs need a user token.*secrets load only at session start/);
 });
 test("DISC-175: helper sessions archived at lane end, owner HARD-RULES 19", () => {
-  assert.match(flat("skills/routing/references/HARD-RULES.md"), /19\. \*\*Helper sessions are archived once their lane lands\*\*.*can we also archive helper sessions once they're complete.*`archive_session`.*superseded round's helper is archived then/);
+  assert.match(flat("skills/routing/references/HARD-RULES.md"), /19\. \*\*Helper sessions are archived once their lane lands\*\*.*`archive_session`.*superseded round's helper is archived then/);
   assert.match(flat("skills/routing/SKILL.md"), /archive its helper \(rule 19\)/);
 });
 test("DISC-175: cloud-dispatch capacity section points at HARD-RULES 19", () => {

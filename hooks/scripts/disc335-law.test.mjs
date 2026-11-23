@@ -12,7 +12,11 @@ const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 test("HARD-RULES 19 names the ledger, the Not landed rule and the --accept gate; HELPER-SESSIONS points at it", () => {
   const t = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(t.includes("helper-ledger.mjs") && t.includes("`## Not landed`") && t.includes("--accept"));
-  assert.ok(t.includes("skips `head:` for branches `main`") && t.includes("listing of every open PR") && t.includes("--waiting") && t.includes("PR not found") && t.includes("created:>=") && t.includes("is \"cited\""));
+  assert.ok(t.includes("--waiting"));
+  // DISC-351 s6: the lookup mechanics moved out of the prose into the scripts that run them.
+  const ledger = flat("hooks/scripts/helper-ledger.mjs"), prep = flat("hooks/scripts/archive-prep.mjs");
+  assert.ok(ledger.includes("PR not found") && ledger.includes("cited"));
+  assert.ok(prep.includes("head:") && prep.includes("created:>="));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("helper-ledger.mjs"));
 });
 test("the Stop hook's sweep command is the ledger", () => {

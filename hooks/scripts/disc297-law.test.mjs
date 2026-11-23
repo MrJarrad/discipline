@@ -18,7 +18,7 @@ test("DISC-297: the pinned-doc rule lives once in HARD-RULES and names all four 
     "a new round of the same lane REPLACES that row's text and link, never appends",
     "related asks on one lane or screen are presented together for one review",
     "an answered item leaves \"Waiting on you\" in the same turn",
-    "no top-level item carries a Status chip (DISC-334, operator s90, ruling `2026-11-14-s90-status-labels-only-on-project-checklist`: *\"we can remove them from everywhere else\"*", "only the per-project checklist nested under a You're on it item keeps a chip per project",
+    "no top-level item carries a Status chip — an item's section is its status", "only the per-project checklist nested under a You're on it item keeps a chip per project",
     "`queue-page-sync.mjs` flags `appended`, `sameLane` and `leaveWaiting` against the live doc (`noStatus` and `chipChanges` are retired and always empty)",
   ]) assert.ok(h.includes(s), s);
 });
@@ -55,4 +55,9 @@ test("#187 notes: fromDocsRead decodes &amp;#39; and keeps link urls when stripp
   const out = fromDocsRead(doc);
   assert.ok(out.includes("you're"), out);
   assert.ok(out.includes("https://a.example/x") && out.includes("https://a.example/y"), out);
+});
+
+test("DISC-351 s6: HARD-RULES stays within its word budget (one line per rule, histories in the vault)", () => {
+  const words = readFileSync(join(root, "skills/routing/references/HARD-RULES.md"), "utf8").split(/\s+/).filter(Boolean).length;
+  assert.ok(words <= 6131, `HARD-RULES is ${words} words; budget is 6131 (was 8,651 before DISC-351 s6)`);
 });
