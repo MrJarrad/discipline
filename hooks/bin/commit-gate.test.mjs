@@ -3,7 +3,7 @@
 // Run: node --test hooks/bin/commit-gate.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, cpSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
@@ -300,6 +300,25 @@ test("an absent vault root warns and skips rather than blocking the release", ()
     assert.equal(result.stdout, "", "absent vault must not deny the commit");
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("DISC-351: with no env var the ledger is read from ~/JHD/vault/main; an unclean ledger warns, and blocks in block mode", () => {
+  const dir = makeReleaseRepo("1.73.0");
+  const home = mkdtempSync(join(tmpdir(), "commit-gate-home-"));
+  const vault = makeVault("queued");
+  mkdirSync(join(home, "JHD", "vault"), { recursive: true });
+  cpSync(vault, join(home, "JHD", "vault", "main"), { recursive: true });
+  const env = { HOME: home, DISCIPLINE_VAULT_ROOT: undefined };
+  try {
+    const warned = runGate(dir, 'git commit -m "release: 1.73.0"', env);
+    assert.equal(warned.stdout, "", "warn-only: the release is not denied");
+    const blocked = runGate(dir, 'git commit -m "release: 1.73.0"', { ...env, DISCIPLINE_OUTCOME_CHECKS: "block" });
+    assert.match(blocked.stdout, /Lesson-ledger gate/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+    rmSync(vault, { recursive: true, force: true });
   }
 });
 

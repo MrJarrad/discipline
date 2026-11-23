@@ -13,6 +13,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { resolveVault, stopVerdict } from "../scripts/lib/resolve-vault.mjs";
 
 const WAKE = /<wake\b/;
 
@@ -57,11 +58,10 @@ export function check({ final, wrap, wake, ran, runOut, dispatchedAfter }) {
 function main() {
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;
-  const vault = process.env.DISCIPLINE_VAULT_ROOT;
-  if (!vault || !existsSync(join(vault, "projects"))) return;
+  const found = resolveVault(); if (!found) return;
   if (process.env.CLAUDE_CODE_REMOTE === "true") { try { readFileSync(join(homedir(), ".claude", "helper-session")); return; } catch {} }
   let reason; try { reason = check(lastTurn(readFileSync(input.transcript_path, "utf8"))); } catch { return; }
-  if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
+  if (reason) process.stdout.write(JSON.stringify(stopVerdict(reason, found.via)));
 }
 
 if (process.argv[1]?.endsWith("lane-capacity-stop.mjs")) main();

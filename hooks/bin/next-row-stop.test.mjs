@@ -18,7 +18,7 @@ const UNDER = "Doers: 6 working of target 8\nUNDER TARGET by 2: start next\n  - 
 const FINE = "Doers: 8 working of target 8\nAt target (or nothing agent-doable left, or every gap reasoned).";
 const WAKE = '<wake reason="external-event"><event source="github">CI green</event></wake>';
 
-function run(entries, { marker = null, stopActive = false, remote = "true", vault = true } = {}) {
+function run(entries, { marker = null, stopActive = false, remote = "true", vault = true, fallback = false, mode } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "nrs-"));
   const transcript = join(dir, "t.jsonl");
   writeFileSync(transcript, entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
@@ -27,7 +27,8 @@ function run(entries, { marker = null, stopActive = false, remote = "true", vaul
   const v = join(dir, "vault"); mkdirSync(join(v, "projects"), { recursive: true });
   const env = { ...process.env, HOME: home, CLAUDE_CODE_REMOTE: remote };
   delete env.DISCIPLINE_VAULT_ROOT;
-  if (vault) env.DISCIPLINE_VAULT_ROOT = v;
+  if (fallback) { const fb = join(home, "JHD", "vault", "main", "projects"); mkdirSync(fb, { recursive: true }); } else env.DISCIPLINE_VAULT_ROOT = vault ? v : "none";
+  if (mode) env.DISCIPLINE_OUTCOME_CHECKS = mode;
   const r = spawnSync(process.execPath, [hook], { input: JSON.stringify({ transcript_path: transcript, stop_hook_active: stopActive, session_id: "s" }), env, encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   return r.stdout ? JSON.parse(r.stdout) : null;
@@ -89,4 +90,11 @@ test("silent in a cloud helper (marker), with no vault, and in a wrapped session
   assert.equal(run([user(WAKE), said("x")], { marker: "session_parent" }), null);
   assert.equal(run([user(WAKE), said("x")], { vault: false }), null);
   assert.equal(run([user(WAKE), said("This session is wrapped — continue in a fresh session")]), null);
+});
+
+test("DISC-351: with no env var the vault is found at ~/JHD/vault/main; the hold warns, and blocks in block mode", () => {
+  const warned = run([user(WAKE), said("landed")], { fallback: true });
+  assert.equal(warned.decision, undefined);
+  assert.match(warned.systemMessage, /warn-only.*next-row\.mjs/s);
+  assert.equal(run([user(WAKE), said("landed")], { fallback: true, mode: "block" })?.decision, "block");
 });

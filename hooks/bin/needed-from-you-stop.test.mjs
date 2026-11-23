@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,7 +69,15 @@ test("CLI: blocks via JSON decision, allows when stop_hook_active or no vault", 
   const blocked = run({ transcript_path: tr }, { DISCIPLINE_VAULT_ROOT: v });
   assert.equal(JSON.parse(blocked.stdout).decision, "block");
   assert.equal(run({ transcript_path: tr, stop_hook_active: true }, { DISCIPLINE_VAULT_ROOT: v }).stdout, "");
-  assert.equal(run({ transcript_path: tr }, {}).stdout, "");
+  assert.equal(run({ transcript_path: tr }, { DISCIPLINE_VAULT_ROOT: "none" }).stdout, "");
+  // DISC-351: with no env var, the vault is found at ~/JHD/vault/main; the check warns, and blocks once the mode is block
+  const home = mkdtempSync(join(tmpdir(), "nfys-home-"));
+  mkdirSync(join(home, "JHD", "vault"), { recursive: true });
+  cpSync(v, join(home, "JHD", "vault", "main"), { recursive: true });
+  const warned = JSON.parse(run({ transcript_path: tr }, { HOME: home }).stdout);
+  assert.equal(warned.decision, undefined);
+  assert.match(warned.systemMessage, /warn-only.*omits open row/s);
+  assert.equal(JSON.parse(run({ transcript_path: tr }, { HOME: home, DISCIPLINE_OUTCOME_CHECKS: "block" }).stdout).decision, "block");
 });
 
 test("hooks.json wires the Stop event to this script", () => {

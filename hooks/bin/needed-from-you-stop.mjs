@@ -33,6 +33,7 @@ import { reprintedIds, stateChangeOf } from "../scripts/lib/doc-sync-check.mjs";
 import { parseStatusDoc } from "../scripts/lib/status-doc.mjs";
 import { docLayoutIssue } from "../scripts/lib/doc-layout-check.mjs";
 import { pinnedChecklistIds, pinnedChecklistUrl } from "../scripts/lib/pinned-checklist.mjs";
+import { resolveVault, stopVerdict } from "../scripts/lib/resolve-vault.mjs";
 
 /* s81: a turn started by the harness, not the operator: a notification wrapper, a GitHub wake, a helper's message. */
 const WRAPPERS = [/<system-reminder>[\s\S]*?<\/system-reminder>/g, /<wake\b[\s\S]*?<\/wake>/g, /<cross-session-message\b[\s\S]*?<\/cross-session-message>/g, /<task-notification>[\s\S]*?<\/task-notification>/g];
@@ -172,15 +173,14 @@ export function check(args) {
 }
 
 function main() {
-  const vaultEnv = process.env.DISCIPLINE_VAULT_ROOT;
-  if (!vaultEnv) return;
+  const found = resolveVault(); if (!found) return;
   let input; try { input = JSON.parse(readFileSync(0, "utf8")); } catch { return; }
   if (input.stop_hook_active || !input.transcript_path) return;
   let t; try { t = readFileSync(input.transcript_path, "utf8"); } catch { return; }
-  const vault = resolve(vaultEnv);
+  const vault = resolve(found.root);
   const { userTs, text, docWritten, answered, docWrites, wake, stateChanges, commentWake, docReadBack } = lastTurn(t, pinnedChecklistIds(vault));
   let reason; try { reason = check({ text, userTs, vault, sessionId: input.session_id, docWritten, answered, docWrites, wake, stateChanges, commentWake, docReadBack }); } catch { return; }
-  if (reason) process.stdout.write(JSON.stringify({ decision: "block", reason }));
+  if (reason) process.stdout.write(JSON.stringify(stopVerdict(reason, found.via)));
 }
 
 if (process.argv[1]?.endsWith("needed-from-you-stop.mjs")) main();
