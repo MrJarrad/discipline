@@ -236,3 +236,12 @@ test("runArms feeds each agent's result text into text scoring", async () => {
   const ok = await runArms({ cases, runWorkflowImpl: fake("") });
   assert.equal(ok[0].candidate.verdict, VERDICT.GREEN);
 });
+
+// ---- probes never touch the tree -------------------------------------------
+
+test("compileSpec disallows every writing tool on every probe agent", () => {
+  const spec = compileSpec([{ id: "a", type: "trigger", prompt: "p", samples: 2 }]);
+  for (const a of spec.phases[0].agents) {
+    for (const t of ["Edit", "Write", "NotebookEdit", "Bash"]) assert.match(a.disallowedTools, new RegExp(`\\b${t}\\b`));
+  }
+});

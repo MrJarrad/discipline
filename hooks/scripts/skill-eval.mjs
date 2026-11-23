@@ -109,6 +109,9 @@ export function compileSpec(cases, { armName = "candidate", pluginDir, maxTurns 
         skills: [],
         maxTurns: agentMaxTurns,
         maxTurnsOverride: true,
+        // Probes run in bypassPermissions against the real tree; a haiku probe
+        // once edited skills/design-system/SKILL.md mid-run. Read-only always.
+        disallowedTools: "Edit Write NotebookEdit Bash",
       };
       if (c.type === "route") agent.jsonSchema = ROUTE_JSON_SCHEMA;
       if (pluginDir) agent.pluginDir = pluginDir;
