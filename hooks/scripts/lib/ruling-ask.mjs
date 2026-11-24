@@ -2,8 +2,13 @@
    a different approach to the circle"). A queue ask about how something looks or behaves quotes the rulings the feature
    already has, or says what was searched and found none. Code is never evidence of what was approved.
    The trigger is words, so it errs toward asking: a false hit costs one flag (`--rulings none-found --searched "…"`),
-   a miss is the s110 failure. Process asks (merge, release, link, scope) carry none of these words. */
-const LOOK = /\b(?:approved|approval|colou?rs?|yellow|hover(?:s|ed)?|animat\w*|motion|easing|transitions?|spacing|padding|radius|shadows?|typeface|fonts?|opacity|layout|glow|looks? (?:like|right|different|wrong)|how (?:should|does|do|would) (?:it|the|this|they)\b|which (?:variant|option|version|treatment|look|style|colou?r)|circle|arc|rim|edge)\b/i;
+   a miss is the s110 failure. Bare words with a non-visual sense (edge worker, approval, font licence, which option) are not triggers. */
+const LOOK = new RegExp("\\b(?:" + [
+  "colou?rs?", "yellow", "hover(?:s|ed)?", "animat\\w*", "motion", "easing", "page transitions?", "spacing", "padding", "radius",
+  "shadows?", "typeface", "font (?:size|weight|family|stack)", "opacity", "page layout", "glow",
+  "looks? (?:like|right|different|wrong)", "how should [^.?]{0,40}?\\b(?:look|feel|behave|move|animate|turn|appear|respond|fade|slide|scroll)",
+  "which (?:treatment|look|style|colou?r)", "(?:circle|ring|rim|arc)", "(?:button|card|image|media|circle|rounded) edges?",
+].join("|") + ")\\b", "i");
 /* `"<quote>" — <path>`: a quote of at least a few words, then a vault or repo path. */
 const RULING = /^["“].{8,}["”]\s*[—–-]+\s*\S*(?:\/|\.md)\S*$/;
 

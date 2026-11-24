@@ -121,7 +121,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   // DISC-272: a link/file/node ask is raised only after the vault was searched.
   if ((to === "queue" || status === "waiting on operator") && isLinkAsk(clean(text)) && !clean(searched)) return fail(`link-ask refused — ${LINK_ASK_REFUSAL}`);
   // DISC-367: a look or behaviour ask quotes the rulings it was checked against (lesson 2026-11-24-s110).
-  const lookAsk = !mergeInto && to === "queue" && isLookAsk(text, where, why);
+  const lookAsk = !mergeInto && (to === "queue" || status === "waiting on operator") && isLookAsk(text, where, why);
   if (lookAsk) { const p = rulingsProblem(rulings, searched); if (p) return fail(`look-or-behaviour ask refused — ${p}`); }
   if (lookAsk) text = `${clean(text)} ${rulingsLine(rulings, searched)}`;
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");

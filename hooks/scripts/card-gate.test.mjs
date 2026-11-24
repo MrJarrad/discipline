@@ -112,11 +112,19 @@ test("CLI: a Card: no change trailer in a branch commit exempts it, reason echoe
   assert.equal(r.out.cardGate.exempt, "comment-only edit");
 });
 
-test("CLI: a repo with no docs/site/inventory.md fails closed, naming why", () => {
+test("CLI: a repo with no docs/site/inventory.md has the gate inactive, passing with a notice (no lock-out before the cards land)", () => {
   const d = mkdtempSync(join(tmpdir(), "cardgate-"));
   sh(d, "init", "-q", "-b", "main"); writeFileSync(join(d, "a"), "1"); sh(d, "add", "-A"); sh(d, "commit", "-qm", "b"); sh(d, "checkout", "-qb", "w");
   writeFileSync(join(d, "a"), "2"); sh(d, "commit", "-qam", "c");
   const r = run(d);
-  assert.equal(r.code, 1);
-  assert.match(r.out.cardGate.reason, /inventory\.md/);
+  assert.equal(r.code, 0);
+  assert.equal(r.out.cardGate.ok, true);
+  assert.equal(r.out.cardGate.notice, "card gate inactive: no docs/site/inventory.md");
+});
+
+test("CLI: an unknown head ref still fails closed", () => {
+  const d = repo();
+  const r = spawnSync(process.execPath, [cli, "--repo", d, "--base", "main", "--head", "nope"], { encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.equal(JSON.parse(r.stdout).cardGate.ok, false);
 });

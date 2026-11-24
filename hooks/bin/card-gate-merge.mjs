@@ -25,18 +25,23 @@ try {
   const input = JSON.parse(readFileSync(0, "utf8") || "{}");
   const t = input.tool_input || {};
   if (String(t.repo).toLowerCase() !== "jhd-portfolio") process.exit(0);
-  const byHand = `run \`node ${CLI} --repo <portfolio clone> --pr ${t.pullNumber}\` (exit 0 = every changed module's card is in the PR), then merge.`;
+  const how = (c) => `run \`node ${CLI} --repo ${c} --pr ${t.pullNumber}\` (exit 0 = every changed module's card is in the PR), then merge.`;
+  let byHand = how("<portfolio clone>");
   const env = process.env.JHD_PORTFOLIO_ROOT;
   const home = process.env.HOME || "";
   const candidates = env ? [env] : [input.cwd, "/home/user/jhd-portfolio", `${home}/JHD/portfolio/main`];
   const clone = candidates.find(isPortfolio) || (env && existsSync(env) ? env : null);
   if (!clone) deny(`card-gate-merge: ${t.owner}/${t.repo}#${t.pullNumber} — no jhd-portfolio clone found to read the PR from (set JHD_PORTFOLIO_ROOT); ${byHand}`);
+  byHand = how(clone);
   const args = [CLI, "--repo", clone, "--pr", String(t.pullNumber)];
   if (/^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""))) args.push("--head", t.expectedHeadSha);
   const r = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 150000 });
   const v = JSON.parse(r.stdout || "{}").cardGate;
   if (!v) deny(`card-gate-merge: the gate produced no verdict (${(r.stderr || "").trim().split("\n")[0]}); ${byHand}`);
-  if (v.ok) process.exit(0);
+  if (v.ok) {
+    if (v.notice) console.log(JSON.stringify({ systemMessage: `card-gate-merge: ${v.notice}` }));
+    process.exit(0);
+  }
   if (v.reason) deny(`card-gate-merge: PR files unreadable or no card map — ${v.reason}; ${byHand}`);
   const parts = [
     ...v.missing.map((m) => `${m.card} (changed: ${m.modules.join(", ")})`),

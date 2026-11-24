@@ -377,3 +377,25 @@ test("DISC-367: a ruling without a quote or a path is refused", () => {
 test("DISC-367: an ask that is not about look or behaviour needs no rulings", () => {
   assert.equal(ask({ text: "Merge the plugin release PR when green?" }).ok, true);
 });
+
+test("DISC-367: the backlog waiting-on-operator door gates a look ask like the queue door", () => {
+  const text = "How should the footer buttons turn yellow at the circle edge?";
+  const base = { vault: null, prefix: "ZZ", to: "backlog", status: "waiting on operator", offline: true };
+  assert.equal(rowAdd({ ...base, vault: mkVault(), text }).ok, false);
+  assert.equal(rowAdd({ ...base, vault: mkVault(), text, rulings: ['"you shouldn\'t see an actual circle" — fleet/rulings/pf-1553.md'] }).ok, true);
+});
+
+// Table: asks the reviewer saw refused that are not about look or behaviour pass; the two look asks still trip.
+for (const [text, refused] of [
+  ["Which edge worker region should the preview deploy use?", false],
+  ["Approval needed to rotate the Cloudflare token?", false],
+  ["Confirm the font licence purchase for the studio, 120 pounds?", false],
+  ["Which option for the vault migration: A or B?", false],
+  ["Should we drop the legacy edge cache header?", false],
+  ["Merge the plugin release PR when green?", false],
+  ["Sign off the scope of the Q1 roadmap?", false],
+  ["How should the footer buttons turn yellow at the circle edge?", true],
+  ["Is the hover colour approved?", true],
+]) test(`DISC-367 trigger: ${refused ? "refuses" : "passes"} "${text}"`, () => {
+  assert.equal(ask({ text }).ok, !refused);
+});

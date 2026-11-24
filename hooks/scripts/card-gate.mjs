@@ -8,8 +8,9 @@
      node card-gate.mjs --repo <clone> --base <ref> --head <ref>     a local branch
      node card-gate.mjs --repo <clone> --pr <n> [--head <sha>]       a PR, from GitHub's merge ref
 
-   Prints {"cardGate":{ok,files,missing,unmapped,exempt,reason}}; exit 0 pass, 1 fail, 2 usage.
+   Prints {"cardGate":{ok,files,missing,unmapped,exempt,notice,reason}}; exit 0 pass, 1 fail, 2 usage.
    The index is read from the head's own inventory.md, so a PR that adds a module also adds its row.
+   A head with no inventory.md passes with a notice (the gate is inactive until the cards land).
    Scope: src/components and src/lib, tests excluded. `shared` modules need no card (no behaviour of their own).
    A card counts when it is in the diff; whether it says the right thing is the reviewer's read.
    Escape: a commit message in the range carrying `Card: no change — <reason>` (reason required, echoed).   */
@@ -61,13 +62,17 @@ const git = (repo, ...a) => {
 /* Run the gate over base..head of a clone: files, deleted files, the exemption in any commit message, the head's index. */
 export function branchCheck({ repo, base, head }) {
   const fail = (reason) => ({ ok: false, files: [], missing: [], unmapped: [], reason });
+  // The exemption is read first; with no card map yet (before the cards land) the gate is inactive, never a lock-out.
+  const log = git(repo, "log", "--format=%B", `${base}..${head}`);
+  const exempt = EXEMPT.exec(log.out || "")?.[1];
+  const tree = git(repo, "ls-tree", "--name-only", head, "docs/site/inventory.md");
+  if (!tree.ok) return fail(`cannot read ${head}: ${tree.err}`);
+  if (!tree.out) return { ok: true, files: [], missing: [], unmapped: [], notice: "card gate inactive: no docs/site/inventory.md", ...(exempt ? { exempt } : {}) };
   const inv = git(repo, "show", `${head}:docs/site/inventory.md`);
-  if (!inv.ok) return fail(`no docs/site/inventory.md at ${head} (${inv.err}); the card map is read from it`);
+  if (!inv.ok) return fail(`cannot read docs/site/inventory.md at ${head} (${inv.err})`);
   const d = git(repo, "diff", "--name-status", "--no-renames", `${base}...${head}`);
   if (!d.ok) return fail(`diff failed: ${d.err}`);
   const rows = d.out ? d.out.split("\n").map((l) => l.split("\t")) : [];
-  const log = git(repo, "log", "--format=%B", `${base}..${head}`);
-  const exempt = EXEMPT.exec(log.out || "")?.[1];
   return cardGate({ files: rows.map((r) => r[1]), deleted: rows.filter((r) => r[0] === "D").map((r) => r[1]), index: parseModuleIndex(inv.out), exempt });
 }
 
