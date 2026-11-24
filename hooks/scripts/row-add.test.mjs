@@ -335,5 +335,67 @@ test("DISC-336: --owner writes the trailing label; a text that already ends in o
 test("DISC-336: a waiting-on-operator idea, a queue row and a merge need no owner label", () => {
   const v = mkVault();
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "idea: a lightning strike", status: "waiting on operator", offline: true }).ok, true);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the colour", where: "w", why: "y", recommended: "r", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the release day", where: "w", why: "y", recommended: "r", offline: true }).ok, true);
+});
+
+// DISC-367 slice 2: a look or behaviour ask to the operator quotes the rulings it was checked against (lesson 2026-11-24-s110).
+const ASKROW = { vault: null, prefix: "ZZ", to: "queue", where: "w", why: "y", recommended: "r", offline: true };
+const ask = (over) => rowAdd({ ...ASKROW, vault: mkVault(), ...over });
+
+test("DISC-367: a look ask with no --rulings is refused, naming the flag and the none-found form", () => {
+  const r = ask({ text: "How should the footer buttons turn yellow at the circle edge?" });
+  assert.equal(r.ok, false);
+  assert.match(r.reason, /--rulings/);
+  assert.match(r.reason, /none-found/);
+});
+
+test("DISC-367: a behaviour ask calling something approved is refused without rulings", () => {
+  assert.equal(ask({ text: "Keep the approved arc on hover or drop it?" }).ok, false);
+});
+
+test("DISC-367: --rulings with a quote and a vault path adds the row, and the row prints the ruling", () => {
+  const v = mkVault();
+  const r = rowAdd({ ...ASKROW, vault: v, text: "How should the footer buttons turn yellow at the circle edge?", rulings: ['"you shouldn\'t see an actual circle" — fleet/rulings/pf-1553.md'] });
+  assert.equal(r.ok, true);
+  const q = readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8");
+  assert.match(q, /Rulings: "you shouldn't see an actual circle" — fleet\/rulings\/pf-1553\.md/);
+});
+
+test("DISC-367: --rulings none-found needs --searched, and then the row says what was searched", () => {
+  const text = "What colour should the new badge be?";
+  assert.equal(ask({ text, rulings: ["none-found"] }).ok, false);
+  const v = mkVault();
+  const r = rowAdd({ ...ASKROW, vault: v, text, rulings: ["none-found"], searched: "docs/site card badge; grep badge in decisions + queue" });
+  assert.equal(r.ok, true);
+  assert.match(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), /Rulings: none found — searched: docs\/site card badge/);
+});
+
+test("DISC-367: a ruling without a quote or a path is refused", () => {
+  assert.equal(ask({ text: "What colour should the new badge be?", rulings: ["it was approved"] }).ok, false);
+});
+
+test("DISC-367: an ask that is not about look or behaviour needs no rulings", () => {
+  assert.equal(ask({ text: "Merge the plugin release PR when green?" }).ok, true);
+});
+
+test("DISC-367: the backlog waiting-on-operator door gates a look ask like the queue door", () => {
+  const text = "How should the footer buttons turn yellow at the circle edge?";
+  const base = { vault: null, prefix: "ZZ", to: "backlog", status: "waiting on operator", offline: true };
+  assert.equal(rowAdd({ ...base, vault: mkVault(), text }).ok, false);
+  assert.equal(rowAdd({ ...base, vault: mkVault(), text, rulings: ['"you shouldn\'t see an actual circle" — fleet/rulings/pf-1553.md'] }).ok, true);
+});
+
+// Table: asks the reviewer saw refused that are not about look or behaviour pass; the two look asks still trip.
+for (const [text, refused] of [
+  ["Which edge worker region should the preview deploy use?", false],
+  ["Approval needed to rotate the Cloudflare token?", false],
+  ["Confirm the font licence purchase for the studio, 120 pounds?", false],
+  ["Which option for the vault migration: A or B?", false],
+  ["Should we drop the legacy edge cache header?", false],
+  ["Merge the plugin release PR when green?", false],
+  ["Sign off the scope of the Q1 roadmap?", false],
+  ["How should the footer buttons turn yellow at the circle edge?", true],
+  ["Is the hover colour approved?", true],
+]) test(`DISC-367 trigger: ${refused ? "refuses" : "passes"} "${text}"`, () => {
+  assert.equal(ask({ text }).ok, !refused);
 });
