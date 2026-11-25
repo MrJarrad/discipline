@@ -32,7 +32,10 @@ export const CONDITIONAL_INSTALL = (() => {
   ].join("|"), "i");
 })();
 
-export const PMSET_STOP = /pmset\s+-g\s+batt/i;
+// s106 ruling (DISC-348): an approved Mac job runs on battery; it records `pmset -g batt` and labels its numbers "on battery".
+export const PMSET_RECORD = /pmset\s+-g\s+batt/i;
+export const BATTERY_LABEL = /on battery/i;
+export const BATTERY_STOP = /\bstop\b[^.\n]*\bbattery\b/i;
 // A "PART n" line opens a section; it is empty when only blank or `---` lines precede the next PART line or the end.
 function emptyParts(body) {
   const out = [];
@@ -69,8 +72,12 @@ export function macJobProblems(text) {
   if (!body.trim()) problems.push("empty brief (runner exit 98)");
   else if (!NO_BACKGROUND.test(body))
     problems.push('brief lacks "no background tasks, no subagents" (a headless job that backgrounds work is killed at the 600 s ceiling)');
-  else if (!PMSET_STOP.test(body))
-    problems.push('brief lacks the battery stop rule (`pmset -g batt` showing battery power: stop, run nothing): a job on battery gives unfair numbers and can be killed mid-run');
+  else if (BATTERY_STOP.test(body))
+    problems.push('brief stops on battery: an approved Mac job is not blocked by battery (s106); record pmset, label "on battery", run');
+  else if (!PMSET_RECORD.test(body))
+    problems.push('brief lacks the power record (`pmset -g batt` in the report): numbers need their power state');
+  else if (!BATTERY_LABEL.test(body))
+    problems.push('brief lacks the "on battery" label (label numbers "on battery" when pmset shows battery power, and run)');
   for (const part of emptyParts(body)) problems.push(`${part} has no body: a PART heading must be followed by its steps before the next PART or the end`);
   if (CONDITIONAL_INSTALL.test(body))
     problems.push("brief installs only if node_modules or the dependency is missing: a stale install stays in place (s83: a 0.12.0 checker left from an earlier install failed the pull job 14/30). Say npm ci outright");
