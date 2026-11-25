@@ -70,7 +70,7 @@ tags: []
 ```
 
 **`fleet/lessons/` and `fleet/rulings/` carry one more mandatory key: `encoded:`** — the
-plugin version that shipped the rule, or `pre-1.73.0` \| `queued` \| `skipped(<reason>)`.
+plugin version that shipped the rule, or `pre-1.73.0` \| `queued` \| `skipped(<reason>)` \| `merged(<file>)` (file must exist; optional `retires: <lesson>, <ruling>`, each must exist).
 A lesson nobody encoded is a lesson nobody follows; `hooks/scripts/lesson-ledger.mjs` lints
 the field and the commit gate — on by default, `DISCIPLINE_LEDGER_GATE=0` to opt out —
 refuses a release bump while any `queued` remains. Index files

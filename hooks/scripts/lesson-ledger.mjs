@@ -18,6 +18,12 @@
      encoded: pre-1.73.0        predates the ledger; already in the plugin
      encoded: queued            written, not yet shipped — blocks a release
      encoded: skipped(<reason>) deliberately not encoded, reason required
+     encoded: merged(<file>)    folded into an existing file; the file must exist
+                                in the vault or the plugin tree. `;` separates
+                                several files, a `:<line>[,<line>]` suffix is allowed.
+     retires: <name>, <name>    optional; lessons/rulings this one supersedes.
+                                Each must exist under fleet/lessons or fleet/rulings
+                                (`[a, b]` and `.md` suffixes allowed).
 
    Deliberately narrow, same posture as vault-orphan-scan.mjs and
    frontmatter-check.mjs: a line-scan of the frontmatter block, not a YAML
@@ -39,6 +45,26 @@ const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
 
 // `1.73.0` | `pre-1.73.0` | `queued` | `skipped(<non-empty reason>)`.
 const VALID_ENCODED = /^(?:\d+\.\d+\.\d+|pre-\d+\.\d+\.\d+|queued|skipped\([^)]+\))$/;
+const MERGED = /^merged\(([^)]*)\)$/;
+// The plugin tree this script ships in (hooks/scripts/ -> repo root).
+const PLUGIN_ROOT = fileURLToPath(new URL("../..", import.meta.url));
+
+// Why a `merged(<files>)` value is illegal, or null. A file may carry a
+// `:<line>[,<line>]` suffix; it is checked against the vault, then the plugin.
+function mergedProblem(value, vaultRoot) {
+  const files = value.match(MERGED)[1].split(";").map((f) => f.trim().replace(/:\d+(?:,\d+)*$/, "")).filter(Boolean);
+  if (files.length === 0) return "merged() names no file";
+  const gone = files.filter((f) => !existsSync(join(vaultRoot, f)) && !existsSync(join(PLUGIN_ROOT, f)));
+  return gone.length ? `merged file not found: ${gone.join(", ")}` : null;
+}
+
+// Why a `retires:` value is illegal, or null: each name must be a lesson or ruling.
+function retiresProblem(value, vaultRoot) {
+  const names = value.replace(/^\[|\]$/g, "").split(",").map((n) => n.trim().replace(/\.md$/, "")).filter(Boolean);
+  if (names.length === 0) return "retires: names nothing";
+  const gone = names.filter((n) => !LEDGER_DIRS.some((d) => existsSync(join(vaultRoot, d, `${n}.md`))));
+  return gone.length ? `retires: no such lesson or ruling: ${gone.join(", ")}` : null;
+}
 
 // An index rather than a record: stem equal to the folder name, the house
 // `fleet-<folder>` form of it, or an explicit `kind: index` in frontmatter.
@@ -105,7 +131,7 @@ function isRulingFile(file) {
  *   to keep the prior unscoped behaviour (every queued file blocks).
  *   `queued` under fleet/lessons/ is never scoped — always blocks.
  * @returns {{ files: string[], missing: {file: string}[],
- *   invalid: {file: string, value: string}[], queued: {file: string}[],
+ *   invalid: {file: string, value: string, reason?: string}[], queued: {file: string}[],
  *   queuedWarning: {file: string}[], release: string|null, ok: boolean }}
  */
 export function lintLessonLedger(vaultRoot, opts = {}) {
@@ -129,9 +155,23 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
       missing.push({ file });
       continue;
     }
-    if (!VALID_ENCODED.test(value)) {
+    if (MERGED.test(value)) {
+      const reason = mergedProblem(value, vaultRoot);
+      if (reason) {
+        invalid.push({ file, value, reason });
+        continue;
+      }
+    } else if (!VALID_ENCODED.test(value)) {
       invalid.push({ file, value });
       continue;
+    }
+    const retires = frontmatterValue(text, "retires");
+    if (retires !== null) {
+      const reason = retiresProblem(retires, vaultRoot);
+      if (reason) {
+        invalid.push({ file, value: `retires: ${retires}`, reason });
+        continue;
+      }
     }
     if (value !== "queued") continue;
 
@@ -182,8 +222,11 @@ export function formatLedgerReport(result, vaultRoot) {
   for (const { file } of result.missing) {
     lines.push(`  missing encoded:  ${rel(file)}`);
   }
-  for (const { file, value } of result.invalid) {
-    lines.push(`  invalid encoded:  ${rel(file)} — "${value}" (want <semver> | pre-<semver> | queued | skipped(<reason>))`);
+  for (const { file, value, reason } of result.invalid) {
+    lines.push(
+      `  invalid encoded:  ${rel(file)} — "${value}" ` +
+        (reason ? `(${reason})` : "(want <semver> | pre-<semver> | queued | skipped(<reason>) | merged(<file>))"),
+    );
   }
   if (result.release) {
     for (const { file } of result.queued) {
