@@ -399,3 +399,21 @@ for (const [text, refused] of [
 ]) test(`DISC-367 trigger: ${refused ? "refuses" : "passes"} "${text}"`, () => {
   assert.equal(ask({ text }).ok, !refused);
 });
+
+// DISC-371 (review leftovers of #253 round 2)
+test("DISC-371: 'approved' near a design noun is a look ask; bare approval is not", () => {
+  assert.equal(ask({ text: "Did you approve the new footer arrangement?" }).ok, false);
+  assert.equal(ask({ text: "Confirm the header height 64px is as approved?" }).ok, false);
+  assert.equal(ask({ text: "Approval needed to rotate the Cloudflare token?" }).ok, true);
+  assert.equal(ask({ text: "Was the release plan approved?" }).ok, true);
+});
+
+test("DISC-371: --searched too thin to say what was searched does not satisfy none-found", () => {
+  const text = "What colour should the new badge be?";
+  for (const searched of ["x", "none", "grep done"]) {
+    const r = ask({ text, rulings: ["none-found"], searched });
+    assert.equal(r.ok, false, searched);
+    assert.match(r.reason, /searched/);
+  }
+  assert.equal(ask({ text, rulings: ["none-found"], searched: "docs/site card badge; grep badge in decisions" }).ok, true);
+});
