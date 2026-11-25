@@ -355,3 +355,26 @@ test("an empty retires: is invalid; an absent one is fine", () => {
   });
   withVault({ "fleet/lessons/new.md": "1.1.0" }, (root) => assert.equal(lintLessonLedger(root).ok, true));
 });
+
+test("merged(<file>) escaping the vault and plugin trees with .. is invalid even when the target exists", () => {
+  withVault({ "fleet/lessons/a.md": "merged(../../../../etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+  withVault({ "fleet/lessons/a.md": "merged(notes/../../../../../etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+  withVault({ "fleet/lessons/a.md": "merged(/etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+});
+
+test("retires: escaping fleet/lessons and fleet/rulings with .. is invalid even when the target exists", () => {
+  withVault(
+    { "notes/secret.md": "1.0.0", "fleet/lessons/new.md": { encoded: "1.1.0", retires: "../../notes/secret" } },
+    (root) => assert.equal(lintLessonLedger(root).ok, false),
+  );
+  withVault(
+    { "fleet/lessons/new.md": { encoded: "1.1.0", retires: "../rulings/old" }, "fleet/rulings/old.md": "1.0.0" },
+    (root) => assert.equal(lintLessonLedger(root).ok, false),
+  );
+});

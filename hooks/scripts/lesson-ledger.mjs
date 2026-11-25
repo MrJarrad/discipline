@@ -38,7 +38,7 @@
    Exit 0 clean · 1 any missing/invalid field (and, with --release, any
    `queued`) · 2 usage error or an unreadable vault root.                  */
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
@@ -49,12 +49,19 @@ const MERGED = /^merged\(([^)]*)\)$/;
 // The plugin tree this script ships in (hooks/scripts/ -> repo root).
 const PLUGIN_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
+// True when `rel` resolves to an existing path that stays inside `base`
+// (no `..` or absolute-path escape).
+function existsInside(base, rel) {
+  const full = resolve(base, rel);
+  return full.startsWith(resolve(base) + sep) && existsSync(full);
+}
+
 // Why a `merged(<files>)` value is illegal, or null. A file may carry a
 // `:<line>[,<line>]` suffix; it is checked against the vault, then the plugin.
 function mergedProblem(value, vaultRoot) {
   const files = value.match(MERGED)[1].split(";").map((f) => f.trim().replace(/:\d+(?:,\d+)*$/, "")).filter(Boolean);
   if (files.length === 0) return "merged() names no file";
-  const gone = files.filter((f) => !existsSync(join(vaultRoot, f)) && !existsSync(join(PLUGIN_ROOT, f)));
+  const gone = files.filter((f) => !existsInside(vaultRoot, f) && !existsInside(PLUGIN_ROOT, f));
   return gone.length ? `merged file not found: ${gone.join(", ")}` : null;
 }
 
@@ -62,7 +69,7 @@ function mergedProblem(value, vaultRoot) {
 function retiresProblem(value, vaultRoot) {
   const names = value.replace(/^\[|\]$/g, "").split(",").map((n) => n.trim().replace(/\.md$/, "")).filter(Boolean);
   if (names.length === 0) return "retires: names nothing";
-  const gone = names.filter((n) => !LEDGER_DIRS.some((d) => existsSync(join(vaultRoot, d, `${n}.md`))));
+  const gone = names.filter((n) => /[\\/]|\.\./.test(n) || !LEDGER_DIRS.some((d) => existsInside(join(vaultRoot, d), `${n}.md`)));
   return gone.length ? `retires: no such lesson or ruling: ${gone.join(", ")}` : null;
 }
 
