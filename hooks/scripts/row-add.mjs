@@ -35,7 +35,7 @@ import { addRow, parseBacklog, parseStatus } from "./list-drift-check.mjs";
 import { discoverFiles, tableRows } from "./lib/queue-ids.mjs";
 import { highestUsed, remoteTexts, withVaultLock } from "./lib/row-alloc.mjs";
 import { LINK_ASK_REFUSAL, isLinkAsk } from "./lib/link-ask.mjs";
-import { isLookAsk, rulingsLine, rulingsProblem } from "./lib/ruling-ask.mjs";
+import { THIN, isLookAsk, rulingsLine, rulingsProblem, thin } from "./lib/ruling-ask.mjs";
 import { RELEASE_REFUSAL, isReleaseOnlyAsk } from "./lib/release-only-ask.mjs";
 import { DRIFT_STAMP_MINUTES, driftStampFresh, writeMarker } from "./lib/row-marker.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
@@ -119,7 +119,7 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   // DISC-178: an ask the operator can act on is a row; "release?" is not (ruling 2026-10-15-release-follows-merge).
   if ((to === "queue" || status === "waiting on operator") && isReleaseOnlyAsk(clean(text), [where, why, recommended].map(clean).join(" "))) return fail(`release-only ask refused — ${RELEASE_REFUSAL}`);
   // DISC-272: a link/file/node ask is raised only after the vault was searched.
-  if ((to === "queue" || status === "waiting on operator") && isLinkAsk(clean(text)) && !clean(searched)) return fail(`link-ask refused — ${LINK_ASK_REFUSAL}`);
+  if ((to === "queue" || status === "waiting on operator") && isLinkAsk(clean(text)) && thin(clean(searched))) return fail(clean(searched) ? `link-ask refused — --searched is too thin: ${THIN.replace("--rulings none-found needs --searched", "it needs --searched")}` : `link-ask refused — ${LINK_ASK_REFUSAL}`);
   // DISC-367: a look or behaviour ask quotes the rulings it was checked against (lesson 2026-11-24-s110).
   const lookAsk = !mergeInto && (to === "queue" || status === "waiting on operator") && isLookAsk(text, where, why);
   if (lookAsk) { const p = rulingsProblem(rulings, searched); if (p) return fail(`look-or-behaviour ask refused — ${p}`); }

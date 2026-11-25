@@ -17,8 +17,8 @@ const RULING = /^["“].{8,}["”]\s*[—–-]+\s*\S*(?:\/|\.md)\S*$/;
 
 export const isLookAsk = (...cells) => LOOK.test(cells.map((c) => String(c ?? "").replace(/\*\*|`|~~/g, "")).join(" "));
 
-const THIN = "--rulings none-found needs --searched to say what was searched (at least 3 words, 15 characters): name the card path and the grep done";
-const thin = (s) => { const t = String(s ?? "").trim(); return t.length < 15 || t.split(/\s+/).length < 3; };
+export const THIN = "--rulings none-found needs --searched to say what was searched (at least 3 words, 15 characters): name the card path and the grep done";
+export const thin = (s) => { const t = String(s ?? "").trim(); return t.length < 15 || t.split(/\s+/).length < 3; };
 
 export const RULINGS_REFUSAL = "this asks the operator how something looks or behaves: read the feature's rulings first (docs/site card in the product repo, else grep the vault's decisions and answered queue rows) and rerun with --rulings '\"<quote>\" — <vault path>' (repeat per ruling), or --rulings none-found --searched \"<card + grep done>\". Code is never evidence of what was approved";
 
