@@ -4,7 +4,7 @@
    The trigger is words, so it errs toward asking: a false hit costs one flag (`--rulings none-found --searched "…"`),
    a miss is the s110 failure. Bare words with a non-visual sense (edge worker, approval, font licence, which option) are not triggers. */
 /* "approved" gates only beside a design part: bare "approval needed" (token rotation, a release plan) is not a look ask. */
-const NOUN = "(?:footer|nav(?:igation)?|header|buttons?|cards?|hero|circle|layout|menu|banner|sidebar|modal|logo|icons?|grid|arrangement)(?!\\s+(?:copy|text|wording|headline))";
+const NOUN = "(?:footer|nav(?:igation)?|header|buttons?|cards?|hero|circle|layout|menu|banner|sidebar|modal|logo|icons?|grid|arrangement)(?!\\s+(?:copy|wording|headline))";
 const LOOK = new RegExp("\\b(?:" + [
   "colou?rs?", "yellow", "hover(?:s|ed)?", "animat\\w*", "motion", "easing", "page transitions?", "spacing", "padding", "radius",
   "shadows?", "typeface", "font (?:size|weight|family|stack)", "opacity", "page layout", "glow",

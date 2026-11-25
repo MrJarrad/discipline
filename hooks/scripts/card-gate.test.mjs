@@ -138,3 +138,12 @@ test("DISC-371 CLI: a PR that deletes docs/site/inventory.md fails; it does not 
   assert.match(r.out.cardGate.reason, /inventory\.md/);
   assert.match(r.out.cardGate.reason, /restore/i);
 });
+
+test("DISC-375 CLI: `Card: no change` on a commit that deletes inventory.md exempts it, reason echoed", () => {
+  const d = repo(); sh(d, "checkout", "-qb", "work");
+  sh(d, "rm", "-q", "docs/site/inventory.md"); sh(d, "commit", "-qm", "drop the map\n\nCard: no change — inventory moves to the wiki");
+  const r = run(d);
+  assert.equal(r.code, 0);
+  assert.equal(r.out.cardGate.ok, true);
+  assert.match(JSON.stringify(r.out.cardGate.exempt), /inventory moves to the wiki/);
+});
