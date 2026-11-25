@@ -1,3 +1,11 @@
+1.208.0 — DISC-374, DISC-376, DISC-375, DISC-381 (discipline #257, #258, #259, #260):
+(A) DISC-374 (#257) `row-add.mjs`: a link ask's `--searched` value gets the same thin-value refusal as the ruling ask (shared `THIN`/`thin` exported from `lib/ruling-ask.mjs`); an empty value keeps its own refusal. Tests: row-add.
+(B) DISC-376 (#258) `mac-job-check.mjs`: `BATTERY_STOP` no longer fires on a compliant "Do not stop on battery." line (a preceding not/never/don't passes) and flags the stop-after-battery order. Closes the 1.207.0 known follow-up. Tests: mac-job-check.
+(C) DISC-375 (#259) `lib/ruling-ask.mjs`: the "approved" gate no longer exempts a part followed by "text" (copy, wording and headline stay exempt), so those look asks no longer slip through; card-gate test pins `Card: no change` with `docs/site/inventory.md` deleted. Closes the 1.207.0 known follow-up. Tests: card-gate, row-add.
+(D) DISC-381 (#260) wrap ends with one light Continue chip, only when every wrap step is complete (operator ruling 2026-11-25-s113-wrap-ends-with-one-continue-chip): `skills/wrap/SKILL.md` carries the line, `skills/wrap/references/CLOSING-CHECKS.md` § Continue chip the detail (title "Continue <projects>", prompt `continue <projects>`, no other chips at wrap). Tests: skill-ceilings.
+Tests: the full plugin suite (tail on the release PR).
+encoded: 1.208.0 — backlog DISC-374, DISC-375, DISC-376, DISC-381; ruling 2026-11-25-s113-wrap-ends-with-one-continue-chip.
+
 1.207.0 — DISC-371 and DISC-348 (discipline #254, #255):
 (A) DISC-371 (#254) #253 review leftovers: `lib/ruling-ask.mjs` gates "approved" when a design part (footer, header, button, card) is near; `row-add.mjs --rulings none-found` refuses a thin `--searched` value; `card-gate.mjs` fails a PR that deletes `docs/site/inventory.md`; the 1.206.0 (B) line below now names the trigger words as built. Tests: card-gate, row-add.
 (B) DISC-348 (#255) Mac jobs run on battery (operator ruling 2026-11-21 s106): `mac-job-check.mjs` no longer requires a battery stop rule; it requires the `pmset -g batt` record and the "on battery" label, and flags a brief that stops on battery (`BATTERY_STOP`). `skills/cloud-dispatch/references/MAC-JOBS.md` carries the rule. Tests: mac-job-check, session37-law, session38-law.
