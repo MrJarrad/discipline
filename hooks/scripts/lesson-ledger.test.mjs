@@ -24,7 +24,17 @@ function fixtureVault(records) {
   for (const [rel, encoded] of Object.entries(records)) {
     const full = join(root, rel);
     mkdirSync(join(full, ".."), { recursive: true });
-    const fm = ["---", "name: fixture", ...(encoded === null ? [] : [`encoded: ${encoded}`]), "---", "", "body"];
+    // A string is the encoded: value; an object { encoded, retires } adds the retires: field.
+    const rec = encoded !== null && typeof encoded === "object" ? encoded : { encoded };
+    const fm = [
+      "---",
+      "name: fixture",
+      ...(rec.encoded == null ? [] : [`encoded: ${rec.encoded}`]),
+      ...(rec.retires == null ? [] : [`retires: ${rec.retires}`]),
+      "---",
+      "",
+      "body",
+    ];
     writeFileSync(full, fm.join("\n"));
   }
   return root;
@@ -269,4 +279,102 @@ test("CLI accepts the vault root after the --release flag", () => {
 test("CLI exits 2 with no vault root and 2 on a nonexistent one", () => {
   assert.equal(runCli([]).code, 2);
   assert.equal(runCli([join(tmpdir(), "no-such-vault-root-xyz")]).code, 2);
+});
+
+// ---- merged(<file>) verdict and retires: field (DISC-359) -----------------
+
+test("merged(<file>) passes when the named file exists in the vault", () => {
+  withVault({ "fleet/lessons/a.md": "merged(notes/target.md)", "notes/target.md": "1.0.0" }, (root) => {
+    const result = lintLessonLedger(root);
+    assert.deepEqual(result.invalid, []);
+    assert.equal(result.ok, true);
+  });
+});
+
+test("merged(<file>) passes for a plugin file, with :line suffixes and several files", () => {
+  withVault(
+    { "fleet/lessons/a.md": "merged(hooks/scripts/lesson-ledger.mjs:12; hooks/bin/commit-gate.mjs:160,183)" },
+    (root) => assert.equal(lintLessonLedger(root).ok, true),
+  );
+});
+
+test("merged(<file>) naming a file that does not exist is invalid", () => {
+  withVault({ "fleet/lessons/a.md": "merged(notes/nowhere.md)" }, (root) => {
+    const result = lintLessonLedger(root);
+    assert.equal(result.invalid.length, 1);
+    assert.match(result.invalid[0].reason, /nowhere\.md/);
+    assert.equal(result.ok, false);
+  });
+});
+
+test("merged() with no file is invalid", () => {
+  withVault({ "fleet/lessons/a.md": "merged()" }, (root) => assert.equal(lintLessonLedger(root).ok, false));
+});
+
+test("existing skipped(merged: <file:line>) entries keep passing", () => {
+  withVault({ "fleet/lessons/a.md": "skipped(merged: output-styles/discipline.md:47; agents/reviewer.md:19)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, true);
+  });
+});
+
+test("retires: naming existing lessons and rulings passes", () => {
+  withVault(
+    {
+      "fleet/lessons/old.md": "1.0.0",
+      "fleet/rulings/older.md": "1.0.0",
+      "fleet/lessons/new.md": { encoded: "1.1.0", retires: "old, older.md" },
+    },
+    (root) => {
+      const result = lintLessonLedger(root);
+      assert.deepEqual(result.invalid, []);
+      assert.equal(result.ok, true);
+    },
+  );
+});
+
+test("retires: accepts a bracketed list", () => {
+  withVault(
+    { "fleet/lessons/old.md": "1.0.0", "fleet/lessons/new.md": { encoded: "1.1.0", retires: "[old]" } },
+    (root) => assert.equal(lintLessonLedger(root).ok, true),
+  );
+});
+
+test("retires: naming a lesson that does not exist is invalid", () => {
+  withVault({ "fleet/lessons/new.md": { encoded: "1.1.0", retires: "ghost" } }, (root) => {
+    const result = lintLessonLedger(root);
+    assert.equal(result.invalid.length, 1);
+    assert.match(result.invalid[0].reason, /ghost/);
+    assert.match(formatLedgerReport(result, root), /ghost/);
+    assert.equal(result.ok, false);
+  });
+});
+
+test("an empty retires: is invalid; an absent one is fine", () => {
+  withVault({ "fleet/lessons/new.md": { encoded: "1.1.0", retires: "" } }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+  withVault({ "fleet/lessons/new.md": "1.1.0" }, (root) => assert.equal(lintLessonLedger(root).ok, true));
+});
+
+test("merged(<file>) escaping the vault and plugin trees with .. is invalid even when the target exists", () => {
+  withVault({ "fleet/lessons/a.md": "merged(../../../../etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+  withVault({ "fleet/lessons/a.md": "merged(notes/../../../../../etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+  withVault({ "fleet/lessons/a.md": "merged(/etc/passwd)" }, (root) => {
+    assert.equal(lintLessonLedger(root).ok, false);
+  });
+});
+
+test("retires: escaping fleet/lessons and fleet/rulings with .. is invalid even when the target exists", () => {
+  withVault(
+    { "notes/secret.md": "1.0.0", "fleet/lessons/new.md": { encoded: "1.1.0", retires: "../../notes/secret" } },
+    (root) => assert.equal(lintLessonLedger(root).ok, false),
+  );
+  withVault(
+    { "fleet/lessons/new.md": { encoded: "1.1.0", retires: "../rulings/old" }, "fleet/rulings/old.md": "1.0.0" },
+    (root) => assert.equal(lintLessonLedger(root).ok, false),
+  );
 });
