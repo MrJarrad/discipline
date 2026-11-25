@@ -417,3 +417,14 @@ test("DISC-371: --searched too thin to say what was searched does not satisfy no
   }
   assert.equal(ask({ text, rulings: ["none-found"], searched: "docs/site card badge; grep badge in decisions" }).ok, true);
 });
+
+// DISC-374: the link-ask --searched gets the same thin-value refusal as the ruling ask
+test("DISC-374: a thin --searched does not satisfy a link ask; a real one does", () => {
+  const base = { vault: mkVault(), prefix: "ZZ", to: "queue", text: "Please send the Figma link for the Wild case study", raised: "2026-11-25" };
+  for (const searched of ["x", "none", "grep done"]) {
+    const r = rowAdd({ ...ASKROW, ...base, vault: mkVault(), searched });
+    assert.equal(r.ok, false, searched);
+    assert.match(r.reason, /searched/);
+  }
+  assert.equal(rowAdd({ ...ASKROW, ...base, vault: mkVault(), searched: "grep references/ + projects/zz/ for wild figma: nothing" }).ok, true);
+});
