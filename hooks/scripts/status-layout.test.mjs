@@ -98,7 +98,7 @@ test("Up next: Discipline reads the ordered ## Up next of its backlog, top five 
 });
 test("Up next: Portfolio comes from its backlog ## Up next (DISC-328; first five not already in play) and the launch count and link still come from the go-live file (never one already in play: PF-1531 and PF-1505 are named by Claude's on it lines) with the launch count and a link", () => {
   const p = plan();
-  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live", "- (PF-1396) Raise HTTPS setting"]);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1475) Grid on a phone: one image paints late", "- (PF-1464) Import checklist records film length", "- (PF-1391) Safari and iPhone", "- (PF-1412) Switch to live", "- (PF-1396) Raise HTTPS setting (blocked by the go-live list)"]);
   assert.deepEqual(ops(p, "setLaunchLine").map((o) => o.text), [`Launch: 2 of 8 done · [Full go-live list](${BASE}/projects/portfolio/portfolio-go-live.md)`]);
 });
 test("Done this session: the explanatory note goes; the Go-live section goes whole", () => {
@@ -365,7 +365,7 @@ test("DISC-328 a: Up next is the backlog's ordered ## Up next for every project,
   const v = vault();
   writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), FM("PF", "backlog") + "## Up next\n\n1. PF-1396: HSTS to one year\n2. PF-1413: lift step, Profile indexed\n\n## Open\n\n" + B + "| PF-1396 | HSTS to one year | d | open |\n| PF-1413 | Profile indexed in the sitemap | d | open |\n| PF-1505 | Time Circuits lag | d | open |\n");
   const p = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE });
-  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1396) HSTS to one year", "- (PF-1413) Profile indexed in the sitemap"]);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Portfolio").lines, ["- (PF-1396) HSTS to one year (blocked by the go-live list)", "- (PF-1413) Profile indexed in the sitemap"]);
   assert.equal(ops(p, "setLaunchLine").length, 1, "the go-live file still feeds the launch count");
   writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), FM("PF", "backlog") + "## Open\n\n" + B + "| PF-1505 | Time Circuits lag | d | open |\n");
   const none = layoutPlan({ vault: v, prefixes: ["PF", "DISC", "HT"], docXml: LIVE, today: "2026-11-12", base: BASE });
@@ -515,4 +515,42 @@ test("DISC-334 review amber 2: --set on an item with an unanswered thread moves 
   assert.ok(p.answered.includes("PF-1585"), "the open row is still banked as answered");
   const claude = plan({ docXml: withThread(doc()), set: setOf("claude", "Engineer is fixing the glow.") }).ops.find((o) => o.id === "a");
   assert.deepEqual([claude.op, claude.to.section], ["move", "Claude's on it"]);
+});
+
+// DISC-385 (operator s113: "up next should alway be pulled if it's not blocked by anything and just add anything that requires me to ready for you if it is. nothing should just there."):
+// a shown Up next row is blocked (named on its line), started, or flagged in `idleUpNext` with the way out.
+const upNextVault = (rows, upNext) => {
+  const v = vault();
+  writeFileSync(join(v, "projects/hoverboard/hoverboard-backlog.md"), `${FM("HB", "backlog")}## Up next\n\n${upNext}\n\n## Open\n\n${B}${rows}`);
+  return v;
+};
+const idleOf = (v) => layoutPlan({ vault: v, prefixes: ["HB"], docXml: LIVE, today: "2026-11-12", base: BASE }).idleUpNext;
+test("DISC-385 a: an unblocked, unstarted Agent row in Up next is flagged idle with the way out", () => {
+  const idle = idleOf(upNextVault("| HB-2 | Fix the thing. Agent. | d | open |\n", "1. HB-2"));
+  assert.deepEqual(idle.map((i) => [i.id, i.class]), [["HB-2", "cloud-now"]]);
+  assert.match(idle[0].reason, /start it now/);
+});
+test("DISC-385 b: a Mac row is startable (flagged, with its Mac job named); an unlabelled row is flagged too", () => {
+  const idle = idleOf(upNextVault("| HB-2 | Do a thing. Mac. | d | open |\n| HB-3 | No label | d | open |\n", "1. HB-2\n2. HB-3"));
+  assert.deepEqual(idle.map((i) => [i.id, i.class]), [["HB-2", "mac"], ["HB-3", "unknown"]]);
+  assert.match(idle[0].reason, /Mac job/);
+});
+test("DISC-385 c: a row that needs the operator is flagged with Ready for you as the way out", () => {
+  const idle = idleOf(upNextVault("| HB-2 | Pick a colour. Operator. | d | open |\n", "1. HB-2"));
+  assert.deepEqual(idle.map((i) => [i.id, i.class]), [["HB-2", "operator"]]);
+  assert.match(idle[0].reason, /Ready for you/);
+});
+test("DISC-385 d: a row blocked by an open row is not flagged, and its Up next line names the blocker", () => {
+  const v = upNextVault("| HB-2 | First. Agent. | d | in flight (lane x) |\n| HB-3 | Second, blocked by HB-2. Agent. | d | open |\n", "1. HB-2\n2. HB-3");
+  const p = layoutPlan({ vault: v, prefixes: ["HB"], docXml: LIVE, today: "2026-11-12", base: BASE });
+  assert.deepEqual(p.idleUpNext, []);
+  assert.deepEqual(ops(p, "setUpNext").find((o) => o.project === "Hoverboard").lines, ["- (HB-2) First", "- (HB-3) Second, blocked by HB-2 (blocked by HB-2)"]);
+});
+test("DISC-385 e: a row already in Claude's on it, or with a queued Mac job, or done, is not flagged", () => {
+  const v = vault();
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), `${FM("PF", "backlog")}## Up next\n\n1. PF-2\n2. PF-3\n3. PF-4\n\n## Open\n\n${B}| PF-2 | Started. Agent. | d | open |\n| PF-3 | Shipped. Agent. | d | done (abc1234) |\n| PF-4 | Queued. Mac. | d | open |\n`);
+  mkdirSync(join(v, "queue/mac/pending"), { recursive: true });
+  writeFileSync(join(v, "queue/mac/pending/20261125T000000Z-pf4.md"), "---\nrepo: x\n---\nDo PF-4.\n");
+  const xml = doc({ sections: { "Claude's on it": { Portfolio: [{ id: "h", chip: 3, text: "(PF-2) Started. Claude's on it." }] } } });
+  assert.deepEqual(layoutPlan({ vault: v, prefixes: ["PF"], docXml: xml, today: "2026-11-12", base: BASE }).idleUpNext, []);
 });

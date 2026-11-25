@@ -68,20 +68,21 @@ export function rankBacklogs(vault, prefixes, { held = [] } = {}) {
     if (!p) return;
     for (const r of p.rows) {
       const item = r.cells[1] || "";
-      let cls;
+      let cls, open_b = [];
       if (/^in flight/i.test(r.status)) cls = "busy";
       else if (/^waiting on operator/i.test(r.status)) cls = "operator";
       else {
         const owner = OWNER.exec(item)?.[1]?.toLowerCase();
         const blockers = (BLOCK.exec(item)?.[1] || "").match(new RegExp(ID, "g")) || [];
+        open_b = blockers.filter((b) => open.has(b) && b !== r.id);
         if (owner === "operator") cls = "operator";
-        else if (blockers.some((b) => open.has(b) && b !== r.id) || p.afterLaunch.has(r.id)) cls = "blocked-by";
+        else if (open_b.length || p.afterLaunch.has(r.id)) { cls = "blocked-by"; if (!open_b.length) open_b = ["the go-live list"]; }
         else cls = owner === "mac" ? "mac" : owner === "agent" ? "cloud-now" : "unknown";
       }
       const gi = p.goLive.indexOf(r.id), ui = p.upNext.indexOf(r.id);
       const pos = gi >= 0 ? [0, gi] : ui >= 0 ? [1, ui] : [2, r.n];
       const row = { id: r.id, project: px, class: cls, text: item.replace(OWNER, "").trim().slice(0, 140), pos, pi, with: WITH.exec(item)?.[1] || null };
-      out.rows.push({ id: row.id, project: px, class: cls });
+      out.rows.push({ id: row.id, project: px, class: cls, blockers: cls === "blocked-by" ? open_b : [] });
       out.counts[cls] = (out.counts[cls] || 0) + 1;
       if (cls === "unknown") out.unknown.push({ id: row.id, project: px, text: row.text });
       if ((cls === "cloud-now" || cls === "mac") && !held.includes(r.id)) cands.push(row);

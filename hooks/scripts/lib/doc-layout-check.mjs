@@ -31,6 +31,8 @@ export function docLayoutIssue({ vault, docXml, today = new Date().toISOString()
     const ops = plan.ops.filter((o) => o.op !== "setDate");
     /* DISC-334 review amber 3: a hand-written item behind an unanswered thread is moved whole and keeps its text until the thread is answered, so it stays in the plan's handWritten but never fires this check */
     const handWritten = plan.handWritten.filter((h) => h.blockedBy !== "unanswered comment thread");
+    const idle = plan.idleUpNext || [];
+    if (!ops.length && !handWritten.length && idle.length) return `Stop check (DISC-385): Up next is never idle, and ${idle.length} row(s) sit there neither started nor blocked: ${idle.slice(0, 3).map((i) => `${i.id} (${i.reason})`).join("; ")}${idle.length > 3 ? "; …" : ""}. Act on each, then update the doc.`;
     if (!ops.length && !handWritten.length) return null;
     const shown = [...ops.map(describe), ...handWritten.map((h) => `hand-written ${h.rowId}`)];
     /* DISC-329 amber 1: name the way out that works: --set clears a plain hand-written item; a row this checkout lacks needs a vault pull */

@@ -17,6 +17,7 @@
      `holds` — doc rows a pending Mac job names (row id + job path): the job's done/failed file is read before that item changes.
      `answered` — open queue rows whose item the operator moved or ticked in the doc: bank each like a chat answer. `answered` lists open queue rows whose chip the operator flipped (bank like an answer). `unknown` lists row ids the doc holds that no queue or backlog file in this vault checkout has (a stale checkout: pull the vault first; such an item is never called landed). An empty `ops` means the doc is
    already in the layout. `unplaced` lists items naming no project.
+   `idleUpNext` (DISC-385) — shown Up next rows that are neither blocked (`blocked by <open ID>`; the shown line then ends "(blocked by X)") nor started (a lane, a queued Mac job): startable rows and rows needing the operator; each has a reason naming the way out.
    Up next source (DISC-328, one for every project): the backlog's `## Up next` (an ordered list of row ids, first five); none -> "Nothing.". A row already in Ready for you,
    You're on it or Claude's on it is never also Up next. The go-live file feeds only the launch count (its groups 1-4, ticked of all).
    DISC-334 (operator s90): no top-level item carries a chip; the section an item sits in is its status. Only the per-project checklist nested under a You're on it item keeps its chips (toMarkdown prints a chip at depth > 0 only). An old top-level chip is dropped when the item is re-written anyway (a move that would have changed its chip, --set, a stale lane text); an item with an unanswered thread is moved whole and listed in `staleChips`.
@@ -31,6 +32,7 @@ import { neededFromYou, vaultBlobBase } from "./needed-from-you.mjs";
 import { openItems, itemTitle } from "./queue-page-sync.mjs";
 import { parseBacklog } from "./list-drift-check.mjs";
 import { parseStatusDoc, toMarkdown } from "./lib/status-doc.mjs";
+import { rankBacklogs } from "./lib/backlog-rank.mjs";
 
 export const displayName = (project) => { const n = String(project).replace(/^jhd-/, "").replace(/-/g, " "); return n.charAt(0).toUpperCase() + n.slice(1); };
 const ID_AT = /\b([A-Z]{2,4}-\d+[a-z]?)\b/;
@@ -280,7 +282,8 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
   }
 
   /* 3. Up next */
-  const upSec = section("Up next"), upOps = [];
+  const upSec = section("Up next"), upOps = [], idleUpNext = [];
+  const classOf = new Map(rankBacklogs(vault, names.map((x) => x.prefix)).rows.map((q) => [q.id, q]));
   for (const x of names) {
     let lines = [], launch = null;
     const dir = x.backlog ? dirname(x.backlog) : null, base0 = dir ? basename(dir) : null;
@@ -289,7 +292,14 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     if (gl) launch = `Launch: ${gl.done} of ${gl.total} done · ${base ? `[Full go-live list](${base}/${dir}/${base0}-go-live.md)` : "full list in the vault"}`;
     if (x.backlog) {
       const text = readFileSync(join(vault, x.backlog), "utf8");
-      lines = (upNextIds(text) || []).filter((id) => !busy.has(id) && !closed.has(id)).slice(0, 5).map((id) => `- (${id}) ${rowTitle(text, id) || id}`);
+      const shown = (upNextIds(text) || []).filter((id) => !busy.has(id) && !closed.has(id)).slice(0, 5);
+      /* DISC-385: a shown Up next row is blocked (its line names the blocker), or it is flagged: nothing sits idle in Up next */
+      lines = shown.map((id) => { const c = classOf.get(id); return `- (${id}) ${rowTitle(text, id) || id}${c?.class === "blocked-by" ? ` (blocked by ${c.blockers.join(", ")})` : ""}`; });
+      for (const id of shown) {
+        const c = classOf.get(id)?.class;
+        if (!c || c === "busy" || c === "blocked-by" || pendingJob(id)) continue;
+        idleUpNext.push({ id, project: x.name, class: c, reason: c === "operator" ? "needs the operator: add it to Ready for you with its ask (--set ROW=ready)" : `not blocked and not started: start it now (${c === "mac" ? "write and queue its Mac job" : "dispatch a lane"}; a lane waiting for a slot is a Claude's on it item), or name its blocker in the row` });
+      }
     }
     if (!lines.length) lines = ["Nothing."];
     const pr = project(upSec, x.name);
@@ -332,7 +342,7 @@ export function layoutPlan({ vault, prefixes, docXml, today, base = vaultBlobBas
     const have = (bk?.items || []).map((i) => i.text);
     if (!bk || have.length !== links.length || have.some((t, i) => t !== `[${links[i].label}](${links[i].url})`)) clean.push({ op: "setBacklogLinks", id: bk?.listIds[0] ?? null, links, dropped: droppedLinks });
   }
-  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], unplaced, answered: [...new Set(answered)], staleChips, handWritten, unknown, refused, droppedComments, holds };
+  return { ops: [...dateOps, ...structure, ...work, ...tail, ...upOps, ...clean], idleUpNext, unplaced, answered: [...new Set(answered)], staleChips, handWritten, unknown, refused, droppedComments, holds };
 }
 
 /* DISC-314 8: the doc read arrives inline in the session, never as a file: `-` reads stdin; --doc-json takes the connector's JSON result ({ xml }, or the xml as a JSON string) */
