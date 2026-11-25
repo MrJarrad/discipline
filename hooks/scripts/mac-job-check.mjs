@@ -35,7 +35,7 @@ export const CONDITIONAL_INSTALL = (() => {
 // s106 ruling (DISC-348): an approved Mac job runs on battery; it records `pmset -g batt` and labels its numbers "on battery".
 export const PMSET_RECORD = /pmset\s+-g\s+batt/i;
 export const BATTERY_LABEL = /on battery/i;
-export const BATTERY_STOP = /\bstop\b[^.\n]*\bbattery\b/i;
+export const BATTERY_STOP = /(?<!\b(?:not|never|don't|dont)\s+)\bstop\b[^.\n]*\bbattery\b|\bbattery\b[^.\n]*(?<!\b(?:not|never|don't|dont)\s+)\bstop\b/i;
 // A "PART n" line opens a section; it is empty when only blank or `---` lines precede the next PART line or the end.
 function emptyParts(body) {
   const out = [];

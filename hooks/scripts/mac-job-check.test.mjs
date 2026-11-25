@@ -182,3 +182,12 @@ test("a job that still stops on battery is named; the record-and-run rule is cle
   const ok = "No background tasks, no subagents. Record `pmset -g batt`; on battery, label numbers on battery and run.\n";
   assert.deepEqual(macJobProblems(job("repo: ~/x", ok)), []);
 });
+
+// DISC-376: a negated "stop on battery" is the compliant rule, not a stop rule.
+test("a negated stop-on-battery line passes; real stop rules still flag", () => {
+  const intro = "No background tasks, no subagents. Record `pmset -g batt`; on battery, label numbers on battery and run.\n";
+  for (const line of ["Do not stop on battery.", "Never stop on battery", "don't stop on battery", "Do NOT stop on battery."])
+    assert.deepEqual(macJobProblems(job("repo: ~/x", intro + line + "\n")), [], line);
+  for (const line of ["If on battery, stop", "stop and report on battery", "Stop on battery."])
+    assert.match(macJobProblems(job("repo: ~/x", intro + line + "\n")).join("\n"), /not blocked by battery/, line);
+});
