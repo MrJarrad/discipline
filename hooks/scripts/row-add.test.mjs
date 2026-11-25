@@ -408,6 +408,13 @@ test("DISC-371: 'approved' near a design noun is a look ask; bare approval is no
   assert.equal(ask({ text: "Was the release plan approved?" }).ok, true);
 });
 
+test("DISC-375: 'approved' with a look word beside text is a look ask; a copy ask still passes", () => {
+  assert.equal(ask({ text: "Did you approve the footer text size?" }).ok, false);
+  assert.equal(ask({ text: "Is the hero text approved?" }).ok, false);
+  assert.equal(ask({ text: "Do you approve the headline wording?" }).ok, true);
+  assert.equal(ask({ text: "Do you approve the footer copy?" }).ok, true);
+});
+
 test("DISC-371: --searched too thin to say what was searched does not satisfy none-found", () => {
   const text = "What colour should the new badge be?";
   for (const searched of ["x", "none", "grep done"]) {
