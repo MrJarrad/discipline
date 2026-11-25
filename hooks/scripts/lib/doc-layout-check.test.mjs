@@ -52,3 +52,11 @@ test("DISC-329 amber 1 / DISC-334 review amber 3: a hand-written item behind an 
   assert.match(unknown, /pull the vault/);
   assert.match(unknown, /PF-9999/);
 });
+
+// DISC-385: an idle Up next row (neither started nor blocked) blocks the turn, with an actionable reason.
+test("DISC-385: an Up next row that is unblocked and unstarted is a stop-check issue naming the way out", () => {
+  const v = vault();
+  writeFileSync(join(v, "projects/portfolio/portfolio-backlog.md"), FM("PF", "backlog") + "## Up next\n\n1. PF-9\n\n## Open\n\n| # | Item | Raised | Status |\n| - | --- | --- | --- |\n| PF-9 | Fix it. Agent. | d | open |\n");
+  const r = docLayoutIssue({ vault: v, docXml: inLayout({ upNext: { Portfolio: ["(PF-9) Fix it"] } }), today: "2026-11-12" });
+  assert.match(r, /DISC-385[^]*PF-9[^]*start it now/);
+});
