@@ -15,7 +15,7 @@ description: >-
 - **MUST** load this skill file and follow it end-to-end; do not improvisationally Write vault files.
 - Vault notes, lessons, rulings → read and follow **`vault-write`** first (placement, hub-link, lint). Ad-hoc vault Write without vault-write is a defect.
 - Lint exit ≠ 0 → wrap has **not** succeeded; do not claim wrapped.
-- **Operator-facing report:** compact outcomes only (what's banked, what's next). The section-by-section walk is the agent's internal contract, not the designer's UI unless asked.
+- **Operator-facing report:** compact outcomes only (what's banked, what's next); the section walk is internal.
 
 ## Orchestrator self-check (before ending a turn where a product was touched)
 
@@ -30,9 +30,7 @@ description: >-
 repo `~/JHD/ai/discipline/main` plus its marketplace/cache mirror — verify the installed
 plugin matches the repo at wrap.
 
-A session that ends without wrapping leaves the next one to reconstruct state from scratch.
-Wrap is the gate: nothing "should be fine," everything below is verified before the session
-is called closed.
+Wrap is the gate: nothing "should be fine"; everything below is verified before the session is called closed.
 
 ## When to wrap
 
@@ -45,8 +43,7 @@ finish in-flight merges, run `wrap`, tell the operator in one line. No reading �
 
 ## The seven sections — walk all of them, in order
 
-Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). Walk them in order;
-a skipped section is a wrap failure, not a judgement call.
+Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). A skipped section is a wrap failure.
 
 1. **HANDOVER** — cockpit patch + one file per touched project, replaced not appended. **The open queue is written once, in the queue files:** the wrap reply carries new asks and the checklist link (`needed-from-you.mjs --projects <prefixes> --short --new <ids>`); the cockpit wrap block and a handover carry a link and count, never rows (`cockpit-check.mjs` passes); a handover adds a `## Next` block and the pinned-checklist sync ([SECTIONS.md](references/SECTIONS.md) § 1).
 2. **Rulings** — landed with lineage, same-action verified, placed thing-then-aspect.
@@ -63,7 +60,9 @@ manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is
 ## Last step: stand down, never archive
 
 Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. List open PRs and lanes;
-stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it ("reopen"). Steps: [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
+stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it.
+
+After the last step, offer one Continue chip (`spawn_task`): [CLOSING-CHECKS § Continue chip](references/CLOSING-CHECKS.md#continue-chip).
 
 ## Report, handover prose, and the learn step
 
