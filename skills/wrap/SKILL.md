@@ -63,9 +63,9 @@ manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is
 ## Last step: stand down, never archive
 
 Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. List open PRs and lanes;
-stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it ("reopen"). Steps: [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
+stop watchers; disable (never delete) routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it ("reopen"). [CLOSING-CHECKS.md](references/CLOSING-CHECKS.md).
 
-**One continue chip, only when wrap is complete** (ruling `2026-11-25-s113-wrap-ends-with-one-continue-chip`, DISC-381): after every wrap step is done, offer exactly one `spawn_task` chip, title "Continue <projects>", prompt `continue <projects this session worked on>` (e.g. "continue portfolio, discipline and handoff toolkit"), tldr one plain sentence. No other chips at wrap; never before the wrap is complete.
+Then one [continue chip](references/CLOSING-CHECKS.md), nothing else.
 
 ## Report, handover prose, and the learn step
 
