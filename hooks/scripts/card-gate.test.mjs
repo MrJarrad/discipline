@@ -128,3 +128,13 @@ test("CLI: an unknown head ref still fails closed", () => {
   assert.equal(r.status, 1);
   assert.equal(JSON.parse(r.stdout).cardGate.ok, false);
 });
+
+test("DISC-371 CLI: a PR that deletes docs/site/inventory.md fails; it does not read as an inactive gate", () => {
+  const d = repo(); sh(d, "checkout", "-qb", "work");
+  sh(d, "rm", "-q", "docs/site/inventory.md"); sh(d, "commit", "-qm", "drop the map");
+  const r = run(d);
+  assert.equal(r.code, 1);
+  assert.equal(r.out.cardGate.ok, false);
+  assert.match(r.out.cardGate.reason, /inventory\.md/);
+  assert.match(r.out.cardGate.reason, /restore/i);
+});

@@ -10,7 +10,8 @@
 
    Prints {"cardGate":{ok,files,missing,unmapped,exempt,notice,reason}}; exit 0 pass, 1 fail, 2 usage.
    The index is read from the head's own inventory.md, so a PR that adds a module also adds its row.
-   A head with no inventory.md passes with a notice (the gate is inactive until the cards land).
+   A head with no inventory.md passes with a notice (the gate is inactive until the cards land); a head that
+   deletes the base's inventory.md fails (restore it).
    Scope: src/components and src/lib, tests excluded. `shared` modules need no card (no behaviour of their own).
    A card counts when it is in the diff; whether it says the right thing is the reviewer's read.
    Escape: a commit message in the range carrying `Card: no change — <reason>` (reason required, echoed).   */
@@ -67,6 +68,11 @@ export function branchCheck({ repo, base, head }) {
   const exempt = EXEMPT.exec(log.out || "")?.[1];
   const tree = git(repo, "ls-tree", "--name-only", head, "docs/site/inventory.md");
   if (!tree.ok) return fail(`cannot read ${head}: ${tree.err}`);
+  if (!tree.out) {
+    // A deletion is not an inactive gate: the base had the map, the head dropped it.
+    const was = git(repo, "ls-tree", "--name-only", base, "docs/site/inventory.md");
+    if (was.ok && was.out && !exempt) return fail("this change deletes docs/site/inventory.md, the card map the gate reads: restore it (or add a commit with `Card: no change — <reason>`)");
+  }
   if (!tree.out) return { ok: true, files: [], missing: [], unmapped: [], notice: "card gate inactive: no docs/site/inventory.md", ...(exempt ? { exempt } : {}) };
   const inv = git(repo, "show", `${head}:docs/site/inventory.md`);
   if (!inv.ok) return fail(`cannot read docs/site/inventory.md at ${head} (${inv.err})`);
