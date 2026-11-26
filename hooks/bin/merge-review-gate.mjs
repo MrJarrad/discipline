@@ -195,9 +195,11 @@ export function driftProblem(stamps, head) {
   if (!stamps.length) return `no list-drift-check result in this session: ${how}`;
   const mine = stamps.filter((d) => String(d.head || "").toLowerCase() === String(head).toLowerCase());
   if (!mine.length) return `the list-drift-check results in this session are for another head (${String(stamps.at(-1).head || "?").slice(0, 7)}), not ${String(head).slice(0, 7)}: ${how}`;
-  const ok = mine.filter((d) => d.clean === true && d.added === 0);
+  const based = mine.filter((d) => /^[0-9a-f]{40}$/i.test(String(d.base || "")) && String(d.base).toLowerCase() !== String(head).toLowerCase());
+  if (!based.length) return `the list-drift-check result names no base different from head ${String(head).slice(0, 7)}, so it compared the PR with itself: ${how}`;
+  const ok = based.filter((d) => d.clean === true && d.added === 0);
   if (ok.length) return null;
-  const d = mine.at(-1);
+  const d = based.at(-1);
   return d.clean !== true ? `the list-drift-check ran on a tree with uncommitted changes, so it does not describe head ${String(head).slice(0, 7)}: commit or clean the worktree and re-run` : `list-drift-check adds ${d.added} failing finding(s) over its base: fix them, then re-run`;
 }
 

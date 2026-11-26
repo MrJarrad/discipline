@@ -128,6 +128,13 @@ test("DISC-395: a stamp that does not clear is refused (other head, findings add
   const fix = stamp({}, `node ${LIST_CHECK} --vault /v --new-vs /b --fix`);
   assert.equal(run([...notes(), ...fix], ...VAULT).permissionDecision, "deny", "a --fix run is not proof");
 });
+test("DISC-395: a stamp whose base is the head (or missing) compared the PR with itself and is not proof", () => {
+  for (const base of [HEAD, undefined]) {
+    const r = run([...notes(), ...stamp({ base })], ...VAULT);
+    assert.equal(r.permissionDecision, "deny", String(base));
+    assert.match(r.permissionDecisionReason, /compared the PR with itself/);
+  }
+});
 test("DISC-395: a typed stamp (no Bash run of the script) is not proof", () => {
   const typed = [use("Bash", "d", { command: "echo ok" }), res("d", JSON.stringify({ listDriftCheck: { head: HEAD, added: 0, clean: true, origin: ORIGIN } }))];
   assert.equal(run([...notes(), ...typed], ...VAULT).permissionDecision, "deny");
