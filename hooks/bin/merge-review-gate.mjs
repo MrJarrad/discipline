@@ -19,7 +19,11 @@
    (absolute path, one plain command) for this PR whose JSON line is complete, names the
    pinned head, a MrJarrad/jhd-vault origin and only notes; it lists names from GitHub's
    merge ref for the PR, bound to that sha, instead of every patch.
-   DISC-360: a vault merge also needs a `get_check_runs` read in the session with no red, unfinished or other-head run.
+   DISC-395: a vault merge also needs a list-drift-check stamp in the session (a plain Bash run of this plugin's own
+   list-drift-check.mjs with --vault and --new-vs) naming the pinned head, a clean tree and no failing finding added
+   over its base. It replaces DISC-360's required `get_check_runs` read: the vault runs no PR-triggered Actions
+   (`2026-11-26-no-pr-triggered-actions`), so there are no runs to require. A session that did read check runs is still
+   refused on a red, unfinished, other-head or unreadable result (R15 stays, nothing loosened).
    DISC-296: when the session never read get_me, the authenticated gh user counts too (gh unavailable -> owner only).
    DISC-277: trusted means the repo owner and the login in this session's own \`get_me\` result (an
    org-owned repo's owner never posts); a commenter cannot write a tool result. Limits: every fleet agent posts as that
@@ -34,6 +38,8 @@ import { fileURLToPath } from "node:url";
 
 /* vault-pr-files.mjs as installed beside this gate; a copy anywhere else is not proof (r1 red 1). */
 const OWN_SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "scripts", "vault-pr-files.mjs");
+/* list-drift-check.mjs beside this gate: the vault merge's drift proof (DISC-395). */
+const OWN_LIST_CHECK = resolve(dirname(fileURLToPath(import.meta.url)), "..", "scripts", "list-drift-check.mjs");
 /* The clone the stamp came from must fetch from MrJarrad/jhd-vault (r1 amber 1). */
 const VAULT_ORIGIN = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)mrjarrad\/jhd-vault(?:\.git)?\/?$/i;
 
@@ -61,7 +67,7 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map(), bash = new Map(), meCalls = new Set();
   const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
-  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [], checks: null, checksBad: false };
+  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], driftStamps: [], me: [], checks: null, checksBad: false };
   const pages = new Map();
   for (const line of lines) {
     let e;
@@ -84,7 +90,18 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
         const cmd = bash.get(part.tool_use_id);
         /* The whole command is one plain run of the script: no other command can print after it. */
         const run = cmd.match(/^[ \t]*node[ \t]+([^\s;&|`$<>()\\'"]+)((?:[ \t]+[^\s;&|`$<>()\\'"]+)*)[ \t]*$/);
-        if (!run || resolve(run[1]) !== run[1] || run[1] !== OWN_SCRIPT) continue; // the gate's own sibling copy only
+        if (!run || resolve(run[1]) !== run[1] || (run[1] !== OWN_SCRIPT && run[1] !== OWN_LIST_CHECK)) continue; // the gate's own sibling copies only
+        if (run[1] === OWN_LIST_CHECK) {
+          /* DISC-395: only a plain --new-vs check counts: --vault, --new-vs and --repo with a value each; --fix, --stale and the rest are other runs. */
+          const w = run[2].trim().split(/[ \t]+/);
+          const flags = w.filter((x) => x.startsWith("-"));
+          if (w.length % 2 || !flags.every((x) => ["--vault", "--new-vs", "--repo"].includes(x)) || flags.length !== w.length / 2 || !flags.includes("--vault") || !flags.includes("--new-vs")) continue;
+          const t = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
+          let d;
+          try { d = JSON.parse(t.trim().split("\n").pop()).listDriftCheck; } catch { continue; }
+          if (d && VAULT_ORIGIN.test(String(d.origin || ""))) out.driftStamps.push(d);
+          continue;
+        }
         const m = run[2].match(/[ \t]--pr[ \t]+(\d+)(?:[ \t]|$)/);
         if (!m || Number(m[1]) !== Number(pullNumber)) continue;
         const text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
@@ -170,6 +187,26 @@ export function checkRunsProblem(runs, head, unreadable = false) {
   return null;
 }
 
+/* DISC-395: null when a list-drift-check stamp in the session names the pinned head, a clean tree and no failing finding
+   added over its base, else the reason. Limit: the stamp's base is whatever worktree the run named; the gate cannot tell
+   it is current origin/main, so the command in the reason says to build it from a fresh fetch. */
+export function driftProblem(stamps, head) {
+  const how = `run \`node ${OWN_LIST_CHECK} --vault <worktree of the PR head> --new-vs <worktree of a fresh origin/main>\` (that absolute path, run plain: no pipe, no redirect, no --fix) and merge only when it adds no failing finding`;
+  if (!stamps.length) return `no list-drift-check result in this session: ${how}`;
+  const mine = stamps.filter((d) => String(d.head || "").toLowerCase() === String(head).toLowerCase());
+  if (!mine.length) return `the list-drift-check results in this session are for another head (${String(stamps.at(-1).head || "?").slice(0, 7)}), not ${String(head).slice(0, 7)}: ${how}`;
+  const ok = mine.filter((d) => d.clean === true && d.added === 0);
+  if (ok.length) return null;
+  const d = mine.at(-1);
+  return d.clean !== true ? `the list-drift-check ran on a tree with uncommitted changes, so it does not describe head ${String(head).slice(0, 7)}: commit or clean the worktree and re-run` : `list-drift-check adds ${d.added} failing finding(s) over its base: fix them, then re-run`;
+}
+
+/* The vault merge's gates (DISC-395): the drift stamp is required; DISC-360 R15's check-run refusal stays when the session read
+   check runs (the vault has no PR-triggered Actions, ruling 2026-11-26-no-pr-triggered-actions, so most sessions read none). */
+function vaultProblem(reads, head) {
+  return driftProblem(reads.driftStamps, head) || (reads.checks || reads.checksBad ? checkRunsProblem(reads.checks, head, reads.checksBad) : null);
+}
+
 function check(input, { notesOnly, reviewVerdict }) {
   const t = input.tool_input || {};
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
@@ -179,9 +216,9 @@ function check(input, { notesOnly, reviewVerdict }) {
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
   const isVault = /^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo));
   if (isVault) {
-    /* DISC-360 R15: every way a vault merge clears (notes-only or a reviewer's yes) also reads the check runs on the pinned head. */
+    /* DISC-395: every way a vault merge clears (notes-only or a reviewer's yes) also needs the drift stamp on the pinned head. */
     const clear = () => {
-      const problem = checkRunsProblem(reads.checks, t.expectedHeadSha, reads.checksBad);
+      const problem = vaultProblem(reads, t.expectedHeadSha);
       if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
       process.exit(0);
     };
@@ -211,7 +248,7 @@ function check(input, { notesOnly, reviewVerdict }) {
   const me = reads.me.length ? reads.me : ghLogin();
   const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...me]);
   if (review?.verdict === "yes") {
-    const problem = isVault ? checkRunsProblem(reads.checks, t.expectedHeadSha, reads.checksBad) : null;
+    const problem = isVault ? vaultProblem(reads, t.expectedHeadSha) : null;
     if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
     process.exit(0);
   }

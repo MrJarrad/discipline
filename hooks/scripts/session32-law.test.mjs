@@ -67,10 +67,10 @@ test("(B2) notes-only means markdown records outside .github and .claude; anythi
 const gate = join(root, "hooks/bin/merge-review-gate.mjs");
 const dir = () => mkdtempSync(join(tmpdir(), "s32-"));
 /* calls: [{ name, input, items | text }] → a transcript in the real Claude Code JSONL shape. */
-// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+// DISC-395: a vault merge also needs a clean list-drift-check stamp on the pinned head, so every fixture transcript carries one.
 const GREEN = [
-  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
-  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success", head_sha: "c137007fc1159f87d0fc58e885fc8b71b0362275" }] }) }] }] } },
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "Bash", input: { command: `node ${join(root, "hooks/scripts/list-drift-check.mjs")} --vault /v/pr --new-vs /v/main` } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ listDriftCheck: { head: "c137007fc1159f87d0fc58e885fc8b71b0362275", base: "b".repeat(40), added: 0, clean: true, origin: "https://github.com/MrJarrad/jhd-vault" } }) }] }] } },
 ];
 const transcript = (calls, d = dir()) => {
   const p = join(d, "t.jsonl");

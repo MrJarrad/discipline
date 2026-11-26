@@ -90,60 +90,72 @@ test("DISC-296 org repo: gh unavailable falls back to the owner alone, so the re
   assert.match(r.permissionDecisionReason, /get_me/);
 });
 
-// DISC-360 R15 (lesson 2026-11-06-s59 #1): a vault merge, notes-only included, reads the PR's check runs first
-// and merges only when none is red. The vault's own checks (lists, frontmatter) are the only gate a notes-only PR meets.
+// DISC-395 (ruling 2026-11-26-no-pr-triggered-actions): the vault runs no PR-triggered Actions, so a vault merge
+// needs the in-session list-drift-check stamp on the pinned head instead of a check-runs read. The R15 red-run
+// refusal stays for a session that did read check runs (nothing is loosened), but an absent read no longer blocks.
 const VAULT = ["MrJarrad", "jhd-vault"];
+const LIST_CHECK = join(dirname(gate), "..", "scripts", "list-drift-check.mjs");
+const ORIGIN = "https://github.com/MrJarrad/jhd-vault";
 const notes = () => [
   use("mcp__github__pull_request_read", "f", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_files" }),
   res("f", JSON.stringify([{ filename: "projects/p/note.md" }])),
+];
+const stamp = (over = {}, cmd = `node ${LIST_CHECK} --vault /home/user/wt/vault-pr --new-vs /home/user/wt/vault-main`) => [
+  use("Bash", "d", { command: cmd }),
+  res("d", `list-drift-check: 0 failing finding(s) added over base.\n` + JSON.stringify({ listDriftCheck: { head: HEAD, base: "b".repeat(40), added: 0, clean: true, origin: ORIGIN, ...over } })),
 ];
 const checks = (runs, head = HEAD) => [
   use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }),
   res("k", JSON.stringify({ total_count: runs.length, check_runs: runs.map(([name, conclusion]) => ({ name, status: "completed", conclusion, head_sha: head })) })),
 ];
-test("R15: a notes-only vault merge with no check-runs read is refused, naming get_check_runs", () => {
+test("DISC-395: a notes-only vault merge with no stamp is refused, naming list-drift-check", () => {
   const r = run(notes(), ...VAULT);
   assert.equal(r.permissionDecision, "deny");
-  assert.match(r.permissionDecisionReason, /get_check_runs/);
+  assert.match(r.permissionDecisionReason, /list-drift-check\.mjs/);
+  assert.match(r.permissionDecisionReason, /--new-vs/);
 });
-test("R15: a notes-only vault merge with every check run green is allowed", () => {
-  assert.equal(run([...notes(), ...checks([["lists", "success"], ["frontmatter", "skipped"]])], ...VAULT).permissionDecision, "allow");
+test("DISC-395: a notes-only vault merge with a clean stamp on the pinned head and no check runs at all is allowed", () => {
+  assert.equal(run([...notes(), ...stamp()], ...VAULT).permissionDecision, "allow");
 });
-test("R15: a red check run refuses the merge and names it", () => {
+test("DISC-395: a stamp that does not clear is refused (other head, findings added, dirty tree, other origin, other script)", () => {
+  for (const over of [{ head: "1".repeat(40) }, { added: 2 }, { clean: false }, { origin: "https://github.com/someone/jhd-vault" }]) {
+    assert.equal(run([...notes(), ...stamp(over)], ...VAULT).permissionDecision, "deny", JSON.stringify(over));
+  }
+  const copy = stamp({}, `node /tmp/list-drift-check.mjs --vault /v --new-vs /b`);
+  assert.equal(run([...notes(), ...copy], ...VAULT).permissionDecision, "deny", "a copy of the script is not proof");
+  const piped = stamp({}, `node ${LIST_CHECK} --vault /v --new-vs /b | tail -1`);
+  assert.equal(run([...notes(), ...piped], ...VAULT).permissionDecision, "deny", "a piped run is not proof");
+  const fix = stamp({}, `node ${LIST_CHECK} --vault /v --new-vs /b --fix`);
+  assert.equal(run([...notes(), ...fix], ...VAULT).permissionDecision, "deny", "a --fix run is not proof");
+});
+test("DISC-395: a typed stamp (no Bash run of the script) is not proof", () => {
+  const typed = [use("Bash", "d", { command: "echo ok" }), res("d", JSON.stringify({ listDriftCheck: { head: HEAD, added: 0, clean: true, origin: ORIGIN } }))];
+  assert.equal(run([...notes(), ...typed], ...VAULT).permissionDecision, "deny");
+});
+test("DISC-395: a red check run read in the session still refuses the merge (nothing loosened)", () => {
   for (const bad of ["failure", "cancelled", "timed_out", "action_required"]) {
-    const r = run([...notes(), ...checks([["lists", "success"], ["frontmatter", bad]])], ...VAULT);
+    const r = run([...notes(), ...stamp(), ...checks([["lists", "success"], ["frontmatter", bad]])], ...VAULT);
     assert.equal(r.permissionDecision, "deny", bad);
     assert.match(r.permissionDecisionReason, /frontmatter/);
   }
 });
-test("R15: a check run still pending or on another head does not clear the merge", () => {
+test("DISC-395: a check read that lists no runs (the Actions-free vault) does not block a stamped merge", () => {
+  assert.equal(run([...notes(), ...stamp(), ...checks([])], ...VAULT).permissionDecision, "allow");
+});
+test("DISC-395: a pending or other-head check run and an unparseable read still refuse", () => {
   const pending = [use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", JSON.stringify({ check_runs: [{ name: "lists", status: "in_progress", conclusion: null, head_sha: HEAD }] }))];
-  assert.equal(run([...notes(), ...pending], ...VAULT).permissionDecision, "deny");
-  assert.equal(run([...notes(), ...checks([["lists", "success"]], "1".repeat(40))], ...VAULT).permissionDecision, "deny");
-});
-test("R15: a reviewer's merge: yes on the pinned head does not skip the check runs", () => {
-  const verdict = comments(VAULT[0], VAULT[1], [["MrJarrad", yes]]);
-  assert.equal(run([...verdict, ...notes()], ...VAULT).permissionDecision, "deny");
-  assert.equal(run([...verdict, ...notes(), ...checks([["lists", "success"]])], ...VAULT).permissionDecision, "allow");
-});
-test("R15: a product repo merge is not asked for check runs", () => {
-  assert.equal(run(comments("MrJarrad", "jhd-portfolio", [["MrJarrad", yes]]), "MrJarrad", "jhd-portfolio").permissionDecision, "allow");
-});
-
-test("R15: a run with no head_sha or no status fails closed, naming what to do", () => {
-  for (const run1 of [{ name: "lists", status: "completed", conclusion: "success" }, { name: "lists", conclusion: "success", head_sha: HEAD }]) {
-    const lines = [...notes(), use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", JSON.stringify({ check_runs: [run1] }))];
-    const r = run(lines, ...VAULT);
-    assert.equal(r.permissionDecision, "deny");
-    assert.match(r.permissionDecisionReason, /no head_sha or no status/);
-    assert.match(r.permissionDecisionReason, /re-read/);
-  }
-});
-test("R15: an unparseable get_check_runs result gets its own refusal naming the accepted shape", () => {
-  const lines = [...notes(), use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", "3 checks, all green")];
-  const r = run(lines, ...VAULT);
+  assert.equal(run([...notes(), ...stamp(), ...pending], ...VAULT).permissionDecision, "deny");
+  assert.equal(run([...notes(), ...stamp(), ...checks([["lists", "success"]], "1".repeat(40))], ...VAULT).permissionDecision, "deny");
+  const bad = [use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", "3 checks, all green")];
+  const r = run([...notes(), ...stamp(), ...bad], ...VAULT);
   assert.equal(r.permissionDecision, "deny");
   assert.match(r.permissionDecisionReason, /could not be read/);
-  assert.match(r.permissionDecisionReason, /raw tool result/);
-  assert.match(r.permissionDecisionReason, /check_runs/);
+});
+test("DISC-395: a reviewer's merge: yes on the pinned head does not skip the stamp", () => {
+  const verdict = comments(VAULT[0], VAULT[1], [["MrJarrad", yes]]);
+  assert.equal(run([...verdict, ...notes()], ...VAULT).permissionDecision, "deny");
+  assert.equal(run([...verdict, ...notes(), ...stamp()], ...VAULT).permissionDecision, "allow");
+});
+test("DISC-395: a product repo merge is not asked for the stamp", () => {
+  assert.equal(run(comments("MrJarrad", "jhd-portfolio", [["MrJarrad", yes]]), "MrJarrad", "jhd-portfolio").permissionDecision, "allow");
 });

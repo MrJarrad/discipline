@@ -21,10 +21,10 @@ let n = 0;
    function of that directory, so a fixture can save its file where the gate will accept it. */
 const results = (k) => { const d = join(dir, `t${k}`, "tool-results"); mkdirSync(d, { recursive: true }); return d; };
 const save = (name, text, d = dir) => { const p = join(d, name); writeFileSync(p, text); return p; };
-// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+// DISC-395: a vault merge also needs a clean list-drift-check stamp on the pinned head, so every fixture transcript carries one.
 const GREEN = [
-  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
-  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success", head_sha: "bcf6540fc1159f87d0fc58e885fc8b71b0362275" }] }) }] }] } },
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "Bash", input: { command: `node ${join(root, "hooks/scripts/list-drift-check.mjs")} --vault /v/pr --new-vs /v/main` } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ listDriftCheck: { head: "bcf6540fc1159f87d0fc58e885fc8b71b0362275", base: "b".repeat(40), added: 0, clean: true, origin: "https://github.com/MrJarrad/jhd-vault" } }) }] }] } },
 ];
 const transcript = (calls) => {
   const here = n++, saved = results(here);
