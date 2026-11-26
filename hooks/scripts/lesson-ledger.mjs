@@ -21,6 +21,9 @@
      encoded: merged(<file>)    folded into an existing file; the file must exist
                                 in the vault or the plugin tree. `;` separates
                                 several files, a `:<line>[,<line>]` suffix is allowed.
+     budget: retires(<rule>)    rule budget (DISC-390): required on a record dated 2026-11-27 or later
+     budget: none(<reason>)     whose `encoded:` is a release version; names the rule it retires, or why
+                                no rule was added. Older and undated records are exempt.
      retires: <name>, <name>    optional; lessons/rulings this one supersedes.
                                 Each must exist under fleet/lessons or fleet/rulings
                                 (`[a, b]` and `.md` suffixes allowed).
@@ -45,6 +48,8 @@ const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
 
 // `1.73.0` | `pre-1.73.0` | `queued` | `skipped(<non-empty reason>)`.
 export const RELEASE_BATCH = 5;
+export const BUDGET_FROM = "2026-11-27";
+const BUDGET_VALUE = /^(?:retires|none)\(\s*[^)\s][^)]*\)$/;
 const VALID_ENCODED = /^(?:\d+\.\d+\.\d+|pre-\d+\.\d+\.\d+|queued|skipped\([^)]+\))$/;
 const MERGED = /^merged\(([^)]*)\)$/;
 // The plugin tree this script ships in (hooks/scripts/ -> repo root).
@@ -172,6 +177,15 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
     } else if (!VALID_ENCODED.test(value)) {
       invalid.push({ file, value });
       continue;
+    }
+    /* Rule budget (DISC-390): a dated record encoded in a release states what it retires, or that it added no rule. */
+    const day = /(\d{4}-\d{2}-\d{2})-/.exec(file.split("/").pop())?.[1];
+    if (/^\d+\.\d+\.\d+$/.test(value) && day && day >= BUDGET_FROM) {
+      const budget = frontmatterValue(text, "budget");
+      if (budget === null || !BUDGET_VALUE.test(budget)) {
+        invalid.push({ file, value: `budget: ${budget ?? "(missing)"}`, reason: "budget: want retires(<rule>) or none(<reason>)" });
+        continue;
+      }
     }
     const retires = frontmatterValue(text, "retires");
     if (retires !== null) {
