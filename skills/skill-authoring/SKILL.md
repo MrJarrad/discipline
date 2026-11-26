@@ -128,12 +128,12 @@ User-invoked orchestrators call model-invoked primitives via explicit load instr
 
 ## Lesson intake
 
-One commit per lesson, room made before the rule is added:
+One commit per lesson, room first:
 
-1. **Make room** — retire or shorten the rule it replaces, or fit under its file's budget (`skill-ceilings.test.mjs`); raising a budget is a scope call. A file with no budget row earns one at its measured size in the same commit. A case an existing rule covers sharpens it.
+1. **Make room** — retire or shorten the rule it replaces, or fit under its file's budget (`skill-ceilings.test.mjs`); raising a budget is a scope call. A file with no budget row earns one at its measured size in the same commit. A covered case sharpens its rule.
 2. **Place** it at the acting moment, ≤ 80 words, for behaviour seen in a real run, with a reason, not an incident ID.
 3. **Test behaviour** — a rule a hook or script enforces gets a test that runs it; a judgement rule gets no sentence pin.
-4. **Record** — `CHANGED.txt` names what was added and retired; `encoded: <ver>` on the vault lesson.
+4. **Record** — `CHANGED.txt` names what was added and retired; the vault lesson gets `encoded: <ver>` and `budget: retires(<rule>)` or `none(<reason>)` (agent-ops RULE-BUDGET).
 
 ## Checklist before shipping a skill
 
