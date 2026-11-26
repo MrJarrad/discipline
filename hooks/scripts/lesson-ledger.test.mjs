@@ -378,3 +378,19 @@ test("retires: escaping fleet/lessons and fleet/rulings with .. is invalid even 
     (root) => assert.equal(lintLessonLedger(root).ok, false),
   );
 });
+
+test("five queued records make a release due, four do not", () => {
+  const queuedFiles = (n) =>
+    Object.fromEntries(Array.from({ length: n }, (_, i) => [`fleet/lessons/q${i}.md`, "queued"]));
+  withVault(queuedFiles(4), (root) => {
+    const r = lintLessonLedger(root);
+    assert.equal(r.releaseDue, false);
+    assert.doesNotMatch(formatLedgerReport(r, root), /release due/);
+  });
+  withVault(queuedFiles(5), (root) => {
+    const r = lintLessonLedger(root);
+    assert.equal(r.releaseDue, true);
+    assert.equal(r.ok, true, "a due release is a prompt, never a failure");
+    assert.match(formatLedgerReport(r, root), /release due: 5 queued/);
+  });
+});
