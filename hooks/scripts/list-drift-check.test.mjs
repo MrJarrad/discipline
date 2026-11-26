@@ -506,3 +506,19 @@ test("DISC-255: the CLI --new-vs exits 1 listing only the added failing findings
   assert.doesNotMatch(r.stdout, /row AL-1:/);
   assert.equal(spawnSync(process.execPath, [script, "--vault", base, "--new-vs", base], { encoding: "utf8" }).status, 0);
 });
+
+// DISC-395: the --new-vs run prints one JSON stamp line naming the head it checked, which merge-review-gate reads as the vault merge's drift proof.
+test("DISC-395: --new-vs prints a listDriftCheck stamp with the head sha, the added count and a clean tree", () => {
+  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | one | d | open |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
+  const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
+  const git = (...a) => spawnSync("git", ["-C", base, "-c", "user.email=a@b", "-c", "user.name=t", ...a], { encoding: "utf8" });
+  git("init", "-q"); git("add", "-A"); git("commit", "-qm", "init");
+  const r = spawnSync(process.execPath, [script, "--vault", base, "--new-vs", base], { encoding: "utf8" });
+  const stamp = JSON.parse(r.stdout.trim().split("\n").pop()).listDriftCheck;
+  assert.equal(stamp.head, git("rev-parse", "HEAD").stdout.trim());
+  assert.equal(stamp.added, 0);
+  assert.equal(stamp.clean, true);
+  writeFileSync(join(base, "dirty.md"), "x");
+  const d = spawnSync(process.execPath, [script, "--vault", base, "--new-vs", base], { encoding: "utf8" });
+  assert.equal(JSON.parse(d.stdout.trim().split("\n").pop()).listDriftCheck.clean, false, "an uncommitted file means the stamp does not describe the head");
+});

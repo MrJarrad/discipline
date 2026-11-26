@@ -49,7 +49,7 @@
    touched discipline ends with that section empty (each row done with its PR, or moot).
 
    Usage: node list-drift-check.mjs --vault <root> [--repo <path>[,<path>]]... [--fix] [--stale [--days N]] [--discipline-empty] [--new-vs <base vault>]
-   --new-vs <base>: print and fail (exit 1) only on failing findings this vault adds over <base> (vault CI, DISC-255).
+   --new-vs <base>: print and fail (exit 1) only on failing findings this vault adds over <base> (DISC-255), then one JSON stamp line `{"listDriftCheck":{head,base,added,clean,origin}}` that merge-review-gate reads (DISC-395).
    Also exports the row editors lane-end uses (setRowStatus, addRow).        */
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -619,6 +619,12 @@ function main() {
     const added = newFailingFindings(vault, resolveVaultRoot(argv[nv + 1]), repos0);
     for (const f of added) console.log(formatFinding(f));
     console.log(`list-drift-check: ${added.length} failing finding(s) added over ${argv[nv + 1]}.`);
+    /* DISC-395: the stamp merge-review-gate reads as a vault merge's drift proof (no PR-triggered Actions run it, ruling
+       2026-11-26-no-pr-triggered-actions). It binds the result to the commit checked; `clean` is false when the tree has
+       uncommitted changes, so the result is not about the head alone. */
+    const rev = (...a) => { try { return git(vault, ...a).trim(); } catch { return null; } };
+    const base = (() => { try { return git(resolveVaultRoot(argv[nv + 1]), "rev-parse", "HEAD").trim(); } catch { return null; } })();
+    console.log(JSON.stringify({ listDriftCheck: { head: rev("rev-parse", "HEAD"), base, added: added.length, clean: rev("status", "--porcelain") === "", origin: rev("remote", "get-url", "origin") } }));
     process.exit(added.length ? 1 : 0);
   }
   const repos = argv.flatMap((a, i) => (a === "--repo" && argv[i + 1] ? argv[i + 1].split(",") : [])).map((p) => resolve(p));
