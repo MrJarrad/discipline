@@ -62,7 +62,6 @@ manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is
 Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. List open PRs and lanes;
 stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it.
 
-After the last step, offer one Continue chip (`spawn_task`): [CLOSING-CHECKS § Continue chip](references/CLOSING-CHECKS.md#continue-chip).
 
 ## Report, handover prose, and the learn step
 
