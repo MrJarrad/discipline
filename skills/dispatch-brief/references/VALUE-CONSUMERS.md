@@ -16,3 +16,11 @@ leaves another is red — the reviewer's Spec axis checks this too (`agents/revi
 
 Ruling: `operator-values-are-site-wide`. Related: `one-implementation-per-component`,
 `export-values-win-no-drift-questions`.
+
+**A value that looks wrong is an operator question, not an override.** A brief never tells a doer to
+override a design-system value for one component or page; it raises the value to the operator with
+the numbers (`2026-11-21-s104-no-overrides-in-product-code`), and the fix lands at the system's source.
+
+**Read the consumer before recommending a token change.** Open the code that uses the token and say
+what the value means there; a "450ms" text delay was ratios of another duration, and the aliasing the
+parent recommended and the operator approved could not be written.

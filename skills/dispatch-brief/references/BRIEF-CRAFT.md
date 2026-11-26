@@ -67,4 +67,4 @@ cloud sessions, 2026-09-28 → 10-01). The brief states the fact; it does not re
     reinstate: `canvas-chrome-takes-board-viewport-tier-2026-10-13`). A brief says "red build: stop and report".
 21. **Size from the tokens, not CLAUDE.md prose** (same lesson): tiered DS sizes (Action 28/32/44 in base-lg, 32/36/44 from 1440) are read
     from the generated tokens; prose such as "100=24 / 200=32 / 300=56" is stale.
-22. **A brief about a site feature cites its card** (`docs/site/cards/<feature>.md`) as the source of current behaviour and rulings; any look or behaviour question drafted from it quotes those rulings (`doer-rules.md`).
+22. **A brief about a site feature cites its card** (`docs/site/cards/<feature>.md`) as the source of current behaviour and rulings; any look or behaviour question drafted from it quotes those rulings (`doer-rules.md`). A description of what a feature does now is read from the running code or build; decision history gives intent only.

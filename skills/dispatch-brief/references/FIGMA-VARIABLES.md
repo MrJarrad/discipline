@@ -2,6 +2,8 @@
 
 A new Figma variable or a rename is **never a technical call** — it is the operator's system. It goes through the handoff toolkit's design-system profile and resolve step (HT-111, HT-112, HT-113) first.
 
+**The whole inventory goes to him once.** No variable is added or renamed until the operator has answered one table of the whole inventory (old name, values, users, proposed name). A value outside a scale extends the scale's top step, never a new name; a "missing token" claim checks the whole collection first; after a write, validate the handoff schema.
+
 1. `handoff-css resolve --export <export> --need <needs.json> [--rulings <md>]` writes `resolve-report.json` (top level `needs[]`, `open`, `counts`). Verdicts: REUSE, RULED, SIBLING, MISMATCH, NEW_NAME, NEW_RAMP, RULING_STALE; exit 0 means every need is REUSE or RULED. Contract: vault `references/2026-11-22-handoff-css-resolve-contract.md`.
 2. Every open need is one question to the operator, the toolkit's nearest name as the recommendation; his answer is a rulings row. Alias variables are ordinal (`token-rulings` s105): reuse first, else the next ordinal, never a state-suffixed compound.
 3. A brief that has a doer add or rename a variable carries `## Resolve result`: the report path and `open: 0`. `agent-dispatch-gate` refuses it otherwise.

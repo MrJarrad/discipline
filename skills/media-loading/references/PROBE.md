@@ -110,7 +110,7 @@ still flags, so a missing tile above or around a full-width heading is still a h
 | Flag | Default | Meaning |
 |---|---|---|
 | `--viewport WxH` | `390x844` | CSS viewport size. |
-| `--dpr N` | `2` | Device scale factor. |
+| `--dpr N` | `2` | Device scale factor. A Mac frame-rate or smoothness run sets the display's real ratio (`deviceScaleFactor`), never the default. |
 | `--interaction load\|scroll\|drag` | `load` | What drives the session. |
 | `--browser chromium\|webkit` | `chromium` | Engine. |
 | `--channel chrome` | (bundled) | Launch a real installed Chrome instead of Playwright's bundled Chromium — closer to what a reader's own browser does. |

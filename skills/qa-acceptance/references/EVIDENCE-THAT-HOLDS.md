@@ -7,9 +7,15 @@ Moved verbatim from `skills/qa-acceptance/SKILL.md` (DISC-351 step 8); the skill
 - **Timing is what is visible, not when an animation starts.** Sample per-frame visible
   opacity (the product of ancestor opacities) or a recording; `getAnimations()` start times
   said "reading order correct" three rounds while the footer was already on screen.
-- **Enumerate by what the operator sees, not the implementation's marker.** A probe that
-  counts one selector proves nothing about elements it does not select; reproduce at the
-  operator's framing from their screenshot before concluding "can't reproduce".
+- **Prove a fix or look the operator saw on his own path.** Enumerate by what he sees, not
+  the implementation's marker: real input at the widths and states a visitor reaches, the worst
+  real state, a before/after crop of the changed region, the combined build on latest main,
+  each before/after side at a pinned sha, and no preview-only switch on the link. A probe that
+  counts one selector proves nothing about elements it does not select; reproduce at his
+  framing from his screenshot before concluding "can't reproduce".
+- **A measurement cell that timed out or was not captured is red until explained**, never "the
+  cloud is slow". A board change's look ask waits for the Mac run when the cloud run has any missing
+  cell (a reload cell timed out; the Mac then showed a 9.5 s freeze that identical pixels could not).
 - **"Values from code inspection" is not a measurement**, and a handover's counts are
   claims — re-count or re-measure on the running build before a lane plans around them.
 - **A load fix is proven only by a matched A/B**: base and fix on the same Worker and

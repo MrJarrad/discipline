@@ -14,6 +14,7 @@ import { acquireVaultLock, highestUsed, lockPath, STALE_MS, WAIT_MS } from "./li
 const here = dirname(fileURLToPath(import.meta.url));
 const QUEUE = `---\nname: zz-queue\nkind: queue\nprefix: ZZ\n---\n\n**Next free number: 601** (highest used 600).\n\n| # | Needed | Where | Why | Recommended |\n|---|---|---|---|---|\n| ZZ-600 | ~~old~~ done | | | |\n`;
 const BACKLOG = `---\nname: zz-backlog\nkind: backlog\nprefix: ZZ\n---\n\n**Next free number: 193.**\n\n## Open\n\n| # | Item | Raised | Status | Notes |\n| - | --- | --- | --- | --- |\n| ZZ-192 | thing | 2026-10-01 | open | |\n`;
+const SEARCHED = "grep queue + decisions + references for the topic: nothing found";
 const mkVault = () => {
   const v = mkdtempSync(join(tmpdir(), "rowadd-"));
   mkdirSync(join(v, "projects/zz"), { recursive: true });
@@ -35,7 +36,7 @@ test("a backlog add gets a number above the QUEUE's range too (one sequence per 
 test("a queue add is numbered from the backlog's range as well, and bumps the marker", () => {
   const v = mkVault();
   writeFileSync(join(v, "projects/zz/zz-backlog.md"), BACKLOG.replace("ZZ-192", "ZZ-900").replace("193.", "901."));
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "need X", where: "w", why: "y", recommended: "r", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "need X", where: "w", why: "y", recommended: "r", offline: true });
   assert.equal(r.id, "ZZ-901");
   assert.match(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), /Next free number: 902/);
 });
@@ -88,7 +89,7 @@ test("offline / no origin: falls back to local with a warning, still adds", () =
 test("race: 8 parallel CLI adds get 8 distinct IDs and no duplicate lands", async () => {
   const v = mkVault();
   const run = (to) => new Promise((res) => {
-    const c = spawn("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", to, "--text", "r", "--owner", "Agent", "--offline"]);
+    const c = spawn("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", to, "--text", "r", "--owner", "Agent", "--searched", SEARCHED, "--offline"]);
     let out = ""; c.stdout.on("data", (d) => (out += d)); c.on("close", (code) => res({ code, id: out.trim() }));
   });
   const results = await Promise.all(Array.from({ length: 8 }, (_, i) => run(i % 2 ? "queue" : "backlog")));
@@ -178,7 +179,7 @@ test("an idea row is added as `waiting on operator` and prints under Needed from
 test("row-add refuses a status outside open / waiting on operator, and --status on a queue row", () => {
   const v = mkVault();
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "x", status: "done (#1 abc1234)", offline: true }).ok, false);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "x", status: "waiting on operator", offline: true }).ok, false);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "x", status: "waiting on operator", offline: true }).ok, false);
 });
 
 test("DISC-178: a release-only ask is refused as a queue row and as a waiting-on-operator backlog row; a release plus an operator-owned call passes", () => {
@@ -189,14 +190,14 @@ test("DISC-178: a release-only ask is refused as a queue row and as a waiting-on
     assert.match(r.reason, /release-follows-merge/);
   }
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Release?", offline: true }).ok, true, "a plain open backlog row is not an operator ask");
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Release with SITE_MODE holding -> live?", offline: true }).ok, true);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Look at the footer and say yes", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "Release with SITE_MODE holding -> live?", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "Look at the footer and say yes", offline: true }).ok, true);
 });
 
 test("DISC-179(1): the CLI leaves a marker naming the prefix, for the Stop hook", async () => {
   const v = mkVault();
   const dir = mkdtempSync(join(tmpdir(), "marker-"));
-  execFileSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--offline"], { env: { ...process.env, DISCIPLINE_MARKER_DIR: dir } });
+  execFileSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--searched", SEARCHED, "--offline"], { env: { ...process.env, DISCIPLINE_MARKER_DIR: dir } });
   process.env.DISCIPLINE_MARKER_DIR = dir;
   const { readMarkers } = await import("./lib/row-marker.mjs");
   const m = readMarkers(v);
@@ -213,7 +214,7 @@ import { writeDriftStamp, DRIFT_STAMP_MINUTES } from "./lib/row-marker.mjs";
 test("DISC-221 L1: a queue row citing a struck or done row is refused, naming it", () => {
   const v = mkVault();
   writeDriftStamp(v);
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "which next: ZZ-600 or ZZ-192?", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "which next: ZZ-600 or ZZ-192?", offline: true });
   assert.equal(r.ok, false);
   assert.match(r.reason, /ZZ-600/);
   assert.match(r.reason, /not an open row/);
@@ -221,7 +222,7 @@ test("DISC-221 L1: a queue row citing a struck or done row is refused, naming it
 
 test("DISC-221 L1: a queue row citing open rows is refused with no recent list-drift-check run", () => {
   const v = mkVault();
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "pick the look for ZZ-192", offline: true });
   assert.equal(r.ok, false);
   assert.match(r.reason, /list-drift-check\.mjs --vault/);
 });
@@ -229,22 +230,22 @@ test("DISC-221 L1: a queue row citing open rows is refused with no recent list-d
 test("DISC-221 L1: a fresh list-drift-check stamp lets the citing row in; a stale one does not", () => {
   const v = mkVault();
   writeDriftStamp(v, new Date(Date.now() - (DRIFT_STAMP_MINUTES + 1) * 60e3).toISOString());
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true }).ok, false);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "pick the look for ZZ-192", offline: true }).ok, false);
   writeDriftStamp(v);
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "pick the look for ZZ-192", offline: true });
   assert.equal(r.ok, true, r.reason);
 });
 
 test("DISC-221 L1: a queue row citing no rows needs no stamp; another project's ID is not checked", () => {
   const v = mkVault();
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "approve the hero copy", offline: true }).ok, true);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "same call as PF-938 elsewhere", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "approve the hero copy", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "same call as PF-938 elsewhere", offline: true }).ok, true);
 });
 
 test("DISC-221 L1: the list-drift-check CLI leaves the stamp row-add reads", () => {
   const v = mkVault();
   try { execFileSync(process.execPath, [join(here, "list-drift-check.mjs"), "--vault", v], { stdio: "ignore" }); } catch { /* findings exit 1; the stamp is written either way */ }
-  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the look for ZZ-192", offline: true });
+  const r = rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "pick the look for ZZ-192", offline: true });
   assert.equal(r.ok, true, r.reason);
 });
 
@@ -261,7 +262,7 @@ test("a backlog add raises the QUEUE's marker too (DISC-259)", () => {
 });
 test("a queue add raises the BACKLOG's marker too (DISC-259)", () => {
   const v = mkVault();
-  rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "need X", where: "w", why: "y", recommended: "r", offline: true });
+  rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "need X", where: "w", why: "y", recommended: "r", offline: true });
   assert.equal(marker(v, "backlog"), 602);
   assert.equal(marker(v, "queue"), 602);
 });
@@ -278,9 +279,24 @@ test("DISC-272: a link-ask queue row is refused without --searched, and added wi
   assert.equal(rowAdd({ ...ask, searched: "grep references/ + projects/zz/ for yardsale figma: nothing" }).ok, true);
 });
 
-test("DISC-272: an ask that is not for a link, file or node needs no --searched", () => {
+// DISC-360 R1 (lessons s41 #3, s42, s49, s56): a decision or fact ask re-asked what the vault had already answered.
+// Every queue row says what a grep of the project's queue, decisions and references found; a fold-in and a backlog row need none.
+test("DISC-360: a queue ask of any kind needs --searched, and the row prints it", () => {
   const v = mkVault();
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "Pick the footer blur strength", where: "preview", why: "look call", recommended: "medium", offline: true }).ok, true);
+  const ask = { vault: v, prefix: "ZZ", to: "queue", text: "Pick the footer blur strength", where: "preview", why: "call", recommended: "medium", offline: true };
+  const no = rowAdd(ask);
+  assert.equal(no.ok, false);
+  assert.match(no.reason, /--searched/);
+  assert.equal(rowAdd({ ...ask, searched: "x" }).ok, false, "a thin --searched does not count");
+  const yes = rowAdd({ ...ask, searched: "grep blur in projects/zz decisions + queue + references: nothing" });
+  assert.equal(yes.ok, true);
+  assert.match(readFileSync(join(v, "projects/zz/zz-queue.md"), "utf8"), /Searched: grep blur in projects\/zz decisions/);
+});
+
+test("DISC-360: backlog rows and queue fold-ins need no --searched", () => {
+  const v = mkVault();
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "Fix the footer blur strength", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "An idea about blur", status: "waiting on operator", offline: true }).ok, true);
 });
 
 // DISC-272 review round 1 (#152): only an ask directed at the operator counts; a row that mentions a link does not.
@@ -310,7 +326,7 @@ test("DISC-272: asks for a link, file, media or ID are caught; rows that only me
 // stages only the file it added to fails the vault `lists` check. The CLI names both files to stage.
 test("s76 L3: the CLI names both of the project's list files to stage, on stderr; stdout stays the row id", () => {
   const v = mkVault();
-  const r = spawnSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--offline"], { encoding: "utf8", env: { ...process.env, DISCIPLINE_MARKER_DIR: mkdtempSync(join(tmpdir(), "marker-")) } });
+  const r = spawnSync("node", [join(here, "row-add.mjs"), "--vault", v, "--prefix", "ZZ", "--to", "queue", "--text", "pick one", "--searched", SEARCHED, "--offline"], { encoding: "utf8", env: { ...process.env, DISCIPLINE_MARKER_DIR: mkdtempSync(join(tmpdir(), "marker-")) } });
   assert.match(r.stdout.trim(), /^ZZ-\d+$/);
   assert.match(r.stderr, /row-add: stage projects\/zz\/zz-queue\.md projects\/zz\/zz-backlog\.md/);
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", owner: "Agent", text: "another distinct idea about colour", offline: true }).files.length, 2);
@@ -335,12 +351,12 @@ test("DISC-336: --owner writes the trailing label; a text that already ends in o
 test("DISC-336: a waiting-on-operator idea, a queue row and a merge need no owner label", () => {
   const v = mkVault();
   assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "backlog", text: "idea: a lightning strike", status: "waiting on operator", offline: true }).ok, true);
-  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", text: "pick the release day", where: "w", why: "y", recommended: "r", offline: true }).ok, true);
+  assert.equal(rowAdd({ vault: v, prefix: "ZZ", to: "queue", searched: SEARCHED, text: "pick the release day", where: "w", why: "y", recommended: "r", offline: true }).ok, true);
 });
 
 // DISC-367 slice 2: a look or behaviour ask to the operator quotes the rulings it was checked against (lesson 2026-11-24-s110).
 const ASKROW = { vault: null, prefix: "ZZ", to: "queue", where: "w", why: "y", recommended: "r", offline: true };
-const ask = (over) => rowAdd({ ...ASKROW, vault: mkVault(), ...over });
+const ask = (over) => rowAdd({ ...ASKROW, searched: SEARCHED, vault: mkVault(), ...over });
 
 test("DISC-367: a look ask with no --rulings is refused, naming the flag and the none-found form", () => {
   const r = ask({ text: "How should the footer buttons turn yellow at the circle edge?" });
@@ -363,7 +379,7 @@ test("DISC-367: --rulings with a quote and a vault path adds the row, and the ro
 
 test("DISC-367: --rulings none-found needs --searched, and then the row says what was searched", () => {
   const text = "What colour should the new badge be?";
-  assert.equal(ask({ text, rulings: ["none-found"] }).ok, false);
+  assert.equal(rowAdd({ ...ASKROW, vault: mkVault(), text, rulings: ["none-found"] }).ok, false);
   const v = mkVault();
   const r = rowAdd({ ...ASKROW, vault: v, text, rulings: ["none-found"], searched: "docs/site card badge; grep badge in decisions + queue" });
   assert.equal(r.ok, true);
@@ -427,7 +443,7 @@ test("DISC-371: --searched too thin to say what was searched does not satisfy no
 
 // DISC-374: the link-ask --searched gets the same thin-value refusal as the ruling ask
 test("DISC-374: a thin --searched does not satisfy a link ask; a real one does", () => {
-  const base = { vault: mkVault(), prefix: "ZZ", to: "queue", text: "Please send the Figma link for the Wild case study", raised: "2026-11-25" };
+  const base = { vault: mkVault(), prefix: "ZZ", to: "queue", searched: SEARCHED, text: "Please send the Figma link for the Wild case study", raised: "2026-11-25" };
   for (const searched of ["x", "none", "grep done"]) {
     const r = rowAdd({ ...ASKROW, ...base, vault: mkVault(), searched });
     assert.equal(r.ok, false, searched);

@@ -41,6 +41,9 @@ cherry-picking sections is a red finding.
   Claude browser tools, Playwright console capture, or Next `next-devtools-mcp`
   `get_errors`. Skip when the diff is discipline-only, docs-only, vault-only, or has no
   UI/runtime surface (same skip class as CWV).
+- **A new component- or page-level override of a design-system value** (a different token
+  than the system binds, a re-pointed alias or a raw value) — red, whatever the look
+  (`2026-11-21-s104-no-overrides-in-product-code`). Illustration artwork is exempt.
 - **Trust-boundary change without security pass/fail** on the touched path — apply
   `code-minimalism` safety floor (validation, secrets, injection), not a generic OWASP lecture.
 
