@@ -31,6 +31,7 @@ function fixtureVault(records) {
       "name: fixture",
       ...(rec.encoded == null ? [] : [`encoded: ${rec.encoded}`]),
       ...(rec.retires == null ? [] : [`retires: ${rec.retires}`]),
+      ...(rec.budget == null ? [] : [`budget: ${rec.budget}`]),
       "---",
       "",
       "body",
@@ -393,4 +394,31 @@ test("five queued records make a release due, four do not", () => {
     assert.equal(r.ok, true, "a due release is a prompt, never a failure");
     assert.match(formatLedgerReport(r, root), /release due: 5 queued/);
   });
+});
+
+test("a record dated from 2026-11-27 and encoded in a release needs a budget line", () => {
+  withVault(
+    {
+      "fleet/lessons/2026-11-27-new.md": "1.210.0",
+      "fleet/lessons/2026-11-26-old.md": "1.209.0",
+      "fleet/lessons/undated.md": "1.209.0",
+      "fleet/lessons/2026-11-27-queued.md": "queued",
+    },
+    (root) => {
+      const r = lintLessonLedger(root);
+      assert.equal(r.ok, false);
+      assert.deepEqual(r.invalid.map((i) => i.file.split("/").pop()), ["2026-11-27-new.md"]);
+      assert.match(formatLedgerReport(r, root), /budget:/);
+    },
+  );
+});
+
+test("budget: retires(<rule>) or none(<reason>) satisfies the rule budget; a bare or empty value does not", () => {
+  const rec = (budget) => ({ "fleet/lessons/2026-11-28-x.md": { encoded: "1.210.0", budget } });
+  for (const good of ["retires(HARD-RULES.md rule 14)", "none(no rule added, a script change)"]) {
+    withVault(rec(good), (root) => assert.equal(lintLessonLedger(root).ok, true, good));
+  }
+  for (const bad of ["yes", "retires()", "none( )", "retires"]) {
+    withVault(rec(bad), (root) => assert.equal(lintLessonLedger(root).ok, false, bad));
+  }
 });
