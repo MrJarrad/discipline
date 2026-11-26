@@ -79,10 +79,6 @@ For a single assertion, inline it. Once a flow is exercised by several tests, ex
 - Viewport(s) actually tested — never claim cross-viewport coverage you didn't run.
 - Any masks/mocks and *why* (what non-determinism they neutralize).
 
-## Pixel proof
-
-A test that proves how a UI looks asserts on pixels, never DOM state alone; how, per device, in [references/PIXEL-PROOF.md](references/PIXEL-PROOF.md).
-
 ## Anti-patterns
 
 - A "test" that navigates and screenshots but never `expect()`s anything — that's `agent-browser` wearing a test's clothes; it can't fail, so it proves nothing.

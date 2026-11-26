@@ -56,12 +56,11 @@ test("DISC-246: the verdict block reviewer.md § Verdict asks for is the one rev
 
 // DISC-255: backlog upkeep is mechanical. The wrap step runs wrap-gate and does not finish on exit 1;
 // PRs cannot open without a row id (pr-row-gate, registered in hooks.json).
-test("DISC-255: wrap runs wrap-gate and does not finish on exit 1; pr-row-gate is registered", () => {
+test("DISC-255: wrap runs wrap-gate and does not finish on exit 1", () => {
   const w = flat("skills/wrap/references/REPORT-AND-LEARN.md");
   assert.ok(w.includes("wrap-gate.mjs --vault <vault> --projects <this session's prefixes>"));
   assert.ok(w.includes("**The session does not wrap on exit 1**"));
   assert.ok(w.includes("Exit 0 is the only way into the wrap report."));
-  assert.match(readFileSync(join(root, "hooks/hooks.json"), "utf8"), /"matcher": "mcp__github__create_pull_request"[\s\S]{0,200}pr-row-gate\.mjs/);
 });
 
 // DISC-258 amber 3 (review of #142): the verdict-shape paragraph names the list/quote markers the gate accepts.

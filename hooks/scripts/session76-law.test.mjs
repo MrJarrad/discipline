@@ -33,11 +33,9 @@ test("s76 4: the brief length target excludes the House rules block; the gate ha
 test("s76 7: the reviewer brief carries the invoke-for-real wording", () => {
   has("skills/dispatch-brief/SKILL.md", "invoke each skill with the Skill tool, for real");
 });
-test("DISC-284: wrap names the guard fix and the auto-mode allow rule with its location", () => {
+test("DISC-284: wrap names the auto-mode allow rule with its location", () => {
   const w = "skills/wrap/references/CLOSING-CHECKS.md";
-  has(w, "the plugin guard, which counts reads made by this session's subagents");
   has(w, '`{"permissions": {"allow": ["mcp__claude-code-remote__archive_session"]}}`');
   has(w, "the vault's `.claude/settings.json`");
   has(w, "DON'T: leave landed helpers in the sidebar for the operator to clear");
-  has("hooks/bin/archive-guard.mjs", "reads made by a subagent of this same session count");
 });

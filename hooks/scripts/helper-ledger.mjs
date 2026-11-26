@@ -15,8 +15,24 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classify } from "./helper-sweep.mjs";
 import { extractJson } from "./lib/extract-json.mjs";
-import { listed, prName, isOurs } from "../bin/archive-guard.mjs";
 import { laneKeys, mentions } from "./lib/lane-key.mjs";
+
+/* Only PRs in this owner's repos count; a generic branch name matches other people's public PRs. */
+const OWNER = "mrjarrad";
+const isOurs = (p) => { const m = /github\.com\/(?:repos\/)?([\w.-]+)\//.exec(p?.html_url || p?.url || ""); return !m || m[1].toLowerCase() === OWNER; }; /* no readable owner: kept */
+/* The PRs of an untruncated search object, or null. */
+function listed(text) {
+  const j = extractJson(text);
+  if (!j || typeof j !== "object" || Array.isArray(j) || !Array.isArray(j.items)) return null;
+  if (j.incomplete_results === true || typeof j.total_count !== "number" || j.total_count > j.items.length) return null;
+  return j.items;
+}
+/* "owner/repo#n" for a search item (its URL when it is not a pull URL). */
+function prName(p) {
+  const url = p?.html_url || p?.url || `#${p?.number ?? "?"}`;
+  const m = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/.exec(url);
+  return m ? `${m[1]}#${m[2]}` : url;
+}
 
 const isArchived = (x) => /ARCHIVED/.test(x.session_status || "");
 const isHelper = (x) => Boolean(x.parent_session_id) && /^Helper ·/.test(x.title || "");

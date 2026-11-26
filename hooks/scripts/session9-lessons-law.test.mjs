@@ -11,22 +11,9 @@ import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the l
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => readLoaded(repo, p);
 
-test("visual bug on any device or browser: picture first, cheap causes, re-derive from the picture", () => {
+test("diagnosing-bugs description fires on visual bugs", () => {
   const d = read("skills/diagnosing-bugs/SKILL.md");
-  assert.match(d, /## Visual bugs: the picture first/);
-  assert.match(d, /on any device or browser/);
-  assert.match(d, /what is painted on top, in order, before any theory/);
-  assert.match(d, /stacking\/z-index, clipping, an ancestor's opacity/);
-  assert.match(d, /re-derive from the picture, not from the last theory/);
   assert.match(d.split("---")[1], /any visual bug/, "the description fires on visual bugs");
-});
-
-test("pixels, never DOM state; headless is not the device; device-tests named", () => {
-  const w = read("skills/webapp-testing/SKILL.md");
-  assert.match(w, /never from DOM state alone/);
-  assert.match(w, /DOM probes explain a pixel failure, they never pass one/);
-  assert.match(w, /A third headless-only round is a routing failure/);
-  assert.match(w, /MrJarrad\/jhd-device-tests/);
 });
 
 test("motion: name the model before tuning; signs verified on the render", () => {

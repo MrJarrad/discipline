@@ -145,7 +145,7 @@ the rule and the row shape:
 
 | Contract | One item is | Skill |
 | --- | --- | --- |
-| Design Handoff export pair | every node id in scope, plus composition per page × state × device | `handoff-to-code` (`references/coverage-ledger.md`) |
+| Design Handoff export pair | every node id in scope, plus composition per page × state × device | `handoff-to-code` |
 | A live Figma file + node | every node read under the named file+node | `capture-figma` |
 | A captured website | every captured region and measured token | `capture-website` |
 | A motion source | every cue and its timing | `capture-motion-source` |

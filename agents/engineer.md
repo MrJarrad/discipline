@@ -113,8 +113,7 @@ Under a **Source contract** (a Design Handoff export) an item is a node: `node i
 token/class (codeSyntax.WEB) · built at file:line · measured value · status`, one row per node
 id in scope plus one per lock row, and when the export ships layout examples you derive a
 **page × state × device → visible set** table before building and check composition against
-it. House law, whole: `skills/handoff-to-code/references/coverage-ledger.md` (operator ruling
-2026-09-20, `accuracy-before-the-link`).
+it.
 
 **`status: match` means you saw it paint.** Each built region carries a headed screenshot at
 the operator's viewport and at each breakpoint family with a pixel assertion on that region; a

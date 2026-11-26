@@ -47,6 +47,3 @@ test("DISC-290: wrap clears ticked Waiting on you items whose row is closed, as 
   has("skills/wrap/references/SECTIONS.md", "`clearAtWrap` also holds ticked \"Waiting on you\" items whose row is closed (DISC-290)");
   has("hooks/scripts/queue-page-sync.mjs", "if (ticked && !open.has(id)) plan.clearAtWrap.push(line.trim());");
 });
-test("DISC-292: only a write form on the cockpit counts as a cockpit write", () => {
-  has("hooks/bin/helper-sweep-stop.mjs", "&& writesCockpit(inp.command))");
-});

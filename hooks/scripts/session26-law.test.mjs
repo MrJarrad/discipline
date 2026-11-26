@@ -30,10 +30,6 @@ test("DISC-173: never author the operator's words, in doer-rules, pointed at fro
   assert.match(flat("doer-rules.md"), /Never author text that claims to be the operator's words.*offer the wording in chat for him to paste/);
   assert.match(flat("skills/routing/SKILL.md"), /20\. \*\*Never author the operator's words\*\* \(`doer-rules\.md` § Repo and safety\)/);
 });
-test("DISC-174: environment facts in cloud-dispatch failure modes", () => {
-  assert.match(flat("skills/cloud-dispatch/SKILL.md"), /references\/ENVIRONMENT-FACTS\.md/);
-  assert.match(flat("skills/cloud-dispatch/references/ENVIRONMENT-FACTS.md"), /one secret per host.*second secret for `api\.cloudflare\.com` is ignored.*build logs need a user token.*secrets load only at session start/);
-});
 test("DISC-175: helper sessions archived at lane end, owner HARD-RULES 19", () => {
   assert.match(flat("skills/routing/references/HARD-RULES.md"), /19\. \*\*Helper sessions are archived once their lane lands\*\*.*`archive_session`.*superseded round's helper is archived then/);
   assert.match(flat("skills/routing/SKILL.md"), /archive its helper \(rule 19\)/);

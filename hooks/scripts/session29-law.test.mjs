@@ -47,11 +47,6 @@ test("numbered rulings are checked for collisions before banking", () => {
   assert.match(flat("skills/vault-write/references/WRITING.md"), /A numbered ruling in a decisions log \(`G18`\) is grepped for its number in that file before banking; a used number takes the next free one/);
 });
 test("measure motion on the deployed page honestly: webapp-testing", () => {
-  const w = flat("skills/webapp-testing/SKILL.md");
-  assert.match(w, /install a fake clock \*\*before\*\* `goto`, and pause from the page's own time/);
-  assert.match(w, /report the subject's travel \(x\/y range\) with every run/);
-  assert.match(w, /count only what shows by the page's own visibility rule/);
-  assert.match(w, /run the measure on a known-good build first: it must read the known answer before its number is trusted/);
   assert.match(flat("skills/webapp-testing/references/DOS-AND-DONTS.md"), /Don't install a fake clock mid-session/);
 });
 test("measure motion on the deployed page honestly: test-first fixtures", () => {

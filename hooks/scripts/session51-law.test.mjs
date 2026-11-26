@@ -35,12 +35,6 @@ test("DISC-223.3: Figma spec text goes through figma.spec only — one home in L
   assert.ok(flat("skills/capture-figma/SKILL.md").includes("Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) § No-export lanes."), "SKILL points at the one home");
 });
 
-test("DISC-223.4: preview builds are spaced — release-deploy, beside Workers Builds", () => {
-  const s = flat("skills/release-deploy/SKILL.md");
-  assert.ok(s.includes("Previews build on Cloudflare Workers Builds. **Space preview builds**: three or more overlapping branch builds hit Cloudflare's R2 API rate limit (429) and fail with no code change."));
-  assert.ok(s.includes("Start the next build once the one before it finishes, and re-run a red build once the others are done (`overload-and-untested-live-2026-10-15` item 3)."));
-});
-
 test("DISC-224 A: notes-only vault PRs are proven by vault-pr-files, names only — HARD-RULES 6", () => {
   const s = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(s.includes("a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this; `<plugin>` as an absolute path, the one the gate's refusal prints) or by `get_files` reads"));

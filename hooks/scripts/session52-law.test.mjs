@@ -113,10 +113,6 @@ test("s45.4 and s46.2: Mac jobs — review-first folder, throwaway clone, remote
   assert.ok(flat("skills/cloud-dispatch/SKILL.md").includes("**Review-first jobs and repo checkouts** follow [MAC-JOBS.md](MAC-JOBS.md) (s45, s46)."), "the pointer moved with its section to references/CLOUD-FIRST.md");
 });
 
-test("s45.5: the next \"build now\" waits for the previous PR's Workers comment — release-deploy", () => {
-  assert.ok(flat("skills/release-deploy/SKILL.md").includes("the next waits until the previous PR's Workers comment reports, never on the helper's \"pushed\" (s45: two overlapping builds)"));
-});
-
 test("s46.1: a read-only task goes to cloud too — HARD-RULES 9", () => {
   assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("A read-only task (research, reading files, a search) needs none of the three, so it goes to cloud too: an `Agent` call from the parent runs local."));
 });

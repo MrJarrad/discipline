@@ -26,9 +26,8 @@ test("canvas chrome tier and relayed-feedback rules", () => {
   assert.match(flat("skills/design-system/references/components.md"), /Chrome drawn in the Canvas board document.*resolves the board window's tier.*Pin the tier/);
   assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /Relayed operator feedback is banked as its final state with the whole sequence verbatim.*stop and report/);
 });
-test("cloud preview placeholder and shared DS root", () => {
+test("cloud preview placeholder", () => {
   assert.match(flat("skills/present-for-review/references/PREVIEW-PROBE.md"), /push-time placeholder.*Version ID:/);
-  assert.match(flat("skills/cloud-dispatch/references/ENVIRONMENT-FACTS.md"), /shared DS root.*own DS worktree.*rev-parse HEAD.*detached at `origin\/main`/);
 });
 test("look-yes merge runs every test that renders the touched component", () => {
   assert.match(flat("skills/routing/references/HARD-RULES.md"), /git grep -l <ComponentName> -- '\*\.test\.\*'.*not a hand-picked directory/);

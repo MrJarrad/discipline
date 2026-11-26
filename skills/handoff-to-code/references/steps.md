@@ -357,8 +357,7 @@ An empty table means every item was built exactly — the expected outcome, not 
 A schema-v9 brief adds hints beyond `col-span N/M` — grid `col()`/`row()`, `aspect`,
 `semantic`, `interactive`, `states`, `a11y`, `position`, `@container`, `desc` — each one
 mechanism rule. Full table and grammar: `references/schema-v9-hints.md`
-(`schema/design-handoff.v9.grammar.md` is the grammar it reads). Worked read:
-`references/worked-example.md`. Rename ids and prop schemas: `references/export-shape.md`.
+(`schema/design-handoff.v9.grammar.md` is the grammar it reads). Rename ids and prop schemas: `references/export-shape.md`.
 
 ## Style classes (export schema 12+, 2026-09-12)
 

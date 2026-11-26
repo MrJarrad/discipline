@@ -88,19 +88,6 @@ test("(N1) a gate that cannot load merge-after-review.mjs fails closed instead o
 });
 
 const LESSON = "2026-10-18-text-wrap-reproduce-the-real-gesture";
-test("(lesson 1,2) webapp-testing: motion probes carry a hover-wobble and a scroll segment; fixtures include a tall-type case", () => {
-  has("skills/webapp-testing/SKILL.md", "**Probe the operator's gestures and the page's real type**");
-  has("skills/webapp-testing/SKILL.md", "hover-wobble segment");
-  has("skills/webapp-testing/SKILL.md", "a scroll segment beside travel");
-  has("skills/webapp-testing/SKILL.md", "tall-type case");
-  has("skills/webapp-testing/SKILL.md", LESSON);
-});
-
-test("(lesson 3) diagnosing-bugs: a pixel measure of a recording is validated on a known-calm reference first", () => {
-  has("skills/diagnosing-bugs/SKILL.md", "is validated first on a known-calm reference, such as a plain window resize");
-  has("skills/diagnosing-bugs/SKILL.md", LESSON);
-});
-
 test("(lesson 4) grilling: any motion feature starts by asking for the reference behaviour", () => {
   has("skills/grilling/SKILL.md", "On any motion feature the first question asks for the reference behaviour itself");
   has("skills/grilling/SKILL.md", LESSON);

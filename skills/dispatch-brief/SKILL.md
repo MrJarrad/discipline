@@ -15,8 +15,7 @@ description: >-
 **The brief carries the operator's words, never the parent's guesses**: the operator's
 words and images are the contract, quoted verbatim; no invented numbers; outcomes and
 their measurement, never mechanisms; a confirmed read-back (`grilling`) is quoted in the
-brief for any visual note; the parent's own additions are prefixed "parent:". Full rule
-and checklist: [BRIEF-WORDS.md](references/BRIEF-WORDS.md).
+brief for any visual note; the parent's own additions are prefixed "parent:".
 
 Doer-blind facts: [BRIEF-CRAFT.md](references/BRIEF-CRAFT.md).
 
@@ -55,8 +54,7 @@ copy overrides. A brief that paraphrases the export instead of pointing at it is
 - AC-S: every node, token, copy string and annotation in the export is built; deviations listed as defects
 ```
 
-The doer loads **`handoff-to-code`** under a Source contract, plus the house ledger overlay
-`skills/handoff-to-code/references/coverage-ledger.md`.
+The doer loads **`handoff-to-code`** under a Source contract.
 
 **One contract unit per lane, always** — one export `COMPONENT_SET`, one captured page, one
 component. A brief covering more than one is malformed at any model; the parent slices, one

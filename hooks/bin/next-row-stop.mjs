@@ -6,7 +6,7 @@
    latest run printed `UNDER TARGET by`, a dispatch (Agent, create_session, Workflow) must follow it, or the run is
    repeated with `--reason "why"`, which exits 0. Held at most once (stop_hook_active -> allow); a read or parse error, no
    vault, a wrapped session, or a cloud helper (marker file) -> silent exit 0. Own file and functions: it shares nothing with
-   lane-capacity-stop.mjs or helper-sweep-stop.mjs.
+   lane-capacity-stop.mjs.
    What it enforces (review of #225, AMBER 1): the FIRST hold. The usual flow is wake, no run, first Stop blocks, the parent runs
    next-row.mjs and sees UNDER TARGET; that second Stop arrives with stop_hook_active and is allowed, so starting the rows is
    not checked there. The first hold's reason therefore says "run it AND start its rows now"; the dispatch check below bites

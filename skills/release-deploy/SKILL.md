@@ -113,7 +113,7 @@ release's work product. An unticked checklist is not a release — it's a plan.
 **Gate shape, every private repo** (ruling `no-paid-github`, `doer-rules.md` § CI): no
 GitHub Actions run — workflows are manual-only. The release gate is the full suite passing
 in a cloud gate-run lane, install→typecheck→test→lint→build once, with its tail posted on
-the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on Cloudflare Workers Builds; spacing overlapping builds, the serial hand-out and why a cloud session cannot publish one itself: [references/PREVIEW-BUILDS.md](references/PREVIEW-BUILDS.md).
+the PR (`doer-rules.md` § Gate-run tail) for the exact commit released. Previews build on Cloudflare Workers Builds.
 
 ## Release path
 

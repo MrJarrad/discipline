@@ -484,18 +484,6 @@ test("prompt-craft states outcome altitude for look work, mechanism offered only
   assert.match(prompt, /one\s*option, not required/i);
 });
 
-test("grilling makes the read-back mandatory for any brief interpreting a visual note", () => {
-  const grilling = flat(read("skills/grilling/SKILL.md"));
-  assert.match(
-    grilling,
-    /Any brief that interprets a look note is played\s*back to the operator in plain words \*\*before\*\* dispatch/i,
-  );
-  assert.match(
-    grilling,
-    /confirmed read-back.*is quoted verbatim as the brief's contract line/i,
-  );
-});
-
 test("the reviewer flags a brief target with no source", () => {
   carries(
     "agents/reviewer.md",
@@ -559,30 +547,6 @@ test("each contract skill points at the ledger without restating it", () => {
   ]) {
     assert.match(flat(read(file)), /`qa-acceptance` § The coverage ledger/, `${file} does not point at the ledger`);
   }
-});
-
-test("handoff-to-code's house overlay carries the node ledger, the mode rule and the composition table", () => {
-  const overlay = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
-  assert.match(overlay, /\*\*Every node id in scope gets one row, written before any code is written\.\*\*/);
-  assert.match(overlay, /\*\*A node in scope with no row is red\*\*/);
-  assert.match(overlay, /\| page \| state \| device \| visible set \|/);
-  assert.match(
-    overlay,
-    /\*\*The layout-example export pair is a required input to every component-set lane that has one\.\*\*/,
-  );
-  assert.match(overlay, /no example pair named while one exists is a malformed brief/);
-  assert.match(overlay, /\*\*Scope stops at an `◆instance of` boundary\*\* — the instance is one row/);
-  assert.match(overlay, /carries a row per mode — or a mode column with every mode filled/);
-});
-
-test("DISC-270: the overlay puts exposed nested-instance properties and placed-instance settings in the ledger", () => {
-  const overlay = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
-  assert.match(overlay, /\*\*Exception: the properties of exposed nested instances and the settings of placed instances are in scope\*\*/);
-  assert.match(overlay, /a property the design source's panel shows is never outside the boundary/);
-  const oneB = overlay.slice(overlay.indexOf("## 1b."), overlay.indexOf("## 2."));
-  assert.match(oneB, /exposed nested-instance property gets its own row, with its nesting path/);
-  assert.match(oneB, /placed-instance setting the layout changes gets a row keyed by instance node id and property/);
-  assert.match(oneB, /missing row is red/);
 });
 
 test("DISC-270: the mirrored SKILL.md carries the schema-17 and schema-18 ledger rules", () => {
@@ -997,13 +961,6 @@ test("doer-rules.md places the progress-file rule after the read-back step", () 
   const progressIdx = dr.indexOf("Progress is a file, with a clock");
   assert.ok(readBackIdx !== -1 && progressIdx !== -1, "both clauses present");
   assert.ok(progressIdx > readBackIdx, "progress-file rule must follow the read-back step");
-});
-
-test("doer-rules.md states the 30-minute no-milestone cap", () => {
-  // 1.92.0 Change 4: sharpened into a two-stage clock (15-minute worktree
-  // read, 30-minute stop); the 30-minute phrase now sits mid-sentence.
-  carries("doer-rules.md", "no new milestone for 30 minutes");
-  carries("doer-rules.md", "the parent stops the lane and re-briefs a fresh agent from the last recorded milestone");
 });
 
 // --- dispatch-brief: the ## Progress path field -----------------------------
@@ -1717,19 +1674,6 @@ test("qa-acceptance/SKILL.md's ledger row shape carries a mode column", () => {
 
 // --- handoff-to-code overlay: each class specialised for an export ---------
 
-test("handoff-to-code coverage-ledger.md specialises all eight classes for an export", () => {
-  const doc = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
-  for (const cls of EIGHT_CLASSES) {
-    assert.ok(doc.includes(cls), `coverage-ledger.md missing row class: ${cls}`);
-  }
-  assert.match(doc, /block export \*\*and\*\*\s*its layout examples, export vs\s*built, \*\*per route\*\*/);
-  assert.match(
-    doc,
-    /every node id present in the\s*prior export and \*\*absent\*\* in the new one, sourced from the changelog/,
-  );
-  assert.match(doc, /\*\*one row per Interaction\/Development note\*\*/);
-});
-
 // --- reviewer.md: stratified spot check -------------------------------------
 
 test("agents/reviewer.md samples the coverage ledger across classes, not from one", () => {
@@ -1941,12 +1885,6 @@ test("the House rules block names the real paths and every named area", () => {
 
 // --- Change 2: frame-first proof --------------------------------------------
 
-test("handoff-to-code's coverage-ledger.md carries frame-first proof after the yes (1.123.0; was before any link)", () => {
-  const doc = flat(read("skills/handoff-to-code/references/coverage-ledger.md"));
-  assert.match(doc, /After the operator's yes, the return carries a side-by-side/);
-  assert.match(doc, /reviewer checks the ledger against the export JSON's node list/);
-});
-
 test("agents/reviewer.md checks the ledger against the export JSON's node list", () => {
   const doc = flat(read("agents/reviewer.md"));
   assert.match(doc, /Under a Source contract, the ledger is checked against the export JSON's node list/);
@@ -1970,7 +1908,6 @@ test("doer-rules.md's progress-file rule stamps the dispatch time and quotes it 
   const doc = flat(read("doer-rules.md"));
   assert.match(doc, /Its first line\s*stamps the dispatch time/);
   assert.match(doc, /quoting the dispatch time against the last milestone/);
-  assert.match(doc, /No new\s*milestone for 15 minutes/);
 });
 
 test("routing's baton table has a 15-minute row alongside the 30-minute row", () => {
@@ -2680,9 +2617,7 @@ test("SKILL.md: a headless/default run is named a floor, not proof", () => {
 
 test("SKILL.md points at both new references files, and both exist", () => {
   const doc = read("skills/media-loading/SKILL.md");
-  assert.match(doc, /references\/PATTERNS\.md/);
   assert.match(doc, /references\/PROBE\.md/);
-  assert.ok(existsSync(join(repo, "skills", "media-loading", "references", "PATTERNS.md")));
   assert.ok(existsSync(join(repo, "skills", "media-loading", "references", "PROBE.md")));
 });
 

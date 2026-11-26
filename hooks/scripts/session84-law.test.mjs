@@ -10,8 +10,8 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
-test("s84 1: a gate-tightening PR states the per-use cost, and pr-row-gate refuses it without", () => {
-  assert.ok(flat("skills/agent-ops/references/DOS-AND-DONTS.md").includes("A PR about a gate or guard carries `Per-use cost: <calls one use takes now, and before>`; `pr-row-gate.mjs` refuses it without."));
+test("s84 1: a gate-tightening PR states the per-use cost", () => {
+  assert.ok(flat("skills/agent-ops/references/DOS-AND-DONTS.md").includes("A PR about a gate or guard carries `Per-use cost: <calls one use takes now, and before>`."));
 });
 
 test("s84 2: a design-system merge that changes a portfolio-used API is followed in the same session by the pin bump", () => {

@@ -1115,7 +1115,7 @@ export function currentLoadWarning() {
 
    `sessionId` (reviewer round 2 red: cross-session leak) is the PARENT
    session's own `session_id` — a field every hook input carries — stamped
-   onto the row so `progress-registry-check.mjs` can later report ONLY to
+   onto the row so a registry reader can report ONLY to
    the session that owns it. Without this a dispatched DOER's own session
    (a different `session_id`, hit by the same process-level `PostToolUse`/
    `UserPromptSubmit` wiring) could see status lines about lanes that are

@@ -12,10 +12,8 @@ const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 const HS = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
 const WR = "skills/vault-write/references/WRITING.md";
 
-test("s61 1: every helper passes permission_mode auto, and a hook denies create_session without one", () => {
+test("s61 1: every helper passes permission_mode auto", () => {
   has(HS, 'Pass `permission_mode: "auto"` on every helper');
-  const hooks = JSON.parse(readFileSync(join(root, "hooks/hooks.json"), "utf8")).hooks.PreToolUse;
-  assert.ok(hooks.some((h) => h.matcher === "mcp__claude-code-remote__create_session" && h.hooks.some((x) => x.command.includes("helper-create-gate.mjs"))));
 });
 
 test("s61 3 / s63 1: briefs on vault main; never ask a helper to merge against its brief", () => {

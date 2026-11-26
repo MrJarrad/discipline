@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* The lane registry `progress-registry-check.mjs` reads and
+/* The lane registry
    `agent-dispatch-gate.mjs` writes to — makes the 15/30-minute parent-side
    check need no memory (`progress-hooks` fix round, 2026-09-27, coordinator:
    "progress-watch.mjs only runs if the parent remembers to start it, which
@@ -31,8 +31,7 @@
    already tracks in memory; this registry is that same state, persisted.
 
    Root cause fixed here (bugs found running 1.98.0, 2026-09-28): every
-   writer — `agent-dispatch-gate.mjs` (register), `progress-registry-check.mjs`
-   (PostToolUse/UserPromptSubmit, matcher `*` — fires on EVERY tool call, in
+   writer — `agent-dispatch-gate.mjs` (register) and the other registry hooks (fire on EVERY tool call, in
    the parent session AND inside every dispatched doer's own session) and
    `progress-registry-cleanup.mjs` (SubagentStop) — did an unsynchronized
    `loadRegistry() -> mutate one row -> saveRegistry(wholeArray)`. With many
@@ -43,7 +42,7 @@
    a classic lost-update race. Proved directly: 30 processes each adding one
    row to an empty registry via the old unsynchronized pattern left as few as
    8 of 30 rows. This explains both symptoms: a `SubagentStop` cleanup's
-   row-removal getting undone by a `progress-registry-check` write that read
+   row-removal getting undone by another hook's write that read
    the registry a moment earlier (rows never removed), and a `fired` update
    getting reverted by another concurrent write that read the pre-update
    state for the same row (15/30-minute tiers re-arming on every call).

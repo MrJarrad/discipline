@@ -53,13 +53,11 @@ import { discoverFiles, parseId, tableRows } from "./lib/queue-ids.mjs";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
 
 /* DISC-325: the ordered calls that archive landed sessions in the turn the lane lands. A script cannot make the MCP calls, so
-   it prints them in the order archive-guard.mjs accepts: every get_session first (a lookup made before one is refused), then
-   one archive-prep per session (the branches come from its get_session), then every archive_session. */
+   it prints them: every get_session first, then every archive_session. */
 export function archiveSequence(ids, scriptDir) {
   return [
     ...ids.map((id) => `  1. get_session ${id}`),
-    ...ids.map((id) => `  2. node "${join(scriptDir, "archive-prep.mjs")}" --session ${id} --branches <branches get_session shows, comma list; omit if none>`),
-    ...ids.map((id) => `  3. archive_session ${id}`),
+    ...ids.map((id) => `  2. archive_session ${id}`),
   ];
 }
 
@@ -296,7 +294,7 @@ function main() {
   if (args.helper && args.helper !== true) {
     const ids = String(args.helper).split(",").map((x) => x.trim()).filter(Boolean);
     appendFileSync(join(args["session-dir"], "landed-helpers"), ids.map((id) => `${id}\n`).join(""));
-    console.log(`lane-end: ${ids.join(", ")} landed — archive now, this turn (the sweep reads ${join(args["session-dir"], "landed-helpers")} with --landed as the backstop). Steps 1 for every session in parallel, then 2, then 3; stop on a refusal and name it:\n${archiveSequence(ids, scriptDir).join("\n")}`);
+    console.log(`lane-end: ${ids.join(", ")} landed — archive now, this turn (the sweep reads ${join(args["session-dir"], "landed-helpers")} with --landed as the backstop). Step 1 for every session in parallel, then 2; stop on a refusal and name it:\n${archiveSequence(ids, scriptDir).join("\n")}`);
   }
 
   // 4. Commit + push (queue file + evidence dir only, never a broad add).

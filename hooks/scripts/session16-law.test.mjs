@@ -72,11 +72,7 @@ test("quiet: wrap's last step stands the session down and never archives", () =>
   assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /a wrapped session takes no further action/);
 });
 
-test("ambers: frame-first proof follows the yes; the driven-row check is an after-yes proof", () => {
-  const l = flat("skills/handoff-to-code/references/coverage-ledger.md");
-  assert.match(l, /## 5\. Frame-first proof, after the yes/);
-  assert.doesNotMatch(l, /before any link/i);
-  assert.match(l, /present-for-review` § Before the link goes out \(the proof itself follows the yes\)/);
+test("ambers: the driven-row check is an after-yes proof", () => {
   const p = flat("skills/present-for-review/SKILL.md");
   assert.match(p, /\*\*The driven-row check follows the yes\*\*/);
   assert.doesNotMatch(p, /never presents UI whose controls were not operated/);

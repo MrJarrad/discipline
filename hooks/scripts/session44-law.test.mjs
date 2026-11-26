@@ -20,11 +20,8 @@ test("every create_session prompt opens with the run-it-now line and closes with
   assert.ok(r.includes('Every `create_session` brief closes with "Send the full return to the parent with send_message (session_id "@parent")."'));
 });
 
-test("the Stop hook is registered and named where helpers are dispatched", () => {
-  assert.match(read("hooks/hooks.json"), /"Stop"[\s\S]*parent-return-stop\.mjs/);
+test("the helper brief opener is named where helpers are dispatched", () => {
   assert.ok(flat(HR).includes('then the step "First run: mkdir -p ~/.claude && echo <parent id> > ~/.claude/helper-session"'));
-  assert.ok(flat(HR).includes("The Stop hook `parent-return-stop.mjs` holds a helper (marked by `~/.claude/helper-session`; no env var marks one, `CLAUDE_CODE_CHILD_SESSION=1` is set in the orchestrator too) once when its turn ends with a return and no `send_message`."));
-  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("the Stop hook `parent-return-stop.mjs` holds it once and asks for the send"));
 });
 
 test("the parent arms one send_later sweep per helper dispatch as the backstop", () => {

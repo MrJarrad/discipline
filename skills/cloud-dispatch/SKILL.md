@@ -142,4 +142,4 @@ never edited.
 
 ## Known failure modes
 
-When a cloud dispatch misbehaves (no output, a silent local fallback, a stuck or duplicated run), check the known failure modes and their fixes first: [references/FAILURE-MODES.md](references/FAILURE-MODES.md) (environment facts: [references/ENVIRONMENT-FACTS.md](references/ENVIRONMENT-FACTS.md)).
+When a cloud dispatch misbehaves (no output, a silent local fallback, a stuck or duplicated run), check the known failure modes and their fixes first: [references/FAILURE-MODES.md](references/FAILURE-MODES.md).
