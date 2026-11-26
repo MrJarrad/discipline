@@ -1,6 +1,8 @@
 // 1.162.0: DISC-224 — a notes-only vault PR is proven from local git, not from get_files pages.
 // vault-pr-files.mjs prints the PR's changed paths: GitHub's merge commit for the PR
 // (refs/pull/<n>/merge) against its first parent, the tip of whatever base the PR targets.
+// merge-review-gate accepts that result for MrJarrad/jhd-vault in place of get_files reads,
+// on the pinned head only, and only from its own sibling copy of the script.
 // Run: node --test hooks/scripts/vault-pr-files.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const script = join(root, "hooks/scripts/vault-pr-files.mjs");
+const gate = join(root, "hooks/bin/merge-review-gate.mjs");
 const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } }).trim();
 const put = (work, files, text) => { for (const f of files) { mkdirSync(dirname(join(work, f)), { recursive: true }); writeFileSync(join(work, f), text); } };
 
@@ -71,4 +74,67 @@ test("a --head that differs from the fetched head is refused: complete false", (
   const r = runScript(clone, "--head", "0".repeat(40)).vaultPrFiles;
   assert.equal(r.complete, false);
   assert.match(r.reason, /head/);
+});
+
+/* --- the gate ---------------------------------------------------------------------------- */
+const H = "bcf6540fc1159f87d0fc58e885fc8b71b0362275";
+const dir = mkdtempSync(join(tmpdir(), "vpfg-"));
+let n = 0;
+// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+const GREEN = [
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success", head_sha: "bcf6540fc1159f87d0fc58e885fc8b71b0362275" }] }) }] }] } },
+];
+const transcript = (command, stamp) => {
+  const p = join(dir, `t${n++}.jsonl`);
+  const lines = [
+    { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "b1", name: "Bash", input: { command } }] } },
+    { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "b1", content: JSON.stringify({ vaultPrFiles: stamp }) }] } },
+  ];
+  writeFileSync(p, [...lines, ...GREEN].map((l) => JSON.stringify(l)).join("\n") + "\n");
+  return p;
+};
+const RUN = `node ${script} --vault /v --pr 9`;
+const stamp = (extra = {}) => ({ pr: 9, head: H, files: ["projects/p/a.md"], complete: true, origin: "https://github.com/MrJarrad/jhd-vault", ...extra });
+const decide = (t, extra = {}) => {
+  const out = execFileSync(process.execPath, [gate], { input: JSON.stringify({ tool_name: "mcp__github__merge_pull_request", tool_input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, expectedHeadSha: H, ...extra }, transcript_path: t }), encoding: "utf8" });
+  return out.trim() ? JSON.parse(out).hookSpecificOutput : { permissionDecision: "allow" };
+};
+
+test("gate: a notes-only vault-pr-files result on the pinned head allows the merge with no get_files read", () => {
+  assert.equal(decide(transcript(RUN, stamp())).permissionDecision, "allow");
+  for (const origin of ["git@github.com:MrJarrad/jhd-vault.git", "https://github.com/mrjarrad/jhd-vault.git"])
+    assert.equal(decide(transcript(RUN, stamp({ origin }))).permissionDecision, "allow", origin);
+});
+
+test("gate: only the gate's own sibling script counts — a copy elsewhere, a relative path or a look-alike name is denied", () => {
+  const copy = join(mkdtempSync(join(tmpdir(), "vpf-copy-")), "vault-pr-files.mjs");
+  copyFileSync(script, copy);
+  for (const cmd of [`node ${copy} --vault /v --pr 9`, "node hooks/scripts/vault-pr-files.mjs --vault /v --pr 9", `node ${script.replace("vault-pr-files", "x-vault-pr-files")} --vault /v --pr 9`])
+    assert.equal(decide(transcript(cmd, stamp())).permissionDecision, "deny", cmd);
+});
+
+test("gate: a result from a clone whose origin is not MrJarrad/jhd-vault, or that names no origin, is not proof", () => {
+  for (const origin of ["https://github.com/someone/jhd-vault", "/tmp/fake/origin.git", "https://github.com/MrJarrad/jhd-vault-fork", undefined])
+    assert.equal(decide(transcript(RUN, stamp({ origin }))).permissionDecision, "deny", String(origin));
+});
+
+test("gate: a result for another head is not proof", () => {
+  assert.equal(decide(transcript(RUN, stamp({ head: "a".repeat(40) }))).permissionDecision, "deny");
+});
+
+test("gate: a result naming a non-notes path still needs a verdict", () => {
+  assert.equal(decide(transcript(RUN, stamp({ files: ["projects/p/a.md", "scripts/x.mjs"] }))).permissionDecision, "deny");
+});
+
+test("gate: an incomplete result, another PR's result, or one not printed by the script is not proof", () => {
+  assert.equal(decide(transcript(RUN, stamp({ complete: false }))).permissionDecision, "deny");
+  assert.equal(decide(transcript(RUN.replace("--pr 9", "--pr 8"), stamp({ pr: 8 }))).permissionDecision, "deny");
+  assert.equal(decide(transcript(`echo '${JSON.stringify({ vaultPrFiles: stamp() })}'`, stamp())).permissionDecision, "deny");
+  for (const tail of ["; echo x", " && echo x", " | tail -1", " $(echo x)", " `echo x`", " > /tmp/x", "\necho x"])
+    assert.equal(decide(transcript(RUN + tail, stamp())).permissionDecision, "deny", `chained: ${JSON.stringify(tail)}`);
+});
+
+test("gate: an unpinned merge is refused even with a notes-only result", () => {
+  assert.equal(decide(transcript(RUN, stamp()), { expectedHeadSha: undefined }).permissionDecision, "deny");
 });

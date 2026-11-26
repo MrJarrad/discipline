@@ -19,7 +19,8 @@ test("s74 2: in-session reviewer briefs carry no reviewer line", () => {
   has("skills/dispatch-brief/SKILL.md", "in-session (Agent) briefs say \"no `reviewer:` line; `merge:` last\"");
   has("skills/dispatch-brief/SKILL.md", "`reviewer: session_<id>` verbatim. Helper sessions only");
 });
-test("#168 amber 1: qa-acceptance points at its references", () => {
+test("#168 amber 1: the blend/filter/clip pixel rule lives in ACCURACY.md and qa-acceptance points at its references", () => {
+  has("skills/dispatch-brief/references/ACCURACY.md", "Inside a blend, filter or clip group, sample painted pixels at the operator's crop");
   has("skills/qa-acceptance/SKILL.md", "Read `references/DOS-AND-DONTS.md`.");
 });
 test("#168 amber 2: the row-edit rule sits outside the numbered list", () => {

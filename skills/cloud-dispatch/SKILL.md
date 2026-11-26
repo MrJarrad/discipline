@@ -23,7 +23,7 @@ it for the probe history; this skill states the procedure only.
 
 ## Cloud-first projects, Drop intake, the Mac bridge
 
-Which projects run cloud-first, how Drop uploads arrive and how Mac-only work crosses the bridge: [references/CLOUD-FIRST.md](references/CLOUD-FIRST.md). Read it before any Drop intake or Mac job.
+Which projects run cloud-first, how Drop uploads arrive and how Mac-only work crosses the bridge: [references/CLOUD-FIRST.md](references/CLOUD-FIRST.md). Read it before any Drop intake or Mac job ([references/MAC-JOBS.md](references/MAC-JOBS.md)).
 
 ## Session start in cloud — verify before the first lane
 
@@ -129,7 +129,7 @@ Before each heavy-lane dispatch (suite, build, browser; `routing` rule 15) the p
 one check: `df -h /home/user`, `du -sh` of the live worktrees, `uptime`, and the count of
 live heavy lanes. Over capacity means any of: free disk, after subtracting the largest live worktree, under 5 GB (dispatch here only if at least 5 GB remains), 1-minute load above `nproc`, or heavy lanes already at `nproc / 2`. Over: run the
 lane-end sweep (`routing` HARD-RULES 13), re-read, and if still over send the heavy lane to
-a child cloud session (`create_session`) carrying the brief (`routing` HARD-RULES 19). Do not queue it here; the
+a child cloud session (`create_session`) carrying the brief (`routing` HARD-RULES 19). Recipe: `references/HELPER-SESSIONS.md`. Repos and access: its §1. Do not queue it here; the
 operator is never asked to move sessions for disk or load. The shared DS root clone is never switched or
 regenerated in (`dispatch-brief` HOUSE-RULES). Thresholds adjustable, reason in the handover.
 

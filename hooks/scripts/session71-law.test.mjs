@@ -20,3 +20,7 @@ test("s71 3: a reviewer brief spells the verdict shape the merge gate parses", (
 test("s71 4: the house-rules block is pasted, never a token for it", () => {
   has("skills/dispatch-brief/references/HOUSE-RULES.md", "**Paste the block, never a token for it**");
 });
+
+test("s71 2: MAC-JOBS.md names the read-only version reads and the xcode exception", () => {
+  has("skills/cloud-dispatch/references/MAC-JOBS.md", "**A job reads versions without side effects**");
+});

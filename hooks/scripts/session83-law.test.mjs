@@ -17,6 +17,22 @@ test("s83 1: the verdict heading is spelled with the full 40-hex sha, and the pa
   assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("Re-read the PR's comments after the last post, then merge"));
 });
 
+test("s83 2: merging the PR that adds a review/ job is the go, after the operator's yes when it takes over the Mac", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Merging the PR that adds a `queue/mac/review/` job is the go** (s83): the runner reads `review/` on main within minutes, so no `git mv` to `pending/` follows. A job that takes over the Mac does not merge before the operator's yes."));
+});
+
+test("s83 3: cloud pushes branches, never tags or branch deletes; the tag goes as a Mac job", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**Cloud pushes branches, never tags or branch deletes** (s83): the proxy refuses both. A tag is a review-first Mac job at once, and the merged commit is pinned"));
+});
+
 test("s83 4: a plugin schema bump releases the checker first; shipped strings are checked at the source", () => {
   assert.ok(flat("skills/release-deploy/references/RELEASE-PATH.md").includes("A plugin's schema test reads the installed checker, so a schema bump ships only after the checker release is out."));
+});
+
+test("s83 5: a reviewer brief names the reviewer's own session id source", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("**A reviewer brief names the id to sign with** (s83: reviewers copied the parent's id from `~/.claude/helper-session` into `reviewer:`)"));
+});
+
+test("s83 6: a reinstall job says npm ci outright", () => {
+  assert.ok(flat("skills/cloud-dispatch/references/MAC-JOBS.md").includes("**A reinstall job says `npm ci` outright** (s83): \"`npm ci` only if missing\" left a 0.12.0 checker from an earlier install in place"));
 });

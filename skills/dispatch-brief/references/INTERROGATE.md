@@ -22,6 +22,10 @@ against a fixed set. Findings fix the brief; only then does the lane open.
 9. Is the size class named (`line | component | system`, `doer-rules.md` § Size class),
    and is the process the brief specifies proportionate to it?
 
+## Export deltas go to the operator before the build
+
+When a fresh export differs from what is live on an existing component, the brief's author lists the deltas as one operator row before the lane opens, not in a look round: the operator expected "just a name update" and was surprised by changes he had never been shown.
+
 ## Who runs it
 
 **Above line:** a read-only `haiku` agent, findings only, never `Agent`s further.

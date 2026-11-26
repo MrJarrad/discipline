@@ -91,7 +91,7 @@ export function macJobProblems(text) {
 
 /* DISC-233: the runner claims `queue/mac/pending/` on origin/main AND every origin/claude/* branch, so a
    job filed to pending/ from a review branch runs before its review PR merges. On any checkout that is
-   not main, a job belongs in `queue/mac/review/` until the PR merges. */
+   not main, a job belongs in `queue/mac/review/` until the PR merges (MAC-JOBS.md). */
 export function macJobPathProblems(file, branch) {
   // Absolute first: a relative `queue/mac/pending/j.md` has no leading slash and used to be skipped (DISC-258).
   const abs = resolve(String(file)).replace(/\\/g, "/");

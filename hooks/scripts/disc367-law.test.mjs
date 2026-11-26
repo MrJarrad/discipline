@@ -17,17 +17,19 @@ test("doer-rules.md owns the ruled-question rule and names its two enforcers", (
 });
 
 test("the owner is stated once: the pointers do not restate the rule", () => {
-  for (const f of ["skills/routing/references/OPERATOR-REPLIES.md"]) {
+  for (const f of ["skills/routing/references/OPERATOR-REPLIES.md", "skills/dispatch-brief/references/BRIEF-CRAFT.md"]) {
     assert.doesNotMatch(read(f), /never evidence of what was approved/i, f);
   }
 });
 
 test("each pointer reaches the owner", () => {
   assert.match(read("skills/routing/references/OPERATOR-REPLIES.md"), /`--rulings`/);
+  assert.match(read("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /docs\/site\/cards/);
 });
 
-test("the card gate runs on the merge call", () => {
+test("the card gate runs on the merge call, beside the review gate", () => {
   const h = JSON.parse(read("hooks/hooks.json")).hooks.PreToolUse.find((e) => e.matcher === "mcp__github__merge_pull_request");
   const cmds = h.hooks.map((x) => x.command).join(" ");
+  assert.match(cmds, /merge-review-gate\.mjs/);
   assert.match(cmds, /card-gate-merge\.mjs/);
 });

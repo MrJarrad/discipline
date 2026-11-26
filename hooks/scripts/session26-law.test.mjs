@@ -9,10 +9,15 @@ import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the l
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
-test("DISC-169: fix rounds change only what the operator named (HARD-RULES 18, engineer, routing 18)", () => {
+test("DISC-169: fix rounds change only what the operator named (HARD-RULES 18, BRIEF-CRAFT 18, engineer, routing 18)", () => {
   assert.match(flat("skills/routing/references/HARD-RULES.md"), /18\. \*\*A fix round changes only what the operator named\*\*.*`Stays the same` list.*mechanism.*waits for the operator's yes first/);
+  assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /18\. \*\*A fix-round brief lists what stays the same\*\*/);
   assert.match(flat("agents/engineer.md"), /fix round's read-back also lists what stays the same/);
   assert.match(flat("skills/routing/SKILL.md"), /18\. \*\*Fix rounds change only what the operator named\*\* \(HARD-RULES 18\)/);
+});
+test("DISC-171: builds-check is a named mechanical script and a probe step", () => {
+  assert.match(flat("skills/routing/references/MECHANICAL-SCRIPTS.md"), /builds-check\.mjs <repo>.*exit 0 none, 1 active.*2 refused/);
+  assert.match(flat("skills/present-for-review/references/PREVIEW-PROBE.md"), /7\. Before a push, ask Cloudflare.*builds-check\.mjs/);
 });
 test("DISC-172: release path, drafts, one gate-run tail format", () => {
   const t = flat("skills/release-deploy/references/RELEASE-PATH.md");

@@ -29,6 +29,7 @@ test("link-first: gates sized to the diff, one heavy job per cloud container", (
 
 test("link-first: dispatch-brief done-when, present-for-review, routing baton, qa-acceptance, output style, engineer agree", () => {
   assert.match(flat("skills/dispatch-brief/SKILL.md"), /the preview built, published, opening hydrated, no error, link sent/);
+  assert.match(flat("skills/dispatch-brief/references/ACCURACY.md"), /run \*\*after the operator's yes\*\*/);
   assert.match(flat("skills/routing/SKILL.md"), /link when preview opens \(`link-first-look-rounds`\); proof, merge on yes/);
   assert.match(flat("skills/qa-acceptance/SKILL.md"), /pixel proof run after the operator's yes/);
   assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /never waits on review or pixel proof/);

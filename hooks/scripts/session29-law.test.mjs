@@ -40,6 +40,9 @@ test("use_figma annotation writes walk to the outermost instance", () => {
 test("a headless deployed probe follows the yes, never holds the link", () => {
   assert.match(flat("doer-rules.md"), /\*\*scenario sweeps\*\*, \*\*headless deployed probes\*\*.*run \*\*after his yes\*\*/);
 });
+test("sound is judged by ear first", () => {
+  assert.match(flat("skills/qa-acceptance/SKILL.md"), /Sound is judged by ear first.*The operator.s listen is the first gate; offer the original asset early/);
+});
 test("numbered rulings are checked for collisions before banking", () => {
   assert.match(flat("skills/vault-write/references/WRITING.md"), /A numbered ruling in a decisions log \(`G18`\) is grepped for its number in that file before banking; a used number takes the next free one/);
 });
@@ -50,6 +53,9 @@ test("measure motion on the deployed page honestly: test-first fixtures", () => 
   const t = flat("skills/test-first/SKILL.md");
   assert.match(t, /Fixtures are page-shaped and valid at rest.*`0\.375s`.*the code parses both units; a layout fixture passes its own check at frame 0/);
   assert.match(flat("skills/test-first/references/DOS-AND-DONTS.md"), /`parseFloat` a CSS duration token/);
+});
+test("served preview is the proof: latest successful build for your sha, then a sha-only probe", () => {
+  assert.match(flat("skills/present-for-review/references/PREVIEW-PROBE.md"), /out of order.*3–5 minutes.*\*\*your sha is the latest successful build for that branch\*\*, then for a string only your sha has/);
 });
 test("tests never write tracked files; generated output has a guard", () => {
   assert.match(flat("skills/test-first/SKILL.md"), /\*\*Tests never write tracked files\*\*.*goes to a temp dir, and `git status --porcelain` is clean after the suite\. Generated output carries a guard test that its critical declarations are present/);

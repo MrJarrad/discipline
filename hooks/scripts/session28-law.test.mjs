@@ -22,13 +22,18 @@ test("redirect on one channel: HARD-RULES 20 and the routing pointer", () => {
 test("first slice of a new product is opus", () => {
   assert.match(flat("skills/model-routing/SKILL.md"), /First slice of a new product or tool.*`opus`.*novel architecture, no contract to point at.*later slices return to `sonnet`/);
 });
-test("canvas chrome tier rule", () => {
+test("canvas chrome tier and relayed-feedback rules", () => {
   assert.match(flat("skills/design-system/references/components.md"), /Chrome drawn in the Canvas board document.*resolves the board window's tier.*Pin the tier/);
+  assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /Relayed operator feedback is banked as its final state with the whole sequence verbatim.*stop and report/);
+});
+test("cloud preview placeholder", () => {
+  assert.match(flat("skills/present-for-review/references/PREVIEW-PROBE.md"), /push-time placeholder.*Version ID:/);
 });
 test("look-yes merge runs every test that renders the touched component", () => {
   assert.match(flat("skills/routing/references/HARD-RULES.md"), /git grep -l <ComponentName> -- '\*\.test\.\*'.*not a hand-picked directory/);
 });
 test("measure the operator's reference before matching it", () => {
+  assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /measured first.*number goes in the brief.*2-3 static sketches/);
   assert.match(flat("skills/grilling/SKILL.md"), /A target named by reference.*measure that reference/);
 });
 test("undraft ruling names what it supersedes", () => {

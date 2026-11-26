@@ -795,7 +795,7 @@ export function checkResolveResult(prompt = "") {
     item: "resolve-result",
     reason:
       "Dispatch blocked — resolve-result: this brief has a doer add or rename a Figma variable. Run the handoff toolkit's resolve step first and put `## Resolve result` in the brief: the resolve-report.json path and `open: 0` " +
-      "(DISC-347, s105). A new variable or name is never a technical call.",
+      "(dispatch-brief references/FIGMA-VARIABLES.md; DISC-347, s105). A new variable or name is never a technical call.",
   };
 }
 

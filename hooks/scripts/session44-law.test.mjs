@@ -26,6 +26,7 @@ test("the helper brief opener is named where helpers are dispatched", () => {
 
 test("the parent arms one send_later sweep per helper dispatch as the backstop", () => {
   assert.ok(flat(HR).includes("The parent arms one `send_later` sweep about 50 minutes out per `create_session` dispatch as the backstop, and deletes it when the return arrives."));
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("Arm one `send_later` about 50 minutes out per dispatch"));
 });
 
 test("release: 1.155.0 has its CHANGED.txt entry with the encoded line", () => {

@@ -589,6 +589,12 @@ test("dispatch-brief makes a multi-unit brief malformed at any model", () => {
   assert.match(brief, /malformed at any model/);
   const raw = read("skills/dispatch-brief/SKILL.md");
   assert.match(raw, /\[ \] One contract unit per lane/);
+  const accuracy = flat(read("skills/dispatch-brief/references/ACCURACY.md"));
+  assert.match(accuracy, /malformed at any model, at any effort tier/);
+  assert.match(
+    accuracy,
+    /\*\*The layout-example pair travels with the lane as context, not as a second unit\.\*\*/,
+  );
 });
 
 test("model-routing sends a wide brief to a slice, never to a bigger model", () => {
@@ -2822,6 +2828,7 @@ test("phone layout: check for the surface's own phone layout before a phone ques
 
 test("banked ruling grep before any operator ask for a Figma change", () => {
   assert.match(read("skills/vault-recall/SKILL.md"), /Before any queue row asks the operator[^]*grep `fleet\/rulings`/);
+  assert.match(read("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /greps `fleet\/rulings`/);
 });
 
 test("grilling: a likely-typo word gets one confirming question, not a written-down reading", () => {

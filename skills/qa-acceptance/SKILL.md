@@ -58,6 +58,8 @@ into the test is unverified** — the check must read the contract at run time a
 the mechanism (grid placement, token binding, the ruling's constant), never a number, stamp
 or hash carried into the assertion by hand (operator ruling, 2026-09-19).
 
+**Evidence that holds**: timing, enumeration, measurement, load A/B, eye-vs-number, sound and served-build checks each carry a rule learned on real lanes. Read [references/EVIDENCE-THAT-HOLDS.md](references/EVIDENCE-THAT-HOLDS.md) before claiming any of them.
+
 ### 3. Block the close on any unmet or unverified AC
 
 If any AC is unmet, or you haven't actually verified it this session, **stop

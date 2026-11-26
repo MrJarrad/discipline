@@ -13,7 +13,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 
-test("s76 1: a Mac-job review names which sign-in reaches each host", () => {
+test("s76 1: a Mac job names how the Mac reaches the host and which sign-in it relies on", () => {
+  has("skills/cloud-dispatch/references/MAC-JOBS.md", "grep `queue/mac/done` and the project queue for the host, and write into the job which sign-in it relies on");
+  has("skills/cloud-dispatch/references/MAC-JOBS.md", "DON'T: describe a host as public and queue the job unchecked");
   has("skills/dispatch-brief/SKILL.md", "a Mac-job review also names the access question: which sign-in reaches each host");
 });
 test("s76 2: a merged lane's worktree is removed in the same step; df is read before every heavy dispatch", () => {

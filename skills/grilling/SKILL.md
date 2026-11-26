@@ -159,4 +159,4 @@ operator could rule on in one line.
 
 When the operator names a target by reference ("match the less tall items", "what I recorded"), measure that reference on his own
 artefact first and put the number in the question; two missed looks mean 2-3 static sketches on one page, not another build round
-(`measure-the-operators-reference-before-matching-it-2026-10-15`).
+(`measure-the-operators-reference-before-matching-it-2026-10-15`; `dispatch-brief/references/BRIEF-CRAFT.md` item 19).

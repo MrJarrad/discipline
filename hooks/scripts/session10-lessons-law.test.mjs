@@ -20,6 +20,10 @@ test("rules 1, 7: resolve the remote, commit with git -C; rule 2: fetch+rebase b
   assert.match(d, /captured after the final commit, from that build, and name its sha/);
 });
 
+test("rule 2: a brief names every other lane on a shared branch", () => {
+  assert.match(read("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /names every other lane on it\*\* and requires fetch \+ rebase/);
+});
+
 test("rule 3: queuing a Mac job merges the vault branch to main in the same action", () => {
   assert.match(read("skills/routing/references/HARD-RULES.md"), /Queuing a Mac job merges the vault branch to main in the same action/);
 });

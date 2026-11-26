@@ -11,6 +11,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 
+test("s72 1: a refused add_repo stops the helper and the parent runs the lane locally", () => {
+  has("skills/cloud-dispatch/references/HELPER-SESSIONS.md", "**The auto-mode check refuses `add_repo` intermittently**");
+  has("skills/cloud-dispatch/references/HELPER-SESSIONS.md", "the parent runs that lane as a local engineer in its own session");
+});
+
 test("s72 2 (DISC-342): session-resume names the stale plugin at session start and says the next fresh session picks it up, asking for no reload", () => {
   has("hooks/scripts/session-resume.mjs", "Name the gap in the first status; rules added since");
   has("hooks/scripts/session-resume.mjs", "the next fresh session picks up");

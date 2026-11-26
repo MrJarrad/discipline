@@ -9,6 +9,20 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
+test("present-for-review probes the served preview for a new-code marker", () => {
+  assert.match(flat("skills/present-for-review/SKILL.md"), /Probe the served preview for the new code before relaying.*PREVIEW-PROBE\.md/);
+  const r = flat("skills/present-for-review/references/PREVIEW-PROBE.md");
+  assert.match(r, /headless Chromium/);
+  assert.match(r, /unique to the new code/);
+  assert.match(r, /Never push an empty commit/);
+});
+
+test("dispatch-brief block lane starts from the banked options ruling", () => {
+  const b = flat("skills/dispatch-brief/references/BRIEF-CRAFT.md");
+  assert.match(b, /block lane starts from the banked per-block options ruling/);
+  assert.match(b, /open PRs touching the block/);
+});
+
 test("output style: closing other-projects line and the wrapped-session rule", () => {
   const s = flat("skills/routing/references/OPERATOR-REPLIES.md");
   assert.match(s, /Other projects have N open items — say if you want them/);

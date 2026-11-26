@@ -75,6 +75,18 @@ test("DISC-235 A6: copy lanes run on the strongest tier — model-routing", () =
   assert.ok(flat("skills/model-routing/SKILL.md").includes("| Published copy (drafting or fact-checking words a user reads) | the strongest tier (`fable`, else `opus`); `## Interrogated`: \"copy lane\" (DISC-235) |"));
 });
 
+test("s45.1, s46.3, s46.4, s47.2, s47.3: the link checks live once in PREVIEW-PROBE; the skill and helpers point", () => {
+  const r = flat("skills/present-for-review/references/PREVIEW-PROBE.md");
+  assert.ok(r.includes("- **The `preview/*` build, not a `claude/*` badge.** A green build on a `claude/*` branch is not the preview: its log says it skips the upload"));
+  assert.ok(r.includes("- **The link opens in the state to review.** Open it cold, as the operator will, before sending."));
+  assert.ok(r.includes("gets a preview-only URL flag that opens it (`?time-circuits=on`, `?mode=holding`) and the link carries the flag"));
+  assert.ok(r.includes("- **The preview carries current main.** Before a look link, the lane merges current main into its branch, or the message names which approved fixes the preview lacks"));
+  assert.ok(r.includes("- **An SSR or hydration fix is proven by two cold runs on the deployed preview** before the link"));
+  assert.ok(flat("skills/present-for-review/SKILL.md").includes("- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks."));
+  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("A review link it sends meets `present-for-review` § Before the link goes out: opened cold first, in the state to review."));
+  assert.ok(flat("doer-rules.md").includes("**A deploy is read from the build log, never the badge**: a `claude/*` build shows \"Deployment successful\" while its log says it skips the upload; only `preview/*` publishes."));
+});
+
 test("s45.2 and s46.5 and s47.1: supplied copy is fact-checked only; stop after a second miss; versions of copy are kept", () => {
   const s = flat(BV);
   assert.ok(s.includes("**Copy the operator supplied** (ChatGPT or anywhere else): the default is his copy with facts checked, step 5 only, never a merge back toward an older draft or spec (s45)."));
@@ -89,6 +101,16 @@ test("s45.2 and s46.5 and s47.1: supplied copy is fact-checked only; stop after 
 test("s45.3: every reviewer brief copies the verdict shape from its one home", () => {
   assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("Verdict shape: `agents/reviewer.md` § Verdict, verbatim."));
   assert.ok(flat("agents/reviewer.md").includes("**Verdict shape — the one definition the merge gates parse**"), "the shape still has its home");
+});
+
+test("s45.4 and s46.2: Mac jobs — review-first folder, throwaway clone, remote head, FETCH_HEAD, macOS lsof", () => {
+  const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");
+  assert.ok(m.includes("**A job that needs review first is filed in `queue/mac/review/`**: the runner reads `review/` on origin/main only, so it runs once its PR merges, never before"));
+  assert.ok(m.includes("clones it fresh into a temp tree (never the operator's checkout"));
+  assert.ok(m.includes("checks the remote head carries it before queueing (`git ls-remote`)"));
+  assert.ok(m.includes("`git worktree add <dir> FETCH_HEAD`"));
+  assert.ok(m.includes("`lsof -ti tcp:A -ti tcp:B`"));
+  assert.ok(flat("skills/cloud-dispatch/SKILL.md").includes("**Review-first jobs and repo checkouts** follow [MAC-JOBS.md](MAC-JOBS.md) (s45, s46)."), "the pointer moved with its section to references/CLOUD-FIRST.md");
 });
 
 test("s46.1: a read-only task goes to cloud too — HARD-RULES 9", () => {

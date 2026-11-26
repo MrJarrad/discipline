@@ -18,18 +18,66 @@ import { check } from "../bin/needed-from-you-stop.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} is missing: ${s}`);
+const HEAD = "c137007fc1159f87d0fc58e885fc8b71b0362275";
 const dir = () => mkdtempSync(join(tmpdir(), "s35-"));
 
 /* --- A1: get_files pagination --- */
+const gate = join(root, "hooks/bin/merge-review-gate.mjs");
+// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+const GREEN = [
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success", head_sha: "c137007fc1159f87d0fc58e885fc8b71b0362275" }] }) }] }] } },
+];
+const transcript = (calls) => {
+  const p = join(dir(), "t.jsonl");
+  const lines = calls.flatMap((k, i) => [
+    { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: `t${i}`, name: "mcp__github__pull_request_read", input: { method: "get_files", owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, ...k.input } }] } },
+    { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: `t${i}`, content: [{ type: "text", text: JSON.stringify(Array.from({ length: k.n }, (_, j) => ({ filename: `projects/p/n-${k.input.page || 1}-${j}.md` }))) }] }] } },
+  ]);
+  writeFileSync(p, [...lines, ...GREEN].map((l) => JSON.stringify(l)).join("\n") + "\n");
+  return p;
+};
+const decide = (calls) => {
+  const out = execFileSync(process.execPath, [gate], { input: JSON.stringify({ tool_name: "mcp__github__merge_pull_request", tool_input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, expectedHeadSha: HEAD }, transcript_path: transcript(calls) }), encoding: "utf8" });
+  return out.trim() ? JSON.parse(out).hookSpecificOutput.permissionDecision : "allow";
+};
+
+test("(A1) get_files completeness needs page 1 through a short page, with no gaps", () => {
+  assert.equal(decide([{ n: 5, input: { page: 2 } }]), "deny", "page 2 alone, page 1 never read");
+  assert.equal(decide([{ n: 30, input: {} }, { n: 4, input: { page: 3 } }]), "deny", "page 2 skipped");
+  assert.equal(decide([{ n: 100, input: { perPage: 200 } }]), "deny", "GitHub caps perPage at 100, so 100 rows is a full page");
+  assert.equal(decide([{ n: 30, input: {} }]), "deny", "a full first page");
+  assert.equal(decide([{ n: 30, input: {} }, { n: 30, input: { page: 2 } }, { n: 2, input: { page: 3 } }]), "allow");
+  assert.equal(decide([{ n: 30, input: { perPage: 100 } }]), "allow");
+  assert.equal(decide([{ n: 7, input: {} }]), "allow");
+});
+
+test("(A1 residual, #111) every page is read at the same perPage: mixed sizes leave a gap and are refused", () => {
+  assert.equal(decide([{ n: 100, input: { perPage: 100 } }, { n: 5, input: { page: 2, perPage: 30 } }]), "deny", "rows 101 onward never read");
+  assert.equal(decide([{ n: 30, input: { perPage: 30 } }, { n: 5, input: { page: 2, perPage: 100 } }]), "deny", "rows 31-100 never read");
+  assert.equal(decide([{ n: 100, input: { perPage: 100 } }, { n: 5, input: { page: 2, perPage: 100 } }]), "allow", "the same size throughout");
+  assert.equal(decide([{ n: 30, input: {} }, { n: 5, input: { page: 2, perPage: 30 } }]), "allow", "default size equals an explicit 30");
+});
 
 /* --- A2: the helper rules are stated once --- */
-test("(A2) HARD-RULES 19 owns the opener, the sweep cadence and the archive trigger", () => {
+test("(A2) HARD-RULES 19 owns the opener, the sweep cadence and the archive trigger; the recipe points at it without restating", () => {
   const rules = flat("skills/routing/references/HARD-RULES.md");
   for (const s of ["start now, no go needed", "within 5 minutes of dispatch and on every wake", "answers a blocked helper the same turn", "superseded round's helper is archived then"]) assert.ok(rules.includes(s), s);
+  const recipe = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
+  for (const s of ["start now, no go needed", "within 5 minutes", "same turn", "superseded round", "Helper · <task", "no action needed"]) assert.ok(!recipe.includes(s), `the recipe restates: ${s}`);
+  assert.match(recipe, /HARD-RULES 19/);
   assert.ok(!/\.\. Do not queue/.test(flat("skills/cloud-dispatch/SKILL.md")), "stray double full stop");
 });
 
 /* --- A3: a helper's read-back and return reach the parent by send_message --- */
+test("(A3) the recipe requires every read-back and the final return to go to the parent with send_message, and says the transcript is not a channel", () => {
+  const f = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
+  has(f, "every read-back and the final return go to the parent with `send_message` using the parent id above");
+  has(f, "the helper's own transcript is not a channel to the parent");
+  has(f, "**and sends the same return to the parent with `send_message`**");
+  has(f, "A read-back written only in its transcript does not reach the parent.");
+});
+
 /* --- DISC-197: ## Upcoming --- */
 const FM = (px, kind) => `---\nname: x\nkind: ${kind}\nprefix: ${px}\n---\n`;
 function vault(remote) {

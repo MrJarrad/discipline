@@ -23,7 +23,7 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying it
 ## Before the link goes out
 
 - **The preview is built, published and opening — hydrated, no error.** That is the whole look-round gate (`link-first-look-rounds`). Pixel proof, build-vs-export audits, the ledger's measured rows and scenario sweeps run **after the operator's yes**, sized to what merge needs.
-- **Interactive or motion work: a live walk is part of link-ready** — real gestures on the deployed preview, and whenever the operator sends a recording. Static look lanes are unchanged.
+- **Interactive or motion work: a live walk is part of link-ready** — real gestures on the deployed preview, and whenever the operator sends a recording ([PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Live walk). Static look lanes are unchanged.
 - **The driven-row check follows the yes**: one driven row per control type, because a screenshot proves look, not function; the link never waits on it, merge does (`ui-controls-never-clicked-2026-10-05`, `qa-acceptance` § The eight row classes).
 - **After the yes, none of that is a review round**, and none is shown to the operator. Pixel proof is a **headed screenshot at the operator's viewport and each breakpoint family, with a pixel assertion on the region built** (a `getComputedStyle` read is not proof that anything painted), scoped by size class (`doer-rules.md` § Size class): **component** work's pixel proof is **one screenshot per Figma sample width (375 / 768 / 1280 / 1920), checked at a glance**; **line** carries no screenshot; **system** keeps the breakpoint-family proof.
 - **A motion claim is proven from a real recording read frame by frame**, never from computed-style polls; a 3D page's recording needs the real GPU, so log the WebGL renderer and treat a software renderer as voiding any 3D timing claim (`hoverboard-viewer-loader-lessons-2026-09-27`, `hoverboard-loader-curve-lessons-2026-09-28`).
@@ -54,8 +54,10 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying it
 - **DON'T:** open a tab he has to close, or ask for a hard refresh.
 - **One link per ask, never a corrected link underneath** — rebuild the row with the right link, because the stale one gets opened.
 - **Run `node <plugin>/hooks/scripts/preview-sha-check.mjs --branch <b> --sha <claimed> [--checks <owner/repo>]` and send the link only on exit 0** — a 200 from the preview proves nothing about which build it serves (`preview-link-relayed-before-push-verified-2026-10-05`).
+- **Probe the served preview for the new code before relaying**, the check passes early. Recipe and host claims: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
 - **The parent confirms the link opens hydrated with no error before sending it**, loading it itself; evidence is read after the yes (`link-first-look-rounds`; checks in `doer-rules.md` § Repo and safety), and an "unverified" the doer could have checked is sent back, not relayed.
 - **Cloud portfolio previews:** a `preview/*` push publishes `https://preview-<branch>-jhd-preview-staging.jh-229.workers.dev`.
+- **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks.
 
 ### 5. Cloud / no Mac parent
 

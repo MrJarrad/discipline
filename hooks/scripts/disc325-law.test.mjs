@@ -9,8 +9,11 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
-test("HARD-RULES 19 sends the parent to lane-end's printed sequence at lane close", () => {
-  assert.ok(flat("skills/routing/references/HARD-RULES.md").includes("lane-end --helper"));
+test("HARD-RULES 19 and HELPER-SESSIONS § 4 send the parent to lane-end's printed sequence at lane close", () => {
+  for (const p of ["skills/routing/references/HARD-RULES.md", "skills/cloud-dispatch/references/HELPER-SESSIONS.md"]) {
+    const t = flat(p);
+    assert.ok(t.includes("lane-end --helper"), p);
+  }
 });
 test("wrap's closing check names the lane-end archive as the first path and the sweep as the backstop", () => {
   assert.match(flat("skills/wrap/references/CLOSING-CHECKS.md"), /lane-end --helper.*backstop/);
