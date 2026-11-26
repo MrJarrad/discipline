@@ -61,7 +61,7 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map(), bash = new Map(), meCalls = new Set();
   const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
-  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [], checks: null };
+  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [], checks: null, checksBad: false };
   const pages = new Map();
   for (const line of lines) {
     let e;
@@ -112,14 +112,14 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
         try { text = readFileSync(path, "utf8"); } catch { out.truncated = true; continue; }
       }
       let rows;
-      try { rows = JSON.parse(text); } catch { continue; }
+      try { rows = JSON.parse(text); } catch { if (i.method === "get_check_runs") out.checksBad = true; continue; }
       if (Array.isArray(rows) && rows.length && rows.every((r) => r?.type === "text" && typeof r.text === "string")) {
         try { rows = JSON.parse(rows.map((r) => r.text).join("")); } catch { continue; }
       }
       if (i.method === "get_check_runs") {
         /* DISC-360 R15: the latest read wins; the result is `{ check_runs: [...] }` or the bare array. */
         const runs = Array.isArray(rows) ? rows : rows?.check_runs;
-        if (Array.isArray(runs)) out.checks = runs;
+        if (Array.isArray(runs)) { out.checks = runs; out.checksBad = false; } else out.checksBad = true;
         continue;
       }
       if (!Array.isArray(rows)) continue;
@@ -153,11 +153,14 @@ function ghLogin() {
 const RED_CONCLUSIONS = new Set(["failure", "cancelled", "timed_out", "action_required", "startup_failure", "stale"]);
 
 /* DISC-360 R15 (lesson 2026-11-06-s59 #1): null when the latest get_check_runs read in the session shows no red
-   check on the pinned head, else the reason. A run with no head_sha is taken as on the head (the shape is
-   unconfirmed against a live MCP result); an empty list is a PR with no checks. */
-export function checkRunsProblem(runs, head) {
+   check on the pinned head, else the reason. A run with no head_sha or no status fails closed;
+   an empty list is a PR with no checks. */
+export function checkRunsProblem(runs, head, unreadable = false) {
   const how = "read the PR's check runs with pull_request_read get_check_runs, and merge only when none is red";
+  if (unreadable && !runs) return `the get_check_runs result could not be read: it must be the raw tool result, JSON that is either \`{ "check_runs": [...] }\` or the bare array of runs (not a summary or an edited copy). Call pull_request_read get_check_runs again and pass nothing through a pipe or a rewrite`;
   if (!runs) return `no check-runs read in this session: ${how}`;
+  const bare = runs.filter((r) => !r?.head_sha || !r?.status);
+  if (bare.length) return `check run ${bare.map((r) => r?.name || "(unnamed)").join(", ")} carries no head_sha or no status, so it cannot be tied to the pinned head ${String(head).slice(0, 7)} as finished: re-read it with pull_request_read get_check_runs; the merge needs every run to name its head and be completed`;
   const other = runs.filter((r) => r?.head_sha && String(r.head_sha).toLowerCase() !== String(head).toLowerCase());
   if (other.length) return `the check runs read are for another head (${String(other[0].head_sha).slice(0, 7)}), not ${String(head).slice(0, 7)}: re-read them at the pinned head`;
   const red = runs.filter((r) => RED_CONCLUSIONS.has(String(r?.conclusion || "").toLowerCase()));
@@ -178,7 +181,7 @@ function check(input, { notesOnly, reviewVerdict }) {
   if (isVault) {
     /* DISC-360 R15: every way a vault merge clears (notes-only or a reviewer's yes) also reads the check runs on the pinned head. */
     const clear = () => {
-      const problem = checkRunsProblem(reads.checks, t.expectedHeadSha);
+      const problem = checkRunsProblem(reads.checks, t.expectedHeadSha, reads.checksBad);
       if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
       process.exit(0);
     };
@@ -208,7 +211,7 @@ function check(input, { notesOnly, reviewVerdict }) {
   const me = reads.me.length ? reads.me : ghLogin();
   const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...me]);
   if (review?.verdict === "yes") {
-    const problem = isVault ? checkRunsProblem(reads.checks, t.expectedHeadSha) : null;
+    const problem = isVault ? checkRunsProblem(reads.checks, t.expectedHeadSha, reads.checksBad) : null;
     if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
     process.exit(0);
   }

@@ -129,3 +129,21 @@ test("R15: a reviewer's merge: yes on the pinned head does not skip the check ru
 test("R15: a product repo merge is not asked for check runs", () => {
   assert.equal(run(comments("MrJarrad", "jhd-portfolio", [["MrJarrad", yes]]), "MrJarrad", "jhd-portfolio").permissionDecision, "allow");
 });
+
+test("R15: a run with no head_sha or no status fails closed, naming what to do", () => {
+  for (const run1 of [{ name: "lists", status: "completed", conclusion: "success" }, { name: "lists", conclusion: "success", head_sha: HEAD }]) {
+    const lines = [...notes(), use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", JSON.stringify({ check_runs: [run1] }))];
+    const r = run(lines, ...VAULT);
+    assert.equal(r.permissionDecision, "deny");
+    assert.match(r.permissionDecisionReason, /no head_sha or no status/);
+    assert.match(r.permissionDecisionReason, /re-read/);
+  }
+});
+test("R15: an unparseable get_check_runs result gets its own refusal naming the accepted shape", () => {
+  const lines = [...notes(), use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", "3 checks, all green")];
+  const r = run(lines, ...VAULT);
+  assert.equal(r.permissionDecision, "deny");
+  assert.match(r.permissionDecisionReason, /could not be read/);
+  assert.match(r.permissionDecisionReason, /raw tool result/);
+  assert.match(r.permissionDecisionReason, /check_runs/);
+});

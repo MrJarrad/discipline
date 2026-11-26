@@ -1,6 +1,6 @@
 # Release path (DISC-172, session 25)
 
-A release comes only from `main`, by `pnpm release:promote` in the product repo. **Its production check runs from a machine with direct internet** (a Mac job), never through the cloud egress proxy, which stalls about one request in four and rolled a good release back: a cloud releaseops lane uploads and stops before promote, and the checker is never loosened. It it promotes, waits for
+A release comes only from `main`, by `pnpm release:promote` in the product repo. **Its production check runs from a machine with direct internet** (a Mac job), never through the cloud egress proxy, which stalls about one request in four and rolled a good release back: a cloud releaseops lane uploads and stops before promote, and the checker is never loosened. The command promotes, waits for
 the build to settle, runs 12 real-Chromium repetitions against live, and rolls back on its own if they fail. No
 hand-pushed `release` branch, no promote from a branch. Helper PRs open as **drafts**, so un-drafting is a
 planned step the parent takes after the gates and review; a helper may do it itself only under ruling

@@ -14,8 +14,8 @@ Moved verbatim from `skills/qa-acceptance/SKILL.md` (DISC-351 step 8); the skill
   counts one selector proves nothing about elements it does not select; reproduce at his
   framing from his screenshot before concluding "can't reproduce".
 - **A measurement cell that timed out or was not captured is red until explained**, never "the
-  cloud is slow". A look ask waits for the Mac run when the cloud run has any missing cell (a
-  reload cell timed out; the Mac then showed a 9.5 s freeze that identical pixels could not).
+  cloud is slow". A board change's look ask waits for the Mac run when the cloud run has any missing
+  cell (a reload cell timed out; the Mac then showed a 9.5 s freeze that identical pixels could not).
 - **"Values from code inspection" is not a measurement**, and a handover's counts are
   claims — re-count or re-measure on the running build before a lane plans around them.
 - **A load fix is proven only by a matched A/B**: base and fix on the same Worker and
