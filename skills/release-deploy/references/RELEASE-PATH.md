@@ -33,3 +33,7 @@ Operator ruling `2026-11-12-every-session-on-latest-plugin`: *"every new session
 Proved (s81): editing the setup script rebuilt the Default image. A fresh cloud session after the `# plugin refresh 2026-11-12` edit had discipline 1.199.0 installed at session start (`installedAt` the session's start time), while a session on the 8 Nov image had 1.184.0.
 
 Unconfirmed (the docs do not say, nothing here tested): the image also rebuilds after about seven days (a model-extracted summary of a truncated page); `autoUpdate` runs in a cloud session (it did nothing in a headless start); a project plugin under `.claude/skills/` loads in a cloud session (the s81 probe saw it NOT load, while plain project skills and a repo SessionStart hook did, in a single-repo session); that a session started before the bump is never served the old image after it. DON'T: edit the environment from a release lane, release more than once a day to feel current, or describe this route as meeting the ruling.
+
+## Plugin releases: small batches (DISC-390, operator 2026-11-26)
+
+The discipline plugin releases when five lessons or rulings are `queued`, or at the next merge to main, whichever comes first. `lesson-ledger.mjs <vault>` prints `release due` at five. The release lane triages only those records (encode, merge into an existing line, or `skipped(<reason>)`), so the commit gate's empty-queue rule is met by a short pass, not a 45-record one. Each wrap triages its own session's lessons first (`skills/wrap`).

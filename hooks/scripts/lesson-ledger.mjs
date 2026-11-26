@@ -44,6 +44,7 @@ import { fileURLToPath } from "node:url";
 const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
 
 // `1.73.0` | `pre-1.73.0` | `queued` | `skipped(<non-empty reason>)`.
+export const RELEASE_BATCH = 5;
 const VALID_ENCODED = /^(?:\d+\.\d+\.\d+|pre-\d+\.\d+\.\d+|queued|skipped\([^)]+\))$/;
 const MERGED = /^merged\(([^)]*)\)$/;
 // The plugin tree this script ships in (hooks/scripts/ -> repo root).
@@ -192,7 +193,10 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
   }
 
   const ok = missing.length === 0 && invalid.length === 0 && (!release || queued.length === 0);
-  return { files, missing, invalid, queued, queuedWarning, release, ok };
+  // Release batch (DISC-390): five queued records are enough to cut a release, so the
+  // queue never piles up. A prompt, not a failure; `ok` is unchanged.
+  const releaseDue = queued.length + queuedWarning.length >= RELEASE_BATCH;
+  return { files, missing, invalid, queued, queuedWarning, release, releaseDue, ok };
 }
 
 // Ruling names the CHANGED.txt top entry cites — `[[stem]]` wiki-links (the
@@ -246,6 +250,11 @@ export function formatLedgerReport(result, vaultRoot) {
   const head = result.ok
     ? `lesson-ledger: ${result.files.length} record(s) clean${result.release ? ` for release ${result.release}` : ""}.`
     : `lesson-ledger: ${lines.length} problem(s) across ${result.files.length} record(s)${result.release ? ` for release ${result.release}` : ""}.`;
+  if (result.releaseDue && !result.release) {
+    lines.push(
+      `  release due: ${result.queued.length + (result.queuedWarning ?? []).length} queued (batch of ${RELEASE_BATCH}) — start a release for them`,
+    );
+  }
   return [head, ...lines].join("\n");
 }
 
