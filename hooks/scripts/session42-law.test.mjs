@@ -21,6 +21,11 @@ let n = 0;
    function of that directory, so a fixture can save its file where the gate will accept it. */
 const results = (k) => { const d = join(dir, `t${k}`, "tool-results"); mkdirSync(d, { recursive: true }); return d; };
 const save = (name, text, d = dir) => { const p = join(d, name); writeFileSync(p, text); return p; };
+// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+const GREEN = [
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success" }] }) }] }] } },
+];
 const transcript = (calls) => {
   const here = n++, saved = results(here);
   calls = calls.map((k) => ({ ...k, out: typeof k.out === "function" ? k.out(saved) : k.out }));
@@ -28,7 +33,7 @@ const transcript = (calls) => {
     { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: `t${i}`, name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, ...k.input } }] } },
     { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: `t${i}`, content: [{ type: "text", text: typeof k.out === "string" ? k.out : JSON.stringify(k.out) }] }] } },
   ]);
-  return save(`t${here}.jsonl`, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+  return save(`t${here}.jsonl`, [...lines, ...GREEN].map((l) => JSON.stringify(l)).join("\n") + "\n");
 };
 const gate = join(root, "hooks/bin/merge-review-gate.mjs");
 const run = (tool_input, transcript_path) => {

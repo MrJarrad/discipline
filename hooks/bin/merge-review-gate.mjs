@@ -19,6 +19,7 @@
    (absolute path, one plain command) for this PR whose JSON line is complete, names the
    pinned head, a MrJarrad/jhd-vault origin and only notes; it lists names from GitHub's
    merge ref for the PR, bound to that sha, instead of every patch.
+   DISC-360: a vault merge also needs a `get_check_runs` read in the session with no red, unfinished or other-head run.
    DISC-296: when the session never read get_me, the authenticated gh user counts too (gh unavailable -> owner only).
    DISC-277: trusted means the repo owner and the login in this session's own \`get_me\` result (an
    org-owned repo's owner never posts); a commenter cannot write a tool result. Limits: every fleet agent posts as that
@@ -60,7 +61,7 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   const calls = new Map(), bash = new Map(), meCalls = new Set();
   const saves = transcriptPath ? join(dirname(transcriptPath), basename(transcriptPath, ".jsonl"), "tool-results") + sep : "";
-  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [] };
+  const out = { items: [], files: null, filesComplete: true, truncated: false, stamps: [], me: [], checks: null };
   const pages = new Map();
   for (const line of lines) {
     let e;
@@ -94,7 +95,7 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
       }
       const i = calls.get(part.tool_use_id);
       if (!i || !same(i.owner, owner) || !same(i.repo, repo) || Number(i.pullNumber ?? i.issue_number) !== Number(pullNumber)) continue;
-      if (!["get_comments", "get_reviews", "get_files"].includes(i.method)) continue;
+      if (!["get_comments", "get_reviews", "get_files", "get_check_runs"].includes(i.method)) continue;
       let text = Array.isArray(part.content) ? part.content.map((p) => p?.text || "").join("") : String(part.content || "");
       /* Over the tool-result limit the harness saves a result to disk and replaces it with one of
          two exact shapes, anchored at the start of the result: a `<persisted-output>` block
@@ -114,6 +115,12 @@ export function prReads(lines, { owner, repo, pullNumber }, transcriptPath) {
       try { rows = JSON.parse(text); } catch { continue; }
       if (Array.isArray(rows) && rows.length && rows.every((r) => r?.type === "text" && typeof r.text === "string")) {
         try { rows = JSON.parse(rows.map((r) => r.text).join("")); } catch { continue; }
+      }
+      if (i.method === "get_check_runs") {
+        /* DISC-360 R15: the latest read wins; the result is `{ check_runs: [...] }` or the bare array. */
+        const runs = Array.isArray(rows) ? rows : rows?.check_runs;
+        if (Array.isArray(runs)) out.checks = runs;
+        continue;
       }
       if (!Array.isArray(rows)) continue;
       if (i.method === "get_files") {
@@ -143,6 +150,23 @@ function ghLogin() {
   } catch { return []; }
 }
 
+const RED_CONCLUSIONS = new Set(["failure", "cancelled", "timed_out", "action_required", "startup_failure", "stale"]);
+
+/* DISC-360 R15 (lesson 2026-11-06-s59 #1): null when the latest get_check_runs read in the session shows no red
+   check on the pinned head, else the reason. A run with no head_sha is taken as on the head (the shape is
+   unconfirmed against a live MCP result); an empty list is a PR with no checks. */
+export function checkRunsProblem(runs, head) {
+  const how = "read the PR's check runs with pull_request_read get_check_runs, and merge only when none is red";
+  if (!runs) return `no check-runs read in this session: ${how}`;
+  const other = runs.filter((r) => r?.head_sha && String(r.head_sha).toLowerCase() !== String(head).toLowerCase());
+  if (other.length) return `the check runs read are for another head (${String(other[0].head_sha).slice(0, 7)}), not ${String(head).slice(0, 7)}: re-read them at the pinned head`;
+  const red = runs.filter((r) => RED_CONCLUSIONS.has(String(r?.conclusion || "").toLowerCase()));
+  if (red.length) return `check run ${red.map((r) => `${r.name} (${r.conclusion})`).join(", ")} is red: fix it, never merge over it`;
+  const open = runs.filter((r) => r?.status && r.status !== "completed");
+  if (open.length) return `check run ${open.map((r) => r.name).join(", ")} has not finished: wait, re-read, then merge`;
+  return null;
+}
+
 function check(input, { notesOnly, reviewVerdict }) {
   const t = input.tool_input || {};
   const pr = `${t.owner}/${t.repo}#${t.pullNumber}`;
@@ -150,18 +174,25 @@ function check(input, { notesOnly, reviewVerdict }) {
   try { lines = readFileSync(input.transcript_path, "utf8").split("\n"); } catch {}
   const reads = prReads(lines, t, input.transcript_path);
   const pinned = /^[0-9a-f]{40}$/.test(String(t.expectedHeadSha || ""));
-  if (/^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo))) {
+  const isVault = /^mrjarrad$/i.test(String(t.owner)) && /^jhd-vault$/i.test(String(t.repo));
+  if (isVault) {
+    /* DISC-360 R15: every way a vault merge clears (notes-only or a reviewer's yes) also reads the check runs on the pinned head. */
+    const clear = () => {
+      const problem = checkRunsProblem(reads.checks, t.expectedHeadSha);
+      if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
+      process.exit(0);
+    };
     /* Reads can fail to prove notes-only (a page over the size limit and unreadable, a gap), but
        a reviewer's merge: yes on the pinned head clears the merge on its own (DISC-205). */
     const cleared = pinned && reviewVerdict(reads.items, t.expectedHeadSha, [t.owner])?.verdict === "yes";
-    if (cleared && (!reads.files || !reads.filesComplete)) process.exit(0);
+    if (cleared && (!reads.files || !reads.filesComplete)) clear();
     /* A vault-pr-files result on the pinned head proves notes-only without get_files (DISC-224). */
-    if (pinned && reads.stamps.some((v) => v.complete === true && v.head === t.expectedHeadSha && Array.isArray(v.files) && notesOnly(v.files))) process.exit(0);
+    if (pinned && reads.stamps.some((v) => v.complete === true && v.head === t.expectedHeadSha && Array.isArray(v.files) && notesOnly(v.files))) clear();
     if (!reads.files) deny(`merge-review-gate: ${pr} — a vault merge skips review only when notes-only; prove it with \`node ${OWN_SCRIPT} --vault <vault> --pr ${t.pullNumber}\` (that absolute path, run plain, exactly as printed: no pipe, no redirect; names only, at the head you pin), or read its files with pull_request_read get_files, or get a reviewer verdict.`);
     if (!reads.filesComplete) deny(`merge-review-gate: ${pr} — the get_files reads do not cover every page (page 1 through a page shorter than perPage, which GitHub caps at 100, every page at the same perPage), so a file may be missing; read the pages in order before merging.`);
     if (notesOnly(reads.files)) {
       if (!pinned) deny(`merge-review-gate: ${pr} — pass expectedHeadSha (the 40-hex head you are merging) so the merge lands only that head.`);
-      process.exit(0);
+      clear();
     }
     const other = reads.files.filter((f) => !notesOnly([f]));
     if (!other.length) deny(`merge-review-gate: ${pr} — the get_files read listed no files; re-read it before merging.`);
@@ -176,7 +207,11 @@ function check(input, { notesOnly, reviewVerdict }) {
      comment is posted from (as trustedLogins() in merge-after-review.mjs); gh unavailable -> the owner alone. */
   const me = reads.me.length ? reads.me : ghLogin();
   const review = reviewVerdict(reads.items, t.expectedHeadSha, [t.owner, ...me]);
-  if (review?.verdict === "yes") process.exit(0);
+  if (review?.verdict === "yes") {
+    const problem = isVault ? checkRunsProblem(reads.checks, t.expectedHeadSha) : null;
+    if (problem) deny(`merge-review-gate: ${pr} — ${problem}.`);
+    process.exit(0);
+  }
   const head = t.expectedHeadSha.slice(0, 7);
   const lacks = reads.truncated ? "the verdict read was truncated; re-read the comments and reviews with a smaller perPage —" : "no reviewer verdict";
   const meHint = me.length ? "" : " This session has not read get_me and gh has no authenticated user, so only the repo owner's login counts; on an org-owned repo call get_me first, then merge.";

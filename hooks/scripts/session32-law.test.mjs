@@ -67,6 +67,11 @@ test("(B2) notes-only means markdown records outside .github and .claude; anythi
 const gate = join(root, "hooks/bin/merge-review-gate.mjs");
 const dir = () => mkdtempSync(join(tmpdir(), "s32-"));
 /* calls: [{ name, input, items | text }] → a transcript in the real Claude Code JSONL shape. */
+// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+const GREEN = [
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success" }] }) }] }] } },
+];
 const transcript = (calls, d = dir()) => {
   const p = join(d, "t.jsonl");
   const lines = calls.flatMap((k, i) => {
@@ -77,7 +82,7 @@ const transcript = (calls, d = dir()) => {
       { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: id, content: [{ type: "text", text }] }] } },
     ];
   });
-  writeFileSync(p, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+  writeFileSync(p, [...lines, ...GREEN].map((l) => JSON.stringify(l)).join("\n") + "\n");
   return p;
 };
 const comments = (pull, bodies, repo = "jhd-portfolio") => ({ input: { method: "get_comments", owner: "MrJarrad", repo, pullNumber: pull }, items: bodies.map((body) => ({ body, user: { login: "MrJarrad" } })) });

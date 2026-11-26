@@ -23,13 +23,18 @@ const dir = () => mkdtempSync(join(tmpdir(), "s35-"));
 
 /* --- A1: get_files pagination --- */
 const gate = join(root, "hooks/bin/merge-review-gate.mjs");
+// DISC-360 R15: a vault merge also reads a green check run, so every fixture transcript carries one for PR 9.
+const GREEN = [
+  { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "green-checks", name: "mcp__github__pull_request_read", input: { owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, method: "get_check_runs" } }] } },
+  { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "green-checks", content: [{ type: "text", text: JSON.stringify({ check_runs: [{ name: "lists", status: "completed", conclusion: "success" }] }) }] }] } },
+];
 const transcript = (calls) => {
   const p = join(dir(), "t.jsonl");
   const lines = calls.flatMap((k, i) => [
     { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: `t${i}`, name: "mcp__github__pull_request_read", input: { method: "get_files", owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, ...k.input } }] } },
     { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: `t${i}`, content: [{ type: "text", text: JSON.stringify(Array.from({ length: k.n }, (_, j) => ({ filename: `projects/p/n-${k.input.page || 1}-${j}.md` }))) }] }] } },
   ]);
-  writeFileSync(p, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+  writeFileSync(p, [...lines, ...GREEN].map((l) => JSON.stringify(l)).join("\n") + "\n");
   return p;
 };
 const decide = (calls) => {

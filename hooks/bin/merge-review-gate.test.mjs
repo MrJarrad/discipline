@@ -89,3 +89,43 @@ test("DISC-296 org repo: gh unavailable falls back to the owner alone, so the re
   assert.equal(r.permissionDecision, "deny");
   assert.match(r.permissionDecisionReason, /get_me/);
 });
+
+// DISC-360 R15 (lesson 2026-11-06-s59 #1): a vault merge, notes-only included, reads the PR's check runs first
+// and merges only when none is red. The vault's own checks (lists, frontmatter) are the only gate a notes-only PR meets.
+const VAULT = ["MrJarrad", "jhd-vault"];
+const notes = () => [
+  use("mcp__github__pull_request_read", "f", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_files" }),
+  res("f", JSON.stringify([{ filename: "projects/p/note.md" }])),
+];
+const checks = (runs, head = HEAD) => [
+  use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }),
+  res("k", JSON.stringify({ total_count: runs.length, check_runs: runs.map(([name, conclusion]) => ({ name, status: "completed", conclusion, head_sha: head })) })),
+];
+test("R15: a notes-only vault merge with no check-runs read is refused, naming get_check_runs", () => {
+  const r = run(notes(), ...VAULT);
+  assert.equal(r.permissionDecision, "deny");
+  assert.match(r.permissionDecisionReason, /get_check_runs/);
+});
+test("R15: a notes-only vault merge with every check run green is allowed", () => {
+  assert.equal(run([...notes(), ...checks([["lists", "success"], ["frontmatter", "skipped"]])], ...VAULT).permissionDecision, "allow");
+});
+test("R15: a red check run refuses the merge and names it", () => {
+  for (const bad of ["failure", "cancelled", "timed_out", "action_required"]) {
+    const r = run([...notes(), ...checks([["lists", "success"], ["frontmatter", bad]])], ...VAULT);
+    assert.equal(r.permissionDecision, "deny", bad);
+    assert.match(r.permissionDecisionReason, /frontmatter/);
+  }
+});
+test("R15: a check run still pending or on another head does not clear the merge", () => {
+  const pending = [use("mcp__github__pull_request_read", "k", { owner: VAULT[0], repo: VAULT[1], pullNumber: 10, method: "get_check_runs" }), res("k", JSON.stringify({ check_runs: [{ name: "lists", status: "in_progress", conclusion: null, head_sha: HEAD }] }))];
+  assert.equal(run([...notes(), ...pending], ...VAULT).permissionDecision, "deny");
+  assert.equal(run([...notes(), ...checks([["lists", "success"]], "1".repeat(40))], ...VAULT).permissionDecision, "deny");
+});
+test("R15: a reviewer's merge: yes on the pinned head does not skip the check runs", () => {
+  const verdict = comments(VAULT[0], VAULT[1], [["MrJarrad", yes]]);
+  assert.equal(run([...verdict, ...notes()], ...VAULT).permissionDecision, "deny");
+  assert.equal(run([...verdict, ...notes(), ...checks([["lists", "success"]])], ...VAULT).permissionDecision, "allow");
+});
+test("R15: a product repo merge is not asked for check runs", () => {
+  assert.equal(run(comments("MrJarrad", "jhd-portfolio", [["MrJarrad", yes]]), "MrJarrad", "jhd-portfolio").permissionDecision, "allow");
+});
