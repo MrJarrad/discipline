@@ -795,7 +795,7 @@ export function checkResolveResult(prompt = "") {
     item: "resolve-result",
     reason:
       "Dispatch blocked — resolve-result: this brief has a doer add or rename a Figma variable. Run the handoff toolkit's resolve step first and put `## Resolve result` in the brief: the resolve-report.json path and `open: 0` " +
-      "(dispatch-brief references/FIGMA-VARIABLES.md; DISC-347, s105). A new variable or name is never a technical call.",
+      "(DISC-347, s105). A new variable or name is never a technical call.",
   };
 }
 
@@ -1115,7 +1115,7 @@ export function currentLoadWarning() {
 
    `sessionId` (reviewer round 2 red: cross-session leak) is the PARENT
    session's own `session_id` — a field every hook input carries — stamped
-   onto the row so `progress-registry-check.mjs` can later report ONLY to
+   onto the row so a registry reader can report ONLY to
    the session that owns it. Without this a dispatched DOER's own session
    (a different `session_id`, hit by the same process-level `PostToolUse`/
    `UserPromptSubmit` wiring) could see status lines about lanes that are

@@ -20,11 +20,3 @@ test("s71 3: a reviewer brief spells the verdict shape the merge gate parses", (
 test("s71 4: the house-rules block is pasted, never a token for it", () => {
   has("skills/dispatch-brief/references/HOUSE-RULES.md", "**Paste the block, never a token for it**");
 });
-
-test("s71 5: a credential is identified by a read before the operator is asked to change it", () => {
-  has("skills/cloud-dispatch/references/ENVIRONMENT-FACTS.md", "**Identify a credential by a read before asking the operator to change anything**");
-});
-
-test("s71 2: MAC-JOBS.md names the read-only version reads and the xcode exception", () => {
-  has("skills/cloud-dispatch/references/MAC-JOBS.md", "**A job reads versions without side effects**");
-});

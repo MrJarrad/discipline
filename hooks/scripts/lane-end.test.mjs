@@ -517,13 +517,10 @@ test("DISC-268: --helper <session id> records the landed helper in <session-dir>
 
 // DISC-325: one comma list of helper + reviewer ids; lane-end prints the ordered calls so the parent archives in the same turn.
 import { archiveSequence } from "./lane-end.mjs";
-test("DISC-325: archiveSequence orders every get_session, then one archive-prep per session, then every archive_session", () => {
+test("DISC-325: archiveSequence orders every get_session, then every archive_session", () => {
   const s = archiveSequence(["session_a", "session_b"], "/plug/hooks/scripts");
   const at = (re) => s.findIndex((l) => re.test(l));
-  assert.ok(at(/get_session session_a/) < at(/archive-prep.*--session session_a/) && at(/get_session session_b/) < at(/archive-prep.*--session session_b/));
-  assert.ok(Math.max(at(/get_session session_a/), at(/get_session session_b/)) < Math.min(at(/archive-prep.*session_a/), at(/archive-prep.*session_b/)));
-  assert.ok(Math.max(at(/archive-prep.*session_a/), at(/archive-prep.*session_b/)) < Math.min(at(/archive_session session_a/), at(/archive_session session_b/)));
-  assert.match(s.join("\n"), /node "\/plug\/hooks\/scripts\/archive-prep\.mjs" --session session_a --branches <branches/);
+  assert.ok(Math.max(at(/get_session session_a/), at(/get_session session_b/)) < Math.min(at(/archive_session session_a/), at(/archive_session session_b/)));
 });
 test("DISC-325: --helper takes a comma list: each id lands in landed-helpers and the sequence prints for each", () => {
   const vault = makeVaultWithQueue();

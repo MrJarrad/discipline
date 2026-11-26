@@ -14,8 +14,7 @@
      {"vaultPrFiles":{"pr":n,"head":"<sha>","files":[...],"complete":true,"origin":"<url>"}}
    `complete` is false, with a `reason`, when a fetch fails (no merge ref: a conflicted
    or closed PR), the merge ref was built on another head, or `--head` names another
-   commit. merge-review-gate checks `origin` is MrJarrad/jhd-vault and reads this line
-   from the Bash result in the session transcript.                                     */
+   commit. a gate that reads this line checks `origin` is MrJarrad/jhd-vault.                                     */
 import { spawnSync } from "node:child_process";
 import { resolveVaultRoot } from "./lib/vault-root.mjs";
 

@@ -14,14 +14,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} is missing: ${s}`);
 
-test("(1) grilling: behaviour spec before the first build of an interactive or scrolling view, sized to the job", () => {
-  has("skills/grilling/SKILL.md", "## Behaviour spec (interactive or scrolling views)");
-  has("skills/grilling/SKILL.md", "Before the first build of any interactive or scrolling view, write down how it behaves, as short as the view allows");
-  has("skills/grilling/SKILL.md", "Confirm it with the operator once; rounds after that are about feel");
-  assert.ok(!/one-page (behaviour|interaction) spec/i.test(flat("skills/grilling/SKILL.md")), "the spec is sized to the job, never a fixed page");
-  has("skills/grilling/references/DOS-AND-DONTS.md", "### Behaviour spec");
-});
-
 test("(2) design-system: components only in their defined states; an undefined look or state is flagged, never kept or added silently", () => {
   has("skills/design-system/SKILL.md", "**Components only in their defined states.**");
   has("skills/design-system/SKILL.md", "never kept or added silently");

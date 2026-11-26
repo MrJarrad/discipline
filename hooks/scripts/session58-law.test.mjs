@@ -8,16 +8,11 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
-const HS = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
 
 // DISC-249 (s54, HT-57/58): "why am i needing to grant permissions all of a sudden". A helper that finds
 // mid-lane it needs another repo and calls add_repo itself is refused as a self-granted permission, so the ask
 // lands on the operator. The brief lists every repo with its access; the helper attaches them all first.
-test("DISC-249: the brief lists every repo with its access, the helper attaches them all first, anything else is next: parent", () => {
-  const h = flat(HS);
-  assert.ok(h.includes("**The brief lists every repo the lane touches, each with its access level** (`read` or `push`)"));
-  assert.ok(h.includes("attaches every listed repo with `add_repo` as its first step, before any work"));
-  assert.ok(h.includes("A repo the brief did not list is `next: parent`, never a question to the operator"));
+test("DISC-249: a repo the brief did not list is next: parent", () => {
   assert.ok(flat("doer-rules.md").includes("A repo the brief did not list: `next: parent`, never an `add_repo` of your own and never a question to the operator."));
 });
 
@@ -56,12 +51,11 @@ test("DISC-246: the verdict block reviewer.md § Verdict asks for is the one rev
 
 // DISC-255: backlog upkeep is mechanical. The wrap step runs wrap-gate and does not finish on exit 1;
 // PRs cannot open without a row id (pr-row-gate, registered in hooks.json).
-test("DISC-255: wrap runs wrap-gate and does not finish on exit 1; pr-row-gate is registered", () => {
+test("DISC-255: wrap runs wrap-gate and does not finish on exit 1", () => {
   const w = flat("skills/wrap/references/REPORT-AND-LEARN.md");
   assert.ok(w.includes("wrap-gate.mjs --vault <vault> --projects <this session's prefixes>"));
   assert.ok(w.includes("**The session does not wrap on exit 1**"));
   assert.ok(w.includes("Exit 0 is the only way into the wrap report."));
-  assert.match(readFileSync(join(root, "hooks/hooks.json"), "utf8"), /"matcher": "mcp__github__create_pull_request"[\s\S]{0,200}pr-row-gate\.mjs/);
 });
 
 // DISC-258 amber 3 (review of #142): the verdict-shape paragraph names the list/quote markers the gate accepts.

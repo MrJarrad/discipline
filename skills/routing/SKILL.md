@@ -45,7 +45,7 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
 15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
-16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6).
+16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks.
 17. **Finish before opening:** max 3 look-lanes open per session (overflow: backlog row unless he says "now"); a try-out finishes before its slot takes a new look topic; asks on a building lane queue for its next round unless tiny.
 18. **Fix rounds change only what the operator named** (HARD-RULES 18).
 19. **Archive helper sessions** (HARD-RULES 19).

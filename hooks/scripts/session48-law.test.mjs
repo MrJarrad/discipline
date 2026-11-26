@@ -23,10 +23,9 @@ test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens t
   ]) assert.ok(r.includes(s), s);
 });
 
-test("session start, wrap and the helper recipe point at rule 19's sweep without restating it", () => {
+test("session start and wrap point at rule 19's sweep without restating it", () => {
   assert.ok(flat("skills/vault-recall/SKILL.md").includes("run the helper sweep (`routing` HARD-RULES 19)"));
   assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("run the helper sweep (routing HARD-RULES 19), which never archives a parent session, this one or any earlier one"));
-  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("The helper sweep (HARD-RULES 19) catches any helper a parent missed"));
 });
 
 test("release: 1.159.0 has its CHANGED.txt entry with the encoded line", () => {

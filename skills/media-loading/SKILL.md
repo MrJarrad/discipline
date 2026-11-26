@@ -89,9 +89,6 @@ exceptions argued per surface.
     mobile's own layout; verify against what mobile actually renders, never
     a shrunk desktop capture.
 
-Source citations per method, and the probe's current classification rules, are in
-`references/PATTERNS.md`.
-
 ## Done-when — the probe, not a look
 
 **Mechanical over AI** (`code-minimalism`): two deterministic counts, not a

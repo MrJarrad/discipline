@@ -18,7 +18,6 @@ subagents get no Figma MCP, so **REST is the cloud route** (`curl api.figma.com`
 | [READ-ORDER.md](references/READ-ORDER.md) | the six-step law in full, per-level descent, values arbitration |
 | [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) | lane mechanics, `figma-node.mjs`, known limits, Cloud/Mac sync |
 | [READ-STEPS.md](references/READ-STEPS.md) | Steps 1-4, the four-layer model, the tool-call order |
-| [COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md) | those two lanes in full |
 | [DELTAS-AND-ARTIFACTS.md](references/DELTAS-AND-ARTIFACTS.md) | change taxonomy, the two artifacts, recapture |
 | [plugin-constraints.md](references/plugin-constraints.md) | the plugin's build constraints |
 
@@ -78,11 +77,11 @@ What an export carries beyond a flat token list — stable `id`s, typed prop sch
 
 ## Copy lane — mandatory, equal to variables and geometry
 
-Text is a fifth layer, not a footnote. Copy is never waved through as "just a content difference" — **that exemption is never available.** Read the top-level `copy` array as a full inventory, and a copy delta from `changes.jsonl` as you would a `layer_binding_*` delta. A copy section with zero findings still exists and says so ([COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md)).
+Text is a fifth layer, not a footnote. Copy is never waved through as "just a content difference" — **that exemption is never available.** Read the top-level `copy` array as a full inventory, and a copy delta from `changes.jsonl` as you would a `layer_binding_*` delta. A copy section with zero findings still exists and says so.
 
 ## Template-layout lane — read layouts, not just component inventories
 
-A template read applies the four-pass page-layout contract to **the whole template frame**, never the region that prompted it; sibling-frame states are first-class. Full contract: [COPY-AND-TEMPLATES.md](references/COPY-AND-TEMPLATES.md).
+A template read applies the four-pass page-layout contract to **the whole template frame**, never the region that prompted it; sibling-frame states are first-class.
 
 ## Operator-intent rule
 

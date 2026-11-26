@@ -18,8 +18,7 @@ test("qa-acceptance owns the rule: a driven row per control type", () => {
 });
 
 test("dispatch-brief done-when names the driven rows for a UI lane", () => {
-  assert.match(read("skills/dispatch-brief/SKILL.md"), /A UI lane's done-when names a driven row per control type\*\* \(\[ACCURACY\.md\]/);
-  assert.match(read("skills/dispatch-brief/references/ACCURACY.md"), /one driven row per control type it ships\*\* — real mouse\s+and keyboard input/);
+  assert.match(read("skills/dispatch-brief/SKILL.md"), /A UI lane's done-when names a driven row per control type\*\*/);
 });
 
 test("present-for-review: the driven-row check follows the yes", () => {

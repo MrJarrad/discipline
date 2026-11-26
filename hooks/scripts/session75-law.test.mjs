@@ -20,7 +20,6 @@ test("s75 2: a hand flip moves the row to the Done archive in the same edit", ()
 });
 test("s75 3: a Figma-contract review goes to a vehicle with Figma tools", () => {
   has(HARD, "a brief that says \"read the Figma live\" goes only to a vehicle that has the Figma tools (a helper session)");
-  has("skills/dispatch-brief/references/ACCURACY.md", "Figma-contract reviewer: helper session only; check the persona's tool list first");
 });
 test("s75 4 (DISC-342): a stale plugin is one status line in the first reply, never a queue row asking for a reload", () => {
   has("hooks/scripts/session-resume.mjs", "Say so in one plain line in the first status reply, before any lane opens; it is not a queue row and nothing is asked of the operator");
@@ -30,10 +29,6 @@ test("s75 5: at the first load warning the next heavy lane goes to a helper sess
 });
 test("s75 6: grep a hand-edited list row back before committing", () => {
   has("skills/vault-write/references/WRITING.md", "After any hand edit to a list, grep the new text back with `queue-write-check.mjs` before committing, and describe only what the check shows");
-});
-test("s75 7: the notes-only proof command runs plain", () => {
-  has(HARD, "run the proof command plain, exactly as the gate prints it, never piped through `cut`, `head` or `grep`");
-  has("hooks/bin/merge-review-gate.mjs", "run plain, exactly as printed: no pipe, no redirect");
 });
 test("DISC-282: session74-law holds 6 tests and says so for the next release entry", () => {
   const t = readFileSync(join(root, "hooks/scripts/session74-law.test.mjs"), "utf8");

@@ -11,8 +11,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
 test("webapp-testing: drive the operator's real gesture, not a DOM click", () => {
-  const s = flat("skills/webapp-testing/SKILL.md");
-  assert.match(s, /Drive the operator's real gesture.*a\.click\(\).*never hovers.*headed Chrome.*move, dwell, press/);
   const d = flat("skills/webapp-testing/references/DOS-AND-DONTS.md");
   assert.match(d, /real mouse \(move, dwell, press\) in headed Chrome/);
   assert.match(d, /Don't pass navigation, hover or transition work on a scripted `a\.click\(\)`/);
@@ -22,17 +20,9 @@ test("doer-rules: a brief names the operator's device and input", () => {
   assert.match(flat("doer-rules.md"), /names the operator's device and input.*2026-10-13-brief-names-operator-device/);
 });
 
-test("dispatch-brief: the brief author is told to name the operator's device and input", () => {
-  assert.match(flat("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /16\. \*\*A navigation, hover or transition brief names the operator's device and input/);
-});
-
 test("motion: frames cover the full transition duration, not a sample", () => {
   assert.match(flat("skills/motion/references/BUILD.md"), /every frame of the full transition duration.*11-frame sample passed a 2\.2 s hidden window/);
   assert.match(flat("skills/webapp-testing/SKILL.md"), /full transition duration, never a sample/);
-});
-
-test("diagnosing-bugs: a second failed round gets the recording first", () => {
-  assert.match(flat("skills/diagnosing-bugs/SKILL.md"), /second round of any kind fails.*operator's recording.*before theorising.*exit-ghost/);
 });
 
 test("cloud-dispatch: Cloudflare auth comes from the egress proxy", () => {

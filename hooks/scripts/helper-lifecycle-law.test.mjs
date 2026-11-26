@@ -17,12 +17,10 @@ const helper = (id, o = {}) => ({ id, title: `Helper · task ${id} — no action
 const parent = (title) => ({ id: "session_p", title, session_status: "SESSION_STATUS_IDLE", updated_at: NOW, status_bucket: "SESSION_STATUS_BUCKET_WORKING" });
 const ids = (list) => list.map((x) => x.id);
 
-test("the rule names its scripts and the Stop hook runs the ledger", () => {
+test("the rule names its scripts", () => {
   const h = readFileSync(join(root, "skills/routing/references/HARD-RULES.md"), "utf8");
   for (const s of ["**The helper ledger is the sweep", "**Rule 1: a helper whose work has landed ends archived", "**Rule 2: a helper still holding open work", "helper-ledger.mjs", "helper-sweep.mjs"]) assert.ok(h.includes(s), s);
-  assert.ok(readFileSync(join(root, "hooks/bin/helper-sweep-stop.mjs"), "utf8").includes("helper-ledger.mjs --self"));
   assert.ok(readFileSync(join(root, "skills/wrap/references/CLOSING-CHECKS.md"), "utf8").includes("`Helpers:` line"));
-  assert.ok(readFileSync(join(root, "skills/cloud-dispatch/references/HELPER-SESSIONS.md"), "utf8").includes("helper-ledger.mjs"));
 });
 
 test("rule 1: under a live parent a landed helper is archived, and so is a completed one quiet past 12 hours; a fresh one is kept", () => {

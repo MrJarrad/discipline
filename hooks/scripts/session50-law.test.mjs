@@ -31,21 +31,8 @@ test("L4: at session start the parent sends each Re-point row its message — HA
   assert.ok(s.includes("the sweep's `## Re-point` list carries one `send_message` text per helper whose parent wrapped, naming the new parent's id; send it once, that turn."));
 });
 
-test("L5: a reviewer helper sends its verdict block to the parent verbatim — one home, two pointers", () => {
-  const h = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
-  assert.ok(h.includes("**A reviewer helper sends its verdict block to the parent verbatim**"));
-  assert.ok(h.includes("adds, under it, `reviewer: <its own session id>` (from `get_session`); the parent posts the block on the PR unchanged, and the merge gates read that line."));
-  assert.ok(flat("skills/dispatch-brief/SKILL.md").includes("DISC-216; verdicts, vault branch: HELPER-SESSIONS"));
+test("L5: a reviewer helper's verdict block is posted by the parent with its reviewer: line", () => {
   assert.ok(flat("agents/reviewer.md").includes("Posted by the parent for you, it adds `reviewer: <your session id>` under the heading"));
-});
-
-test("L6: the helper's own vault branch is named in the brief, and the MCP write guard is registered", () => {
-  const h = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
-  assert.ok(h.includes("**A brief that lets the helper write the vault names the helper's own vault branch**"));
-  assert.ok(h.includes("`vault-mcp-write-guard.mjs` refuses an update under 256 bytes or under half the size the session last read."));
-  const hooks = JSON.parse(read("hooks/hooks.json")).hooks.PreToolUse;
-  const g = hooks.find((x) => x.matcher === "mcp__github__create_or_update_file|mcp__github__push_files");
-  assert.ok(g && g.hooks.some((x) => x.command.includes("hooks/bin/vault-mcp-write-guard.mjs")));
 });
 
 test("L7: a Mac job's PR merges in the same turn it is filed — HARD-RULES 9, the one home", () => {

@@ -15,8 +15,7 @@ A schema-v9 brief adds hints beyond `col-span N/M` (grammar:
 | `@container` | `container-type`/`container-name` — not a media query. |
 | `desc("…")` | Build context only — never a binding, never shipped copy. |
 
-`worked-example.md` (worked `col()`/`row()` read) and `export-shape.md` (rename ids, prop
-schemas) cover the rest.
+`export-shape.md` (rename ids, prop schemas) covers the rest.
 
 ## Aspect lock
 

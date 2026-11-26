@@ -60,10 +60,6 @@ behaviour) do not substitute. Feel that words cannot answer ("how dramatic", "to
 goes to a rough slider test, rung 3 (`prototype`), not another full round
 (`2026-10-18-feel-questions-with-references`). The cap is on the feel round only; the assumption gate still applies to non-feel properties. On any motion feature the first question asks for the reference behaviour itself: "what should this feel like, show me something that does it" (`2026-10-18-text-wrap-reproduce-the-real-gesture`: six rounds tuned fades and slides before his window-resize reference showed the target was plain re-layout). Non-look work is unchanged. **A feel or regression report is restated first**: say it back in his own words and ask "is that it?" before any diagnosis brief (s72: "whole site drained" was re-scoped twice, once read as a moment, once as a delta).
 
-## Behaviour spec (interactive or scrolling views)
-
-For any interactive or scrolling view, write the behaviour spec before dispatch: [references/BEHAVIOUR-SPEC.md](references/BEHAVIOUR-SPEC.md).
-
 ## Smell table
 
 | Smell | Do |
@@ -135,10 +131,6 @@ dispatches:
 
 Confirm shared understanding with the operator before dispatch or build.
 
-## Read-back before dispatch (mandatory on any visual-note brief)
-
-Mandatory on any visual-note brief: read the brief back to the operator before dispatch, as [references/READ-BACK.md](references/READ-BACK.md) sets out.
-
 ## Composition
 
 - **`define-terms`** — when a repo is open, sharpen vocabulary and update
@@ -167,4 +159,4 @@ operator could rule on in one line.
 
 When the operator names a target by reference ("match the less tall items", "what I recorded"), measure that reference on his own
 artefact first and put the number in the question; two missed looks mean 2-3 static sketches on one page, not another build round
-(`measure-the-operators-reference-before-matching-it-2026-10-15`; `dispatch-brief/references/BRIEF-CRAFT.md` item 19).
+(`measure-the-operators-reference-before-matching-it-2026-10-15`).

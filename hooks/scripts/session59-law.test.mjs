@@ -10,8 +10,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readFileSync(join(root, p), "utf8").replace(/\s+/g, " ");
 
 test("DISC-271: the reviewer: line takes get_session's own id, never ~/.claude/helper-session", () => {
-  // one owner: HELPER-SESSIONS points at the charter instead of restating the rule
-  assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("the `reviewer:` line rule in `agents/reviewer.md` § Verdict shape"));
   assert.ok(flat("agents/reviewer.md").includes("the id `get_session` returns for your own session, never the parent's id in `~/.claude/helper-session`"));
 });
 

@@ -49,10 +49,6 @@ before trying several of the options below.
 
 ---
 
-## Visual bugs: the picture first
-
-On any visual bug on any device or browser (disappears, flickers, covered, looks wrong), work from the picture first: [references/VISUAL-BUGS.md](references/VISUAL-BUGS.md).
-
 ## Building the loop — try roughly in this order
 
 1. **Failing test** at whatever seam reaches the bug — unit, integration, e2e.

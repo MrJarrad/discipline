@@ -24,56 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/merge-review-gate.mjs\""
-          },
-          {
-            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/card-gate-merge.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__github__create_pull_request",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/pr-row-gate.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__github__create_or_update_file|mcp__github__push_files",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/vault-mcp-write-guard.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__claude-code-remote__create_session",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-create-gate.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__.*__use_figma",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/figma-variable-gate.mjs\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__.*__archive_session",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/archive-guard.mjs\""
           }
         ]
       }
@@ -124,10 +75,6 @@
           },
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-registry-check.mjs\" PostToolUse"
-          },
-          {
-            "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
           }
         ]
@@ -136,10 +83,6 @@
     "UserPromptSubmit": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/progress-registry-check.mjs\" UserPromptSubmit"
-          },
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/context-fill.mjs\""
@@ -218,14 +161,6 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/needed-from-you-stop.mjs\""
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/parent-return-stop.mjs\""
-          },
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/bin/helper-sweep-stop.mjs\""
           },
           {
             "type": "command",

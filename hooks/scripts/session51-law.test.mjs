@@ -35,17 +35,6 @@ test("DISC-223.3: Figma spec text goes through figma.spec only — one home in L
   assert.ok(flat("skills/capture-figma/SKILL.md").includes("Mechanics: [LANES-AND-TOOLS.md](references/LANES-AND-TOOLS.md) § No-export lanes."), "SKILL points at the one home");
 });
 
-test("DISC-223.4: preview builds are spaced — release-deploy, beside Workers Builds", () => {
-  const s = flat("skills/release-deploy/SKILL.md");
-  assert.ok(s.includes("Previews build on Cloudflare Workers Builds. **Space preview builds**: three or more overlapping branch builds hit Cloudflare's R2 API rate limit (429) and fail with no code change."));
-  assert.ok(s.includes("Start the next build once the one before it finishes, and re-run a red build once the others are done (`overload-and-untested-live-2026-10-15` item 3)."));
-});
-
-test("DISC-224 A: notes-only vault PRs are proven by vault-pr-files, names only — HARD-RULES 6", () => {
-  const s = flat("skills/routing/references/HARD-RULES.md");
-  assert.ok(s.includes("a MrJarrad/jhd-vault PR passes only when it is shown notes-only: by `node <plugin>/hooks/scripts/vault-pr-files.mjs --vault <vault> --pr <n>` (names only, bound to the head; use this; `<plugin>` as an absolute path, the one the gate's refusal prints) or by `get_files` reads"));
-});
-
 test("DISC-224 B: the start sweep reads only the helpers wrap named — HARD-RULES 19, wrap, vault-recall", () => {
   const s = flat("skills/routing/references/HARD-RULES.md");
   assert.ok(s.includes("**At wrap** save `list_sessions` (every page) to files and run"));
@@ -64,12 +53,6 @@ test("DISC-224 C: the cockpit keeps one wrap block and carries queue paths and c
   assert.ok(s.includes("the cockpit keeps the newest wrap block only (older ones move to the cockpit archive) and carries each project's queue path and open-row count, never rows (DISC-224); `node <plugin>/hooks/scripts/cockpit-check.mjs --vault <vault>` exits 0 before the wrap commit;"));
   assert.ok(!s.includes("the cockpit wrap block carries every open row verbatim"));
   assert.ok(flat("skills/pause-resume/SKILL.md").includes("The open queue is not copied: the cockpit carries each project's queue path and open-row count"));
-});
-
-test("DISC-224 D: a helper's state is read from its progress file first, list_events narrow — HELPER-SESSIONS § 3", () => {
-  const h = flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md");
-  assert.ok(h.includes("To see what a helper is doing, read its progress file (the brief names it) first; otherwise `list_events` with `kinds: [\"result\"]` and `limit: 5`, widening to `\"assistant\"` only when that does not answer (DISC-224, s44: 12.7k chars for one read)."));
-  assert.ok(!h.includes("`limit: 100`"));
 });
 
 test("DISC-224 E: the first status reply comes before housekeeping — HARD-RULES 24, pointed at from routing and pause-resume", () => {

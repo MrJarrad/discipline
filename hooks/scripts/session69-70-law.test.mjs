@@ -15,7 +15,6 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 const has = (p, s) => assert.ok(flat(p).includes(s), `${p} lacks: ${s}`);
 const OS = "skills/routing/references/OPERATOR-REPLIES.md";
-const HS = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
 const WR = "skills/vault-write/references/WRITING.md";
 
 test("s69 1: a recommendation naming a tool or a store reads the tool's schema and the estate page first", () => {
@@ -24,10 +23,6 @@ test("s69 1: a recommendation naming a tool or a store reads the tool's schema a
 
 test("s69 2: a not-done claim greps the vault backlog and evidence first", () => {
   has("skills/vault-recall/SKILL.md", "**Before telling the operator something has not been done or run**, grep the project's backlog and `evidence/` for it");
-});
-
-test("s69 3: a brief that cites a new row waits for the parent's notes PR to merge", () => {
-  has(HS, "**A brief that cites a row the parent just added waits until the parent's notes PR merges**");
 });
 
 test("s69 4 (covered 1.186.0): merge a vault PR only after its checks complete", () => {
@@ -47,12 +42,7 @@ test("s70 1: an operator idea is restated as one outcome sentence and gets his y
   has("skills/prompt-craft/SKILL.md", "A researcher answering the parent's framing is not the operator confirming it");
 });
 
-test("s70 2 (covered 1.188.0): the merge gate trusts the session's own get_me login", () => {
-  assert.ok(readFileSync(join(root, "hooks/bin/merge-review-gate.mjs"), "utf8").includes("DISC-277"));
-});
-
-test("s70 3: every reviewer brief says to post the verdict on the PR", () => {
-  has(HS, "**Every reviewer brief says to post the verdict on the PR; never \"do not post on the PR\"**");
+test("s70 3: the reviewer brief says to post the verdict on the PR", () => {
   has("skills/dispatch-brief/SKILL.md", "Verdict shape: `agents/reviewer.md` § Verdict, verbatim. Post on the PR.");
 });
 
@@ -60,10 +50,6 @@ test("s70 4: list rows are flipped by tool, the status grammar is fixed, and the
   has(WR, "**Flip a list row with `lane-end.mjs --backlog`, and run `list-drift-check.mjs` locally before pushing**");
   assert.equal(parseStatus("done (no change needed)"), null, "a no-change row is moot, never done");
   assert.equal(parseStatus("moot (no change needed)").kind, "moot");
-});
-
-test("s70 5: cloud-refused account writes and private clones go to a Mac job at once", () => {
-  has("skills/cloud-dispatch/references/MAC-JOBS.md", "**An account write or a repo clone the cloud refuses is a review-first Mac job at once**");
 });
 
 test("s70 6: cost and timing numbers are labelled estimated, from measured per-item sizes", () => {

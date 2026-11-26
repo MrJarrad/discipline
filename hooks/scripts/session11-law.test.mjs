@@ -12,7 +12,6 @@ const read = (p) => readLoaded(repo, p);
 
 test("merge-each-approved-round: a round ends at its merge; stacking is malformed", () => {
   assert.match(read("skills/routing/references/HARD-RULES.md"), /A round ends at its merge\*\* \(`merge-each-approved-round-2026-10-06`/);
-  assert.match(read("skills/dispatch-brief/references/BRIEF-CRAFT.md"), /stacks a new round onto an unmerged branch is malformed/);
 });
 
 test("figma-aspect-lock-is-ratio: a locked aspectRatio builds the ratio, never the height", () => {

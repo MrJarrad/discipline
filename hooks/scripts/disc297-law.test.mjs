@@ -43,11 +43,6 @@ test("DISC-299/303: RELEASE-PATH has the per-release refresh-line step, says it 
   assert.ok(!r.includes("There is no per-release step"), "no claim of a step-free route");
   assert.ok(!r.includes("server-managed settings are the route"), "managed settings are unavailable on this plan");
 });
-test("s80 Mac wording: ask 'Is now a good time for me to take over your Mac (about N minutes)?' before a job that uses the screen", () => {
-  const m = flat("skills/cloud-dispatch/references/MAC-JOBS.md");
-  assert.ok(m.includes("Is now a good time for me to take over your Mac (about N minutes)?"));
-  assert.ok(m.includes("never ask whether he is at the Mac"));
-});
 // Review notes on #187.
 test("#187 notes: fromDocsRead decodes &amp;#39; and keeps link urls when stripping tags", async () => {
   const { fromDocsRead } = await import("./queue-page-sync.mjs");

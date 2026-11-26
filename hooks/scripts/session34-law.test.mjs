@@ -20,49 +20,6 @@ const c = (body, at) => ({ body, author: { login: "MrJarrad" }, at });
 const yes = `## Review — head ${S7}\n\n**merge: yes.**`;
 const no = `## Review — head ${S7}\n\n**merge: no.**`;
 
-const dir = () => mkdtempSync(join(tmpdir(), "s34-"));
-const transcript = (calls) => {
-  const p = join(dir(), "t.jsonl");
-  const lines = calls.flatMap((k, i) => [
-    { type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: `t${i}`, name: "mcp__github__pull_request_read", input: k.input }] } },
-    { type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: `t${i}`, content: [{ type: "text", text: JSON.stringify(k.items) }] }] } },
-  ]);
-  writeFileSync(p, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
-  return p;
-};
-const run = (gate, tool_input, transcript_path) => {
-  const out = execFileSync(process.execPath, [gate], { input: JSON.stringify({ tool_name: "mcp__github__merge_pull_request", tool_input, transcript_path }), encoding: "utf8" });
-  return out.trim() ? JSON.parse(out).hookSpecificOutput : { permissionDecision: "allow" };
-};
-const gate = join(root, "hooks/bin/merge-review-gate.mjs");
-const files = (n, extra = {}) => ({ input: { method: "get_files", owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, ...extra }, items: Array.from({ length: n }, (_, i) => ({ filename: `projects/p/note-${i}.md` })) });
-const vault = (extra = {}) => ({ owner: "MrJarrad", repo: "jhd-vault", pullNumber: 9, expectedHeadSha: HEAD, ...extra });
-
-test("(N5) a notes-only vault merge must pin expectedHeadSha too", () => {
-  const t = transcript([files(2)]);
-  assert.equal(run(gate, vault(), t).permissionDecision, "allow");
-  const d = run(gate, vault({ expectedHeadSha: undefined }), t);
-  assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /pass expectedHeadSha/);
-});
-
-test("(N5) a full get_files page may hide more files: refused until pages 1..k are read and page k is short", () => {
-  const d = run(gate, vault(), transcript([files(30)]));
-  assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /get_files reads do not cover every page/);
-  assert.equal(run(gate, vault(), transcript([files(30), files(3, { page: 2 })])).permissionDecision, "allow");
-  assert.equal(run(gate, vault(), transcript([files(30, { perPage: 100 })])).permissionDecision, "allow");
-});
-
-test("(N6) the merge: no denial reads cleanly and never says 'with merge: yes on head' after 'says merge: no'", () => {
-  const t = transcript([{ input: { method: "get_comments", owner: "MrJarrad", repo: "jhd-portfolio", pullNumber: 5 }, items: [{ body: no, user: { login: "MrJarrad" } }] }]);
-  const d = run(gate, { owner: "MrJarrad", repo: "jhd-portfolio", pullNumber: 5, expectedHeadSha: HEAD }, t);
-  assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /the latest reviewer verdict on head c137007 says merge: no \(every merge needs merge: yes/);
-  assert.doesNotMatch(d.permissionDecisionReason, /says merge: no with/);
-  const none = run(gate, { owner: "MrJarrad", repo: "jhd-portfolio", pullNumber: 5, expectedHeadSha: HEAD }, transcript([]));
-  assert.match(none.permissionDecisionReason, /no reviewer verdict with merge: yes on head c137007/);
-});
 
 test("(N7) the verdict sort is transitive when a timestamp is missing: untimed posts rank oldest", () => {
   const items = [c(no, "2026-10-18T17:00:00Z"), c(yes, undefined), c(yes, "2026-10-18T16:00:00Z")];
@@ -71,31 +28,7 @@ test("(N7) the verdict sort is transitive when a timestamp is missing: untimed p
   assert.equal(mar.reviewVerdict([c(yes, "2026-10-18T16:00:00Z"), c(no, undefined)], HEAD, ["MrJarrad"])?.verdict, "yes");
 });
 
-test("(N1) a gate that cannot load merge-after-review.mjs fails closed instead of exiting 1", () => {
-  const tmp = dir();
-  mkdirSync(join(tmp, "hooks/bin"), { recursive: true });
-  mkdirSync(join(tmp, "hooks/scripts"), { recursive: true });
-  cpSync(gate, join(tmp, "hooks/bin/merge-review-gate.mjs"));
-  writeFileSync(join(tmp, "hooks/scripts/merge-after-review.mjs"), "export const broken = ;\n");
-  const d = run(join(tmp, "hooks/bin/merge-review-gate.mjs"), vault(), transcript([files(1)]));
-  assert.equal(d.permissionDecision, "deny");
-  assert.match(d.permissionDecisionReason, /merge-review-gate failed closed/);
-});
-
 const LESSON = "2026-10-18-text-wrap-reproduce-the-real-gesture";
-test("(lesson 1,2) webapp-testing: motion probes carry a hover-wobble and a scroll segment; fixtures include a tall-type case", () => {
-  has("skills/webapp-testing/SKILL.md", "**Probe the operator's gestures and the page's real type**");
-  has("skills/webapp-testing/SKILL.md", "hover-wobble segment");
-  has("skills/webapp-testing/SKILL.md", "a scroll segment beside travel");
-  has("skills/webapp-testing/SKILL.md", "tall-type case");
-  has("skills/webapp-testing/SKILL.md", LESSON);
-});
-
-test("(lesson 3) diagnosing-bugs: a pixel measure of a recording is validated on a known-calm reference first", () => {
-  has("skills/diagnosing-bugs/SKILL.md", "is validated first on a known-calm reference, such as a plain window resize");
-  has("skills/diagnosing-bugs/SKILL.md", LESSON);
-});
-
 test("(lesson 4) grilling: any motion feature starts by asking for the reference behaviour", () => {
   has("skills/grilling/SKILL.md", "On any motion feature the first question asks for the reference behaviour itself");
   has("skills/grilling/SKILL.md", LESSON);
@@ -105,17 +38,4 @@ test("(lesson 5) test-first: a gate's threshold comes from the specified mechani
   has("skills/test-first/SKILL.md", "**A gate's threshold is one the specified behaviour can pass**");
   has("skills/test-first/SKILL.md", "get it agreed before building to it");
   has("skills/test-first/SKILL.md", LESSON);
-});
-
-test("(DISC-195) one helper recipe: cloud-dispatch holds it, the pointers lead to it, and it covers every step", () => {
-  const ref = "skills/cloud-dispatch/references/HELPER-SESSIONS.md";
-  for (const s of [
-    "`source_url`", "`add_repo`", "`register_repo_root`", "`model-routing`",
-    "session-titles-2026-10-15",
-    "`send_message`", "Reports the plugin version it loaded", "Posts its return on the PR",
-    "`get_session`", "`list_events`", "`archive_session`",
-  ]) has(ref, s);
-  has("skills/cloud-dispatch/SKILL.md", "references/HELPER-SESSIONS.md");
-  has("skills/routing/references/HARD-RULES.md", "`cloud-dispatch/references/HELPER-SESSIONS.md`");
-  assert.ok(!flat("skills/routing/references/HARD-RULES.md").includes("blob_limit_kb"), "the recipe is stated once, in the reference");
 });

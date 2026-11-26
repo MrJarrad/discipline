@@ -10,11 +10,6 @@ import { readLoaded } from "./skill-text.mjs"; // a SKILL.md path reads as the l
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const flat = (p) => readLoaded(root, p).replace(/\s+/g, " ");
 
-test("a look round rejected twice on one element asks for a frame before round three", () => {
-  const g = flat("skills/grilling/SKILL.md");
-  assert.match(g, /A look round rejected twice on the same element stops iterating from words: before round three, ask the operator for a frame \(Figma frame or handoff, or a marked screenshot\)/);
-  assert.match(g, /brief the doer to match the picture, with a pixel check at the operator's framing \(`2026-10-18-look-rounds-and-harness-claims`:/);
-});
 test("operator-facing motion or behaviour numbers come from the deployed probe only", () => {
   assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /A motion or behaviour number reaches him only from the deployed probe; a harness number is labelled "in testing" or withheld until the deployed run lands \(`2026-10-18-look-rounds-and-harness-claims`\)/);
 });
