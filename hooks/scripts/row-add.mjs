@@ -8,7 +8,7 @@
             [--owner Agent|Mac|Operator]      (backlog, status open: who does it; written as the Item cell's trailing label)
             [--where "<w>"] [--why "<y>"] [--recommended "<r>"]    (queue)
             [--merge-into <ID>]  fold the text into that open row instead (dated; backlog Notes, queue Needed)
-            [--searched "<what you searched>"] a queue row asking the operator for a link, file or node needs this (DISC-272)
+            [--searched "<what you searched>"] every queue row needs this: the grep of the project's queue, decisions and references and what it found (DISC-272, DISC-360)
             [--rulings '"<quote>" — <vault path>' ...] a look or behaviour ask needs these (repeat per ruling), or --rulings none-found
                              with --searched; the row prints them (DISC-367)
             [--distinct]     add the row even though it resembles an open one
@@ -106,6 +106,7 @@ export function citedIds(text, prefix) {
   return [...new Set(String(text).match(new RegExp(`\\b${prefix}-\\d+\\b`, "g")) || [])];
 }
 
+const SEARCH_REFUSAL = "a queue ask needs --searched \"<what you grepped in the project's queue, decisions and references, and what it found>\": an answered call is relayed as built, never re-asked (DISC-360)";
 const OWNERS = ["Agent", "Mac", "Operator"];
 const OWNER_END = /\b(Agent|Mac|Operator)\.?\s*$/;
 
@@ -124,6 +125,11 @@ export function rowAdd({ vault, prefix, to, text, raised, where, why, recommende
   const lookAsk = !mergeInto && (to === "queue" || status === "waiting on operator") && isLookAsk(text, where, why);
   if (lookAsk) { const p = rulingsProblem(rulings, searched); if (p) return fail(`look-or-behaviour ask refused — ${p}`); }
   if (lookAsk) text = `${clean(text)} ${rulingsLine(rulings, searched)}`;
+  // DISC-360 R1: every other ask of the operator (a decision, a fact) says what the project's queue, decisions and references held (lessons s41-s56: answered calls were re-asked).
+  else if (to === "queue" && !mergeInto) {
+    if (thin(clean(searched))) return fail(`${SEARCH_REFUSAL}${clean(searched) ? ` (--searched is too thin: at least 3 words, 15 characters)` : ""}`);
+    why = `${clean(why)} Searched: ${clean(searched)}`.trim(); // the Why cell, so the row-similarity check reads only the ask
+  }
   if (/\|/.test(clean(text) + clean(where) + clean(why) + clean(recommended))) return fail("cell text must not contain | (it would split the row)");
   // DISC-336: an open backlog row names its owner so the ranker can class it; a merge folds into an existing row and needs none.
   if (owner !== undefined && !OWNERS.includes(owner)) return fail(`--owner is Agent, Mac or Operator, not "${owner}"`);
