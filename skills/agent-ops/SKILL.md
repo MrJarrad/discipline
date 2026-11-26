@@ -41,6 +41,7 @@ If it changes *how an agent decides or acts across tasks*, it's Agent-Ops. If it
    consumer → delete it, don't keep it "just in case."
 4. **One lever at a time.** Don't tune the skill and swap the model in the same pass — you
    won't know which moved the needle, and you can't gate what you can't attribute.
+5. **A rule costs a rule.** A new rule line needs its eval result and a named rule retired, or a recorded reason none can go: [references/RULE-BUDGET.md](references/RULE-BUDGET.md).
 
 ## The change loop — every mechanism change
 
