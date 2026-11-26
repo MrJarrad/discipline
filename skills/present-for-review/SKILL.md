@@ -54,7 +54,7 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying it
 - **DON'T:** open a tab he has to close, or ask for a hard refresh.
 - **One link per ask, never a corrected link underneath** — rebuild the row with the right link, because the stale one gets opened.
 - **Run `node <plugin>/hooks/scripts/preview-sha-check.mjs --branch <b> --sha <claimed> [--checks <owner/repo>]` and send the link only on exit 0** — a 200 from the preview proves nothing about which build it serves (`preview-link-relayed-before-push-verified-2026-10-05`).
-- **Probe the served preview for the new code before relaying**, since the check reads success before the build lands. Recipe: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
+- **Probe the served preview for the new code before relaying**, the check passes early. Recipe and host claims: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md).
 - **The parent confirms the link opens hydrated with no error before sending it**, loading it itself; evidence is read after the yes (`link-first-look-rounds`; checks in `doer-rules.md` § Repo and safety), and an "unverified" the doer could have checked is sent back, not relayed.
 - **Cloud portfolio previews:** a `preview/*` push publishes `https://preview-<branch>-jhd-preview-staging.jh-229.workers.dev`.
 - **Before any look link, run the six link checks**: [PREVIEW-PROBE.md](references/PREVIEW-PROBE.md) § Link checks.

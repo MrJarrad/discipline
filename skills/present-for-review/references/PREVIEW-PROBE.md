@@ -49,3 +49,7 @@ Run all six before a look link goes out (`SKILL.md` § Before the link goes out)
 ## A fresh preview ref per round (s78)
 
 Fast-forwarding an existing `preview/*` ref triggers no Workers build; only a new ref does (PF-1562 waited about 25 minutes on a guessed URL). DO: push every new preview round to a new `preview/*` ref and read build status from the Cloudflare builds API (`builds-check.mjs`, credential injected). DON'T: poll a guessed URL.
+
+## "Live", "up to date" and "behind" read the host
+
+Say a feature is live, up to date or behind on a host only after fetching that host's served page for the feature and reading the zone routes for the hostname. A merge, a release record or a green build proves none of it: a feature behind a flag that was on only for `preview/*` builds was called live and was missing on the production host. A flag-gated feature's PR names the hosts where the flag is on.

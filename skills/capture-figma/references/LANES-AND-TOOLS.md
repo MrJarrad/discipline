@@ -168,6 +168,8 @@ live. Each output names what its lane lost.
 | Spec text | `use_figma` with `figma.spec.getContent` to read, `figma.spec.editContent` to write (each call all-or-none; re-read after a write) | everything: REST and the other MCP reads do not return spec text |
 | Bindings | REST `boundVariables` | ids only: names come from the sync bank, `variables/local` is Enterprise (403) |
 
+Spec comments come back from REST as plain text at one anchor, without their links or images. Map them by the `[comment:<uuid>]` markers `figma.spec.getContent` returns, never by wording, and ask the operator for any link or image a comment refers to.
+
 Export-only, not readable live: `codeSyntax` per mode, `cssClass`, pair hashes, changelog. A
 lane that needs them asks for an export.
 

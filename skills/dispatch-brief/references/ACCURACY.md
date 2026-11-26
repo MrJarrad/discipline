@@ -27,6 +27,10 @@ Escalating the model instead of slicing is the failure this rule names: the nav 
 the strongest model available and still collapsed per-device and per-page export values into
 single literals, because nothing in the brief made the uncovered nodes visible.
 
+## A banked ruling applies only to what it names
+
+Applying a ruling to a new element is a look call: it goes to the operator as a decision with a recommendation, never to a doer as an instruction ("underline and icon stroke match" was stretched to a deliberately thicker strikethrough).
+
 ## Driven rows for interactive UI
 
 An interactive-UI lane's done-when names **one driven row per control type it ships** — real mouse
