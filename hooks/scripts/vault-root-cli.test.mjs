@@ -21,8 +21,8 @@ function container() {
   const put = (p, t) => { mkdirSync(join(main, p, ".."), { recursive: true }); writeFileSync(join(main, p), t); };
   put("projects/portfolio/portfolio-backlog.md", BACKLOG);
   put("projects/portfolio/portfolio-queue.md", QUEUE);
-  put("orchestrator/operator-queue.md", "# Operator queue index\n\nNo rows here.\n");
-  put("orchestrator/cockpit.md", "# Cockpit\n\nnothing.\n");
+  put("coordinator/operator-queue.md", "# Operator queue index\n\nNo rows here.\n");
+  put("coordinator/cockpit.md", "# Cockpit\n\nnothing.\n");
   spawnSync("git", ["init", "-q", main]);
   spawnSync("git", ["-C", main, "remote", "add", "origin", "https://example.invalid/x/y.git"]);
   return { box, main };

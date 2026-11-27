@@ -48,9 +48,9 @@ not the aspect.
 - **Looking for material we did not author** (a captured site, a code snippet, an
   operator screenshot) → `~/JHD/vault/references/`, filterable by its database
   frontmatter (`projects:`, `good_for:`, `type:`) rather than by project folder.
-- **Orchestrator's own operating files** (cockpit, contract) →
-  `orchestrator/cockpit.md` (machine / in-flight — read **after** this project's
-  handover), `orchestrator/CONTRACT.md`. Do not load every `projects/*/*-handover.md`.
+- **Coordinator's own operating files** (cockpit, contract) →
+  `coordinator/cockpit.md` (machine / in-flight — read **after** this project's
+  handover), `coordinator/CONTRACT.md`. Do not load every `projects/*/*-handover.md`.
   Rulings: `handover-trays`, `unique-note-names`.
 
 When there is no hub route yet (a project too new to have one, or you're unsure which
@@ -105,7 +105,7 @@ A note may be authored correctly but now stale. Stale signals a new record (supe
 
 ## The vault context map
 
-The vault holds our graph organized thing-then-aspect: `orchestrator/` + one
+The vault holds our graph organized thing-then-aspect: `coordinator/` + one
 `projects/<name>/` folder per project (hub, primers, decisions, audits, artifacts) +
 `fleet/` for cross-project rulings and lessons + `references/` + `estate/` — all linked
 by `[[wikilinks]]`. Recall means landing on the right project's hub (or `fleet/` for

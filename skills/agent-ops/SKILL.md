@@ -9,7 +9,7 @@ description: >-
 
 # Agent-Ops Discipline
 
-The orchestrator decides *where* work goes. `quality` decides whether a single output
+The coordinator decides *where* work goes. `quality` decides whether a single output
 is *good enough to ship*. **Agent-Ops decides whether a change to how the skill library
 and dispatch system itself works actually makes it better — proven before it ships.**
 

@@ -131,5 +131,5 @@ test("the CLI reads saved list_sessions pages, matches PRs from --prs-file, writ
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /## Archive \(1\)/);
   assert.match(r.stdout, /list is complete/);
-  assert.match(readFileSync(join(dir, "orchestrator", "helper-ledger.md"), "utf8"), /session_a/);
+  assert.match(readFileSync(join(dir, "coordinator", "helper-ledger.md"), "utf8"), /session_a/);
 });

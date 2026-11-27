@@ -8,9 +8,9 @@ description: >-
 
 # Quality Discipline
 
-The orchestrator decides *where* work goes — dispatch, sequencing, review routing.
+The coordinator decides *where* work goes — dispatch, sequencing, review routing.
 This skill decides whether the work is *good enough to ship*. That judgment is the
-whole job, because the orchestrator deliberately delegates it to you.
+whole job, because the coordinator deliberately delegates it to you.
 
 ## Floor by medium
 
@@ -31,9 +31,9 @@ appearance, feel) — explicit **design-review** owns experience judgment. Named
    its proof travel together. **Engineer self-report is not verify** — a change is
    reportable to the operator when the deterministic gates are green and no **red
    finding** is open (one narrow skip: typo/comment-only with no behaviour change — and every
-   merge still has a reviewer verdict first, `2026-10-09-every-merge-reviewed`; except notes-only vault PRs, `2026-10-18-orchestrator-merges-own-vault-notes`).
+   merge still has a reviewer verdict first, `2026-10-09-every-merge-reviewed`; except notes-only vault PRs, `2026-10-18-coordinator-merges-own-vault-notes`).
 3. **Never fabricate.** Source from real files, APIs, and data, or stop and route
-   the question to the operator via the orchestrator. Don't invent file paths, API
+   the question to the operator via the coordinator. Don't invent file paths, API
    shapes, component names, or facts.
 4. **Mechanical first.** A deterministic mechanism (script, token, data-driven rule,
    pinned test, existing tool) comes before a model call, a manual step or a judgement

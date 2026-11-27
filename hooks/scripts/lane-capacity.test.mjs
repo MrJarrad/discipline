@@ -1,4 +1,4 @@
-// DISC-295 (ruling 2026-11-12-orchestrator-takes-charge-of-the-backlog): a parent keeps each project at lane capacity
+// DISC-295 (ruling 2026-11-12-coordinator-takes-charge-of-the-backlog): a parent keeps each project at lane capacity
 // from the backlog. Run: node --test hooks/scripts/lane-capacity.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";

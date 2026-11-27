@@ -98,7 +98,7 @@ test("a folded block-scalar (>-) description containing colons parses fine", () 
     "---",
     "name: routing",
     "description: >-",
-    "  Decide WHO handles work: the orchestrator dispatches, it does not do.",
+    "  Decide WHO handles work: the coordinator dispatches, it does not do.",
     "  Trigger on: any request.",
     "---",
   ].join("\n");

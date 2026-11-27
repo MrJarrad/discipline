@@ -24,7 +24,7 @@ function readHookInput() {
 
 const input = readHookInput();
 // The repo the edit landed in — the git toplevel of the edited file — not the
-// session cwd: an orchestrator rooted in the vault editing a worktree file must
+// session cwd: a coordinator rooted in the vault editing a worktree file must
 // mark the worktree. Falls back to the session cwd when the file is outside any
 // repo or no file path is given. Known limit: edits made through Bash (sed,
 // heredocs) fire no Write|Edit event, so they leave no marker; the commit gate's

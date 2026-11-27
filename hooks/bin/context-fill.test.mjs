@@ -34,7 +34,7 @@ test("below the wrap line the prompt hook says nothing", () => {
   rmSync(d, { recursive: true });
 });
 
-test("at or past 70% the prompt hook tells the orchestrator to wrap, with the reading", () => {
+test("at or past 70% the prompt hook tells the coordinator to wrap, with the reading", () => {
   const d = fresh();
   const p = transcript(d, [user, assistant(705_000)]);
   const m = handle({ hook_event_name: "UserPromptSubmit", session_id: "s", transcript_path: p }, opts(d));

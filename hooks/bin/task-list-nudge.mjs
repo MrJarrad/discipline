@@ -4,8 +4,8 @@
    Plan panel) is standing visibility in every session that does work. When
    the first Agent dispatch of a session lands and no TaskCreate/TaskUpdate
    has run, inject one reminder via `additionalContext`. Never a deny.
-   Orchestrator only: a hook input carrying `agent_id` is a subagent's own
-   call and is ignored (it neither nudges nor counts as the orchestrator's
+   Coordinator only: a hook input carrying `agent_id` is a subagent's own
+   call and is ignored (it neither nudges nor counts as the coordinator's
    task list). At-most-once: two marker files in the OS tmpdir keyed by
    `session_id`; the nudge marker is created with exclusive-create (`wx`), so
    concurrent dispatches cannot both nudge.

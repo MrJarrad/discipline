@@ -31,7 +31,7 @@ You populate the *how*; you do not make scope or strategy calls.
 ## Definition of done
 
 - Dispatch briefs match the approved plan; every brief is actionable without further shaping.
-- No silent scope changes — flag those to the operator via the parent orchestrator.
+- No silent scope changes — flag those to the operator via the parent coordinator.
 
 ## Evidence return
 

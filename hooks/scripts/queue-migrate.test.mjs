@@ -27,7 +27,7 @@ const QUEUE = [
 function fixture() {
   const v = mkdtempSync(join(tmpdir(), "qmig-"));
   const put = (p, t) => { mkdirSync(join(v, p, ".."), { recursive: true }); writeFileSync(join(v, p), t); };
-  put("orchestrator/operator-queue.md", QUEUE);
+  put("coordinator/operator-queue.md", QUEUE);
   put("projects/portfolio/portfolio-backlog.md", BL("| 1 | pf backlog one | d | waiting on operator |\n| 2 | two | d | open |", "| 2 | dup two | d | moot (x) |"));
   put("projects/hoverboard/hoverboard-backlog.md", BL("| 1 | hb backlog one | d | open |"));
   put("projects/jhd-design-system/jhd-design-system-backlog.md", BL("| 1 | ds backlog one | d | open |"));
@@ -47,7 +47,7 @@ test("migrate: counts match per project, rows keep their text, struck stays stru
   assert.match(hb, /\| HB-4 \| ~~hb struck~~ yes \|/);
   assert.match(hb, /\*\*Next free number: 6\*\*/);
   assert.match(hb, /exactly `HB-N`/);
-  assert.equal(r.files["orchestrator/operator-queue.md"].includes("| 5 |"), false, "the shared file keeps no rows");
+  assert.equal(r.files["coordinator/operator-queue.md"].includes("| 5 |"), false, "the shared file keeps no rows");
 });
 
 test("migrate: backlog rows are prefixed, the ID-less duplicate gets the next free number, nothing is dropped", () => {
@@ -65,7 +65,7 @@ test("CLI --apply writes the files; the vault then lints clean and same-number r
   const dry = spawnSync("node", [script, "--vault", v], { encoding: "utf8" });
   assert.equal(dry.status, 0, dry.stderr);
   assert.match(dry.stdout, /\[dry-run\]/);
-  assert.match(readFileSync(join(v, "orchestrator", "operator-queue.md"), "utf8"), /^# Operator queue\n/, "dry run wrote nothing");
+  assert.match(readFileSync(join(v, "coordinator", "operator-queue.md"), "utf8"), /^# Operator queue\n/, "dry run wrote nothing");
   const run = spawnSync("node", [script, "--vault", v, "--apply"], { encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   assert.deepEqual(checkVault(v, []).filter((f) => f.kind !== "suspect" && f.kind !== "unknown").map((f) => `${f.kind} ${f.file}`), []);

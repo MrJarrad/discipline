@@ -163,7 +163,7 @@ export const TRIGGER_PHRASES = {
   "vault-write": ["vault", "decision", "ruling"],
   "verify-finding": ["does X exist", "what calls Y"],
   "webapp-testing": ["Playwright", "screenshot"],
-  "wrap": ["ending an orchestration session", "hand over"],
+  "wrap": ["ending a coordination session", "hand over"],
   "agents/reviewer.md": ["ready to merge", "check before shipping"],
   "agents/ux-designer.md": ["match the figma", "discrepancies", "animation feels off"],
 };
@@ -236,7 +236,7 @@ test("no always-read file instructs a built-in slash command", () => {
   assert.deepEqual(hits, [], "always-read files naming a built-in command");
 });
 
-// Always-read files: loaded whole by every session (the style), every orchestrator turn (routing's references) or every
+// Always-read files: loaded whole by every session (the style), every coordinator turn (routing's references) or every
 // doer (doer-rules, the house rules every brief carries). Held at measured size; `target` is the DISC-351 target shape.
 export const BUDGETS = [
   { file: "output-styles/discipline.md", words: 800, target: 800 },

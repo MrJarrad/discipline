@@ -28,7 +28,7 @@ flowchart TD
   escalate --> dispatch
 ```
 
-1. **Job shape** — mechanical · implement/fix · review/judge · research · design/UX judgment · architecture/orchestration
+1. **Job shape** — mechanical · implement/fix · review/judge · research · design/UX judgment · architecture/coordination
 2. **Complexity** — trivial · standard · hard · adversarial
 3. **Efficiency** — cheapest model that still clears the quality bar; **raise effort on the current model before jumping models**; decompose so bulk is cheap and verify/judge is expensive
 
@@ -56,9 +56,9 @@ job-shape call, not a two-case allowlist.
 | Surface (before the model) | cloud; local only with a `Local because: (a\|b\|c)` line (`routing` HARD-RULES 9, gate-enforced) |
 | Published copy (drafting or fact-checking words a user reads) | the strongest tier (`fable`, else `opus`); `## Interrogated`: "copy lane" (DISC-235) |
 | First slice of a new product or tool | `opus`, `## Interrogated`: "novel architecture, no contract to point at"; later slices return to `sonnet` (`2026-10-09-first-slice-of-a-new-product-is-opus`) |
-| Architecture / orchestration | `sonnet` by default; a higher tier for **novel architecture with no contract to point at**, justified in `## Interrogated` naming this case |
+| Architecture / coordination | `sonnet` by default; a higher tier for **novel architecture with no contract to point at**, justified in `## Interrogated` naming this case |
 | Adversarial review / refute | `sonnet`, at or above the implementer's tier; a higher tier for **adversarial review of a change with fleet-wide blast radius**, justified in `## Interrogated`; a sonnet build of trivial scope still takes a sonnet reviewer, never weaker |
-| Orchestration / parent synthesis | stays on the operator-chosen parent session |
+| Coordination / parent synthesis | stays on the operator-chosen parent session |
 
 Persona agent files keep persona defaults (sonnet); **dispatch-time routing overrides** when
 this tree says the job shape calls for a different tier. Announce `"Persona (model): …"`
@@ -120,7 +120,7 @@ reassess — right model? right approach? bigger task than its class?
 | Complex / craft / architecture | One full attempt at the justified model | Check the loop is productive before a 2nd expensive pass |
 | UI / design **judgment** | Taste iteration burns fast | Get operator sign-off; don’t burn tokens guessing |
 | Research | Open every cited URL | Conflict / SERP-only → fetch more primaries; never invent |
-| Orchestration / brain | Name the run shape up front | Decompose into child Agent dispatches |
+| Coordination / brain | Name the run shape up front | Decompose into child Agent dispatches |
 
 ## Effort before model jump
 

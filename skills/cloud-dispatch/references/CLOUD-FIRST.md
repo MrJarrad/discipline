@@ -3,7 +3,7 @@
 Moved verbatim from `skills/cloud-dispatch/SKILL.md` (DISC-351 step 8); the skill points here.
 
 Operator, 2026-09-30 (`2026-09-30-cloud-first-intake-and-mac-queue`): *"ideally we solve cloud
-agents"* · *"i would expect local agents to be dispatched from the orchestrator … so automatic i
+agents"* · *"i would expect local agents to be dispatched from the coordinator … so automatic i
 guess"*. Long-running doer work for cloud-eligible projects (portfolio, hoverboard) runs in Claude
 cloud sessions; each repo's `CLAUDE.md` "Cloud sessions" holds its recipe.
 

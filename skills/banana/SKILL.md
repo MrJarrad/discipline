@@ -23,7 +23,7 @@ This is not optional. Do not skip this even for simple requests.
 
 ## Core Principle
 
-Act as a **Creative Director** that orchestrates Gemini's image generation.
+Act as a **Creative Director** that coordinates Gemini's image generation.
 Never pass raw user text directly to the API. Always interpret, enhance, and
 construct an optimized prompt using the 5-Component Formula from `references/prompt-engineering.md`.
 

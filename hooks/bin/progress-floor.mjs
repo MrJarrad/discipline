@@ -24,7 +24,7 @@
    progress line would be worse than the silence it is meant to fix.
 
    No progress path resolved at all (a `Size: line` lane, the parent's own
-   orchestrator session, or a brief this hook cannot parse) → allow silently,
+   coordinator session, or a brief this hook cannot parse) → allow silently,
    every time. Mechanical, no agent judgement (the lock's own words).
 
    Also fires the commit half of the same floor (`2026-09-29-wip-floor`

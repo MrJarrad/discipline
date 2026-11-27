@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* vault-pr-files — a vault PR's changed paths at its head, from local git (DISC-224).
    A notes-only vault merge needs proof that every changed file is a note
-   (`2026-10-18-orchestrator-merges-own-vault-notes`). `pull_request_read get_files`
+   (`2026-10-18-coordinator-merges-own-vault-notes`). `pull_request_read get_files`
    proves it by putting every patch in context (s44: 43.8k chars for three PRs before
    the first status reply); this proves it with names only, and binds them to a sha.
 

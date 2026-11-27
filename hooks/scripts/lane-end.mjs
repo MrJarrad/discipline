@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* lane-end — one deterministic parent call per lane-completion notification,
    replacing four or five hand-run Bash turns (`spend-levers` rule 5,
-   2026-09-22 addendum: the orchestrator "avoids mechanical grunt work").
+   2026-09-22 addendum: the coordinator "avoids mechanical grunt work").
 
    It: (1) runs `lane-sweep.mjs --session-dir <dir>`; (2) replaces queue row
    `--id <PREFIX-n>` (e.g. PF-279; a bare number is refused) in that project's own

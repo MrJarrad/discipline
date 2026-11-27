@@ -36,7 +36,7 @@ function makeParentTranscript(decoyProgressPath) {
   const transcriptPath = join(dir, "parent-session.jsonl");
   const content =
     decoyProgressPath === null
-      ? JSON.stringify({ type: "user", message: { content: "orchestrator session, no lane brief here" } })
+      ? JSON.stringify({ type: "user", message: { content: "coordinator session, no lane brief here" } })
       : JSON.stringify({
           type: "user",
           message: { content: `Size: component.\n\n## Progress\n\`${decoyProgressPath}\`\n\n**Done-when.**` },

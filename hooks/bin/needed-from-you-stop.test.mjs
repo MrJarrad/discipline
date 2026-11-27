@@ -116,8 +116,8 @@ test("a marker from another session does not force a block; the same session's d
 const URL_ = "https://claude.ai/artifact/KjmpGR4zjVKB6WVfy8QsNa";
 function vaultWithChecklist() {
   const v = vault();
-  mkdirSync(join(v, "orchestrator"), { recursive: true });
-  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id x).\n`);
+  mkdirSync(join(v, "coordinator"), { recursive: true });
+  writeFileSync(join(v, "coordinator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id x).\n`);
   return v;
 }
 const SHORT = (ids = "") => `Lane landed.\n\n## Needed from you\n\n${ids}Full list: [Status](${URL_})\n`;
@@ -201,8 +201,8 @@ test("s79 (b): a write from an earlier turn does not count for this one", () => 
 const DOC_UUID = "97bd5a36-e22b-449d-b7ae-c73b9d2f7073";
 function vaultWithUuid() {
   const v = vault();
-  mkdirSync(join(v, "orchestrator"), { recursive: true });
-  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id ${DOC_UUID}, body node 51a59e14-4a0e).\n`);
+  mkdirSync(join(v, "coordinator"), { recursive: true });
+  writeFileSync(join(v, "coordinator/operator-queue.md"), `# Operator queue — index\n\n**Pinned checklist (operator s77, DISC-288):** Claude Doc "Needed from you" ${URL_} (doc id ${DOC_UUID}, body node 51a59e14-4a0e).\n`);
   return v;
 }
 test("s79 review AMBER 3: a Claude Docs update/batch naming the doc UUID counts as a write; the URL id still counts; another project id does not", () => {
@@ -226,8 +226,8 @@ test("DISC-305: the link line may read [Status] or the legacy [Needed from you]"
 });
 test("DISC-305: the vault paragraph may be headed Status doc as well as Pinned checklist", () => {
   const v = vault();
-  mkdirSync(join(v, "orchestrator"), { recursive: true });
-  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue — index\n\n**Status doc (operator s81, DISC-305):** Claude Doc "Status" ${URL_} (doc id x).\n`);
+  mkdirSync(join(v, "coordinator"), { recursive: true });
+  writeFileSync(join(v, "coordinator/operator-queue.md"), `# Operator queue — index\n\n**Status doc (operator s81, DISC-305):** Claude Doc "Status" ${URL_} (doc id x).\n`);
   assert.equal(check({ text: SHORT(), userTs: T, vault: v }), null);
   assert.match(check({ text: SHORT().replace(URL_, "https://claude.ai/artifact/other"), userTs: T, vault: v }), /Status doc/);
 });

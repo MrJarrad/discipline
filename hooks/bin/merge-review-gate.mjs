@@ -9,8 +9,8 @@
    persisted-output stub is read from its saved file). The merge must pin
    `expectedHeadSha`, and a verdict on that head in the shape `agents/reviewer.md`
    § Verdict defines must say `merge: yes` (`reviewVerdict`).
-   Notes-only MrJarrad/jhd-vault PRs are the orchestrator's own merge
-   (`2026-10-18-orchestrator-merges-own-vault-notes`), proven by a `get_files`
+   Notes-only MrJarrad/jhd-vault PRs are the coordinator's own merge
+   (`2026-10-18-coordinator-merges-own-vault-notes`), proven by a `get_files`
    read in the session (`notesOnly`) that listed every page, page 1 through a
    short one (a full page may hide more files), and the merge still pins
    `expectedHeadSha`. Limit: a `get_files` result carries no sha, so the pin

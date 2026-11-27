@@ -158,7 +158,7 @@ non-deterministic ordering as a script defect to fix before trusting a diff.
 
 ## Division of labor
 
-- **Orchestrator** (real browser / can run scripts): runs Stage 1, writes Stages 2–3.
+- **Coordinator** (real browser / can run scripts): runs Stage 1, writes Stages 2–3.
 - **Designer/engineer agents**: consume the folder; never asked to "look at" a URL.
 - **Researcher**: only when the question is about the market/tools — research ≠ rendering.
 

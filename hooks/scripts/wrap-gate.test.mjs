@@ -18,7 +18,7 @@ const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { encoding: "u
 
 function vault(files) {
   const v = mkdtempSync(join(tmpdir(), "wg-vault-"));
-  for (const [p, t] of Object.entries({ "orchestrator/operator-queue.md": "# index\n", ...files })) {
+  for (const [p, t] of Object.entries({ "coordinator/operator-queue.md": "# index\n", ...files })) {
     mkdirSync(join(v, p, ".."), { recursive: true });
     writeFileSync(join(v, p), t);
   }

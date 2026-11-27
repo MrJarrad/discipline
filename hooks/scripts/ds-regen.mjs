@@ -376,7 +376,7 @@ function main() {
     // path (`2026-09-22-scripts-not-agents` § gh invocation). `gh pr create`
     // also needs an explicit `--head` and a git cwd to resolve the branch and
     // base from — omitting `cwd` when `--repo` was given ran `gh` from the
-    // orchestrator's own (non-git) cwd and failed (2026-09-24,
+    // coordinator's own (non-git) cwd and failed (2026-09-24,
     // design-handoff-2026-09-24-exports-manifest); always pass both.
     const ownerRepo = ownerRepoFromOrigin(gitDir);
     const prArgs = ["pr", "create", "--head", branch, "--title", `design: regen tokens (${vendored.versionDir})`, "--body", block || "Automated DS regen."];

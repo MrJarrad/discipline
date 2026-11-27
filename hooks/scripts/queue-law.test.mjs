@@ -88,7 +88,7 @@ test("visual lanes return the link, not renders", () => {
 
 test("the output style names the queue file and the Needed from you heading", () => {
   const style = read("skills/routing/references/OPERATOR-REPLIES.md");
-  assert.match(style, /orchestrator\/operator-queue\.md/);
+  assert.match(style, /coordinator\/operator-queue\.md/);
   assert.match(style, /`## Needed from you`/);
   assert.match(style, /Nothing needed from you/);
   assert.match(style, /struck, never deleted/i);
@@ -2013,7 +2013,7 @@ test("the lessons-for-1-92 decision file exists and names the DS-path fix", () =
 // ======== queue-1921-law ========
 {
 // The 1.92.1 queue: `2026-09-22-spend-levers.md` rules 1-3 (operator: "spend is
-// getting a bit high"; rule 4 — model choice per orchestration session — is the
+// getting a bit high"; rule 4 — model choice per coordination session — is the
 // operator's own call, not encoded).
 //
 // Rule 1: read-back only above `line`; the dispatch gate refuses a `line`

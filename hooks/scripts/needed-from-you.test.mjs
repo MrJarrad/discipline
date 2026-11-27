@@ -138,8 +138,8 @@ test("DISC-288: no new asks prints just the link line; no link prints the full b
 });
 test("DISC-288: CLI --short reads the link from the vault paragraph and --new from the flag", () => {
   const v = vault();
-  mkdirSync(join(v, "orchestrator"), { recursive: true });
-  writeFileSync(join(v, "orchestrator/operator-queue.md"), `**Pinned checklist (x):** Doc ${LINK} (doc id y).\n`);
+  mkdirSync(join(v, "coordinator"), { recursive: true });
+  writeFileSync(join(v, "coordinator/operator-queue.md"), `**Pinned checklist (x):** Doc ${LINK} (doc id y).\n`);
   const ok = spawnSync("node", [script, "--vault", v, "--projects", "PF", "--short", "--new", "PF-5"], { encoding: "utf8" });
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /PF-5/);

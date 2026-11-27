@@ -1,5 +1,5 @@
 // Tests for the dispatch-surface law text carried by the shipped skills.
-// The law's WORDS are its interface — an orchestrator only obeys what the file
+// The law's WORDS are its interface — a coordinator only obeys what the file
 // says, so the operator-ratified sentences are asserted verbatim here.
 // Run: node --test scripts/dispatch-law.test.mjs
 import { test } from "node:test";

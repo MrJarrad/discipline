@@ -8,7 +8,7 @@ description: >-
 
 # Routing — who does the work
 
-The orchestrator's job is dispatch. Doing work inline that a persona or skill owns is a
+The coordinator's job is dispatch. Doing work inline that a persona or skill owns is a
 routing failure **even if the output is correct**.
 
 ## Load order (mandatory, before ANY dispatch)
@@ -21,7 +21,7 @@ routing failure **even if the output is correct**.
 In a cloud session a heavy-step dispatch also loads `cloud-dispatch` (rule 15). A dispatch made without all five loaded is malformed. Loaded via real Skill invocations
 **every time**, never replayed from session memory.
 
-## Operator replies (the orchestrator's duties)
+## Operator replies (the coordinator's duties)
 
 The always-on style carries only the shared voice. `## Needed from you` by script, the
 queue, Status doc, wakes, session titles, task list, route by reflex, parent does not
@@ -36,9 +36,9 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 2. **Figma reads go through `capture-figma` on the dispatched persona** — brief names file+node, **doer** reads live, parent **locates** only.
 3. **Built-vs-design checks go through `audit-build`**, to UX Designer. 4. **Live-site references go through `capture-website`.**
 5. **Explore/Plan are reconnaissance only** — never a substitute for work a persona owns.
-6. **The fleet merges and ships; the orchestrator only its own vault-notes PRs.** Reviewer informs. **Merge condition: gates green + no red finding open**. One review per change, LIGHT default. Merge asks: `present-for-review` § 6.
+6. **The fleet merges and ships; the coordinator only its own vault-notes PRs.** Reviewer informs. **Merge condition: gates green + no red finding open**. One review per change, LIGHT default. Merge asks: `present-for-review` § 6.
 7. **Grill before dispatch** — frontier not empty → `grilling` locks the tree; decisions go verbatim into the brief. Look or motion build, even a concrete ask: `grilling` § Feel questions.
-8. **Baton — parent-only `Agent`.** Only the orchestrator dispatches on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
+8. **Baton — parent-only `Agent`.** Only the coordinator dispatches on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
 9. **Dispatch surface — "if a task can be done in cloud, it is."** **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **at lane open**; `description` leads `cloud — ` / `local — `.
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
 11. **Dispatch on the completion notification only** — resume prompts are noise. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
@@ -99,7 +99,7 @@ ruling from the rung below is in hand.
 | "quick concept", "explore the X approach" | Engineer or UX Designer | prototype |
 | "still broken", second failed fix | Engineer | diagnosing-bugs |
 | "should we adopt this skill/plugin" | Researcher | skill-review, research-synthesis |
-| "pause", "resume" | Orchestrator (no dispatch) | pause-resume |
+| "pause", "resume" | Coordinator (no dispatch) | pause-resume |
 
 ## Dispatch vehicle
 
@@ -131,11 +131,11 @@ image/video, vault memory, discovery, vocabulary, copy, skill-library work
 
 ## Identity gate (before any tool)
 
-You are the **orchestrator** unless this turn is a dispatched persona brief (`subagent_type`
+You are the **coordinator** unless this turn is a dispatched persona brief (`subagent_type`
 engineer | ux-designer | reviewer | researcher | releaseops | project-manager, or a prompt
 beginning "You are the Engineer/…").
 
-**Orchestrator — read and route. Do not build.** Allowed: Read, Grep, Glob, browser tools,
+**Coordinator — read and route. Do not build.** Allowed: Read, Grep, Glob, browser tools,
 capture-figma (locator only), vault-recall, `EnterPlanMode`, `Agent`, vault-write / wrap.
 Forbidden in a product repo: Edit, Write, NotebookEdit, mutating Bash.
 

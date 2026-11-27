@@ -3,7 +3,7 @@
 // (`design-taste-frontend` in README + design-craft + routing, `impeccable` in
 // README + design-review). This test is the standing guard so a fourth cannot
 // land, and its mirror: a shipped skill folder that no routing table names is
-// unreachable by the orchestrator — routed or retired, never orphaned.
+// unreachable by the coordinator — routed or retired, never orphaned.
 // Run: node --test hooks/scripts/skill-reference-integrity.test.mjs
 import { test } from "node:test";
 import assert from "node:assert/strict";

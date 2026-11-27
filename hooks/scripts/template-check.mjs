@@ -69,7 +69,7 @@
        viewport capture; evaluateDevicePairing runs separately, once per
        spec, not per capture — see runTemplateCheck)
      runTemplateCheck({ specPath, mapPath, baseUrl, startServerDir, measureImpl }) -> { ok, defects, summary }
-       (impure orchestrator: reads spec+map, optionally starts a server,
+       (impure coordinator: reads spec+map, optionally starts a server,
        drives Playwright (or an injected measureImpl — the test seam) per
        route x viewport, runs evaluateDevicePairing once per D/M pair in the
        spec, and appends a `templates` envelope to conformance.jsonl; never
@@ -467,7 +467,7 @@ export function computeTemplateDefects({ template, templateId, route, viewportNa
   return defects.map((d) => ({ ...d, templateId, route, viewport: viewportName }));
 }
 
-// ---- orchestration -----------------------------------------------------
+// ---- coordination -----------------------------------------------------
 
 const DEFAULT_CONFORMANCE_PATH = join(homedir(), "JHD", "figma-plugins", "main", "capture-figma", "captures", "live", "conformance.jsonl");
 
@@ -509,7 +509,7 @@ async function checkOneCapture({ spec, route, viewport, templateId, baseUrl, mea
   }
 }
 
-// Impure orchestrator: reads the spec + map, drives measureImpl (the real
+// Impure coordinator: reads the spec + map, drives measureImpl (the real
 // CLI plugs in Playwright + a started server here; tests inject a fixture
 // measurement directly — the mock-DOM-measure seam) across every route x
 // viewport the map declares, and appends the aggregate result to

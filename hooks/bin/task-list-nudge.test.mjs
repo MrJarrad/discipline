@@ -16,14 +16,14 @@ test("nudges on the first dispatch with no task call, once", () => {
   rmSync(d, { recursive: true });
 });
 
-test("silent once the orchestrator has made a task call", () => {
+test("silent once the coordinator has made a task call", () => {
   const d = fresh();
   handle(ev("TaskCreate"), d);
   assert.equal(handle(ev("Agent"), d), null);
   rmSync(d, { recursive: true });
 });
 
-test("a subagent's own dispatch is not nudged and its TaskCreate does not silence the orchestrator", () => {
+test("a subagent's own dispatch is not nudged and its TaskCreate does not silence the coordinator", () => {
   const d = fresh();
   assert.equal(handle(ev("Agent", { agent_id: "a1" }), d), null);
   handle(ev("TaskCreate", { agent_id: "a1" }), d);

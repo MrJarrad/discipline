@@ -6,7 +6,7 @@
    list; the parent accepts it by id (--accept) once its return is banked. A script cannot call list_sessions or archive_session
    (MCP tools), so the parent saves the pages and makes the archive calls; this does the rest and writes the ledger to the vault.
    node helper-ledger.mjs --self <id> --sessions <list_sessions.json> [--sessions <page2.json>] [--landed <file>] [--accept <ids>]
-     [--waiting <ids>] [--vault <dir>]   writes <dir>/orchestrator/helper-ledger.md      [--prs-file <json: a search result or an array of PRs>]  [--now ISO]
+     [--waiting <ids>] [--vault <dir>]   writes <dir>/coordinator/helper-ledger.md      [--prs-file <json: a search result or an array of PRs>]  [--now ISO]
    PRs are read ONCE (every PR of ours created since the oldest helper) and matched here on the helper's session id or lane key in
    title/body: GitHub search cannot match the id inside a markdown link, which is how most PR bodies carry it (review of #223, RED 2).  */
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -166,7 +166,7 @@ function main(argv) {
     prs = listPrs(gh, since);
   }
   const text = renderLedger(buildLedger({ sessions, self: o.self, now, prs, landedIds, accept: o.accept, waiting: o.waiting, pages }), now);
-  if (o.vault) { const f = join(o.vault, "orchestrator", "helper-ledger.md"); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); }
+  if (o.vault) { const f = join(o.vault, "coordinator", "helper-ledger.md"); mkdirSync(dirname(f), { recursive: true }); writeFileSync(f, text); }
   console.log(text);
   return 0;
 }

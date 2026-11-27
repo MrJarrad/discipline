@@ -339,7 +339,7 @@ test("gh pr create runs with an explicit --head and a git cwd, not the caller's 
     `#!/usr/bin/env bash\necho "args: $*" >> "${ghLog}"\nif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then echo "cwd-is-git: yes" >> "${ghLog}"; else echo "cwd-is-git: no" >> "${ghLog}"; fi\necho 'https://github.com/example/ds/pull/2'\nexit 0\n`,
   );
   chmodSync(ghPath, 0o755);
-  // Run from a plain non-git tmp dir, the way the orchestrator's own shell does.
+  // Run from a plain non-git tmp dir, the way the coordinator's own shell does.
   const nonGitCwd = mkdtempSync(join(tmpdir(), "ds-regen-non-git-cwd-"));
   try {
     execFileSync("node", [scriptPath, "--export", exportDir, "--repo", repo, "--no-vocab-index"], {
