@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Stop — DISC-295 (operator 2026-11-12: "all parent / coordinator agents take a bit more charge over all the items
+/* Stop — DISC-295 (operator 2026-11-12: "all parent / orchestrator agents take a bit more charge over all the items
    that need doing … there isn't much proactivity with builds in progress"; ruling
    coordinator-takes-charge-of-the-backlog). A rule alone left lanes idle, so this holds the parent's status reply or
    wrap until lane capacity was checked and acted on. In a coordinator session (no helper marker), a final reply that
