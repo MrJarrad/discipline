@@ -21,7 +21,7 @@ test("output style scopes Needed from you to the session's projects, with a fall
 
 test("present-for-review and wrap SECTIONS agree with the output style", () => {
   assert.match(flat("skills/present-for-review/SKILL.md"), /session's projects' open rows/);
-  assert.ok(!/every open `orchestrator\/operator-queue\.md` row/.test(flat("skills/present-for-review/SKILL.md")));
+  assert.ok(!/every open `coordinator\/operator-queue\.md` row/.test(flat("skills/present-for-review/SKILL.md")));
   assert.match(flat("skills/wrap/references/SECTIONS.md"), /Chat reprints the session's projects' rows only/);
   assert.ok(!/Chat still reprints every row/.test(flat("skills/wrap/references/SECTIONS.md")));
 });

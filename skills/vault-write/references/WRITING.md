@@ -180,7 +180,7 @@ unlinked note.
 
 **A new evidence-folder README is born with `kind: evidence` and `up: "[[<owner>]]"`** (the
 note that lists the folder, e.g. its manifest or lane note) in the same action; the vault's
-`orchestrator/intake-discipline.md` rule 1 carries the full text.
+`coordinator/intake-discipline.md` rule 1 carries the full text.
 
 ---
 ## Create properly — graph wiring is the write (ruling 2026-08-03)
@@ -228,7 +228,7 @@ Use lowercase kebab-case. **Forbidden stems** (lint fails): `_index`, `index`,
 
 `~/JHD/vault/AGENTS.md` (schema rev-6, thing-then-aspect) is the current canonical
 statement of this shape — point there first. The ruling that established it:
-`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`.
+`~/JHD/vault/coordinator/thing-then-aspect-organization-2026-08-02.md`.
 
 The sharp do/don't edges of this procedure live in [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md).
 ## References are a typed write too

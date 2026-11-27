@@ -7,17 +7,17 @@ on Claude models.
 > **Best-in-class is the bar.** Turn "done" into "best-in-class, with evidence — or
 > surfaced for review with the gap named."
 
-## The orchestrator — you never name an agent
+## The coordinator — you never name an agent
 
 The plugin ships an **always-on output style** (on by default while the plugin is enabled)
 that sets how every session talks to you: outcome first, plain words, done or not done. It is
-role-neutral; the orchestrator's duties live in the `routing` skill, which the main session
+role-neutral; the coordinator's duties live in the `routing` skill, which the main session
 loads to classify each request and dispatch it to the right specialist, then answer as one
 voice. Say
 *"is this safe to merge?"* and the `reviewer` fires on its own; *"the panel feels janky"*
 routes to `ux-designer`. No agent names, no menus.
 
-> If you also run a separate always-on output style or orchestrator plugin, disable one —
+> If you also run a separate always-on output style or coordinator plugin, disable one —
 > two always-on styles conflict.
 
 ## What's inside
@@ -42,7 +42,7 @@ routes to `ux-designer`. No agent names, no menus.
 
 **Ops & meta** — `ops-inbox` · `summarise-meeting` · `brand-voice` · `agent-ops` · `wrap` · `skill-review`
 
-**6 agents** — doer personas you can dispatch as Claude Code subagents (the orchestrator
+**6 agents** — doer personas you can dispatch as Claude Code subagents (the coordinator
 is the main session itself, not an agent):
 
 - **project-manager** (`haiku`) — Mechanical task setup and board hygiene.

@@ -745,7 +745,7 @@ test("lintSpec: a rulings entry whose source names what was verified passes clea
   const spec = rulingsSpec([
     {
       ...VALID_RULING,
-      source: "orchestrator session 2026-08-13 (verified: .state dir read directly; changes.jsonl initial:true read directly)",
+      source: "coordinator session 2026-08-13 (verified: .state dir read directly; changes.jsonl initial:true read directly)",
     },
   ]);
   const { warnings } = lintSpec(spec, { personaExists: okPersonaExists });

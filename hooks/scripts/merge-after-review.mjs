@@ -103,7 +103,7 @@ export function reviewVerdict(items, headSha, trusted = []) {
   return found;
 }
 
-/* Notes-only vault PR (`2026-10-18-orchestrator-merges-own-vault-notes`): every
+/* Notes-only vault PR (`2026-10-18-coordinator-merges-own-vault-notes`): every
    changed path is markdown, outside `.github/` and `.claude/` (CI, settings) and outside `queue/mac/`
    (DISC-289: a Mac job is markdown the runner executes once the PR merges, so it needs a verdict). */
 export function notesOnly(paths) {
@@ -179,7 +179,7 @@ function main() {
     console.error(`merge-after-review: refused — ${verdict.reason}`);
     process.exit(1);
   }
-  // Notes-only vault PRs are the orchestrator's own merge (`2026-10-18-orchestrator-merges-own-vault-notes`).
+  // Notes-only vault PRs are the coordinator's own merge (`2026-10-18-coordinator-merges-own-vault-notes`).
   const at = (k) => (c) => ({ ...c, at: c[k] });
   const review = reviewVerdict([...(status.comments || []).map(at("createdAt")), ...(status.reviews || []).map(at("submittedAt"))], status.headRefOid, status.trusted);
   const notes = /^mrjarrad\/jhd-vault$/i.test(ownerRepo) && notesOnly((status.files || []).map((f) => f.path));

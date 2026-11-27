@@ -28,8 +28,8 @@ const block = (text, lead) => {
 
 const style = flow(read("output-styles/discipline.md"));
 const styleRaw = read("output-styles/discipline.md");
-// DISC-351 step 4: the orchestrator half of the old style lives here.
-const orchestrator = flow(read("skills/routing/references/OPERATOR-REPLIES.md"));
+// DISC-351 step 4: the coordinator half of the old style lives here.
+const coordinator = flow(read("skills/routing/references/OPERATOR-REPLIES.md"));
 const dispatchBrief = flow(read("skills/dispatch-brief/SKILL.md"));
 const dispatchBriefRaw = read("skills/dispatch-brief/SKILL.md");
 const doerRulesRaw = read("doer-rules.md");
@@ -84,7 +84,7 @@ test("operator-voice's load-bearing rules survive the merge", () => {
   // so the list that told it to "reach for" them was cut, not moved.
   for (const cmd of NATIVE_COMMANDS) {
     assert.ok(!style.includes(`\`${cmd}\``), `native command ${cmd} is no longer instructed`);
-    assert.ok(!orchestrator.includes(`\`${cmd}\``), `native command ${cmd} was cut, not moved`);
+    assert.ok(!coordinator.includes(`\`${cmd}\``), `native command ${cmd} was cut, not moved`);
   }
 });
 
@@ -129,7 +129,7 @@ test("(e) walk-backs lead with 'Correction:'", () => {
 // full, because a back-reference is what got lost in the thread.
 test("(f) every status ends with the operator queue printed in full", () => {
   assert.match(style, /Needed from you/i);
-  assert.match(orchestrator, /operator-queue\.md/, "queue mechanics moved to routing (DISC-351)");
+  assert.match(coordinator, /operator-queue\.md/, "queue mechanics moved to routing (DISC-351)");
   assert.match(style, /never a back-reference/i);
   assert.match(style, /Nothing needed from you/i);
 });
@@ -292,10 +292,10 @@ test("discipline.md: the live task list is standing, one task per deliverable", 
 // carries voice only. Word budget from the DISC-351 target shape; frontmatter
 // excluded (it is config, not prose the model reads as instruction).
 // Word budget: skill-ceilings.test.mjs BUDGETS.
-test("DISC-351: orchestrator duties live in routing, and the style points there", () => {
+test("DISC-351: coordinator duties live in routing, and the style points there", () => {
   const home = "skills/routing/references/OPERATOR-REPLIES.md";
   assert.ok(existsSync(join(repo, home)), `${home} must exist`);
-  assert.match(style, /load `routing`/i, "the style names routing as the orchestrator's home");
+  assert.match(style, /load `routing`/i, "the style names routing as the coordinator's home");
   assert.match(flow(read("skills/routing/SKILL.md")), /OPERATOR-REPLIES\.md/);
 });
 

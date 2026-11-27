@@ -7,7 +7,7 @@
 
      node cockpit-check.mjs --vault <vault root>
 
-   Fails (exit 1, one line per problem) when orchestrator/cockpit.md has more than one
+   Fails (exit 1, one line per problem) when coordinator/cockpit.md has more than one
    `## Wrapped` block (older wraps go to the cockpit archive), any queue row (a table
    row keyed `<PREFIX>-<n>`), a wrap block with no `Helpers:` line (the next start
    sweeps only those ids, routing HARD-RULES 19), or more than MAX_CHARS characters.
@@ -35,7 +35,7 @@ export function checkCockpit(text) {
 function main(argv) {
   const i = argv.indexOf("--vault");
   if (i < 0 || !argv[i + 1]) { console.error("usage: cockpit-check.mjs --vault <vault root>"); return 2; }
-  const problems = checkCockpit(readFileSync(join(resolveVaultRoot(argv[i + 1]), "orchestrator", "cockpit.md"), "utf8"));
+  const problems = checkCockpit(readFileSync(join(resolveVaultRoot(argv[i + 1]), "coordinator", "cockpit.md"), "utf8"));
   for (const p of problems) console.log(`cockpit-check: ${p}`);
   return problems.length ? 1 : 0;
 }

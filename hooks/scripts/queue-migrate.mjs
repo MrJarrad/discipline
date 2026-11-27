@@ -2,7 +2,7 @@
 /* queue-migrate — the one-time vault migration for per-project queues (backlog
    166, operator 2026-10-12). Dry-run by default; `--apply` writes.
 
-   Before: one shared `orchestrator/operator-queue.md` with a `## <section>` per
+   Before: one shared `coordinator/operator-queue.md` with a `## <section>` per
    group of projects and bare row numbers that repeated across sections; backlogs
    with bare numbers. After:
      - every project has `projects/<p>/<p>-queue.md` (frontmatter `prefix:`), its
@@ -12,7 +12,7 @@
      - every `*-backlog.md` gets the same `prefix:` and prefixed row IDs; a number
        used twice inside one backlog gets the next free number for its later row,
        with the old number kept in the row;
-     - `orchestrator/operator-queue.md` becomes an index with no rows.
+     - `coordinator/operator-queue.md` becomes an index with no rows.
    Rows are assigned by their own content, never by section heading: SECTION_DEFAULT
    is the starting point and ROW_OVERRIDE names every row that goes elsewhere, with
    its reason, printed in the report. Struck rows stay struck, verbatim: only the
@@ -85,7 +85,7 @@ export function migrate(vault) {
   }
 
   // 2. Queue rows from the shared file.
-  const qpath = "orchestrator/operator-queue.md";
+  const qpath = "coordinator/operator-queue.md";
   const old = readFileSync(join(vault, qpath), "utf8");
   const oldLines = old.split("\n");
   const rows = {}; // project -> [{line, n, section}]

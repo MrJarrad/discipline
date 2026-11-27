@@ -108,7 +108,7 @@ Draw on (as inspiration, not the answer): {Anthropic, named competitors, prior a
 > Firm up the video-gen tool list for the workflow.
 
 **Good (the DES-218 shape):**
-> Givens (don't re-litigate): orchestrator + doer subagents, multi-project, model-efficient, prompts/skills matter as much as the model.
+> Givens (don't re-litigate): coordinator + doer subagents, multi-project, model-efficient, prompts/skills matter as much as the model.
 > Question: what does a best-in-class agent setup look like, and what skills — shared and per-role — do we need to perform best-in-class? Tell us what we're missing.
 > Draw on: Anthropic, Cognition, AutoGen, CrewAI, MetaGPT — as reference, not the answer.
 > Return: options with tradeoffs, a recommendation, and the gaps you'd close next.

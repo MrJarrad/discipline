@@ -4,7 +4,7 @@
 // (A4), and the lesson ledger (A5) — plus the 1.74.0 handoff-to-code law (D).
 //
 // Same principle as dispatch-law.test.mjs and review-loop.test.mjs: the law's
-// WORDS are its interface — an orchestrator only obeys what the file says — so
+// WORDS are its interface — a coordinator only obeys what the file says — so
 // every operator-ratified sentence is asserted verbatim here rather than
 // trusted to review.
 // Run: node --test scripts/source-contract-law.test.mjs

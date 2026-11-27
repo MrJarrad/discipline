@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /* Stop — DISC-295 (operator 2026-11-12: "all parent / orchestrator agents take a bit more charge over all the items
    that need doing … there isn't much proactivity with builds in progress"; ruling
-   orchestrator-takes-charge-of-the-backlog). A rule alone left lanes idle, so this holds the parent's status reply or
-   wrap until lane capacity was checked and acted on. In an orchestrator session (no helper marker), a final reply that
+   coordinator-takes-charge-of-the-backlog). A rule alone left lanes idle, so this holds the parent's status reply or
+   wrap until lane capacity was checked and acted on. In a coordinator session (no helper marker), a final reply that
    is a status (a `## Needed from you` heading or the `Full list:` line) or follows the wrap skill must come after a
    `lane-capacity.mjs` run this turn. If the latest run printed `UNDER CAPACITY by`, a dispatch (Agent, create_session,
    Workflow) must follow it, or the run is repeated with `--reason <PFX>="why"` for each gap, which exits 0. Held at
    most once (`stop_hook_active` -> allow); any read or parse error -> silent exit 0. Review round 1 (RED 1): silent without
    DISCIPLINE_VAULT_ROOT (no vault, no backlog to refill from) and for a turn a `<wake` event started (a CI-green or bot
    event is not a status moment). The helper marker exempts only in a cloud session (DISC-217: on a Mac every local
-   session shares the home folder, so a marker there would exempt the orchestrator itself).                                  */
+   session shares the home folder, so a marker there would exempt the coordinator itself).                                  */
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";

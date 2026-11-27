@@ -64,7 +64,7 @@ Output:
 - **Keyframes** — Defined points in an animation (0%, 50%, 100%) that the browser fills the gaps between.
 - **Interpolation / Tween** — Generating all the in-between frames between a start and end value, so motion is continuous.
 - **Stagger** — Animate several items one after another with a small delay between each, creating a cascade.
-- **Orchestration** — Deliberately timing multiple animations so they feel like one coordinated motion.
+- **Coordination** — Deliberately timing multiple animations so they feel like one coordinated motion.
 - **Delay** — Time before an animation starts.
 - **Duration** — How long an animation takes.
 - **Fill mode** — Whether an element keeps its first or last frame's styles before the animation starts or after it ends (e.g. forwards).

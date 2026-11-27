@@ -13,7 +13,7 @@ already blocks, applied to visuals instead of behavior.
   frame uses placeholder art — compare composition/layout, not the placeholder pixels.
 - **Pairs are agent evidence** — they live with the AC verification, not just handed to the
   operator raw. The operator gets a preview link, not a pair of attachments to eyeball.
-- Source: operator process rulings 2026-08-25, recorded in the orchestrator's memory and
+- Source: operator process rulings 2026-08-25, recorded in the coordinator's memory and
   exercised in every S-slice review since.
 
 Read `references/DOS-AND-DONTS.md`.

@@ -2,13 +2,13 @@
 /* UserPromptSubmit · PostToolUse · PreCompact(auto) · SessionStart(compact) · SessionEnd — decision
    `2026-10-08-proactive-wrap-at-90`, line moved to 70% (operator, 2026-10-09: wrapped or
    wrapping by 90%): nudge at 70% context usage. The
-   orchestrator cannot read context fill in-turn, so this hook reads it: the
+   coordinator cannot read context fill in-turn, so this hook reads it: the
    last main-thread assistant turn's input + cache-creation + cache-read tokens
    in the session transcript are the same count the client's usage popover
    shows as "Context window". At or past the wrap line it injects one
    `additionalContext` line; an automatic compaction (SessionStart source
    "compact") is itself the signal. Never a deny.
-   Orchestrator only: an input carrying `agent_id` is a subagent's and is ignored.
+   Coordinator only: an input carrying `agent_id` is a subagent's and is ignored.
    UserPromptSubmit reports every prompt past the line; PostToolUse at most once
    per percent point (marker in the OS tmpdir keyed by session_id).
    Window: DISCIPLINE_CONTEXT_WINDOW, else by model id (`[1m]` 1M, haiku 200k, default 1M).

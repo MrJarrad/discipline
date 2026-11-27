@@ -3,7 +3,7 @@
    lands, tell the parent to run next-row.mjs and start what it prints. A lane landing is `lane-end.mjs --helper` running (the
    lane-close step, DISC-325; a bare `lane-end.mjs --id` only strikes a row an operator answered) or `get_session` on a helper
    reading `completed` for the first time this session (a marker per helper id, exclusive-create; review of #225, AMBER 3). A hook cannot see the lanes, so it names the
-   command; next-row-stop.mjs is what refuses to let the turn end without it. Orchestrator only: a subagent's call
+   command; next-row-stop.mjs is what refuses to let the turn end without it. Coordinator only: a subagent's call
    (`agent_id`) and a get_session with no session_id (the session itself) are ignored. Never a deny. */
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

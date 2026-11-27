@@ -128,7 +128,7 @@ test("checkVault discovers every project backlog by glob, never a fixed list", (
     "projects/alpha/alpha-queue.md": PQUEUE("AL"),
     "projects/zeta/zeta-backlog.md": PBACKLOG("ZE", "| ZE-1 | a | d | DONE |"),
     "projects/zeta/zeta-queue.md": PQUEUE("ZE"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   const f = checkVault(v, [repo]);
   assert.deepEqual(f.map((x) => [x.kind, x.project]).sort(), [["bad-status", "zeta"], ["drift", "alpha"]]);
@@ -173,8 +173,8 @@ test("bare ids, another project's prefix, duplicate ids, a missing prefix and a 
   for (const k of kinds) assert.ok(FAILING.has(k), `${k} fails the exit`);
 });
 
-test("rows left in orchestrator/operator-queue.md are a rows-in-index finding (the index holds no rows)", () => {
-  const v = makeVault({ "orchestrator/operator-queue.md": "| # | Needed |\n| - | - |\n| 5 | stray |\n" });
+test("rows left in coordinator/operator-queue.md are a rows-in-index finding (the index holds no rows)", () => {
+  const v = makeVault({ "coordinator/operator-queue.md": "| # | Needed |\n| - | - |\n| 5 | stray |\n" });
   assert.deepEqual(checkVault(v, []).map((x) => x.kind), ["rows-in-index"]);
 });
 
@@ -406,7 +406,7 @@ test("DISC-247: a Next free number at or below the highest used id is a failing 
   const v = makeVault({
     "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1109 | landed on a merged branch | d | open |"),
     "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-3 | q | | | |\n\n**Next free number: 1109** (highest used 1108).\n"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   const f = checkVault(v, []);
   const stale = f.filter((x) => x.kind === "next-free-stale");
@@ -421,13 +421,13 @@ test("DISC-247: a merged tree where two branches each took AL-1105 fails with du
   const same = makeVault({
     "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1105 | one branch | d | open |\n| AL-1105 | other branch | d | open |"),
     "projects/alpha/alpha-queue.md": PQUEUE("AL"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   assert.ok(checkVault(same, []).some((x) => x.kind === "dup-id"));
   const across = makeVault({
     "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1105 | one branch | d | open |"),
     "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-1105 | other branch | | | |"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   assert.ok(checkVault(across, []).some((x) => x.kind === "dup-id"));
 });
@@ -484,12 +484,12 @@ test("DISC-255: newFailingFindings keeps only failing findings the head adds ove
   const base = makeVault({
     "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy junk | d | gibberish |"),
     "projects/alpha/alpha-queue.md": PQUEUE("AL"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   const head = makeVault({
     "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy junk | d | gibberish |\n| AL-2 | new junk | d | also gibberish |\n| AL-3 | dup | d | open |"),
     "projects/alpha/alpha-queue.md": PQUEUE("AL", "| AL-3 | same id in the queue | | | |"),
-    "orchestrator/operator-queue.md": "# index\n",
+    "coordinator/operator-queue.md": "# index\n",
   });
   const added = newFailingFindings(head, base, []).map((f) => `${f.kind} ${f.row}`).sort();
   assert.deepEqual(added, ["bad-status AL-2", "dup-id AL-3"]);
@@ -497,8 +497,8 @@ test("DISC-255: newFailingFindings keeps only failing findings the head adds ove
 });
 
 test("DISC-255: the CLI --new-vs exits 1 listing only the added failing findings", () => {
-  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
-  const head = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |\n| AL-2 | new | d | nonsense |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
+  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "coordinator/operator-queue.md": "# index\n" });
+  const head = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | legacy | d | gibberish |\n| AL-2 | new | d | nonsense |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "coordinator/operator-queue.md": "# index\n" });
   const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
   const r = spawnSync(process.execPath, [script, "--vault", head, "--new-vs", base], { encoding: "utf8" });
   assert.equal(r.status, 1);
@@ -509,7 +509,7 @@ test("DISC-255: the CLI --new-vs exits 1 listing only the added failing findings
 
 // DISC-395: the --new-vs run prints one JSON stamp line naming the head it checked, which merge-review-gate reads as the vault merge's drift proof.
 test("DISC-395: --new-vs prints a listDriftCheck stamp with the head sha, the added count and a clean tree", () => {
-  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | one | d | open |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "orchestrator/operator-queue.md": "# index\n" });
+  const base = makeVault({ "projects/alpha/alpha-backlog.md": PBACKLOG("AL", "| AL-1 | one | d | open |"), "projects/alpha/alpha-queue.md": PQUEUE("AL"), "coordinator/operator-queue.md": "# index\n" });
   const script = fileURLToPath(new URL("./list-drift-check.mjs", import.meta.url));
   const git = (...a) => spawnSync("git", ["-C", base, "-c", "user.email=a@b", "-c", "user.name=t", ...a], { encoding: "utf8" });
   git("init", "-q"); git("add", "-A"); git("commit", "-qm", "init");

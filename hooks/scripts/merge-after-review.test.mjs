@@ -365,7 +365,7 @@ test("DISC-265 N2: a Review heading with no head sha above the real one is passe
 });
 
 test("DISC-289: a vault PR carrying a queue/mac job is not notes-only, so the wrap merge needs a reviewer verdict", () => {
-  assert.equal(notesOnly(["orchestrator/cockpit.md"]), true);
-  assert.equal(notesOnly(["orchestrator/cockpit.md", "queue/mac/review/20261110T185600Z-pf1507-glide-webkit.md"]), false);
+  assert.equal(notesOnly(["coordinator/cockpit.md"]), true);
+  assert.equal(notesOnly(["coordinator/cockpit.md", "queue/mac/review/20261110T185600Z-pf1507-glide-webkit.md"]), false);
   assert.equal(notesOnly(["queue/mac/pending/j.md"]), false);
 });

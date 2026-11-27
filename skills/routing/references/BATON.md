@@ -7,7 +7,7 @@ Moved verbatim from `skills/routing/SKILL.md` (DISC-351 step 8); the skill point
 | **Doer read-back returned** | **Parent** answers or says go — same agent, same context, continues |
 | Engineer landed, **look-judged** | **Operator**: link when preview opens (`link-first-look-rounds`); proof, merge on yes → **Reviewer trailing** |
 | Engineer landed (behaviour / plugin / product) | **Reviewer**, once gates are green |
-| Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`; notes-only vault PRs excepted, `2026-10-18-orchestrator-merges-own-vault-notes`); brief **states the review record** |
+| Engineer landed, **small fix** (single file, gates green) | **Reviewer** (LIGHT) like any other change — every merge has a reviewer verdict first, however small (`2026-10-09-every-merge-reviewed`; notes-only vault PRs excepted, `2026-10-18-coordinator-merges-own-vault-notes`); brief **states the review record** |
 | **Operator says yes to a try-out** | Yes first (`reviewer.md` precondition 3), then **Reviewer** gates merge, or park aloud, before that slot reopens (rule 17) |
 | **Researcher returns** | **Parent** turns the return into a queue decision row (`row-add.mjs`) the turn it lands; never leaves it in chat |
 | **Prototype / knob lane** | **Operator** — the pick; no reviewer, no suite |

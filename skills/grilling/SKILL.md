@@ -19,7 +19,7 @@ Read [references/DOS-AND-DONTS.md](references/DOS-AND-DONTS.md) when applying th
 - Non-trivial build or design work and the frontier is not empty
 - Match reference site / Gill / Figma feel — grill at experience altitude OR operator skip, then dispatch with tape/reference path + locked AC; do not invent ACs
 - "Grill this", "stress-test the plan", "is the plan ready"
-- Orchestrator cannot write acceptance criteria without inventing requirements
+- Coordinator cannot write acceptance criteria without inventing requirements
 - `shape-stress` interview mode (this skill is the interview primitive)
 - A brief (build **or** fix round) assumes a property the operator could settle in
   one line — a material or part, a code convention, a library or approach, an

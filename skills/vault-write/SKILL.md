@@ -20,7 +20,7 @@ The vault git working tree is `~/JHD/vault/main` when that path has `.git`, else
 
 **A vault write is banked only when `origin/main` contains it** — `git merge-base --is-ancestor <sha> origin/main` exits 0; until then it is local, whatever the push printed.
 
-- **Cloud:** the harness requires the session branch, so push there, then merge it to main by PR before anything else reads it (notes-only vault PRs: merge your own, no reviewer, `2026-10-18-orchestrator-merges-own-vault-notes`) — a Mac job, another session, a handover (session 14: a Mac GPU job could not find its scripts on main).
+- **Cloud:** the harness requires the session branch, so push there, then merge it to main by PR before anything else reads it (notes-only vault PRs: merge your own, no reviewer, `2026-10-18-coordinator-merges-own-vault-notes`) — a Mac job, another session, a handover (session 14: a Mac GPU job could not find its scripts on main).
 - **Local (Mac):** push `HEAD:main` explicitly; `git push origin HEAD` after a pull once landed five commits on a session branch.
 - **GitHub 500 on push is transient:** back off 2/4/8/16 s, retry later, keep the commits local and never call them banked meanwhile.
 - **A lease-guarded history rewrite needs a total push freeze** — parent saves and the Mac runner's own claim/done commits included — from preflight to DONE; run it outside the queue (operator Terminal or a `JOB=`-aware detached launch).
@@ -33,7 +33,7 @@ Every placement decision answers two questions, in this order: **WHICH THING** (
 project, or the fleet/estate if cross-project), **then WHAT KIND** of knowledge about it
 (hub, primer, decision, audit, artifact, reference, ruling, lesson). Never type-first
 scattering across a flat `memories/`/`decisions/`/`documents/`/`hubs/` split — that
-schema is retired. See `~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`
+schema is retired. See `~/JHD/vault/coordinator/thing-then-aspect-organization-2026-08-02.md`
 for the ruling.
 
 ## Step 1 — which thing
@@ -43,8 +43,8 @@ for the ruling.
 - **True cross-project doctrine or a reusable lesson** (a ruling that binds every
   project, a technical lesson learned once and reusable everywhere) →
   `~/JHD/vault/fleet/`.
-- **The orchestrator's own operating state** (cockpit `orchestrator/cockpit.md`,
-  CONTRACT, standing process notes) → `~/JHD/vault/orchestrator/`. Surgical-patch the
+- **The coordinator's own operating state** (cockpit `coordinator/cockpit.md`,
+  CONTRACT, standing process notes) → `~/JHD/vault/coordinator/`. Surgical-patch the
   cockpit; do not dump a project diary there. Project last-left lives at
   `projects/<name>/<name>-handover.md` (replace on wrap). Rulings: handover-trays,
   unique-note-names.

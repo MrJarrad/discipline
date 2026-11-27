@@ -13,7 +13,7 @@
 | Say Mac parent must present native when this session is Cloud / no Mac | Cloud cannot quit the operator's app |
 | Keep the ready note to what changed + what to check | Operator is a designer — outcomes, not machinery |
 | Give the design-system token beside every look or motion value an ask, status line or decision quotes: "1.6 s (`--duration-1600`)"; a value with no token says so: "160 ms, no token" (`2026-11-24-s111-values-name-their-token`) | A raw value is a defect under the design-system law, and he asked to see which token it is |
-| Add each preview link sent to `orchestrator/preview-log.md` the same turn: plain title of what it shows, link, item ID, newest first per project; a link found broken is marked in its title, never dropped (`2026-11-24-s111-preview-log`) | He looks links up again in the Status doc's Previews tab |
+| Add each preview link sent to `coordinator/preview-log.md` the same turn: plain title of what it shows, link, item ID, newest first per project; a link found broken is marked in its title, never dropped (`2026-11-24-s111-preview-log`) | He looks links up again in the Status doc's Previews tab |
 
 ---
 

@@ -19,8 +19,8 @@ const wrap = (n) => [
 ].join("\n");
 const vault = (cockpit) => {
   const d = mkdtempSync(join(tmpdir(), "cockpit-"));
-  mkdirSync(join(d, "orchestrator"));
-  writeFileSync(join(d, "orchestrator", "cockpit.md"), cockpit);
+  mkdirSync(join(d, "coordinator"));
+  writeFileSync(join(d, "coordinator", "cockpit.md"), cockpit);
   return d;
 };
 const run = (d) => spawnSync(process.execPath, [bin, "--vault", d], { encoding: "utf8" });
@@ -57,5 +57,5 @@ test("a cockpit over the size cap fails, naming its size", () => {
 test("the check writes nothing", () => {
   const d = vault(wrap(44));
   run(d);
-  assert.equal(spawnSync("ls", [join(d, "orchestrator")], { encoding: "utf8" }).stdout.trim(), "cockpit.md");
+  assert.equal(spawnSync("ls", [join(d, "coordinator")], { encoding: "utf8" }).stdout.trim(), "cockpit.md");
 });

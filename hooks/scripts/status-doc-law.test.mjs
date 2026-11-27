@@ -21,9 +21,9 @@ const FM = "---\nname: x\nkind: queue\nprefix: PF\n---\n";
 function vault() {
   const v = mkdtempSync(join(tmpdir(), "status-law-"));
   mkdirSync(join(v, "projects/portfolio"), { recursive: true });
-  mkdirSync(join(v, "orchestrator"), { recursive: true });
+  mkdirSync(join(v, "coordinator"), { recursive: true });
   writeFileSync(join(v, "projects/portfolio/portfolio-queue.md"), FM + "| # | Needed | Where | Why | Recommended |\n| - | - | - | - | - |\n| PF-5 | look at footer | | | |\n");
-  writeFileSync(join(v, "orchestrator/operator-queue.md"), `# Operator queue\n\n**Status doc:** Claude Doc https://claude.ai/artifact/${DOC} (doc id x).\n`);
+  writeFileSync(join(v, "coordinator/operator-queue.md"), `# Operator queue\n\n**Status doc:** Claude Doc https://claude.ai/artifact/${DOC} (doc id x).\n`);
   return v;
 }
 const line = (o) => JSON.stringify(o);

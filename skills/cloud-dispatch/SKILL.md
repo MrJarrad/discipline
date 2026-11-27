@@ -94,9 +94,9 @@ boilerplate the target repo already carries is bloat, not safety.
 
 1. `run` the routine (fires immediately, independent of `enabled`).
 2. Arm a **local background watcher** — the doer's final branch push is the completion
-   signal, not a notification (cloud runs don't message the orchestrator back):
+   signal, not a notification (cloud runs don't message the coordinator back):
    `git ls-remote --exit-code origin <branch>`, polled ~120s, generous timeout. Watcher
-   exit re-invokes the orchestrator, same as any finished local task.
+   exit re-invokes the coordinator, same as any finished local task.
 3. **Fix rounds on an existing branch:** watch the branch **tip hash**, not existence —
    the branch already exists; only a new commit signals the round finished.
 

@@ -240,7 +240,7 @@
     {
       "id": "s8-trigger-session-close",
       "type": "trigger",
-      "prompt": "I am finishing this orchestration session for today. Hand over everything so the next session continues cleanly and nothing is left uncommitted.",
+      "prompt": "I am finishing this coordination session for today. Hand over everything so the next session continues cleanly and nothing is left uncommitted.",
       "provenance": "DISC-351 step 8: wrap was listed with no description (listing budget overflow) in the s108 helper session",
       "maxTurns": 12,
       "expectSkills": [

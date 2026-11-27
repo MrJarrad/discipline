@@ -15,7 +15,7 @@ state it explicitly. Skipping it by not checking is a wrap failure.
 Ruling: vault `fleet/rulings/handover-trays.md`. **Any chat may wrap.** Do not ask which
 window is home.
 
-`orchestrator/cockpit.md` is the **cockpit** (machine, in-flight chats) — short, live
+`coordinator/cockpit.md` is the **cockpit** (machine, in-flight chats) — short, live
 facts only. Each `projects/<name>/<name>-handover.md` is that project's last close-out
 (dated snapshot). Ruling: `fleet/rulings/unique-note-names.md`
 — never a generic `HANDOVER.md` stem.
@@ -57,7 +57,7 @@ On wrap:
   (`routing` HARD-RULES 19); the next session start sweeps only these, by `get_session`.
 - Merged/unpushed commits for a repo belong on that project's handover.
 - **Open operator items are written once** (2026-10-10, backlog 161): each project's `projects/<p>/<p>-queue.md`
-  is the source (read rows with `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, never from `orchestrator/operator-queue.md`, which is only an index); the cockpit keeps the newest wrap block only (older ones move to the cockpit archive) and carries each project's queue path and open-row count, never rows (DISC-224); `node <plugin>/hooks/scripts/cockpit-check.mjs --vault <vault>` exits 0 before the wrap commit; a handover carries a
+  is the source (read rows with `node <plugin>/hooks/scripts/needed-from-you.mjs --projects <prefixes>`, never from `coordinator/operator-queue.md`, which is only an index); the cockpit keeps the newest wrap block only (older ones move to the cockpit archive) and carries each project's queue path and open-row count, never rows (DISC-224); `node <plugin>/hooks/scripts/cockpit-check.mjs --vault <vault>` exits 0 before the wrap commit; a handover carries a
   link and the open-row count, never the rows. Chat reprints the session's projects' rows only (`routing` OPERATOR-REPLIES.md).
 - **End each handover with a `## Next` block** (newest wrap first; the resume digest reads only
   the first one): one `- lane:` line per lane, ` | `-separated, one physical line each:

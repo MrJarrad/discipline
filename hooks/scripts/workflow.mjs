@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* workflow — deterministic multi-agent runner for Claude Code desktop.
-   Orchestration as code, not willpower: phases run in order, agents within a
+   Coordination as code, not willpower: phases run in order, agents within a
    phase run in parallel, every phase can carry a verify stage whose agents
    are prompted to REFUTE. Journal written next to the spec.
 

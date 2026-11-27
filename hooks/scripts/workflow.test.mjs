@@ -326,7 +326,7 @@ test("runWorkflow: a capped-only run (no failures) yields exitCode 2", async (t)
 // refutation. Ambiguous/absent text still fails closed to REFUTED, but is
 // tagged 'unparsed' so it's visible rather than silently swallowed.
 
-// Real transcript excerpt (vault/orchestrator/specs/wild-r4-verdict.md): a
+// Real transcript excerpt (vault/coordinator/specs/wild-r4-verdict.md): a
 // nine-ground qa-acceptance-style PASS whose prose tail previously got
 // miscounted as a refutation because it doesn't end in the literal word
 // CONFIRMED.

@@ -4,7 +4,7 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
 
 ## Do
 
-- **Place by thing, then aspect.** Which project (or `fleet/`, `orchestrator/`, `references/`, `estate/`) first; which aspect subfolder (`primers/`, `decisions/`, `audits/`, `artifacts/`, or `hub.md`) second.
+- **Place by thing, then aspect.** Which project (or `fleet/`, `coordinator/`, `references/`, `estate/`) first; which aspect subfolder (`primers/`, `decisions/`, `audits/`, `artifacts/`, or `hub.md`) second.
 - **Pick the aspect by the decision test.** *Did we make it?* → `artifact` (or `audit` if it's a build-vs-source verification). *Did we decide it?* → `decisions/` (project) or `fleet/rulings/` (cross-project). *Did we learn it?* → `fleet/lessons/`. *Is it a repeated-workstream first-read?* → `primers/`. *Are we pointing at someone else's thing?* → `~/JHD/vault/references/`.
 - **Create the new-project trio together.** A project isn't real in the vault until it has: `projects/<name>/` folder shape, an `estate/estate-map.md` row, and an `estate/repo-docs/{plugins|repos}/<name>/` mirror — same write, not staggered.
 - **Set `status: current`** on every new note that carries frontmatter. Draft only when explicitly asked; superseded only on the old note during a supersede.
@@ -26,7 +26,7 @@ The sharp edges of writing to `~/JHD/vault`, thing-then-aspect. When any of thes
 - **Don't treat `sources:` as optional** on a `reference` — the one field this schema still hard-requires.
 - **Don't restate the schema.** `~/JHD/vault/AGENTS.md` (rev-6, thing-then-aspect) is
   the current canonical statement — point there first, alongside the ruling
-  (`~/JHD/vault/orchestrator/thing-then-aspect-organization-2026-08-02.md`). Don't fork
+  (`~/JHD/vault/coordinator/thing-then-aspect-organization-2026-08-02.md`). Don't fork
   a third description of the schema here.
 - **Don't call a vault write banked on a push.** DO: `git merge-base --is-ancestor <sha> origin/main` exits 0 — in cloud after the session branch's PR merge, locally after `git push origin HEAD:main` (with 2/4/8/16 s backoff on a GitHub 500). DON'T: `git push origin HEAD` and queue the Mac job.
 - **Don't push during a lease-guarded rewrite.** DO: stop the parent and the runner from preflight to DONE. DON'T: save a note mid-rewrite — three refusals of one rewrite came from exactly that.

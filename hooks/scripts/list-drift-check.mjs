@@ -3,7 +3,7 @@
    `lists-never-stale`, 2026-10-08). A mechanical check, offline: a row that
    cites a PR is judged against git history the caller supplies (--repo paths).
 
-   Discovers every `projects/<p>/*-backlog.md` plus `orchestrator/operator-queue.md`
+   Discovers every `projects/<p>/*-backlog.md` plus `coordinator/operator-queue.md`
    by glob — never a fixed list — and reports one line per finding:
      drift       an in-flight row whose PR is merged (the row should be done)
      suspect     an open row or unstruck queue row cites a merged PR: confirm (non-failing; a follow-up row legitimately cites its parent PR)
@@ -319,9 +319,9 @@ export function checkVault(vault, repos) {
     }
   }
   // The old shared queue is only an index now: any row in it is a row in the wrong place.
-  const qf = "orchestrator/operator-queue.md";
+  const qf = "coordinator/operator-queue.md";
   if (existsSync(join(vault, qf)) && tableRows(readFileSync(join(vault, qf), "utf8")).length) {
-    out.push({ kind: "rows-in-index", project: "orchestrator", file: qf, msg: "queue rows live in projects/<p>/<p>-queue.md; the orchestrator file is an index only" });
+    out.push({ kind: "rows-in-index", project: "coordinator", file: qf, msg: "queue rows live in projects/<p>/<p>-queue.md; the coordinator file is an index only" });
   }
   out.push(...checkIdeaSheets(vault));
   return out;

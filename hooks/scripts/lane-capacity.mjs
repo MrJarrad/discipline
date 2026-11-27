@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* lane-capacity — DISC-295 (operator 2026-11-12, ruling orchestrator-takes-charge-of-the-backlog): a parent keeps
+/* lane-capacity — DISC-295 (operator 2026-11-12, ruling coordinator-takes-charge-of-the-backlog): a parent keeps
    each of its projects at full lane capacity, refilling from the backlog the moment a lane lands, and never waits
    for the operator to pick the next item. This reads the parent's lanes (a JSON file the parent writes from
    get_session on each helper: [{ id, project, state }], state `running` or `waiting-operator`; any other state, a

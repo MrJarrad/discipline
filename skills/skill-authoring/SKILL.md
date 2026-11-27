@@ -123,8 +123,8 @@ description on those).
 
 ### Composition
 
-User-invoked orchestrators call model-invoked primitives via explicit load instructions
-("load `grilling`") — never duplicate the primitive's procedure in the orchestrator.
+User-invoked coordinators call model-invoked primitives via explicit load instructions
+("load `grilling`") — never duplicate the primitive's procedure in the coordinator.
 
 ## Lesson intake
 

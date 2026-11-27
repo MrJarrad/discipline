@@ -1,7 +1,7 @@
 ---
 name: wrap
 description: >-
-  Use when ending an orchestration session, asked to hand over, wrap up or close
+  Use when ending a coordination session, asked to hand over, wrap up or close
   out this session, or context fill reaches 70%: patch the cockpit, replace
   handovers, land rulings, commit everything. A quick stop is pause-resume.
 ---
@@ -17,7 +17,7 @@ description: >-
 - Lint exit ≠ 0 → wrap has **not** succeeded; do not claim wrapped.
 - **Operator-facing report:** compact outcomes only (what's banked, what's next); the section walk is internal.
 
-## Orchestrator self-check (before ending a turn where a product was touched)
+## Coordinator self-check (before ending a turn where a product was touched)
 
 ```
 [ ] Handover current?
