@@ -1,6 +1,6 @@
 1.210.0 — DISC-401 and the DISC-389/390/391/395/396/397/398 merges since 1.209.0 (discipline #267-#277):
 (A) DISC-401 (#277): "orchestrator" is now "coordinator" across skills, hooks, tests and comments; the vault paths the hooks read move from `orchestrator/` to `coordinator/` (cockpit.md, operator-queue.md, helper-ledger.md), so this release needs the vault folder rename (vault #1859, merged). A hook running 1.209.0 against the renamed vault reads a missing folder. "Worker" meaning a project thread is "thread" (HARD-RULES rule 17). Operator quotes keep the original wording.
-(B) Also in this release since 1.209.0: DISC-389 (#267, #268, #270: pile-(c) rules removed, nine files kept), DISC-390 (#269 release lessons in batches of five, #272 rule budget, #276 lesson intake names the budget line), DISC-391/395/396/385 (#273), DISC-397 (#274), DISC-398 (#275).
+(B) Also in this release since 1.209.0: DISC-389 (#267, #268, #271: pile-(c) rules removed, nine files kept), DISC-386 (#270: wrap continue chip dropped, reversing the 1.208.0 DISC-381 chip), DISC-390 (#269 release lessons in batches of five, #272 rule budget, #276 lesson intake names the budget line), DISC-391/395/396/385 (#273), DISC-397 (#274), DISC-398 (#275).
 Tests: the full plugin suite (tail on the release PR).
 encoded: 1.210.0 — backlog DISC-401 (rename), DISC-397, DISC-398.
 
