@@ -776,16 +776,30 @@ export function fillProgressPath(prompt = "", description = "", now = Date.now()
    (the report path and `open: 0`) from the handoff toolkit's resolve step. Read per sentence: a write
    verb, then Figma variables or aliases (or a variable and a Figma target, or use_figma). A negation
    before the verb, or a code-file target (`to tokens.css`), is a read or a ban, not a write. */
-const WRITE_VERB = /\b(?:add|adds|adding|create|creates|creating|rename|renames|renaming|write|writes|writing)\b/i;
-const FIGMA_VARS = /\bfigma\s+(?:variables?|aliases|alias)\b/i;
-const VARS_THEN_FIGMA = /\b(?:variables?|aliases|alias)\b[^.\n]{0,40}(?:\b(?:in|to|into)\s+(?:the\s+)?figma\b|use_figma)/i;
+const WRITE_VERB = /\b(?:add|adds|adding|create|creates|creating|rename|renames|renaming|write|writes|writing)\b/gi;
+const FIGMA_VARS = /\bfigma\s+(?:variables?|aliases|alias)\b(?!\s+(?:export|report|list|listing|audit|diff|docs?|script|tool|helper|test|tests|file)\b)/i;
+const FIGMA_TARGET = "(?:(?:in|to|into|on)\\s+(?:the\\s+)?(?:figma\\b(?:\\s+(?:file|library))?|design\\s+(?:file|library))|use_figma)";
+const VARS_THEN_FIGMA = new RegExp(`\\b(?:variables?|aliases|alias)\\b[^.\\n]{0,40}${FIGMA_TARGET}`, "i");
+const RENAME_PATH_IN_FIGMA = /\brenam\w*\s+[^.\n]{0,40}\b[\w-]+\/[\w/-]+[^.\n]{0,40}\bin\s+(?:the\s+)?figma\b/i;
 const CODE_TARGET = /\b(?:to|into)\s+\S+\.(?:css|scss|json|ts|tsx|js|mjs|md)\b|\breadme\b/i;
 const NEGATION = /\b(?:never|not|don'?t|no|avoid|without)\b/i;
+/* Each write verb is read on its own clause: the text before it back to the last comma, semicolon or
+   earlier write verb is checked for a negation, and the text after it up to the next write verb is the
+   object. So "Create tokens, never add Figma variables" is a ban, not a write. */
 const sentenceWritesFigmaVariable = (sentence) => {
-  const verb = WRITE_VERB.exec(sentence);
-  if (!verb || NEGATION.test(sentence.slice(0, verb.index)) || CODE_TARGET.test(sentence)) return false;
-  const after = sentence.slice(verb.index + verb[0].length);
-  return new RegExp(`^[^.\\n]{0,60}${FIGMA_VARS.source}`, "i").test(after) || VARS_THEN_FIGMA.test(after) || /use_figma/.test(sentence) && /\b(?:variables?|aliases|alias)\b/i.test(after);
+  if (CODE_TARGET.test(sentence)) return false;
+  const verbs = [...sentence.matchAll(WRITE_VERB)];
+  return verbs.some((verb, i) => {
+    const prevEnd = i ? verbs[i - 1].index + verbs[i - 1][0].length : 0;
+    const before = sentence.slice(prevEnd, verb.index).split(/[,;]/).pop();
+    if (NEGATION.test(before) || (i && NEGATION.test(sentence.slice(prevEnd, verb.index)))) return false;
+    const end = i + 1 < verbs.length ? verbs[i + 1].index : sentence.length;
+    const after = sentence.slice(verb.index + verb[0].length, end);
+    if (/\b(?:lists?|reads?|exports?|audits?|lints?|checks?|diffs?)\b/i.test(after)) return false;
+    if (new RegExp(`^[^.\\n]{0,60}${FIGMA_VARS.source}`, "i").test(after) || VARS_THEN_FIGMA.test(after)) return true;
+    if (/use_figma/.test(sentence) && /\b(?:variables?|aliases|alias)\b/i.test(after)) return true;
+    return /^renam/i.test(verb[0]) && RENAME_PATH_IN_FIGMA.test(sentence.slice(verb.index, end));
+  });
 };
 export function checkResolveResult(prompt = "") {
   if (!String(prompt).split(/(?<=[.!?])\s+|\n/).some(sentenceWritesFigmaVariable)) return null;
