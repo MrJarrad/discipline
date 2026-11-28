@@ -20,6 +20,7 @@ of?", and values stay last in both. Every read of a Figma target — component,
 template, block, whole file — runs in this order, no matter which lane (MCP/REST/bank)
 or which step below supplies the mechanics:
 
+0. **Names, components, sketches** (rulings `role-based-layer-naming`, `2026-08-08-sketch-to-system`, `process-laws-2026-08-08`). Layers in relational blocks are named by role, `primary` / `secondary`, never `left` / `right` / `top`; a rename suggestion uses role words. A component's config outranks its instances; when component and every instance disagree, ask. A raw-frame sketch is buildable contract: read it with the same rigor and build it system-shaped.
 1. **Name & context first.** The exact node name and everything it encodes before
    opening anything: `D`/`M` prefix, page, view, `– State` suffix, mode pill,
    dot-prefix privacy, section vs frame vs component set. State what the name alone
@@ -29,7 +30,7 @@ or which step below supplies the mechanics:
    verbatim: "This frame is the desktop Home Gallery design in its Landing state; it
    contains a NavigationHeader, a NavigationSecondary, and a feed of SplitAsymmetric
    blocks." This reveals whether the target is composed purely of named components
-   (healthy) or raw frames doing block work (a finding — see the composition ladder,
+   (healthy) or raw frames doing block work (in a concept section these are sketch anatomy, built system-shaped, not a blocking finding; in code output they are a finding — see the composition ladder,
    Step 3.7) before a single pixel is measured. Pixels come second, to ground the
    glance, never first. When a Layer Brief export exists for the target (tool ladder
    rung 0, below), the glance is read off the brief's top of tree, not assembled from a

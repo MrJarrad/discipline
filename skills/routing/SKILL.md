@@ -41,8 +41,8 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 8. **Baton — parent-only `Agent`.** Only the coordinator dispatches on the **completion notification**; `run_in_background`, then **end the turn**. Waiting **inside** the turn is a routing failure.
 9. **Dispatch surface — "if a task can be done in cloud, it is."** **Local needs one of three clauses:** verifying the deployed surface or presenting it (egress 403s `*.workers.dev`); a machine-bound stack; this machine's state. **Egress-gap scope:** only the deployed check — a doer verifying its own build on its own port (`doer-rules.md` § Ports) is **not** machine-bound. Surface picked **at lane open**; `description` leads `cloud — ` / `local — `.
 10. **`review-the-lock-not-the-slice`** — the brief copies the locked table whole; a slice AC against a whole-surface lock is **malformed**. Engineer and reviewer carry the same current locked table and live path.
-11. **Dispatch on the completion notification only** — resume prompts are noise. 12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
-13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** — a lane's own gates are only the touched ones its size class names (`doer-rules.md` § Size class). **The parent runs `lane-sweep.mjs` on every completion notification**. **A full suite over the Bash tool's foreground timeout is its own gate-run lane, dispatched and polled — never run from the parent shell** (`doer-rules.md` § Repo and safety).
+12. **"pause"/"resume" load `pause-resume`, not `wrap`.**
+13. **No GitHub Actions on private repos: the full suite/build runs once per PR in a cloud gate-run lane, tail on the PR, never inside each lane** (`doer-rules.md` § Size class, § Repo and safety). **The parent runs `lane-sweep.mjs` on every completion notification**.
 14. **Never relay a backlog or queue status unchecked** — run `list-drift-check.mjs` or check merged PRs and lock rows first (`lists-never-stale`). **An idea given in chat is a `waiting on operator` backlog row that turn** (DISC-168).
 15. **Heavy lanes (suite, build, browser) are capped at `nproc / 2` per container**; run `cloud-dispatch` § Capacity before dispatch first — over it, `create_session`.
 16. **Lanes sharing a repo:** every go states the live head; the parent serialises `preview/*` pushes per repo: the brief says when a lane may push, a ready lane asks (PREVIEW-PROBE item 6).
@@ -50,6 +50,8 @@ Evidence, sub-clauses and the originating failure for each: [HARD-RULES.md](refe
 18. **Fix rounds change only what the operator named** (HARD-RULES 18).
 19. **Archive helper sessions** (HARD-RULES 19).
 20. **Never author the operator's words** (`doer-rules.md` § Repo and safety).
+21. **Where a rule must live.** The project-chat coordinator has no repo, so only this skill and `HARD-RULES.md` reach it; a rule it needs lands here, named as the ruling's `target:` (`vault-write`).
+22. **Coordinate toward goals, not threads** (HARD-RULES 25).
 
 ## Resume vs fresh (read before any baton row)
 

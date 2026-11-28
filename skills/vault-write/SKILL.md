@@ -88,11 +88,12 @@ Frontmatter is minimal by default — the record's own keys, nothing decorative.
 
 **`fleet/lessons/` and `fleet/rulings/` carry one more mandatory key: `encoded:`** — the
 plugin version that shipped the rule, or `pre-1.73.0` \| `queued` \| `skipped(<reason>)`.
-A lesson nobody encoded is a lesson nobody follows; `hooks/scripts/lesson-ledger.mjs` lints
-the field and the commit gate — on by default, `DISCIPLINE_LEDGER_GATE=0` to opt out —
-refuses a release bump while any `queued` remains. Index files are exempt: a file whose
-stem equals its folder (`fleet/lessons/lessons.md`) or its `fleet-` form
-(`fleet/lessons/fleet-lessons.md`), plus any file whose frontmatter carries `kind: index`.
+`hooks/scripts/lesson-ledger.mjs` lints the field and the commit gate refuses a release bump while any `queued` remains
+(index exemption: [WRITING.md](references/WRITING.md)).
+
+**A ruling also carries `scope:`** — ask which: `behaviour-all-projects` (changes how agents act
+in every project), `behaviour-one-project` or `state`. The first is never `queued` or `skipped`
+and names its plugin file as `target:` (the ledger fails it; [WRITING.md](references/WRITING.md)).
 
 ```yaml
 encoded: 1.73.0       # | pre-1.73.0 | queued | skipped(hoverboard-rig-specific)

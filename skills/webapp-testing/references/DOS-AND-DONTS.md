@@ -34,3 +34,4 @@ Read before authoring or reviewing a Playwright webapp test.
 - **Don't pass navigation, hover or transition work on a scripted `a.click()`** — it never hovers, so it skips the state the operator's path sets.
 - **Don't install a fake clock mid-session** (it sends `performance.now()` backwards and freezes every move already started) or count an overlap the page's own rule says is invisible.
 - **Don't leave a flaky test green.** One pass and one fail on the same code means the wait/mask is wrong; fix it or the test gets muted and stops guarding.
+- **Don't trust a dev server after a rebase in its worktree.** HMR does not survive tree rewrites; restart it and verify by a marker in the served output, not a 200 (`process-laws-2026-08-08`).

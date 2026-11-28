@@ -15,6 +15,7 @@ better.
 - **State the per-use cost when you tighten a gate** (s84: the archive guard grew until 27 finished helpers could not be archived in a session). A PR about a gate or guard carries `Per-use cost: <calls one use takes now, and before>`. A check costing more than a few calls needs a cheaper evidence source (DISC-315: one open-PR lookup).
 
 ## Don't
+- **Don't pick skill over agent on cost or volume.** Work that arrives as an event (an alert, a rollback) and needs one accountable owner is an agent; a capability any agent reaches for on demand is a skill (`skill-vs-agent-decision`).
 - **Don't ship a mechanism change un-evaluated** — "reads better" is not evidence.
 - **Don't weaken a scenario to force GREEN** — fix the artifact or escalate at the cap.
 - **Don't tune the skill and swap the model together** — you lose attribution and can't gate it.

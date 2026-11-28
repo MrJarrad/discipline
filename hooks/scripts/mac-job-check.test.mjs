@@ -191,3 +191,13 @@ test("a negated stop-on-battery line passes; real stop rules still flag", () => 
   for (const line of ["If on battery, stop", "stop and report on battery", "Stop on battery."])
     assert.match(macJobProblems(job("repo: ~/x", intro + line + "\n")).join("\n"), /not blocked by battery/, line);
 });
+
+test("a brief naming ~/JHD/Drop/ as a place to write is named; Drop-outbox and mac-jobs are clean", () => {
+  const base = "You ARE the job. No background tasks, no subagents. Record `pmset -g batt`; on battery, label numbers on battery and run.\n";
+  for (const bad of ["Write frames to ~/JHD/Drop/hb409/.", "Output folder: /Users/jarrad.harvey/JHD/Drop/probe"]) {
+    assert.match(macJobProblems(job("repo: ~/x", base + bad)).join("\n"), /Drop/);
+  }
+  for (const ok of ["Report to ~/JHD/Drop-outbox/hb409/.", "Scratch in ~/JHD/mac-jobs/hb409/.", "Reads ~/JHD/Drop/media/ (read only)."]) {
+    assert.deepEqual(macJobProblems(job("repo: ~/x", base + ok)), [], ok);
+  }
+});

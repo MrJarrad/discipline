@@ -59,15 +59,15 @@ test("wrap-70: every place that states the wrap line says 70%", () => {
   assert.doesNotMatch(flat("skills/routing/references/OPERATOR-REPLIES.md"), /unprompted at the 90% context line/);
 });
 
-test("quiet: wrap's last step stands the session down and never archives", () => {
+test("quiet: wrap's last step stands the session down and archives only on the operator's say-so", () => {
   const w = flat("skills/wrap/SKILL.md");
-  assert.match(w, /## Last step: stand down, never archive/);
+  assert.match(w, /## Last step: stand down/);
   assert.match(w, /wrapped — inactive/);
   assert.match(w, /only the operator reopens it/);
   const c = flat("skills/wrap/references/CLOSING-CHECKS.md");
   assert.match(c, /## Stand down at wrap/);
   assert.match(c, /`unsubscribe_pr_activity`/);
-  assert.match(c, /Never archive it\./);
+  assert.match(c, /Archive it only when the operator says so/);
   assert.match(c, /Wrapped — this session is inactive; work continues in/);
   assert.match(flat("skills/routing/references/OPERATOR-REPLIES.md"), /a wrapped session takes no further action/);
 });

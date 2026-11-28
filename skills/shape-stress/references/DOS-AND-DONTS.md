@@ -30,6 +30,7 @@
 ---
 
 ## Don't
+- **Don't price work in human-team time.** Estimate in fleet time and state the unit (a skeleton engine took about 30 minutes); "months of banked work" argues for incumbents falsely (`price-work-in-fleet-time`).
 
 ### Six-section workflow
 
