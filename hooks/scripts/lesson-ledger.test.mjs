@@ -488,3 +488,10 @@ test("behaviour-all-projects rulings are not held for the batch of five", () => 
     assert.match(formatLedgerReport(r, root), /ship now, not batched: .*2026-11-28-b\.md/);
   });
 });
+
+test("target: project-instructions is accepted, alone or beside a plugin file; a bogus token is not", () => {
+  for (const target of ["project-instructions", "skills/routing/SKILL.md; project-instructions"]) {
+    withVault(scoped({ target }), (root) => assert.equal(lintLessonLedger(root).ok, true, target));
+  }
+  withVault(scoped({ target: "project-instruction" }), (root) => assert.equal(lintLessonLedger(root).ok, false));
+});

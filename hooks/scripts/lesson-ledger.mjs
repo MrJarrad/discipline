@@ -27,7 +27,7 @@
      scope: behaviour-all-projects | behaviour-one-project | state
                                 required on a ruling dated 2026-11-28 or later. A
                                 behaviour-all-projects ruling fails while `queued` or
-                                `skipped(...)` and without `target: <plugin file>[:<line>]`
+                                `skipped(...)` and without `target: <plugin file>[:<line>]` or `project-instructions`
                                 (`;` separates several; each must exist in the plugin tree).
                                 Fast lane: such a ruling is not held for the batch of
                                 five; it is reported "ship now" and ships in the next release.
@@ -82,7 +82,9 @@ function mergedProblem(value, vaultRoot) {
 
 // Why a behaviour-all-projects ruling's `target:` is illegal, or null: every named file must exist in the plugin tree.
 function targetProblem(value) {
-  const files = (value ?? "").split(";").map((f) => f.trim().replace(/:\d+(?:,\d+)*$/, "")).filter(Boolean);
+  // `project-instructions` names the project's own instructions, the home of a rule the repo-less project-chat coordinator needs.
+  const files = (value ?? "").split(";").map((f) => f.trim().replace(/:\d+(?:,\d+)*$/, "")).filter((f) => f && f !== "project-instructions");
+  if ((value ?? "").split(";").some((f) => f.trim() === "project-instructions") && files.length === 0) return null;
   if (files.length === 0) return "target: names no plugin file";
   const gone = files.filter((f) => !existsInside(PLUGIN_ROOT, f));
   return gone.length ? `target: not a plugin file: ${gone.join(", ")}` : null;
