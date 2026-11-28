@@ -27,3 +27,5 @@ Moved verbatim from `skills/qa-acceptance/SKILL.md` (DISC-351 step 8); the skill
 - **A served-build check follows the entry's imports** (lazy chunks, `viewer-*.js` →
   `style-*.css`) or reads the hydrated DOM; grepping the entry bundle alone proves staleness
   falsely.
+- **The operator's eye and a rejected screenshot outrank a green instrument.** Re-derive the instrument against the recording and keep it as the regression test (`process-laws-2026-08-08`).
+- **An honest table beats a better metric.** A count that worsens because over-admitted rows were retired is correct; improving the number by re-admitting them is a regression (`process-laws-2026-08-04`).

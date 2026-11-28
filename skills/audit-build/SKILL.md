@@ -88,6 +88,8 @@ recorded as a flagged deviation, not silently left.
 
 ## Tolerances and traps
 
+- **Layers are named by role** (`primary` / `secondary`), never by position; a rename in a defect list uses role words (`role-based-layer-naming`).
+
 - **Scale first**: confirm viewport width and zoom before comparing — a mismatched width
   invalidates every number.
 - **Percent line-heights**: design tools state leading as % (105 = 1.05); compare against

@@ -13,6 +13,8 @@ SKILL.md keeps the rule that decides each call; this file is the full element ta
 | Page-persistent closing content (copyright, contact, secondary links) | `<footer>` | Content simply ending inside `<main>` | Landmark only when the lock/contract includes closing content — **do not invent a footer** on standing build/review. **[Audit #1]** — no `<footer>` component exists sitewide; closing content has nowhere structural to live, which the audit ties directly to the "mixed bag" impression. WAI-ARIA APG: `contentinfo`/footer is for "common information... typically... copyrights, links to privacy statements." |
 | Primary page content | `<main>` (exactly one) | A generic wrapping `<div>` | Lets AT users jump straight past repeated chrome (nav, header) to the content. Already correct sitewide per the audit's landmark column — preserve it. |
 | An image that conveys information | `<img alt="...">` describing it | `<div style="background-image">` | Background-image divs (toby-ng's approach) are invisible to AT and to image search entirely. **[Audit #14]** — `media.tsx:305-307` already enforces a required `alt` prop; keep using `<img>`, never drop to a CSS background for content images. |
+- **Anything tappable shows `cursor: pointer` over its whole hit area**, delegated and stretched targets included, not only the anchor inside (`tappable-means-cursor-pointer`).
+
 ## Class discipline (Tailwind)
 
 This project keeps Tailwind — utility-first is a deliberate, documented choice, not the

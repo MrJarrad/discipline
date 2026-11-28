@@ -1978,7 +1978,8 @@ test("item 3: doer-rules.md and routing require a gate-run lane for a full suite
   assert.match(dr, /run_in_background.*and.*nohup … & disown.*both die with the tool shell/);
 
   const routing = flat(read("skills/routing/SKILL.md"));
-  assert.match(routing, /is its own gate-run\s*lane, dispatched and polled — never run from the parent shell/);
+  // The sentence lives once, in doer-rules; routing points at it (one owner, 2026-11-28).
+  assert.match(routing, /full suite\/build runs once per PR in a cloud gate-run lane[^.]*`doer-rules\.md` § Size class, § Repo and safety/);
 });
 
 test("item 5: dispatch-brief's read-back line states which object a dimension sizes", () => {

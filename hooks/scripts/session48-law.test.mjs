@@ -16,7 +16,7 @@ test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens t
   for (const s of [
     "**The helper sweep runs at session start and at wrap**",
     "hooks/scripts/helper-sweep.mjs",
-    "**A parent session is never archived**",
+    "**The sweep archives helpers only**",
     "a helper is a session with a parent and a title starting \"Helper ·\"",
     "the surface list is taken over or reported in the status",
     "a refused archive is one line in the status, never dropped",
@@ -25,7 +25,7 @@ test("HARD-RULES 19 owns the sweep: when it runs, the script, and what happens t
 
 test("session start, wrap and the helper recipe point at rule 19's sweep without restating it", () => {
   assert.ok(flat("skills/vault-recall/SKILL.md").includes("run the helper sweep (`routing` HARD-RULES 19)"));
-  assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("run the helper sweep (routing HARD-RULES 19), which never archives a parent session, this one or any earlier one"));
+  assert.ok(flat("skills/wrap/references/CLOSING-CHECKS.md").includes("run the helper sweep (routing HARD-RULES 19), which archives helpers only; a parent session, this one or an earlier one, is archived only on the operator's say-so"));
   assert.ok(flat("skills/cloud-dispatch/references/HELPER-SESSIONS.md").includes("The helper sweep (HARD-RULES 19) catches any helper a parent missed"));
 });
 

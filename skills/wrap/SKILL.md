@@ -57,7 +57,7 @@ Each section's full procedure is [SECTIONS.md](references/SECTIONS.md). A skippe
 round evidence is archived to `~/JHD/vault/main/estate/captures/<product>-evidence/` with a
 manifest row (`scripts/evidence-archive.mjs`); evidence still in-tree at wrap is drift to name.
 
-## Last step: stand down, never archive
+## Last step: stand down
 
 Operator, 2026-10-09: *"when a session wraps, it shouldn't do anything further"*. List open PRs and lanes;
 stop watchers; disable (never delete) its routines; unsubscribe PRs; mark the wrap; the operator starts the next one (CLOSING-CHECKS 6b); write "wrapped — inactive". Afterwards automated events get no chat text; only the operator reopens it.

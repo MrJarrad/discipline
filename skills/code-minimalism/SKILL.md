@@ -93,7 +93,7 @@ Behavioral quick-reference for auditing a diff: [references/DOS-AND-DONTS.md](re
 1. **Understand** the problem fully — read the surrounding code and the real requirement.
 2. **Climb the ladder** for each unit of code; stop at the first rung that holds.
 3. **Hold the safety floor** — validation/security/error-handling/tests are exempt from cutting.
-4. **Write the minimum**; mark deliberate shortcuts with a `ponytail:` comment (ceiling + path).
+4. **Write the minimum**; mark deliberate shortcuts with a `ponytail:` comment (ceiling + path). A comment states the constraint and what checks it, never session lineage.
 5. **Read the diff back** — anything that isn't earning its lines comes out.
 
 ## Anti-triggers
