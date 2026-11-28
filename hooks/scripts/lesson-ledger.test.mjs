@@ -32,6 +32,8 @@ function fixtureVault(records) {
       ...(rec.encoded == null ? [] : [`encoded: ${rec.encoded}`]),
       ...(rec.retires == null ? [] : [`retires: ${rec.retires}`]),
       ...(rec.budget == null ? [] : [`budget: ${rec.budget}`]),
+      ...(rec.scope == null ? [] : [`scope: ${rec.scope}`]),
+      ...(rec.target == null ? [] : [`target: ${rec.target}`]),
       "---",
       "",
       "body",
@@ -421,4 +423,68 @@ test("budget: retires(<rule>) or none(<reason>) satisfies the rule budget; a bar
   for (const bad of ["yes", "retires()", "none( )", "retires"]) {
     withVault(rec(bad), (root) => assert.equal(lintLessonLedger(root).ok, false, bad));
   }
+});
+
+// Scope gate (2026-11-28): a ruling that changes agent behaviour in every project must land in the plugin.
+const scoped = (over) => ({ "fleet/rulings/2026-11-28-x.md": { encoded: "1.211.0", budget: "none(test)", scope: "behaviour-all-projects", target: "skills/routing/SKILL.md", ...over } });
+
+test("a behaviour-all-projects ruling encoded in a release with an existing plugin target passes", () => {
+  withVault(scoped({}), (root) => assert.equal(lintLessonLedger(root).ok, true));
+  withVault(scoped({ encoded: "pre-1.73.0", target: "doer-rules.md:88; skills/wrap/SKILL.md" }), (root) => assert.equal(lintLessonLedger(root).ok, true));
+});
+
+test("a behaviour-all-projects ruling that is queued or skipped fails without --release", () => {
+  for (const encoded of ["queued", "skipped(applied by agents reading it)"]) {
+    withVault(scoped({ encoded }), (root) => {
+      const r = lintLessonLedger(root);
+      assert.equal(r.ok, false, encoded);
+      assert.match(formatLedgerReport(r, root), /behaviour-all-projects/);
+    });
+  }
+});
+
+test("a behaviour-all-projects ruling needs a target naming an existing plugin file", () => {
+  for (const target of [null, "", "skills/nope/SKILL.md", "../etc/passwd", "fleet/rulings/2026-11-28-x.md"]) {
+    withVault(scoped({ target }), (root) => assert.equal(lintLessonLedger(root).ok, false, String(target)));
+  }
+});
+
+test("merged(<vault file>) alone does not satisfy the plugin target", () => {
+  withVault(
+    { ...scoped({ encoded: "merged(fleet/rulings/2026-11-28-x.md)", target: null }) },
+    (root) => assert.equal(lintLessonLedger(root).ok, false),
+  );
+});
+
+test("the other scopes are free to be queued or skipped, an unknown or missing scope is invalid", () => {
+  for (const scope of ["behaviour-one-project", "state"]) {
+    withVault(scoped({ scope, encoded: "queued", target: null }), (root) => assert.equal(lintLessonLedger(root).ok, true, scope));
+    withVault(scoped({ scope, encoded: "skipped(project only)", target: null }), (root) => assert.equal(lintLessonLedger(root).ok, true, scope));
+  }
+  for (const scope of ["everywhere", null]) {
+    withVault(scoped({ scope }), (root) => assert.equal(lintLessonLedger(root).ok, false, String(scope)));
+  }
+});
+
+test("records dated before 2026-11-28, and lessons, are exempt from the scope gate", () => {
+  withVault(
+    {
+      "fleet/rulings/2026-11-27-old.md": { encoded: "queued" },
+      "fleet/rulings/undated.md": { encoded: "skipped(x)" },
+      "fleet/lessons/2026-11-28-lesson.md": { encoded: "queued" },
+    },
+    (root) => assert.equal(lintLessonLedger(root).ok, true),
+  );
+});
+
+test("behaviour-all-projects rulings are not held for the batch of five", () => {
+  const files = Object.fromEntries(
+    Array.from({ length: 5 }, (_, i) => [`fleet/rulings/2026-11-28-s${i}.md`, { encoded: "queued", scope: "state" }]),
+  );
+  withVault(files, (root) => assert.equal(lintLessonLedger(root).releaseDue, true));
+  withVault({ ...files, "fleet/rulings/2026-11-28-b.md": { encoded: "queued", scope: "behaviour-all-projects", target: "doer-rules.md" } }, (root) => {
+    const r = lintLessonLedger(root);
+    assert.equal(r.behaviourDue.length, 1, "a queued behaviour ruling is named as due now");
+    assert.match(formatLedgerReport(r, root), /ship now, not batched: .*2026-11-28-b\.md/);
+  });
 });

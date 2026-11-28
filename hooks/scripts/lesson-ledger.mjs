@@ -24,6 +24,13 @@
      budget: retires(<rule>)    rule budget (DISC-390): required on a record dated 2026-11-27 or later
      budget: none(<reason>)     whose `encoded:` is a release version; names the rule it retires, or why
                                 no rule was added. Older and undated records are exempt.
+     scope: behaviour-all-projects | behaviour-one-project | state
+                                required on a ruling dated 2026-11-28 or later. A
+                                behaviour-all-projects ruling fails while `queued` or
+                                `skipped(...)` and without `target: <plugin file>[:<line>]`
+                                (`;` separates several; each must exist in the plugin tree).
+                                Fast lane: such a ruling is not held for the batch of
+                                five; it is reported "ship now" and ships in the next release.
      retires: <name>, <name>    optional; lessons/rulings this one supersedes.
                                 Each must exist under fleet/lessons or fleet/rulings
                                 (`[a, b]` and `.md` suffixes allowed).
@@ -49,6 +56,8 @@ const LEDGER_DIRS = ["fleet/lessons", "fleet/rulings"];
 // `1.73.0` | `pre-1.73.0` | `queued` | `skipped(<non-empty reason>)`.
 export const RELEASE_BATCH = 5;
 export const BUDGET_FROM = "2026-11-27";
+export const SCOPE_FROM = "2026-11-28";
+const SCOPES = ["behaviour-all-projects", "behaviour-one-project", "state"];
 const BUDGET_VALUE = /^(?:retires|none)\(\s*[^)\s][^)]*\)$/;
 const VALID_ENCODED = /^(?:\d+\.\d+\.\d+|pre-\d+\.\d+\.\d+|queued|skipped\([^)]+\))$/;
 const MERGED = /^merged\(([^)]*)\)$/;
@@ -69,6 +78,14 @@ function mergedProblem(value, vaultRoot) {
   if (files.length === 0) return "merged() names no file";
   const gone = files.filter((f) => !existsInside(vaultRoot, f) && !existsInside(PLUGIN_ROOT, f));
   return gone.length ? `merged file not found: ${gone.join(", ")}` : null;
+}
+
+// Why a behaviour-all-projects ruling's `target:` is illegal, or null: every named file must exist in the plugin tree.
+function targetProblem(value) {
+  const files = (value ?? "").split(";").map((f) => f.trim().replace(/:\d+(?:,\d+)*$/, "")).filter(Boolean);
+  if (files.length === 0) return "target: names no plugin file";
+  const gone = files.filter((f) => !existsInside(PLUGIN_ROOT, f));
+  return gone.length ? `target: not a plugin file: ${gone.join(", ")}` : null;
 }
 
 // Why a `retires:` value is illegal, or null: each name must be a lesson or ruling.
@@ -155,6 +172,7 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
   const invalid = [];
   const queued = [];
   const queuedWarning = [];
+  const behaviourDue = [];
 
   for (const file of files) {
     let text;
@@ -195,6 +213,25 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
         continue;
       }
     }
+    /* Scope gate (2026-11-28): a ruling that changes agent behaviour in every project must be in the plugin. */
+    if (isRulingFile(file) && day && day >= SCOPE_FROM) {
+      const scope = frontmatterValue(text, "scope");
+      if (!SCOPES.includes(scope)) {
+        invalid.push({ file, value: `scope: ${scope ?? "(missing)"}`, reason: `scope: want ${SCOPES.join(" | ")}` });
+        continue;
+      }
+      if (scope === "behaviour-all-projects") {
+        const reason =
+          value === "queued" || value.startsWith("skipped(")
+            ? `behaviour-all-projects ruling cannot be ${value}; put the rule in the plugin and encode it`
+            : targetProblem(frontmatterValue(text, "target"));
+        if (reason) {
+          invalid.push({ file, value: `scope: ${scope}, encoded: ${value}`, reason });
+          if (value === "queued") behaviourDue.push({ file });
+          continue;
+        }
+      }
+    }
     if (value !== "queued") continue;
 
     if (namedRulings && isRulingFile(file)) {
@@ -210,7 +247,7 @@ export function lintLessonLedger(vaultRoot, opts = {}) {
   // Release batch (DISC-390): five queued records are enough to cut a release, so the
   // queue never piles up. A prompt, not a failure; `ok` is unchanged.
   const releaseDue = queued.length + queuedWarning.length >= RELEASE_BATCH;
-  return { files, missing, invalid, queued, queuedWarning, release, releaseDue, ok };
+  return { files, missing, invalid, queued, queuedWarning, behaviourDue, release, releaseDue, ok };
 }
 
 // Ruling names the CHANGED.txt top entry cites — `[[stem]]` wiki-links (the
@@ -264,6 +301,9 @@ export function formatLedgerReport(result, vaultRoot) {
   const head = result.ok
     ? `lesson-ledger: ${result.files.length} record(s) clean${result.release ? ` for release ${result.release}` : ""}.`
     : `lesson-ledger: ${lines.length} problem(s) across ${result.files.length} record(s)${result.release ? ` for release ${result.release}` : ""}.`;
+  for (const { file } of result.behaviourDue ?? []) {
+    lines.push(`  ship now, not batched: ${rel(file)} — behaviour-all-projects ruling, next release`);
+  }
   if (result.releaseDue && !result.release) {
     lines.push(
       `  release due: ${result.queued.length + (result.queuedWarning ?? []).length} queued (batch of ${RELEASE_BATCH}) — start a release for them`,
