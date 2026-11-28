@@ -81,6 +81,17 @@ form (`fleet/lessons/fleet-lessons.md`), plus any file whose frontmatter carries
 encoded: 1.73.0       # | pre-1.73.0 | queued | skipped(hoverboard-rig-specific)
 ```
 
+**Rulings dated 2026-11-28 or later also carry `scope:`** (`behaviour-all-projects` | `behaviour-one-project` | `state`).
+`behaviour-all-projects` means the rule changes how agents act in every project: `lesson-ledger.mjs` fails it while
+`encoded:` is `queued` or `skipped(...)`, and without `target: <plugin file>[:<line>]` (`;` for several; each must exist
+in the plugin tree). Discipline loads in every session; the vault does not. A rule the project-chat coordinator needs
+lands in the `routing` skill (`routing` § Where a rule must live). Such a ruling is not held for the batch of five.
+
+```yaml
+scope: behaviour-all-projects
+target: skills/routing/references/HARD-RULES.md:101
+```
+
 `reference` records are the one place frontmatter stays mandatory and richer — see
 **References are a typed write too**, below.
 

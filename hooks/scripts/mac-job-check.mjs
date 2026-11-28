@@ -81,6 +81,10 @@ export function macJobProblems(text) {
   for (const part of emptyParts(body)) problems.push(`${part} has no body: a PART heading must be followed by its steps before the next PART or the end`);
   if (CONDITIONAL_INSTALL.test(body))
     problems.push("brief installs only if node_modules or the dependency is missing: a stale install stays in place (s83: a 0.12.0 checker left from an earlier install failed the pull job 14/30). Say npm ci outright");
+    // s112/s118: Drop is the operator's intake only. A job writes scratch to ~/JHD/mac-jobs/<job>/ and reports to ~/JHD/Drop-outbox/<job>/.
+  const drop = body.split("\n").find((l) => /JHD\/Drop(?![\w-])/.test(l) && !/\bread[- ]only\b|\breads?\b/i.test(l));
+  if (drop)
+    problems.push("brief names ~/JHD/Drop as a place to write: Drop is the operator's intake only (s112, s118; a job's frames filled it and the sync ran 16 hours). Scratch goes in ~/JHD/mac-jobs/<job>/, reports in ~/JHD/Drop-outbox/<job>/");
   // purpose: xcode in the frontmatter marks a job that is for Xcode or system updates; any other job may not name them.
   const forXcode = head.some((l) => /^purpose:[ ]*xcode\s*$/i.test(l));
   const tool = body.match(XCODE_TOOLS);
